@@ -1,0 +1,65 @@
+/* Landing.css */
+.landing-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background-color: #ffffff;
+  color: #333333;
+  font-family: Arial, sans-serif;
+  text-align: center;
+}
+
+.landing-header {
+  font-size: 2rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+}
+
+.landing-description {
+  font-size: 1.1rem;
+  max-width: 500px;
+  margin-bottom: 2rem;
+}
+
+.landing-buttons {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 3rem;
+}
+
+.landing-button {
+  padding: 10px 24px;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+  text-decoration: none;
+  transition: 0.3s ease;
+  border: none;
+}
+
+.login-btn {
+  background-color: #007bff;
+  color: white;
+}
+
+.login-btn:hover {
+  background-color: #0056b3;
+}
+
+.learn-btn {
+  background-color: #f0f0f0;
+  color: #333;
+  border: 1px solid #ccc;
+}
+
+.learn-btn:hover {
+  background-color: #e0e0e0;
+}
+
+.landing-footer {
+  font-size: 0.8rem;
+  color: #999999;
+}

@@ -1,0 +1,14 @@
+# Node modules
+**/node_modules/
+
+# Expo
+bushublk-mobile/.expo/
+bushublk-mobile/.expo-shared/
+
+# Build outputs
+**/dist/
+**/build/
+
+# Logs and env files
+*.log
+.env
