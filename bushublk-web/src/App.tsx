@@ -1,14 +1,27 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import LandingPage from "./pages/LandingPage";
+import React from 'react'
+import { Route, Routes } from 'react-router-dom'
+import Home from './pages/Home'
+import Login from './pages/Login'
+import About from './pages/About'
+import Contact from './pages/Contact'
+import Myprofile from './pages/Myprofile'
+import Navbar from './components/Navbar'
+import Footer from './components/Footer'
 
-function App() {
+const App = () => {
   return (
-    <Router>
+    <div className='mx-4 sm:mx-[0.25%]'>
+      <Navbar />
       <Routes>
-        <Route path="/" element={<LandingPage />} />
+        <Route path='/' element={<Home />} />
+        <Route path='/login' element={<Login />} />
+        <Route path='/about' element={<About />} />
+        <Route path='/contact' element={<Contact />} />
+        <Route path='/my-profile' element={<Myprofile/>} />
       </Routes>
-    </Router>
-  );
+      <Footer />
+    </div>
+  )
 }
 
-export default App;
+export default App
