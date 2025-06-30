@@ -7,12 +7,14 @@ import {
   TouchableOpacity,
   TextInput,
   StatusBar,
-  Image, // Use Image instead of ImageBackground
+  Image,
   Platform,
   Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation } from '@react-navigation/native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 // --- App Color Palette ---
 const AppColors = {
@@ -63,24 +65,24 @@ const services = [
 ];
 
 export default function HomeScreen() {
+  const navigation = useNavigation();
+
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {/* 1. The background image is now an absolutely positioned element */}
       <Image
         source={require('../../assets/logo.png')}
         style={styles.backgroundImage}
-        // This makes the image non-interactive, ensuring touches pass through it
         pointerEvents="none"
       />
 
-      {/* The rest of the content renders on top of the background image */}
       <StatusBar
         barStyle="dark-content"
-        backgroundColor="transparent" // Set to transparent
-        translucent={true} // Allow content to draw behind status bar
+        backgroundColor="transparent"
+        translucent={true}
       />
 
-      {/* --- HEADER (Renders below the status bar) --- */}
+      {/* --- HEADER --- */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.headerIconContainer}>
           <Icon name="menu-outline" size={30} color="#FFFFFF" />
@@ -204,7 +206,16 @@ export default function HomeScreen() {
           <Text style={styles.sectionTitle}>More Services</Text>
           <View style={styles.serviceGrid}>
             {services.map(service => (
-              <TouchableOpacity key={service.title} style={styles.serviceCard}>
+              <TouchableOpacity
+                key={service.title}
+                style={styles.serviceCard}
+                onPress={() => {
+                  if (service.title === 'Lost & Found') {
+                    navigation.navigate('LostAndFound');
+                  }
+                  // Add more navigation logic for other services if needed
+                }}
+              >
                 <Icon name={service.icon} size={28} color={AppColors.primary} />
                 <Text style={styles.serviceCardText}>{service.title}</Text>
               </TouchableOpacity>
@@ -212,7 +223,7 @@ export default function HomeScreen() {
           </View>
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -221,10 +232,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: AppColors.background,
-    // The paddingTop is now applied directly to the container
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
-  // NEW style for the absolutely positioned background image
   backgroundImage: {
     position: 'absolute',
     top: 0,
@@ -427,7 +436,7 @@ const styles = StyleSheet.create({
   serviceCardText: {
     fontSize: 12,
     fontWeight: '500',
-    color: AppColors.textSecondary,
+     color: AppColors.textSecondary,
     textAlign: 'center',
     marginTop: 10,
   },
