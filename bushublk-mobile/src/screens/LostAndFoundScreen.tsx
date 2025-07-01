@@ -12,10 +12,10 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import { StackScreenProps } from '@react-navigation/stack';
 
-// 修正 (FIX) #1: Import the shared type definition
+
 import { HomeStackParamList } from '../navigation/navigationTypes';
 
-// 修正 (FIX) #2: Use the imported type for StackScreenProps
+
 type Props = StackScreenProps<HomeStackParamList, 'LostAndFound'>;
 
 const AppColors = {

@@ -193,27 +193,27 @@ export default function HomeScreen() {
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.quickActionGrid}>
             {quickActions.map((action) => (
-              <TouchableOpacity
-                key={action.title}
-                style={styles.quickActionCard}
-                onPress={() => {
-                  if (action.title === "Find Routes") {
-                    navigation.navigate("BusFilter");
-                  } else if (action.title === "Live Tracking") {
-                    navigation.navigate("LiveTracking");
-                  } else if (action.title === "Fare Calculator") {
-                    navigation.navigate("FareCalculator");
-                  } else if (action.title === "My Tickets") {
-                    navigation.navigate("MyTickets");
-                  }
-                }}
-              >
-                <View style={styles.quickActionIconContainer}>
-                  <Icon name={action.icon} size={26} color={AppColors.primary} />
-                </View>
-                <Text style={styles.cardText}>{action.title}</Text>
-              </TouchableOpacity>
-            ))}
+  <TouchableOpacity
+    key={action.title}
+    style={styles.quickActionCard}
+    onPress={() => {
+      if (action.title === "Find Routes") {
+        navigation.navigate("BusFilter");
+      } else if (action.title === "Live Tracking") {
+        navigation.navigate("LiveTracking");
+      } else if (action.title === "Fare Calculator") {
+        navigation.navigate("FareCalculator"); // <-- This line connects your screen
+      } else if (action.title === "My Tickets") {
+        navigation.navigate("MyTickets");
+      }
+    }}
+  >
+    <View style={styles.quickActionIconContainer}>
+      <Icon name={action.icon} size={26} color={AppColors.primary} />
+    </View>
+    <Text style={styles.cardText}>{action.title}</Text>
+  </TouchableOpacity>
+))}
           </View>
         </View>
 

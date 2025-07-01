@@ -1,141 +1,237 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList, Dimensions } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from "react-native-safe-area-context";
 import MapView, { Marker, Polyline } from 'react-native-maps';
-import { getDistance } from 'geolib';
+import axios from 'axios';
+import polyline from '@mapbox/polyline';
+import Icon from 'react-native-vector-icons/Ionicons';
+import { useNavigation } from '@react-navigation/native';
 
-// Dummy bus data with coordinates for Sri Lankan context
-const busData = [
-  {
-    id: '1',
-    number: '101',
-    from: 'Colombo',
-    to: 'Kandy',
-    time: '08:00 AM',
-    fromCoord: { latitude: 6.9271, longitude: 79.8612 }, // Colombo
-    toCoord: { latitude: 7.2906, longitude: 80.6337 },   // Kandy
-  },
-  {
-    id: '2',
-    number: '112',
-    from: 'Colombo',
-    to: 'Negombo',
-    time: '09:00 AM',
-    fromCoord: { latitude: 6.9271, longitude: 79.8612 },
-    toCoord: { latitude: 7.2083, longitude: 79.8358 },
-  },
-  {
-    id: '3',
-    number: '154',
-    from: 'Angulana',
-    to: 'Kiribathgoda',
-    time: '07:30 AM',
-    fromCoord: { latitude: 6.8298, longitude: 79.8816 },
-    toCoord: { latitude: 6.9778, longitude: 79.9227 },
-  },
-  // ...add more as needed
-];
+const GOOGLE_MAPS_API_KEY = 'AIzaSyAeXR9ct7HrHMCQXSWLrWQl5OlRYjNhbxo';
 
 export default function BusFilterScreen() {
+  const navigation = useNavigation();
+
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
-  const [selectedBus, setSelectedBus] = useState(null);
-  const [distance, setDistance] = useState(null);
+  const [fromCoord, setFromCoord] = useState(null);
+  const [toCoord, setToCoord] = useState(null);
+  const [routeCoords, setRouteCoords] = useState([]);
+  const [distance, setDistance] = useState('');
+  const [duration, setDuration] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSearch = () => {
-    const fromLower = from.trim().toLowerCase();
-    const toLower = to.trim().toLowerCase();
-    const foundBus = busData.find(
-      bus =>
-        bus.from.toLowerCase().includes(fromLower) &&
-        bus.to.toLowerCase().includes(toLower)
-    );
-    setSelectedBus(foundBus || null);
-
-    if (foundBus) {
-      const dist = getDistance(foundBus.fromCoord, foundBus.toCoord) / 1000; // in km
-      setDistance(dist.toFixed(2));
+  const geocode = async (address) => {
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`;
+    const res = await axios.get(url);
+    if (res.data.status === 'OK') {
+      return res.data.results[0].geometry.location;
     } else {
-      setDistance(null);
+      throw new Error('Location not found');
     }
+  };
+
+  const getDirections = async (fromLoc, toLoc) => {
+    const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${fromLoc.lat},${fromLoc.lng}&destination=${toLoc.lat},${toLoc.lng}&key=${GOOGLE_MAPS_API_KEY}`;
+    const res = await axios.get(url);
+    if (res.data.status === 'OK') {
+      const points = res.data.routes[0].overview_polyline.points;
+      const steps = polyline.decode(points).map(([latitude, longitude]) => ({ latitude, longitude }));
+      setRouteCoords(steps);
+      setDistance(res.data.routes[0].legs[0].distance.text);
+      setDuration(res.data.routes[0].legs[0].duration.text);
+    } else {
+      throw new Error('Route not found');
+    }
+  };
+
+  const handleSearch = async () => {
+    setLoading(true);
+    setRouteCoords([]);
+    setFromCoord(null);
+    setToCoord(null);
+    setDistance('');
+    setDuration('');
+    try {
+      const fromLoc = await geocode(from);
+      const toLoc = await geocode(to);
+      setFromCoord({ latitude: fromLoc.lat, longitude: fromLoc.lng });
+      setToCoord({ latitude: toLoc.lat, longitude: toLoc.lng });
+      await getDirections(fromLoc, toLoc);
+    } catch (e) {
+      Alert.alert('Error', e.message);
+    }
+    setLoading(false);
+  };
+
+  // Default region for the map (Sri Lanka center)
+  const defaultRegion = {
+    latitude: 7.8731,
+    longitude: 80.7718,
+    latitudeDelta: 2,
+    longitudeDelta: 2,
+  };
+
+  // Calculate region to fit both markers
+  const getMapRegion = () => {
+    if (fromCoord && toCoord) {
+      return {
+        latitude: (fromCoord.latitude + toCoord.latitude) / 2,
+        longitude: (fromCoord.longitude + toCoord.longitude) / 2,
+        latitudeDelta: Math.abs(fromCoord.latitude - toCoord.latitude) + 0.5,
+        longitudeDelta: Math.abs(fromCoord.longitude - toCoord.longitude) + 0.5,
+      };
+    }
+    return defaultRegion;
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>Find Buses by Route</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Current Location"
-        value={from}
-        onChangeText={setFrom}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Destination"
-        value={to}
-        onChangeText={setTo}
-      />
-      <TouchableOpacity style={styles.button} onPress={handleSearch}>
-        <Text style={styles.buttonText}>Show Route</Text>
+      {/* Floating Back Arrow */}
+      <TouchableOpacity
+        onPress={() => navigation.goBack()}
+        style={styles.floatingBackButton}
+      >
+        <Icon name="arrow-back" size={28} color="#212529" />
       </TouchableOpacity>
 
-      {selectedBus ? (
-        <View style={{ flex: 1 }}>
-          <MapView
-            style={styles.map}
-            initialRegion={{
-              latitude: (selectedBus.fromCoord.latitude + selectedBus.toCoord.latitude) / 2,
-              longitude: (selectedBus.fromCoord.longitude + selectedBus.toCoord.longitude) / 2,
-              latitudeDelta: Math.abs(selectedBus.fromCoord.latitude - selectedBus.toCoord.latitude) + 0.5,
-              longitudeDelta: Math.abs(selectedBus.fromCoord.longitude - selectedBus.toCoord.longitude) + 0.5,
-            }}
-          >
-            <Marker coordinate={selectedBus.fromCoord} title={selectedBus.from} />
-            <Marker coordinate={selectedBus.toCoord} title={selectedBus.to} />
-            <Polyline
-              coordinates={[selectedBus.fromCoord, selectedBus.toCoord]}
-              strokeColor="#0056b3"
-              strokeWidth={4}
-            />
-          </MapView>
-          <View style={styles.infoCard}>
-            <Text style={styles.busNumber}>Bus {selectedBus.number}</Text>
-            <Text style={styles.busRoute}>{selectedBus.from} → {selectedBus.to}</Text>
-            <Text style={styles.busTime}>Departure: {selectedBus.time}</Text>
-            <Text style={styles.busDistance}>Distance: {distance} km</Text>
-          </View>
+      <MapView
+        style={styles.map}
+        region={getMapRegion()}
+        showsUserLocation
+        showsMyLocationButton
+      >
+        {fromCoord && <Marker coordinate={fromCoord} title="Start" />}
+        {toCoord && <Marker coordinate={toCoord} title="Destination" />}
+        {routeCoords.length > 0 && (
+          <Polyline
+            coordinates={routeCoords}
+            strokeColor="#0056b3"
+            strokeWidth={4}
+          />
+        )}
+      </MapView>
+
+      {/* Overlay Card for Search */}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={styles.overlayContainer}
+      >
+        <View style={styles.searchCard}>
+          <TextInput
+            style={styles.input}
+            placeholder="Current Location"
+            value={from}
+            onChangeText={setFrom}
+            placeholderTextColor="#888"
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Destination"
+            value={to}
+            onChangeText={setTo}
+            placeholderTextColor="#888"
+          />
+          <TouchableOpacity style={styles.button} onPress={handleSearch} disabled={loading}>
+            <Text style={styles.buttonText}>{loading ? 'Loading...' : 'Show Route'}</Text>
+          </TouchableOpacity>
         </View>
-      ) : (from || to) ? (
-        <Text style={{ color: '#888', textAlign: 'center', marginTop: 16 }}>
-          No buses found for this route.
-        </Text>
-      ) : null}
+      </KeyboardAvoidingView>
+
+      {/* Info Card at Bottom */}
+      {(routeCoords.length > 0 && fromCoord && toCoord) && (
+        <View style={styles.infoCard}>
+          <Text style={styles.busRoute}>{from} → {to}</Text>
+          <Text style={styles.busDistance}>Distance: {distance}</Text>
+          <Text style={styles.busTime}>Estimated Time: {duration}</Text>
+        </View>
+      )}
+
+      {loading && <ActivityIndicator size="large" color="#0056b3" style={styles.loading} />}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 12, backgroundColor: '#fff' },
-  title: { fontSize: 22, fontWeight: 'bold', marginBottom: 16 },
-  input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 12, marginBottom: 12 },
-  button: { backgroundColor: '#0056b3', padding: 16, borderRadius: 8, alignItems: 'center', marginBottom: 12 },
-  buttonText: { color: '#fff', fontWeight: 'bold' },
+  container: { flex: 1, backgroundColor: '#fff' },
+  floatingBackButton: {
+    position: 'absolute',
+    top: 18,
+    left: 18,
+    zIndex: 10,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 6,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 4,
+  },
   map: {
-    width: Dimensions.get('window').width - 24,
-    height: 250,
-    borderRadius: 12,
-    marginBottom: 12,
-    alignSelf: 'center',
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 0,
   },
-  infoCard: {
-    backgroundColor: '#f8f9fa',
+  overlayContainer: {
+    position: 'absolute',
+    top: 70,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  searchCard: {
+    width: '92%',
+    backgroundColor: '#fff',
+    borderRadius: 16,
     padding: 16,
-    borderRadius: 8,
-    marginTop: 8,
-    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 5,
+    marginTop: 0,
   },
-  busNumber: { fontWeight: 'bold', fontSize: 16 },
-  busRoute: { color: '#0056b3', marginTop: 4 },
-  busTime: { color: '#6C757D', marginTop: 2 },
-  busDistance: { color: '#198754', marginTop: 2, fontWeight: 'bold' },
+  input: {
+    borderWidth: 1,
+    borderColor: '#eee',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 10,
+    backgroundColor: '#f8f9fa',
+    color: '#222',
+  },
+  button: {
+    backgroundColor: '#0056b3',
+    padding: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  buttonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+  infoCard: {
+    position: 'absolute',
+    bottom: 30,
+    left: 20,
+    right: 20,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 18,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 5,
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  busRoute: { color: '#0056b3', fontWeight: 'bold', fontSize: 16 },
+  busTime: { color: '#6C757D', marginTop: 2, fontSize: 15 },
+  busDistance: { color: '#198754', marginTop: 2, fontWeight: 'bold', fontSize: 15 },
+  loading: {
+    position: 'absolute',
+    top: '50%',
+    alignSelf: 'center',
+    zIndex: 10,
+  },
 });
