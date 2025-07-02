@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   StyleSheet,
   View,
@@ -10,11 +10,13 @@ import {
   Image,
   Platform,
   Alert,
+  Keyboard,
 } from "react-native";
 import Icon from "react-native-vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useNavigation } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import axios from "axios";
 
 // --- App Color Palette ---
 const AppColors = {
@@ -30,64 +32,162 @@ const AppColors = {
   green: "#198754",
 };
 
+const GOOGLE_MAPS_API_KEY = "AIzaSyAeXR9ct7HrHMCQXSWLrWQl5OlRYjNhbxo";
+
 // --- Mock Data (Unchanged) ---
 const quickActions = [
-  { title: "Find Routes", icon: "map-outline" },
   { title: "Live Tracking", icon: "navigate-circle-outline" },
-  { title: "Fare Calculator", icon: "calculator-outline" },
-  { title: "My Tickets", icon: "ticket-outline" },
-];
-
-const nearbyBuses = [
-  {
-    number: "101",
-    destination: "Colombo - Kandy",
-    arrival: "5 min",
-    status: "Crowded",
-    statusColor: AppColors.yellow,
-  },
-  {
-    number: "154",
-    destination: "Angulana - Kiribathgoda",
-    arrival: "12 min",
-    status: "Not Crowded",
-    statusColor: AppColors.green,
-  },
+  { title: "Bus Occupancy", icon: "people-outline" },
+  { title: "Emergency Alert", icon: "alert-circle-outline" },
 ];
 
 const services = [
-  { title: "Map View", icon: "map" },
-  { title: "Emergency", icon: "alert-circle" },
-  { title: "Lost & Found", icon: "search" },
-  { title: "Notifications", icon: "notifications" },
-  { title: "Bus Occupancy", icon: "people" },
-  { title: "Complaints", icon: "chatbox-ellipses" },
+  { title: "Lost & Found", icon: "search-outline" },
+  { title: "Complaints & Feedback", icon: "chatbox-ellipses-outline" },
 ];
 
 // Dummy bus data for Sri Lankan context
 const busData = [
-  { id: '1', number: '101', from: 'Colombo', to: 'Kandy', time: '08:00 AM' },
-  { id: '2', number: '112', from: 'Colombo', to: 'Negombo', time: '09:00 AM' },
-  { id: '3', number: '154', from: 'Angulana', to: 'Kiribathgoda', time: '07:30 AM' },
-  { id: '4', number: '98', from: 'Kandy', to: 'Badulla', time: '10:00 AM' },
-  { id: '5', number: '17', from: 'Colombo', to: 'Jaffna', time: '06:00 AM' },
-  { id: '6', number: '120', from: 'Horana', to: 'Pettah', time: '08:30 AM' },
-  { id: '7', number: '138', from: 'Homagama', to: 'Pettah', time: '09:15 AM' },
+  {
+    id: "1",
+    number: "101",
+    from: "Colombo",
+    to: "Kandy",
+    time: "08:00 AM",
+    frequency: "Every 15 min",
+  },
+  {
+    id: "2",
+    number: "112",
+    from: "Colombo",
+    to: "Negombo",
+    time: "09:00 AM",
+    frequency: "Every 20 min",
+  },
+  {
+    id: "3",
+    number: "154",
+    from: "Angulana",
+    to: "Kiribathgoda",
+    time: "07:30 AM",
+    frequency: "Every 10 min",
+  },
+  {
+    id: "4",
+    number: "98",
+    from: "Kandy",
+    to: "Badulla",
+    time: "10:00 AM",
+    frequency: "Every 30 min",
+  },
+  {
+    id: "5",
+    number: "17",
+    from: "Colombo",
+    to: "Jaffna",
+    time: "06:00 AM",
+    frequency: "Every 1 hour",
+  },
+  {
+    id: "6",
+    number: "120",
+    from: "Horana",
+    to: "Pettah",
+    time: "08:30 AM",
+    frequency: "Every 12 min",
+  },
+  {
+    id: "7",
+    number: "138",
+    from: "Homagama",
+    to: "Pettah",
+    time: "09:15 AM",
+    frequency: "Every 8 min",
+  },
 ];
 
 export default function HomeScreen() {
   const navigation = useNavigation();
 
-  // State for journey card
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
+  // Plan Your Journey state
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [fromPlace, setFromPlace] = useState(null);
+  const [toPlace, setToPlace] = useState(null);
+  const [fromSuggestions, setFromSuggestions] = useState([]);
+  const [toSuggestions, setToSuggestions] = useState([]);
+  const [showFromSuggestions, setShowFromSuggestions] = useState(false);
+  const [showToSuggestions, setShowToSuggestions] = useState(false);
+  const debounceTimeout = useRef(null);
+
+  // For local bus search (not Google)
   const [filteredBuses, setFilteredBuses] = useState([]);
 
+  // Google Places Autocomplete logic
+  const fetchPlaceSuggestions = async (input, setSuggestions) => {
+    if (input.length < 1) {
+      setSuggestions([]);
+      return;
+    }
+    try {
+      const response = await axios.get(
+        `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(
+          input
+        )}&components=country:LK&language=en&key=${GOOGLE_MAPS_API_KEY}`
+      );
+      if (response.data.status === "OK") {
+        setSuggestions(response.data.predictions);
+      } else {
+        setSuggestions([]);
+      }
+    } catch {
+      setSuggestions([]);
+    }
+  };
+
+  const debounceFetchSuggestions = (input, setSuggestions) => {
+    if (debounceTimeout.current) {
+      clearTimeout(debounceTimeout.current);
+    }
+    debounceTimeout.current = setTimeout(() => {
+      fetchPlaceSuggestions(input, setSuggestions);
+    }, 300);
+  };
+
+  const handleFromChange = (text) => {
+    setFrom(text);
+    setFromPlace(null);
+    setShowFromSuggestions(text.length > 0);
+    debounceFetchSuggestions(text, setFromSuggestions);
+  };
+
+  const handleToChange = (text) => {
+    setTo(text);
+    setToPlace(null);
+    setShowToSuggestions(text.length > 0);
+    debounceFetchSuggestions(text, setToSuggestions);
+  };
+
+  const selectFromSuggestion = (item) => {
+    setFrom(item.description);
+    setFromPlace(item);
+    setShowFromSuggestions(false);
+    Keyboard.dismiss();
+  };
+
+  const selectToSuggestion = (item) => {
+    setTo(item.description);
+    setToPlace(item);
+    setShowToSuggestions(false);
+    Keyboard.dismiss();
+  };
+
+  // For local bus search (not Google)
   const handleJourneySearch = () => {
     const fromLower = from.trim().toLowerCase();
     const toLower = to.trim().toLowerCase();
     const results = busData.filter(
-      bus =>
+      (bus) =>
         bus.from.toLowerCase().includes(fromLower) &&
         bus.to.toLowerCase().includes(toLower)
     );
@@ -98,7 +198,7 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.container}>
       {/* Background Image */}
       <Image
-        source={require("../../assets/logo.png")}
+        source={require("../../assets/logoblue.png")}
         style={styles.backgroundImage}
         pointerEvents="none"
       />
@@ -114,76 +214,230 @@ export default function HomeScreen() {
         <TouchableOpacity style={styles.headerIconContainer}>
           <Icon name="menu-outline" size={30} color="#FFFFFF" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>BusHubLK</Text>
-        <TouchableOpacity
-          style={styles.headerIconContainer}
-          onPress={() =>
-            Alert.alert("Logo Pressed", "This button is now clickable.")
-          }
-        >
-          <View style={styles.logoWrapper}>
-            <Image
-              source={require("../../assets/logo.png")}
-              style={styles.headerLogo}
-            />
-          </View>
-        </TouchableOpacity>
+        <Text style={styles.headerTitle}>
+          BusHub<Text style={styles.superscript}>LK</Text>
+        </Text>
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <TouchableOpacity
+            style={styles.headerIconContainer}
+            onPress={() => navigation.navigate("Notifications")}
+          >
+            <Icon name="notifications-outline" size={28} color="#FFFFFF" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.headerIconContainer}
+            onPress={() =>
+              Alert.alert("Logo Pressed", "This button is now clickable.")
+            }
+          >
+            <View style={styles.logoWrapper}>
+              <Image
+                source={require("../../assets/logoblue.png")}
+                style={styles.headerLogo}
+              />
+            </View>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="always"
       >
+        {/* --- Welcome Banner --- */}
+        <LinearGradient
+          colors={["#0056b3", "#0076e3"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.welcomeBanner}
+        >
+          <Icon
+            name="bus-outline"
+            size={36}
+            color="#fff"
+            style={{ marginRight: 14 }}
+          />
+          <View>
+            <Text style={styles.welcomeTitle}>
+              Welcome to BusHub<Text style={styles.superscript}>LK</Text>!
+            </Text>
+            <Text style={styles.welcomeSubtitle}>
+              Plan your journey and explore services
+            </Text>
+          </View>
+        </LinearGradient>
+
         {/* --- Plan Your Journey Card --- */}
         <LinearGradient
-          colors={[AppColors.primary, "#006cde"]}
+          colors={["#fff", "#e6f0fa"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.journeyCard}
         >
           <Text style={styles.journeyTitle}>Plan Your Journey</Text>
+          {/* FROM */}
           <View style={styles.inputGroup}>
             <Icon
               name="navigate-circle-outline"
               size={20}
               style={styles.inputIcon}
             />
-            <TextInput
-              placeholder="From (e.g., Colombo Fort)"
-              style={styles.input}
-              placeholderTextColor="#E0E0E0"
-              value={from}
-              onChangeText={setFrom}
-            />
+            <View style={{ flex: 1, position: "relative", zIndex: showFromSuggestions ? 200 : 10 }}>
+              <TextInput
+                placeholder="From (e.g., Colombo)"
+                style={styles.input}
+                placeholderTextColor="#A0A0A0"
+                value={from}
+                onChangeText={handleFromChange}
+                onFocus={() => setShowFromSuggestions(true)}
+                onBlur={() => {
+                  // Delay hiding suggestions to allow touch on suggestions
+                  setTimeout(() => setShowFromSuggestions(false), 200);
+                }}
+              />
+              {from.length > 0 && (
+                <TouchableOpacity
+                  style={styles.clearIcon}
+                  onPress={() => {
+                    setFrom("");
+                    setFromPlace(null);
+                    setFromSuggestions([]);
+                    setShowFromSuggestions(false);
+                  }}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Icon name="close-circle" size={22} color="#bbb" />
+                </TouchableOpacity>
+              )}
+              {showFromSuggestions && fromSuggestions.length > 0 && (
+                <View style={styles.suggestionBox}>
+                  <ScrollView
+                    style={{ backgroundColor: "#fff" }}
+                    keyboardShouldPersistTaps="handled"
+                    nestedScrollEnabled={true}
+                  >
+                    {fromSuggestions.map((item) => (
+                      <TouchableOpacity
+                        key={item.place_id}
+                        onPress={() => selectFromSuggestion(item)}
+                        style={styles.suggestionItem}
+                      >
+                        <Text>{item.description}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+            </View>
           </View>
+          {/* TO */}
           <View style={styles.inputGroup}>
             <Icon name="location-outline" size={20} style={styles.inputIcon} />
-            <TextInput
-              placeholder="To (e.g., Kandy)"
-              style={styles.input}
-              placeholderTextColor="#E0E0E0"
-              value={to}
-              onChangeText={setTo}
-            />
+            <View style={{ flex: 1, position: "relative", zIndex: showToSuggestions ? 200 : 10 }}>
+              <TextInput
+                placeholder="To (e.g., Kandy)"
+                style={styles.input}
+                placeholderTextColor="#A0A0A0"
+                value={to}
+                onChangeText={handleToChange}
+                onFocus={() => setShowToSuggestions(true)}
+                onBlur={() => {
+                  // Delay hiding suggestions to allow touch on suggestions
+                  setTimeout(() => setShowToSuggestions(false), 200);
+                }}
+              />
+              {to.length > 0 && (
+                <TouchableOpacity
+                  style={styles.clearIcon}
+                  onPress={() => {
+                    setTo("");
+                    setToPlace(null);
+                    setToSuggestions([]);
+                    setShowToSuggestions(false);
+                  }}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Icon name="close-circle" size={22} color="#bbb" />
+                </TouchableOpacity>
+              )}
+              {showToSuggestions && toSuggestions.length > 0 && (
+                <View style={styles.suggestionBox}>
+                  <ScrollView
+                    style={{ backgroundColor: "#fff" }}
+                    keyboardShouldPersistTaps="handled"
+                    nestedScrollEnabled={true}
+                  >
+                    {toSuggestions.map((item) => (
+                      <TouchableOpacity
+                        key={item.place_id}
+                        onPress={() => selectToSuggestion(item)}
+                        style={styles.suggestionItem}
+                      >
+                        <Text>{item.description}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+            </View>
           </View>
-          <TouchableOpacity style={styles.searchButton} onPress={handleJourneySearch}>
-            <Text style={styles.searchButtonText}>Find My Bus</Text>
+          <TouchableOpacity
+            style={[
+              styles.searchButton,
+              (!fromPlace || !toPlace) && { opacity: 0.5 },
+            ]}
+            onPress={() => {
+              navigation.navigate("BusRouteResults", {
+                from: fromPlace,
+                to: toPlace,
+              });
+            }}
+            disabled={!fromPlace || !toPlace}
+          >
+            <Text style={styles.searchButtonText}>Find Routes</Text>
           </TouchableOpacity>
         </LinearGradient>
 
         {/* Show filtered buses below the card */}
         {filteredBuses.length > 0 ? (
           <View style={{ marginBottom: 20 }}>
-            {filteredBuses.map(bus => (
+            {filteredBuses.map((bus) => (
               <View key={bus.id} style={styles.busCard}>
-                <Text style={styles.busNumber}>Bus {bus.number}</Text>
-                <Text style={styles.busRoute}>{bus.from} → {bus.to}</Text>
-                <Text style={styles.busTime}>Departure: {bus.time}</Text>
+                <View style={styles.busInfo}>
+                  <View style={styles.busNumberContainer}>
+                    <Text
+                      style={{
+                        color: AppColors.primary,
+                        fontWeight: "bold",
+                        fontSize: 16,
+                      }}
+                    >
+                      {bus.number}
+                    </Text>
+                  </View>
+                  <View>
+                    <Text style={styles.busDestination}>
+                      {bus.from} → {bus.to}
+                    </Text>
+                    <View style={styles.arrivalContainer}>
+                      <Icon
+                        name="time-outline"
+                        size={16}
+                        color={AppColors.textSecondary}
+                      />
+                      <Text style={styles.arrivalTime}>{bus.time}</Text>
+                    </View>
+                    <Text style={styles.busArrival}>{bus.frequency}</Text>
+                  </View>
+                </View>
               </View>
             ))}
           </View>
-        ) : (from || to) ? (
-          <Text style={{ color: '#888', textAlign: 'center', marginBottom: 20 }}>
+        ) : from || to ? (
+          <Text
+            style={{ color: "#888", textAlign: "center", marginBottom: 20 }}
+          >
             No buses found for this route.
           </Text>
         ) : null}
@@ -193,70 +447,24 @@ export default function HomeScreen() {
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.quickActionGrid}>
             {quickActions.map((action) => (
-  <TouchableOpacity
-    key={action.title}
-    style={styles.quickActionCard}
-    onPress={() => {
-      if (action.title === "Find Routes") {
-        navigation.navigate("BusFilter");
-      } else if (action.title === "Live Tracking") {
-        navigation.navigate("LiveTracking");
-      } else if (action.title === "Fare Calculator") {
-        navigation.navigate("FareCalculator"); // <-- This line connects your screen
-      } else if (action.title === "My Tickets") {
-        navigation.navigate("MyTickets");
-      }
-    }}
-  >
-    <View style={styles.quickActionIconContainer}>
-      <Icon name={action.icon} size={26} color={AppColors.primary} />
-    </View>
-    <Text style={styles.cardText}>{action.title}</Text>
-  </TouchableOpacity>
-))}
-          </View>
-        </View>
-
-        {/* --- Nearby Buses Section --- */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Nearby</Text>
-            <TouchableOpacity>
-              <Text style={styles.seeAllText}>See All</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.listContainer}>
-            {nearbyBuses.map((bus) => (
-              <TouchableOpacity key={bus.number} style={styles.busCard}>
-                <View style={styles.busInfo}>
-                  <View style={styles.busNumberContainer}>
-                    <Icon
-                      name="bus-outline"
-                      size={24}
-                      color={AppColors.primary}
-                    />
-                  </View>
-                  <View>
-                    <Text style={styles.busDestination}>
-                      {bus.number} to {bus.destination.split(" - ")[1]}
-                    </Text>
-                    <Text style={styles.busArrival}>
-                      <Text
-                        style={{ color: bus.statusColor, fontWeight: "600" }}
-                      >
-                        {bus.status}
-                      </Text>
-                    </Text>
-                  </View>
-                </View>
-                <View style={styles.arrivalContainer}>
-                  <Text style={styles.arrivalTime}>{bus.arrival}</Text>
+              <TouchableOpacity
+                key={action.title}
+                style={styles.quickActionCard}
+                onPress={() => {
+                  if (action.title === "Live Tracking") {
+                    navigation.navigate("BusTracker");
+                  }
+                }}
+                activeOpacity={0.8}
+              >
+                <View style={styles.quickActionIconContainer}>
                   <Icon
-                    name="chevron-forward-outline"
-                    size={20}
-                    color={AppColors.textSecondary}
+                    name={action.icon}
+                    size={26}
+                    color={AppColors.primary}
                   />
                 </View>
+                <Text style={styles.cardText}>{action.title}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -273,18 +481,11 @@ export default function HomeScreen() {
                 onPress={() => {
                   if (service.title === "Lost & Found") {
                     navigation.navigate("LostAndFound");
-                  } else if (service.title === "Map View") {
-                    navigation.navigate("MapView");
-                  } else if (service.title === "Emergency") {
-                    navigation.navigate("Emergency");
-                  } else if (service.title === "Notifications") {
-                    navigation.navigate("Notifications");
-                  } else if (service.title === "Bus Occupancy") {
-                    navigation.navigate("BusOccupancy");
-                  } else if (service.title === "Complaints") {
+                  } else if (service.title === "Complaints & Feedback") {
                     navigation.navigate("Complaints");
                   }
                 }}
+                activeOpacity={0.8}
               >
                 <Icon name={service.icon} size={28} color={AppColors.primary} />
                 <Text style={styles.serviceCardText}>{service.title}</Text>
@@ -305,8 +506,8 @@ const styles = StyleSheet.create({
   },
   backgroundImage: {
     position: "absolute",
-    top: 0,
-    left: 0,
+    top: 250,
+    left: 50,
     right: 0,
     bottom: 0,
     width: "100%",
@@ -330,24 +531,57 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: "#FFFFFF",
-    fontSize: 18,
-    fontWeight: "bold",
+    fontSize: 22,
+    fontWeight: "900",
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  superscript: {
+    fontSize: 10,
+    lineHeight: 10,
+    textAlignVertical: 'top',
+    transform: [{ translateY: -18 }],
+    position: 'relative',
+    top: -6,
   },
   headerIconContainer: {
     padding: 5,
   },
   logoWrapper: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 35,
+    height: 35,
+    borderRadius: 10,
     backgroundColor: "#FFFFFF",
     justifyContent: "center",
     alignItems: "center",
+    overflow: "hidden",
   },
   headerLogo: {
-    width: 70,
-    height: 70,
-    resizeMode: "contain",
+    width: 36,
+    height: 36,
+    resizeMode: "cover",
+    borderRadius: 18,
+  },
+  welcomeBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 18,
+    padding: 18,
+    marginBottom: 18,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  welcomeTitle: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  welcomeSubtitle: {
+    color: "#fff",
+    fontSize: 14,
+    marginTop: 2,
   },
   section: {
     marginBottom: 20,
@@ -362,6 +596,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "600",
     color: AppColors.text,
+    textAlign: "center",
   },
   seeAllText: {
     fontSize: 14,
@@ -372,49 +607,94 @@ const styles = StyleSheet.create({
     padding: 20,
     borderRadius: 20,
     marginBottom: 30,
+    backgroundColor: "#fff",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
   },
   journeyTitle: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#FFFFFF",
+    color: AppColors.primary,
     marginBottom: 16,
+    textAlign: "center",
   },
   inputGroup: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    backgroundColor: "rgba(0, 86, 179, 0.07)",
     borderRadius: 12,
     paddingHorizontal: 12,
     marginBottom: 12,
+    zIndex: 101,
   },
   inputIcon: {
     marginRight: 10,
-    color: "#FFFFFF",
+    color: AppColors.primary,
   },
   input: {
     flex: 1,
     fontSize: 16,
-    color: "#FFFFFF",
+    color: AppColors.text,
     paddingVertical: 14,
   },
+  clearIcon: {
+    position: "absolute",
+    right: 8,
+    top: "50%",
+    marginTop: -11,
+    zIndex: 1000,
+  },
+  suggestionBox: {
+    position: "absolute",
+    top: 48,
+    left: 0,
+    right: 0,
+    backgroundColor: "#fff",
+    borderColor: AppColors.border,
+    borderWidth: 1,
+    borderTopWidth: 0,
+    borderBottomLeftRadius: 8,
+    borderBottomRightRadius: 8,
+    maxHeight: 120,
+    zIndex: 300,
+    elevation: 15,
+    // Add shadow for iOS
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+  },
+  suggestionItem: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: AppColors.border,
+    backgroundColor: "#fff",
+  },
   searchButton: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: AppColors.primary,
     paddingVertical: 16,
     borderRadius: 14,
     alignItems: "center",
     marginTop: 8,
   },
   searchButtonText: {
-    color: AppColors.primary,
+    color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "600",
   },
   quickActionGrid: {
+    top: 10,
     flexDirection: "row",
     justifyContent: "space-between",
+    flexWrap: "wrap",
+    gap: 4,
+     marginHorizontal: -2,
   },
   quickActionCard: {
-    width: "23%",
+    width: "31%",
     height: 100,
     alignItems: "center",
     justifyContent: "center",
@@ -424,6 +704,8 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderWidth: 1,
     borderColor: AppColors.border,
+    marginBottom: 10,
+    elevation: 1,
   },
   quickActionIconContainer: {
     width: 48,
@@ -440,18 +722,12 @@ const styles = StyleSheet.create({
     color: AppColors.textSecondary,
     textAlign: "center",
   },
-  listContainer: {
-    gap: 12,
-  },
   busCard: {
     backgroundColor: "#f8f9fa",
     padding: 16,
     borderRadius: 8,
     marginBottom: 12,
   },
-  busNumber: { fontWeight: "bold", fontSize: 16 },
-  busRoute: { color: "#0056b3", marginTop: 4 },
-  busTime: { color: "#6C757D", marginTop: 2 },
   busInfo: {
     flexDirection: "row",
     alignItems: "center",
@@ -464,16 +740,12 @@ const styles = StyleSheet.create({
     backgroundColor: AppColors.primaryMuted,
     justifyContent: "center",
     alignItems: "center",
+    marginRight: 12,
   },
   busDestination: {
     fontSize: 16,
     fontWeight: "600",
     color: AppColors.text,
-  },
-  busArrival: {
-    fontSize: 14,
-    color: AppColors.textSecondary,
-    marginTop: 4,
   },
   arrivalContainer: {
     flexDirection: "row",
@@ -484,14 +756,21 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "500",
     color: AppColors.text,
+    marginLeft: 4,
+  },
+  busArrival: {
+    fontSize: 14,
+    color: AppColors.textSecondary,
+    marginTop: 4,
   },
   serviceGrid: {
+    top: 10,
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
   },
   serviceCard: {
-    width: "31%",
+    width: "42%",
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 20,
@@ -500,6 +779,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1,
     borderColor: AppColors.border,
+    elevation: 1,
   },
   serviceCardText: {
     fontSize: 12,
