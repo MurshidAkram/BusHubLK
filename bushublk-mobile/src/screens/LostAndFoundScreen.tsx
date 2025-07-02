@@ -97,9 +97,19 @@ export default function LostAndFoundScreen({ navigation }) {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={AppColors.card} />
       <View style={styles.header}>
-        {activeView === 'report' ? (<TouchableOpacity onPress={handleBackPress} style={styles.backButton}><Icon name="arrow-back" size={24} color={AppColors.text} /></TouchableOpacity>) : (<View style={{ width: 40 }} />)}
+        {activeView === 'report' ? (
+          <TouchableOpacity onPress={handleBackPress} style={styles.backButton} activeOpacity={0.7}>
+            <Icon name="arrow-back" size={22} color={AppColors.text} />
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity style={styles.headerRightAction} activeOpacity={0.7}>
+            <Icon name="menu-outline" size={22} color={AppColors.textSecondary} />
+          </TouchableOpacity>
+        )}
         <Text style={styles.headerTitle}>Lost & Found</Text>
-        <View style={{ width: 40 }} />
+        <TouchableOpacity style={styles.headerRightAction} activeOpacity={0.7}>
+          <Icon name="ellipsis-vertical" size={20} color={AppColors.textSecondary} />
+        </TouchableOpacity>
       </View>
       <ScrollView contentContainerStyle={styles.contentContainer} keyboardShouldPersistTaps="handled">{activeView === 'list' ? renderListView() : (<View style={styles.reportContainer}>{renderReportFlow()}</View>)}</ScrollView>
     </SafeAreaView>
@@ -109,27 +119,49 @@ export default function LostAndFoundScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: AppColors.background },
   
-  // --- HEADER PERFECTION: UI Change ---
+  // --- REDESIGNED HEADER ---
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 15,
-    paddingVertical: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 18, // Increased for more height
+    paddingTop: 50, // Add top padding to lower the header content
     backgroundColor: AppColors.card,
-    // The following properties create the "floating" effect
-    borderBottomWidth: 0, // Removed the line
-    elevation: 4, // Shadow for Android
-    shadowColor: '#000', // Shadow for iOS
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    borderBottomWidth: 0.5,
+    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    zIndex: 1000,
   },
-  backButton: { padding: 5, width: 40 },
+  backButton: { 
+    padding: 10, // Increased touch area
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 22,
+    backgroundColor: 'transparent',
+  },
   headerTitle: {
-    fontSize: 22, // Slightly larger for more presence
-    fontWeight: '500', // A more refined "medium" weight
+    fontSize: 20,
+    fontWeight: '700',
     color: AppColors.text,
+    letterSpacing: -0.3,
+    textAlign: 'center',
+    flex: 1,
+  },
+  headerRightAction: {
+    padding: 10, // Increased to match backButton
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 22,
+    backgroundColor: 'transparent',
   },
 
   contentContainer: { padding: 20, paddingBottom: 40 },
