@@ -5,7 +5,7 @@ import HomeScreen from '../screens/HomeScreen';
 import LostAndFoundScreen from '../screens/LostAndFoundScreen';
 import TicketFareCalculator from '../screens/TicketFareCalculatorScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
-import BusTracker from '../screens/BusTrackerScreen.tsx';
+import BusTracker from '../screens/BusTrackerScreen';
 import BusRouteResultsScreen from '../screens/BusRouteResultsScreen';
 
 
