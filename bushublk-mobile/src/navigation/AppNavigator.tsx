@@ -7,7 +7,7 @@ import TabNavigator from './TabNavigator';
 
 // Import other screens
 import LostAndFoundScreen from '../screens/LostAndFoundScreen';
-import TicketFareCalculator from '../screens/TicketFareCalculatorScreen';
+//import TicketFareCalculator from '../screens/TicketFareCalculatorScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import BusTracker from '../screens/BusTrackerScreen';
 import BusRouteResultsScreen from '../screens/BusRouteResultsScreen';
@@ -27,7 +27,7 @@ export default function AppNavigator() {
         
         {/* Other screens that will be pushed on top of the tabs */}
         <Stack.Screen name="LostAndFound" component={LostAndFoundScreen} />
-        <Stack.Screen name="FareCalculator" component={TicketFareCalculator} />
+        {/* <Stack.Screen name="FareCalculator" component={TicketFareCalculator} /> */}
         <Stack.Screen name="Notifications" component={NotificationsScreen} />
         <Stack.Screen name="BusTracker" component={BusTracker} />
         <Stack.Screen name="BusRouteResults" component={BusRouteResultsScreen} />
