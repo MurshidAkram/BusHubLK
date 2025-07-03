@@ -55,10 +55,10 @@ const DepotEngineerDashboard = () => {
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Dashboard Overview</h1>
           <div className="flex gap-3">
-            <button className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+            {/* <button className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
               <HiPlus className="w-4 h-4" />
               New Repair
-            </button>
+            </button> */}
             
           </div>
         </div>
