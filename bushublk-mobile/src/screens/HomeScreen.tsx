@@ -1,4 +1,5 @@
 import React, { useState, useRef } from "react";
+import { useNavigation, DrawerActions } from "@react-navigation/native";
 import {
   StyleSheet,
   View,
@@ -14,7 +15,6 @@ import {
 } from "react-native";
 import Icon from "react-native-vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useNavigation } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import axios from "axios";
 
@@ -211,9 +211,12 @@ export default function HomeScreen() {
 
       {/* --- HEADER --- */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.headerIconContainer}>
-          <Icon name="menu-outline" size={30} color="#FFFFFF" />
-        </TouchableOpacity>
+        <TouchableOpacity
+  style={styles.headerIconContainer}
+  onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
+>
+  <Icon name="menu-outline" size={30} color="#FFFFFF" />
+</TouchableOpacity>
         <Text style={styles.headerTitle}>
           BusHub<Text style={styles.superscript}>LK</Text>
         </Text>
@@ -277,13 +280,18 @@ export default function HomeScreen() {
         >
           <Text style={styles.journeyTitle}>Plan Your Journey</Text>
           {/* FROM */}
-          <View style={styles.inputGroup}>
+          <View
+            style={[
+              styles.inputGroup,
+              { position: "relative", zIndex: showFromSuggestions ? 200 : 10 },
+            ]}
+          >
             <Icon
               name="navigate-circle-outline"
               size={20}
               style={styles.inputIcon}
             />
-            <View style={{ flex: 1, position: "relative", zIndex: showFromSuggestions ? 200 : 10 }}>
+            <View style={{ flex: 1 }}>
               <TextInput
                 placeholder="From (e.g., Colombo)"
                 style={styles.input}
@@ -292,7 +300,6 @@ export default function HomeScreen() {
                 onChangeText={handleFromChange}
                 onFocus={() => setShowFromSuggestions(true)}
                 onBlur={() => {
-                  // Delay hiding suggestions to allow touch on suggestions
                   setTimeout(() => setShowFromSuggestions(false), 200);
                 }}
               />
@@ -313,9 +320,9 @@ export default function HomeScreen() {
               {showFromSuggestions && fromSuggestions.length > 0 && (
                 <View style={styles.suggestionBox}>
                   <ScrollView
-                    style={{ backgroundColor: "#fff" }}
                     keyboardShouldPersistTaps="handled"
-                    nestedScrollEnabled={true}
+                    style={{ maxHeight: 120 }}
+                    nestedScrollEnabled
                   >
                     {fromSuggestions.map((item) => (
                       <TouchableOpacity
@@ -332,9 +339,14 @@ export default function HomeScreen() {
             </View>
           </View>
           {/* TO */}
-          <View style={styles.inputGroup}>
+          <View
+            style={[
+              styles.inputGroup,
+              { position: "relative", zIndex: showToSuggestions ? 200 : 10 },
+            ]}
+          >
             <Icon name="location-outline" size={20} style={styles.inputIcon} />
-            <View style={{ flex: 1, position: "relative", zIndex: showToSuggestions ? 200 : 10 }}>
+            <View style={{ flex: 1 }}>
               <TextInput
                 placeholder="To (e.g., Kandy)"
                 style={styles.input}
@@ -343,7 +355,6 @@ export default function HomeScreen() {
                 onChangeText={handleToChange}
                 onFocus={() => setShowToSuggestions(true)}
                 onBlur={() => {
-                  // Delay hiding suggestions to allow touch on suggestions
                   setTimeout(() => setShowToSuggestions(false), 200);
                 }}
               />
@@ -364,9 +375,9 @@ export default function HomeScreen() {
               {showToSuggestions && toSuggestions.length > 0 && (
                 <View style={styles.suggestionBox}>
                   <ScrollView
-                    style={{ backgroundColor: "#fff" }}
                     keyboardShouldPersistTaps="handled"
-                    nestedScrollEnabled={true}
+                    style={{ maxHeight: 120 }}
+                    nestedScrollEnabled
                   >
                     {toSuggestions.map((item) => (
                       <TouchableOpacity
@@ -453,6 +464,8 @@ export default function HomeScreen() {
                 onPress={() => {
                   if (action.title === "Live Tracking") {
                     navigation.navigate("BusTracker");
+                  } else if (action.title === "Bus Occupancy") {
+                    navigation.navigate("BusOccupancy");
                   }
                 }}
                 activeOpacity={0.8}
@@ -628,6 +641,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 12,
     marginBottom: 12,
+    position: "relative", // important for stacking context
     zIndex: 101,
   },
   inputIcon: {
@@ -661,7 +675,6 @@ const styles = StyleSheet.create({
     maxHeight: 120,
     zIndex: 300,
     elevation: 15,
-    // Add shadow for iOS
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
@@ -691,7 +704,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     flexWrap: "wrap",
     gap: 4,
-     marginHorizontal: -2,
+    marginHorizontal: -2,
   },
   quickActionCard: {
     width: "31%",
