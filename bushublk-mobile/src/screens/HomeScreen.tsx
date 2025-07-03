@@ -464,6 +464,8 @@ export default function HomeScreen() {
                 onPress={() => {
                   if (action.title === "Live Tracking") {
                     navigation.navigate("BusTracker");
+                  } else if (action.title === "Bus Occupancy") {
+                    navigation.navigate("BusOccupancy");
                   }
                 }}
                 activeOpacity={0.8}

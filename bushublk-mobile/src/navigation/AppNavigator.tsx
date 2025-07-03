@@ -1,29 +1,22 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
-import { createStackNavigator } from '@react-navigation/stack';
-import HomeScreen from '../screens/HomeScreen';
+import { createDrawerNavigator } from '@react-navigation/drawer';
+import MainStackNavigator from './MainStackNavigator';
 import LostAndFoundScreen from '../screens/LostAndFoundScreen';
-import TicketFareCalculator from '../screens/TicketFareCalculatorScreen';
-import NotificationsScreen from '../screens/NotificationsScreen';
-import BusTracker from '../screens/BusTrackerScreen';
-import BusRouteResultsScreen from '../screens/BusRouteResultsScreen';
+import BusOccupancyScreen from '../screens/BusOccupancyScreen';
+// ...import other screens as needed
 
-
-
-const Stack = createStackNavigator();
+const Drawer = createDrawerNavigator();
 
 export default function AppNavigator() {
   return (
     <NavigationContainer>
-      <Stack.Navigator initialRouteName="Home" screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="Home" component={HomeScreen} />
-        <Stack.Screen name="LostAndFound" component={LostAndFoundScreen} />
-        <Stack.Screen name="FareCalculator" component={TicketFareCalculator} />
-        <Stack.Screen name="Notifications" component={NotificationsScreen} />
-        <Stack.Screen name="BusTracker" component={BusTracker} />
-        <Stack.Screen name="BusRouteResults" component={BusRouteResultsScreen} />
-        {/* Add other screens here */}
-      </Stack.Navigator>
+      <Drawer.Navigator screenOptions={{ headerShown: false }}>
+        <Drawer.Screen name="HomeStack" component={MainStackNavigator} options={{ title: 'Home' }} />
+        <Drawer.Screen name="Lost & Found" component={LostAndFoundScreen} />
+        <Drawer.Screen name="Bus Occupancy" component={BusOccupancyScreen} />
+        {/* Add other drawer screens as needed */}
+      </Drawer.Navigator>
     </NavigationContainer>
   );
 }
