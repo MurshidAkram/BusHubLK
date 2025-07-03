@@ -33,6 +33,8 @@ import DepotEngineerSidebarContent from './components/depot-engineer/DepotEngine
 import DepotEngineerDashboard from './pages/dashboards/depot-engineer/index'
 import Assignedbuses from './pages/dashboards/depot-engineer/Assignedbuses'
 import Repairs from './pages/dashboards/depot-engineer/Repairs'
+import Scheduling from './pages/dashboards/depot-engineer/Scheduling'
+import Performance from './pages/dashboards/depot-engineer/Performance'
 
 
 // Regional Technical Officer Components
@@ -112,6 +114,8 @@ const App = () => {
           <Route index element={<DepotEngineerDashboard />} />
           <Route path="Repairs" element={<Repairs />} />
           <Route path="assigned-buses" element={<Assignedbuses />} />
+          <Route path="scheduling" element={<Scheduling />} />
+          <Route path="Performance" element={<Performance />} />
           {/* Add individual pages later */}
         </Route>
 

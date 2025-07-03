@@ -49,7 +49,7 @@ const DepotEngineerSidebarContent = () => {
       </NavLink>
 
       <NavLink
-        to="/depot-engineer/schedule"
+        to="/depot-engineer/scheduling"
         className={({ isActive }) =>
           `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
             ? 'bg-green-700 text-white' 
