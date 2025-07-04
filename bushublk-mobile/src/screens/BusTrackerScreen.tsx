@@ -344,9 +344,7 @@ export default function BusTrackingScreen({ navigation }: Props) {
       
       {/* Header */}
       <View style={styles.header}>
-  <TouchableOpacity onPress={() => navigation.openDrawer()} style={styles.backButton}>
-    <Icon name="menu" size={24} color={AppColors.text} />
-  </TouchableOpacity>
+ 
   <Text style={styles.title}>Bus Tracking</Text>
   <TouchableOpacity onPress={showAllBuses} style={styles.viewAllButton}>
     <Icon name="expand-outline" size={24} color={AppColors.primary} />
