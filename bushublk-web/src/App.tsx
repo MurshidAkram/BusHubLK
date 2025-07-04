@@ -32,6 +32,11 @@ import DepotOperationsManagerDashboard from './pages/dashboards/depot-ops'
 // Depot Engineer Components  
 import DepotEngineerSidebarContent from './components/depot-engineer/DepotEngineerSidebarContent'
 import DepotEngineerDashboard from './pages/dashboards/depot-engineer/index'
+import Assignedbuses from './pages/dashboards/depot-engineer/Assignedbuses'
+import Repairs from './pages/dashboards/depot-engineer/Repairs'
+import Scheduling from './pages/dashboards/depot-engineer/Scheduling'
+import Performance from './pages/dashboards/depot-engineer/Performance'
+
 
 // Regional Technical Officer Components
 import RegionalTechnicalOfficerSidebarContent from './components/regional-tech/RegionalTechnicalOfficerSidebarContent'
@@ -50,7 +55,7 @@ import DGMTechnicalSidebarContent from './components/dgm-tech/DGMTechnicalSideba
 import DGMTechnicalDashboard from './pages/dashboards/dgm-tech/index'
 
 // CEO Components
-import CEOSidebarContent from './components/ceo/ceoSidebarContent'
+import CEOSidebarContent from './components/ceo/CEOSidebarContent'
 import CEODashboard from './pages/dashboards/ceo/index'
 
 const App = () => {
@@ -118,6 +123,10 @@ const App = () => {
         <Route element={<ProtectedRoute requiredRole="Depot Engineer" />}>
         <Route path="/depot-engineer" element={<DashboardLayout role="Depot Engineer" sidebarContent={<DepotEngineerSidebarContent />} />}>
           <Route index element={<DepotEngineerDashboard />} />
+          <Route path="Repairs" element={<Repairs />} />
+          <Route path="assigned-buses" element={<Assignedbuses />} />
+          <Route path="scheduling" element={<Scheduling />} />
+          <Route path="Performance" element={<Performance />} />
           {/* Add individual pages later */}
         </Route>
         </Route>
