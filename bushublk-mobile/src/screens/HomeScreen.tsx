@@ -519,13 +519,13 @@ const styles = StyleSheet.create({
   },
   backgroundImage: {
     position: "absolute",
-    top: 250,
+    top: 280,
     left: 50,
     right: 0,
     bottom: 0,
     width: "100%",
     height: "100%",
-    opacity: 0.05,
+    opacity: 0.15,
     resizeMode: "contain",
   },
   contentContainer: {
