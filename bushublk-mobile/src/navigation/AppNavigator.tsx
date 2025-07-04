@@ -1,5 +1,3 @@
-<<<<<<< HEAD
-=======
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -38,4 +36,4 @@ export default function AppNavigator() {
     </NavigationContainer>
   );
 }
->>>>>>> 0948e83e20068668b7f3150dd851cfd594f8f6c1
+
