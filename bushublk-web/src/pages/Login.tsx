@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useContext, useState } from 'react';
 import { assets } from '../assets/assets';
 import { useNavigate } from 'react-router-dom';
+import { AppContext } from '../context/AppContext';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -8,27 +9,75 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const context = useContext(AppContext);
 
-  const onSubmitHandler = async (event) => {
-    event.preventDefault();
-    setLoading(true);
-    setError('');
-    
-    try {
-      // Replace with actual authentication logic
-      console.log('Logging in with:', { email, password });
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // On successful login
-      navigate('/dashboard');
-    } catch (err) {
-      setError('Invalid credentials. Please try again.');
-    } finally {
-      setLoading(false);
+
+  const onSubmitHandler = async (event: React.FormEvent) => {
+  event.preventDefault();
+  setLoading(true);
+  setError('');
+
+  try {
+    const response = await fetch('http://localhost:5000/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Login failed');
     }
-  };
+
+
+    // ✅ Store token and user info
+    // ✅ Replace with this:
+context?.login(data.user, data.token);
+
+    console.log('Logged in user role:', data.user.role);
+
+
+    // 🧭 Redirect based on role
+    switch (data.user.role) {
+      case 'admin':
+        navigate('/admin');
+        break;
+      case 'ceo':
+        navigate('/ceo');
+        break;
+      case 'depot_manager':
+        navigate('/depot-manager');
+        break;
+      case 'depot_operations_manager':
+        navigate('/depot-operations-manager');
+        break;
+      case 'depot_engineer':
+        navigate('/depot-engineer');
+        break;
+        case 'regional_technical_officer':
+        navigate('/regional-technical-officer');
+      break;
+      case 'regional_operations_officer':
+        navigate('/regional-operations-officer');
+        break;
+      case 'dgm_operations':
+        navigate('/dgm-operations');
+        break;  
+      case 'dgm_technical':
+        navigate('/dgm-technical');
+        break;
+      default:
+        navigate('/');
+    }
+
+  } catch (err: any) {
+    setError(err.message || 'Login failed. Try again.');
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
