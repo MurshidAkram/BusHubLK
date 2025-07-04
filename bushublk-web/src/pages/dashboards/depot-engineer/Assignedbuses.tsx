@@ -22,6 +22,7 @@ const AssignedBuses = () => {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [showFilters, setShowFilters] = useState<boolean>(false);
+  const [selectedBus, setSelectedBus] = useState<Bus | null>(null);
   const [filters, setFilters] = useState<Filters>({
     status: 'all',
     class: 'all',
@@ -375,6 +376,14 @@ const AssignedBuses = () => {
     setShowFilters(false);
   };
 
+  const handleViewBus = (bus: Bus) => {
+    setSelectedBus(bus);
+  };
+
+  const closeBusDetails = () => {
+    setSelectedBus(null);
+  };
+
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
       {/* Header */}
@@ -575,7 +584,10 @@ const AssignedBuses = () => {
                     {bus.nextService}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    <button className="bg-blue-500 text-white p-2 rounded hover:bg-blue-600 transition-colors">
+                    <button 
+                      className="bg-blue-500 text-white p-2 rounded hover:bg-blue-600 transition-colors"
+                      onClick={() => handleViewBus(bus)}
+                    >
                       <HiEye className="h-4 w-4" />
                     </button>
                   </td>
@@ -634,6 +646,120 @@ const AssignedBuses = () => {
           </div>
         </div>
       </div>
+
+      {/* Bus Details Modal */}
+      {selectedBus && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-gray-800">Bus Details</h2>
+              <button
+                onClick={closeBusDetails}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <HiX className="h-6 w-6" />
+              </button>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Basic Information */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Basic Information</h3>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-gray-500">Bus ID:</span>
+                    <span className="text-sm font-semibold text-gray-900">{selectedBus.id}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-gray-500">Class:</span>
+                    <span className={`inline-flex items-center justify-center h-6 w-6 rounded-full ${getClassColor(selectedBus.class)}`}>
+                      {selectedBus.class}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-gray-500">Capacity:</span>
+                    <span className="text-sm font-semibold text-gray-900">{selectedBus.capacity} passengers</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-gray-500">Route:</span>
+                    <span className="text-sm font-semibold text-gray-900">{selectedBus.route}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Status & Operation */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Status & Operation</h3>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-gray-500">Status:</span>
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(selectedBus.status)}`}>
+                      {selectedBus.status}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-gray-500">Mileage:</span>
+                    <span className="text-sm font-semibold text-gray-900">{selectedBus.mileage}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Service Information */}
+              <div className="bg-gray-50 p-4 rounded-lg md:col-span-2">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Service Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-gray-500">Last Service:</span>
+                    <span className="text-sm font-semibold text-gray-900">{selectedBus.lastService}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-gray-500">Next Service:</span>
+                    <span className="text-sm font-semibold text-gray-900">
+                      {selectedBus.nextService === '-' ? 'Not Scheduled' : selectedBus.nextService}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Additional Information */}
+              <div className="bg-gray-50 p-4 rounded-lg md:col-span-2">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Additional Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-blue-600">
+                      {selectedBus.status === 'Active' ? '✓' : selectedBus.status === 'Under Repair' ? '⚠' : '✗'}
+                    </div>
+                    <div className="text-sm text-gray-500 mt-1">Operational Status</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-600">
+                      {parseInt(selectedBus.mileage.replace(/[^\d]/g, '')) > 50000 ? 'High' : 'Normal'}
+                    </div>
+                    <div className="text-sm text-gray-500 mt-1">Mileage Level</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-purple-600">
+                      {selectedBus.nextService === '-' ? 'Pending' : 'Scheduled'}
+                    </div>
+                    <div className="text-sm text-gray-500 mt-1">Service Status</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
+              <button
+                onClick={closeBusDetails}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+              >
+                Close
+              </button>
+              
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
