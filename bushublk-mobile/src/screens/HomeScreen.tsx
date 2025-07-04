@@ -211,12 +211,7 @@ export default function HomeScreen() {
 
       {/* --- HEADER --- */}
       <View style={styles.header}>
-        <TouchableOpacity
-  style={styles.headerIconContainer}
-  onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
->
-  <Icon name="menu-outline" size={30} color="#FFFFFF" />
-</TouchableOpacity>
+        
         <Text style={styles.headerTitle}>
           BusHub<Text style={styles.superscript}>LK</Text>
         </Text>
