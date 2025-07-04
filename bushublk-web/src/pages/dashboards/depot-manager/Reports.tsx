@@ -1,17 +1,38 @@
 import React from 'react';
 import {
-  LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, Legend
+  LineChart,
+  Line,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  Legend,
 } from 'recharts';
 
-// 🟨 Mock Data
-const fleetServiceHistory = [
+// Define types for data
+type OperationsSummary = {
+  day: string;
+  routesAssigned: number;
+};
+
+type FleetServiceHistory = {
+  bus: string;
+  services: number;
+  partsChanged: number;
+};
+
+// Mock Data
+const fleetServiceHistory: FleetServiceHistory[] = [
   { bus: 'Bus 01', services: 5, partsChanged: 2 },
   { bus: 'Bus 02', services: 8, partsChanged: 3 },
   { bus: 'Bus 03', services: 4, partsChanged: 1 },
   { bus: 'Bus 04', services: 7, partsChanged: 4 },
 ];
 
-const operationsSummary = [
+const operationsSummary: OperationsSummary[] = [
   { day: 'Mon', routesAssigned: 12 },
   { day: 'Tue', routesAssigned: 15 },
   { day: 'Wed', routesAssigned: 10 },
@@ -19,18 +40,16 @@ const operationsSummary = [
   { day: 'Fri', routesAssigned: 14 },
 ];
 
-// 🧾 Main Component
 const Reports: React.FC = () => {
   return (
     <div className="space-y-6 p-6 bg-gray-50 min-h-screen">
-      
-      {/* Section: Depot Reports Header */}
+      {/* Depot Reports Header */}
       <div className="bg-white rounded-lg shadow-md p-6">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Depot Reports</h1>
         <p className="text-gray-600">View overall overview.</p>
       </div>
 
-      {/* Section: Operations Chart */}
+      {/* Operations Chart */}
       <div className="bg-white rounded-lg shadow-md p-6">
         <h2 className="text-xl font-semibold text-gray-900 mb-4">Operations Overview</h2>
         <p className="text-gray-600 mb-4">Routes assigned throughout the week.</p>
@@ -45,7 +64,7 @@ const Reports: React.FC = () => {
         </ResponsiveContainer>
       </div>
 
-      {/* Section: Fleet Monitoring */}
+      {/* Fleet Monitoring */}
       <div className="bg-white rounded-lg shadow-md p-6">
         <h2 className="text-xl font-semibold text-gray-900 mb-4">Fleet Monitoring</h2>
         <p className="text-gray-600 mb-4">Service and parts replacement summary per bus.</p>
@@ -61,7 +80,6 @@ const Reports: React.FC = () => {
           </BarChart>
         </ResponsiveContainer>
       </div>
-
     </div>
   );
 };

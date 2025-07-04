@@ -1,7 +1,45 @@
 import React, { useState } from 'react';
 
-// Mock data for buses
-const mockBuses = [
+type ServiceHistory = {
+  date: string;
+  type: string;
+  cost: number;
+  description: string;
+};
+
+type PartChange = {
+  date: string;
+  part: string;
+  quantity: number;
+  cost: number;
+};
+
+type Alert = {
+  type: string;
+  message: string;
+};
+
+type Bus = {
+  id: string;
+  registrationNumber: string;
+  model: string;
+  year: number;
+  capacity: number;
+  currentRoute: string;
+  status: string;
+  lastService: string;
+  nextService: string;
+  mileage: number;
+  fuelEfficiency: number;
+  driver: string;
+  conductor: string;
+  location: string;
+  serviceHistory: ServiceHistory[];
+  partChanges: PartChange[];
+  alerts: Alert[];
+};
+
+const mockBuses: Bus[] =  [
   {
     id: 'BUS-001',
     registrationNumber: 'NC-1234',
@@ -84,30 +122,36 @@ const mockBuses = [
   }
 ];
 
-const FleetManagement = () => {
-  const [selectedBus, setSelectedBus] = useState(null);
+const FleetManagement: React.FC = () => {
+  const [selectedBus, setSelectedBus] = useState<Bus | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [showDetails, setShowDetails] = useState(false);
 
-  const filteredBuses = mockBuses.filter(bus => {
-    const matchesSearch = bus.registrationNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         bus.model.toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredBuses = mockBuses.filter((bus) => {
+    const matchesSearch =
+      bus.registrationNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      bus.model.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'All' || bus.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
-  const getStatusColor = (status) => {
+  function getStatusColor(status: string): string {
     switch (status) {
-      case 'Active': return 'bg-green-100 text-green-800';
-      case 'In Service': return 'bg-blue-100 text-blue-800';
-      case 'Maintenance': return 'bg-yellow-100 text-yellow-800';
-      case 'Out of Service': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'Active':
+        return 'bg-green-100 text-green-800';
+      case 'In Service':
+        return 'bg-blue-100 text-blue-800';
+      case 'Maintenance':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'Out of Service':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
     }
-  };
+  }
 
-  const handleViewDetails = (bus) => {
+  const handleViewDetails = (bus: Bus) => {
     setSelectedBus(bus);
     setShowDetails(true);
   };
@@ -117,74 +161,42 @@ const FleetManagement = () => {
     setSelectedBus(null);
   };
 
-  // Fleet summary stats
   const fleetStats = {
     total: mockBuses.length,
-    active: mockBuses.filter(b => b.status === 'Active').length,
-    inService: mockBuses.filter(b => b.status === 'In Service').length,
-    maintenance: mockBuses.filter(b => b.status === 'Maintenance').length,
-    avgFuelEfficiency: (mockBuses.reduce((sum, b) => sum + b.fuelEfficiency, 0) / mockBuses.length).toFixed(1)
+    active: mockBuses.filter((b) => b.status === 'Active').length,
+    inService: mockBuses.filter((b) => b.status === 'In Service').length,
+    maintenance: mockBuses.filter((b) => b.status === 'Maintenance').length,
+    avgFuelEfficiency: (
+      mockBuses.reduce((sum, b) => sum + b.fuelEfficiency, 0) / mockBuses.length
+    ).toFixed(1),
   };
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="bg-white rounded-lg shadow-sm p-6">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Fleet Management</h1>
         <p className="text-gray-600">Manage your bus fleet, track vehicle status, and monitor performance.</p>
       </div>
 
-      {/* Fleet Summary Stats */}
+      {/* Fleet Summary */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <div className="flex items-center">
-            <div className="text-blue-600 text-2xl mr-3"></div>
-            <div>
-              <p className="text-sm text-gray-600">Total Buses</p>
-              <p className="text-2xl font-bold text-gray-900">{fleetStats.total}</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <div className="flex items-center">
-            <div className="text-green-600 text-2xl mr-3"></div>
-            <div>
-              <p className="text-sm text-gray-600">Active/In Service</p>
-              <p className="text-2xl font-bold text-gray-900">{fleetStats.active + fleetStats.inService}</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <div className="flex items-center">
-            <div className="text-yellow-600 text-2xl mr-3"></div>
-            <div>
-              <p className="text-sm text-gray-600">In Maintenance</p>
-              <p className="text-2xl font-bold text-gray-900">{fleetStats.maintenance}</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <div className="flex items-center">
-            <div className="text-purple-600 text-2xl mr-3"></div>
-            <div>
-              <p className="text-sm text-gray-600">Avg Fuel Efficiency</p>
-              <p className="text-2xl font-bold text-gray-900">{fleetStats.avgFuelEfficiency} km/l</p>
-            </div>
-          </div>
-        </div>
+        <StatCard label="Total Buses" value={fleetStats.total} color="text-blue-600" />
+        <StatCard label="Active/In Service" value={fleetStats.active + fleetStats.inService} color="text-green-600" />
+        <StatCard label="In Maintenance" value={fleetStats.maintenance} color="text-yellow-600" />
+        <StatCard label="Avg Fuel Efficiency" value={`${fleetStats.avgFuelEfficiency} km/l`} color="text-purple-600" />
       </div>
 
       {/* Search and Filter */}
       <div className="bg-white rounded-lg shadow-sm p-6">
         <div className="flex flex-col md:flex-row gap-4 mb-6">
-          <div className="flex-1 relative">
-            <input
-              type="text"
-              placeholder="Search by model"
-              className="w-full pl-4 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
+          <input
+            type="text"
+            placeholder="Search by model"
+            className="w-full pl-4 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
           <div className="flex items-center gap-2">
             <span className="text-gray-600">Filter:</span>
             <select
@@ -201,26 +213,29 @@ const FleetManagement = () => {
           </div>
         </div>
 
-        {/* Fleet Grid */}
+        {/* Bus Cards */}
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
           {filteredBuses.map((bus) => (
             <div key={bus.id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
-              {/* Bus Header */}
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">{bus.registrationNumber}</h3>
-                  <p className="text-sm text-gray-600">{bus.model} ({bus.year})</p>
+                  <p className="text-sm text-gray-600">
+                    {bus.model} ({bus.year})
+                  </p>
                 </div>
                 <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(bus.status)}`}>
                   {bus.status}
                 </span>
               </div>
 
-              {/* Alerts */}
               {bus.alerts.length > 0 && (
                 <div className="mb-4">
                   {bus.alerts.map((alert, index) => (
-                    <div key={index} className="flex items-center text-sm text-yellow-700 bg-yellow-50 p-2 rounded">
+                    <div
+                      key={index}
+                      className="flex items-center text-sm text-yellow-700 bg-yellow-50 p-2 rounded"
+                    >
                       <span className="mr-2">⚠️</span>
                       <span>{alert.message}</span>
                     </div>
@@ -228,48 +243,32 @@ const FleetManagement = () => {
                 </div>
               )}
 
-              {/* Quick Info */}
-              <div className="space-y-2 mb-4">
-                <div className="flex items-center text-sm text-gray-600">
+              <div className="space-y-2 mb-4 text-sm text-gray-600">
+                <div className="flex items-center">
                   <span className="mr-2">📍</span>
                   {bus.location}
                 </div>
-                <div className="flex items-center text-sm text-gray-600">
+                <div className="flex items-center">
                   <span className="mr-2">🛣️</span>
                   Route: {bus.currentRoute}
                 </div>
-                <div className="flex items-center text-sm text-gray-600">
+                <div className="flex items-center">
                   <span className="mr-2">📅</span>
                   Next Service: {bus.nextService}
                 </div>
               </div>
 
-              {/* Stats */}
               <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
-                <div>
-                  <p className="text-gray-500">Mileage</p>
-                  <p className="font-semibold">{bus.mileage.toLocaleString()} km</p>
-                </div>
-                <div>
-                  <p className="text-gray-500">Fuel Efficiency</p>
-                  <p className="font-semibold">{bus.fuelEfficiency} km/l</p>
-                </div>
-                <div>
-                  <p className="text-gray-500">Capacity</p>
-                  <p className="font-semibold">{bus.capacity} seats</p>
-                </div>
-                <div>
-                  <p className="text-gray-500">Driver</p>
-                  <p className="font-semibold text-xs">{bus.driver}</p>
-                </div>
+                <InfoPair label="Mileage" value={`${bus.mileage.toLocaleString()} km`} />
+                <InfoPair label="Fuel Efficiency" value={`${bus.fuelEfficiency} km/l`} />
+                <InfoPair label="Capacity" value={`${bus.capacity} seats`} />
+                <InfoPair label="Driver" value={bus.driver} />
               </div>
 
-              {/* Action Button */}
               <button
                 onClick={() => handleViewDetails(bus)}
                 className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
               >
-                <span className="mr-2"></span>
                 View Details
               </button>
             </div>
@@ -283,151 +282,57 @@ const FleetManagement = () => {
         )}
       </div>
 
-      {/* Detailed View Modal */}
+      {/* Modal */}
       {showDetails && selectedBus && (
-     <div className="fixed inset-0 backdrop-blur-sm bg-white/10 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 backdrop-blur-sm bg-white/10 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               {/* Modal Header */}
               <div className="flex justify-between items-start mb-6">
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900">{selectedBus.registrationNumber}</h2>
-                  <p className="text-gray-600">{selectedBus.model} ({selectedBus.year})</p>
+                  <p className="text-gray-600">
+                    {selectedBus.model} ({selectedBus.year})
+                  </p>
                 </div>
-                <button
-                  onClick={closeDetails}
-                  className="text-gray-400 hover:text-gray-600 text-2xl"
-                >
+                <button onClick={closeDetails} className="text-gray-400 hover:text-gray-600 text-2xl">
                   ×
                 </button>
               </div>
 
-              {/* Overview Content */}
+              {/* Basic and Performance Info */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                {/* Basic Info */}
-                <div>
-                  <h3 className="text-lg font-semibold mb-4">Basic Information</h3>
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Registration:</span>
-                      <span className="font-medium">{selectedBus.registrationNumber}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Model:</span>
-                      <span className="font-medium">{selectedBus.model}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Year:</span>
-                      <span className="font-medium">{selectedBus.year}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Capacity:</span>
-                      <span className="font-medium">{selectedBus.capacity} seats</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Current Route:</span>
-                      <span className="font-medium">{selectedBus.currentRoute}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Driver:</span>
-                      <span className="font-medium">{selectedBus.driver}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Conductor:</span>
-                      <span className="font-medium">{selectedBus.conductor}</span>
-                    </div>
-                  </div>
-                </div>
+                <DetailsSection title="Basic Information" data={[
+                  ['Registration', selectedBus.registrationNumber],
+                  ['Model', selectedBus.model],
+                  ['Year', selectedBus.year],
+                  ['Capacity', `${selectedBus.capacity} seats`],
+                  ['Current Route', selectedBus.currentRoute],
+                  ['Driver', selectedBus.driver],
+                  ['Conductor', selectedBus.conductor]
+                ]} />
 
-                {/* Performance Stats */}
-                <div>
-                  <h3 className="text-lg font-semibold mb-4">Performance</h3>
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Total Mileage:</span>
-                      <span className="font-medium">{selectedBus.mileage.toLocaleString()} km</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Fuel Efficiency:</span>
-                      <span className="font-medium">{selectedBus.fuelEfficiency} km/l</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Last Service:</span>
-                      <span className="font-medium">{selectedBus.lastService}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Next Service:</span>
-                      <span className="font-medium">{selectedBus.nextService}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Status:</span>
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(selectedBus.status)}`}>
-                        {selectedBus.status}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+                <DetailsSection title="Performance" data={[
+                  ['Total Mileage', `${selectedBus.mileage.toLocaleString()} km`],
+                  ['Fuel Efficiency', `${selectedBus.fuelEfficiency} km/l`],
+                  ['Last Service', selectedBus.lastService],
+                  ['Next Service', selectedBus.nextService],
+                  ['Status', (
+                    <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(selectedBus.status)}`}>
+                      {selectedBus.status}
+                    </span>
+                  )]
+                ]} />
               </div>
 
-              {/* Service History */}
-              <div className="mb-8">
-                <h3 className="text-lg font-semibold mb-4 flex items-center">
-                  <span className="mr-2">🔧</span>
-                  Service History
-                </h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-4 py-2 text-left">Date</th>
-                        <th className="px-4 py-2 text-left">Type</th>
-                        <th className="px-4 py-2 text-left">Description</th>
-                        <th className="px-4 py-2 text-right">Cost (LKR)</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {selectedBus.serviceHistory.map((service, index) => (
-                        <tr key={index} className="border-b">
-                          <td className="px-4 py-2">{service.date}</td>
-                          <td className="px-4 py-2">{service.type}</td>
-                          <td className="px-4 py-2">{service.description}</td>
-                          <td className="px-4 py-2 text-right">{service.cost.toLocaleString()}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+              {/* Tables */}
+              <TableSection title="🔧 Service History" columns={['Date', 'Type', 'Description', 'Cost (LKR)']} rows={
+                selectedBus.serviceHistory.map(item => [item.date, item.type, item.description, item.cost.toLocaleString()])
+              } />
 
-              {/* Part Changes */}
-              <div>
-                <h3 className="text-lg font-semibold mb-4 flex items-center">
-                  <span className="mr-2">⚙️</span>
-                  Recent Part Changes
-                </h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-4 py-2 text-left">Date</th>
-                        <th className="px-4 py-2 text-left">Part</th>
-                        <th className="px-4 py-2 text-center">Quantity</th>
-                        <th className="px-4 py-2 text-right">Cost (LKR)</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {selectedBus.partChanges.map((part, index) => (
-                        <tr key={index} className="border-b">
-                          <td className="px-4 py-2">{part.date}</td>
-                          <td className="px-4 py-2">{part.part}</td>
-                          <td className="px-4 py-2 text-center">{part.quantity}</td>
-                          <td className="px-4 py-2 text-right">{part.cost.toLocaleString()}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+              <TableSection title="⚙️ Recent Part Changes" columns={['Date', 'Part', 'Quantity', 'Cost (LKR)']} rows={
+                selectedBus.partChanges.map(item => [item.date, item.part, item.quantity, item.cost.toLocaleString()])
+              } />
             </div>
           </div>
         </div>
@@ -435,5 +340,65 @@ const FleetManagement = () => {
     </div>
   );
 };
+
+// Reusable Components
+const StatCard = ({ label, value, color }: { label: string; value: string | number; color: string }) => (
+  <div className="bg-white rounded-lg shadow-sm p-6">
+    <div className="flex items-center">
+      <div className={`${color} text-2xl mr-3`}>📊</div>
+      <div>
+        <p className="text-sm text-gray-600">{label}</p>
+        <p className="text-2xl font-bold text-gray-900">{value}</p>
+      </div>
+    </div>
+  </div>
+);
+
+const InfoPair = ({ label, value }: { label: string; value: string }) => (
+  <div>
+    <p className="text-gray-500">{label}</p>
+    <p className="font-semibold">{value}</p>
+  </div>
+);
+
+const DetailsSection = ({ title, data }: { title: string; data: [string, React.ReactNode][] }) => (
+  <div>
+    <h3 className="text-lg font-semibold mb-4">{title}</h3>
+    <div className="space-y-3">
+      {data.map(([label, value], idx) => (
+        <div key={idx} className="flex justify-between">
+          <span className="text-gray-600">{label}:</span>
+          <span className="font-medium">{value}</span>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+const TableSection = ({ title, columns, rows }: {
+  title: string;
+  columns: string[];
+  rows: (string | number)[][];
+}) => (
+  <div className="mb-8">
+    <h3 className="text-lg font-semibold mb-4 flex items-center">{title}</h3>
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead className="bg-gray-50">
+          <tr>{columns.map((col, i) => <th key={i} className="px-4 py-2 text-left">{col}</th>)}</tr>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => (
+            <tr key={i} className="border-b">
+              {row.map((cell, j) => (
+                <td key={j} className={`px-4 py-2 ${j === row.length - 1 ? 'text-right' : ''}`}>{cell}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+);
 
 export default FleetManagement;
