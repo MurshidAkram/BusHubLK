@@ -28,7 +28,7 @@ const AppColors = {
   success: '#198754',
 };
 
-// --- MOCK API & DATA ---
+// --- MOCK API & DATA (Updated) ---
 const mockUserData = {
   profile: {
     name: 'Jane Doe',
@@ -36,11 +36,6 @@ const mockUserData = {
     email: 'jane.doe@example.com',
     phone: '+94 77 987 6543',
     avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d',
-  },
-  stats: {
-    points: 4820,
-    wallet: 1250.00,
-    trips: 98,
   },
   paymentMethods: [
     { id: '1', type: 'Visa', number: '4242', default: true },
@@ -52,7 +47,14 @@ const mockUserData = {
   helpContent: [
       { id: 'q1', question: 'How do I track a bus?', answer: 'Use the "Live Tracking" feature from the home screen and enter a route number to see the bus locations on the map.'},
       { id: 'q2', question: 'What if I lose an item?', answer: 'Go to the "Lost & Found" section to report a lost item or browse found items reported by others.'}
-  ]
+  ],
+  preferences: {
+    notifications: {
+      push: true,
+      email: false,
+      sms: true,
+    },
+  },
 };
 
 const fetchUserData = () => {
@@ -168,14 +170,67 @@ const HelpSupportView = ({ helpContent, onBack }) => (
     </>
 );
 
-// --- Main Profile View ---
+// --- Preferences View ---
+const PreferencesView = ({ preferences, onBack }) => {
+    const [prefs, setPrefs] = useState(preferences.notifications);
+
+    const togglePref = (key) => {
+        setPrefs(currentPrefs => ({ ...currentPrefs, [key]: !currentPrefs[key] }));
+    };
+
+    return (
+        <>
+            <SubPageHeader title="Preferences" onBack={onBack} />
+            <ScrollView contentContainerStyle={styles.subPageContainer}>
+                <Text style={styles.menuTitle}>Notifications</Text>
+                <View style={styles.menu}>
+                    <View style={styles.menuItem}>
+                        <Text style={styles.menuItemText}>Push Notifications</Text>
+                        <Switch trackColor={{ false: "#ccc", true: AppColors.primary }} thumbColor={"#fff"} value={prefs.push} onValueChange={() => togglePref('push')} />
+                    </View>
+                    <View style={styles.menuItem}>
+                        <Text style={styles.menuItemText}>Email Notifications</Text>
+                        <Switch trackColor={{ false: "#ccc", true: AppColors.primary }} thumbColor={"#fff"} value={prefs.email} onValueChange={() => togglePref('email')} />
+                    </View>
+                    <View style={styles.menuItem}>
+                        <Text style={styles.menuItemText}>SMS Alerts</Text>
+                        <Switch trackColor={{ false: "#ccc", true: AppColors.primary }} thumbColor={"#fff"} value={prefs.sms} onValueChange={() => togglePref('sms')} />
+                    </View>
+                </View>
+            </ScrollView>
+        </>
+    );
+};
+
+// --- Main Profile View (Updated) ---
 const MainProfileView = ({ user, onNavigate }) => {
-    const menuItems = [
+    const accountMenuItems = [
       { key: 'editProfile', text: 'Edit Profile', icon: 'person-outline' },
       { key: 'paymentMethods', text: 'Payment Methods', icon: 'card-outline' },
       { key: 'security', text: 'Security', icon: 'shield-checkmark-outline' },
+    ];
+    const moreMenuItems = [
+      { key: 'preferences', text: 'Preferences', icon: 'options-outline' },
       { key: 'help', text: 'Help & Support', icon: 'help-buoy-outline' },
     ];
+
+    const renderMenuItems = (items) => (
+        <View style={styles.menu}>
+            {items.map((item, index) => (
+                <TouchableOpacity
+                    key={item.key}
+                    style={[styles.menuItem, index === items.length - 1 && { borderBottomWidth: 0 }]}
+                    activeOpacity={0.7}
+                    onPress={() => onNavigate(item.key)}
+                >
+                    <Icon name={item.icon} size={22} color={AppColors.primary} style={styles.menuIcon} />
+                    <Text style={styles.menuItemText}>{item.text}</Text>
+                    <Icon name="chevron-forward-outline" size={22} color={AppColors.textSecondary} />
+                </TouchableOpacity>
+            ))}
+        </View>
+    );
+
     return(
     <>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.container}>
@@ -187,23 +242,17 @@ const MainProfileView = ({ user, onNavigate }) => {
           <Text style={styles.userName}>{user.profile.name}</Text>
           <Text style={styles.userMembership}>{user.profile.membership}</Text>
         </LinearGradient>
-        <View style={styles.statsContainer}>
-          <View style={styles.statBox}><Text style={styles.statValue}>{user.stats.points.toLocaleString()}</Text><Text style={styles.statLabel}>Points</Text></View>
-          <View style={styles.statBox}><Text style={styles.statValue}>Rs. {user.stats.wallet.toFixed(2)}</Text><Text style={styles.statLabel}>Wallet</Text></View>
-          <View style={styles.statBox}><Text style={styles.statValue}>{user.stats.trips}</Text><Text style={styles.statLabel}>Trips</Text></View>
-        </View>
+
         <View style={styles.menuWrapper}>
           <Text style={styles.menuTitle}>Account</Text>
-          <View style={styles.menu}>
-            {menuItems.map((item) => (
-                <TouchableOpacity key={item.key} style={styles.menuItem} activeOpacity={0.7} onPress={() => onNavigate(item.key)}>
-                    <Icon name={item.icon} size={22} color={AppColors.primary} style={styles.menuIcon} />
-                    <Text style={styles.menuItemText}>{item.text}</Text>
-                    <Icon name="chevron-forward-outline" size={22} color={AppColors.textSecondary} />
-                </TouchableOpacity>
-            ))}
-          </View>
+          {renderMenuItems(accountMenuItems)}
         </View>
+
+        <View style={styles.menuWrapper}>
+          <Text style={styles.menuTitle}>More</Text>
+          {renderMenuItems(moreMenuItems)}
+        </View>
+
         <TouchableOpacity style={styles.logoutButton} activeOpacity={0.7}>
           <Icon name="log-out-outline" size={22} color={AppColors.danger} />
           <Text style={styles.logoutText}>Logout</Text>
@@ -213,7 +262,7 @@ const MainProfileView = ({ user, onNavigate }) => {
     );
 };
 
-// --- Main ProfileScreen Component ---
+// --- Main ProfileScreen Component (Updated) ---
 const ProfileScreen = ({ navigation }) => {
   const [view, setView] = useState('main');
   const [isLoading, setIsLoading] = useState(true);
@@ -244,6 +293,8 @@ const ProfileScreen = ({ navigation }) => {
         return <PaymentMethodsView methods={userData.paymentMethods} onBack={() => setView('main')} />;
       case 'help':
         return <HelpSupportView helpContent={userData.helpContent} onBack={() => setView('main')} />;
+      case 'preferences':
+        return <PreferencesView preferences={userData.preferences} onBack={() => setView('main')} />;
       case 'settings':
           goToSettingsPage();
           return <MainProfileView user={userData} onNavigate={setView} />;
@@ -260,26 +311,23 @@ const ProfileScreen = ({ navigation }) => {
   );
 };
 
+// --- Styles (Updated) ---
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: AppColors.background },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: AppColors.background },
   container: { paddingBottom: 40 },
-  header: { backgroundColor: AppColors.primary, paddingHorizontal: 20, paddingTop: 40, paddingBottom: 70, alignItems: 'center', borderBottomLeftRadius: 40, borderBottomRightRadius: 40, },
+  header: { backgroundColor: AppColors.primary, paddingHorizontal: 20, paddingTop: 40, paddingBottom: 30, alignItems: 'center', borderBottomLeftRadius: 40, borderBottomRightRadius: 40, }, // Adjusted padding
   settingsButton: { position: 'absolute', top: 50, right: 20, padding: 10 },
   avatar: { width: 110, height: 110, borderRadius: 55, borderWidth: 4, borderColor: AppColors.card, marginBottom: 10, },
   userName: { fontSize: 26, fontWeight: 'bold', color: AppColors.card },
   userMembership: { fontSize: 16, color: AppColors.card, opacity: 0.8, marginTop: 4 },
-  statsContainer: { flexDirection: 'row', justifyContent: 'space-around', backgroundColor: AppColors.card, borderRadius: 20, padding: 20, marginHorizontal: 20, marginTop: -50, elevation: 10, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 20, shadowOffset: { width: 0, height: 10 }, },
-  statBox: { alignItems: 'center' },
-  statValue: { fontSize: 20, fontWeight: '700', color: AppColors.text },
-  statLabel: { fontSize: 14, color: AppColors.textSecondary, marginTop: 4 },
   menuWrapper: { marginTop: 30, marginHorizontal: 20 },
-  menuTitle: { fontSize: 18, fontWeight: '600', color: AppColors.text, marginBottom: 10 },
+  menuTitle: { fontSize: 18, fontWeight: '600', color: AppColors.text, marginBottom: 10, paddingHorizontal: 5 },
   menu: { backgroundColor: AppColors.card, borderRadius: 16, overflow: 'hidden' },
   menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 15, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: AppColors.border, },
   menuIcon: { marginRight: 15 },
   menuItemText: { flex: 1, fontSize: 16, fontWeight: '500', color: AppColors.text },
-  logoutButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: AppColors.card, borderRadius: 16, marginHorizontal: 20, marginTop: 20, paddingVertical: 15, elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5 },
+  logoutButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: AppColors.card, borderRadius: 16, marginHorizontal: 20, marginTop: 30, paddingVertical: 15, elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5 },
   logoutText: { fontSize: 16, color: AppColors.danger, fontWeight: '600', marginLeft: 10, },
   // Sub-Page Styles
   subPageHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingTop: 40, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: AppColors.border, backgroundColor:AppColors.background },
