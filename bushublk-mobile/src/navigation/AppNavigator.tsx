@@ -11,6 +11,7 @@ import LostAndFoundScreen from '../screens/LostAndFoundScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import BusTracker from '../screens/BusTrackerScreen';
 import BusRouteResultsScreen from '../screens/BusRouteResultsScreen';
+import BusOccupancyScreen from '../screens/BusOccupancyScreen';
 
 
 const Stack = createStackNavigator();
@@ -31,7 +32,8 @@ export default function AppNavigator() {
         <Stack.Screen name="Notifications" component={NotificationsScreen} />
         <Stack.Screen name="BusTracker" component={BusTracker} />
         <Stack.Screen name="BusRouteResults" component={BusRouteResultsScreen} />
-        {/* <Stack.Screen name="Complaints" component={ComplaintsScreen} /> */}
+        <Stack.Screen name="BusOccupancy" component={BusOccupancyScreen} />
+      
       </Stack.Navigator>
     </NavigationContainer>
   );
