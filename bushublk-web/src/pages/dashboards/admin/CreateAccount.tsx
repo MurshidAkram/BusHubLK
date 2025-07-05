@@ -1,82 +1,92 @@
 // pages/dashboard/admin/CreateAccount.tsx
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { HiArrowLeft } from 'react-icons/hi';
 import { useNavigate } from 'react-router-dom';
+import { AppContext } from '../../../context/AppContext';
 
 const CreateAccount = () => {
   const navigate = useNavigate();
+  const context = useContext(AppContext);
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
+    name: '',
     email: '',
+    password: 'defaultPassword123', // In production, generate a secure random password
     role: '',
-    depot: '',
-    sendCredentials: true,
   });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const roles = [
-    'Depot Manager',
-    'Operations Manager',
-    'Depot Engineer',
-    'Regional Officer',
-    'DGM (Operations)',
-    'DGM (Technical)',
+    'depot_manager',
+    'depot_operations_manager',
+    'depot_engineer',
+    'regional_technical_officer',
+    'regional_operations_officer',
+    'dgm_technical',
+    'dgm_operations',
+    'ceo'
   ];
 
-  const depots = [
-    'Colombo Central',
-    'Kandy',
-    'Galle',
-    'Jaffna',
-    'Kurunegala',
-    'Anuradhapura',
-  ];
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Account created:', formData);
-    // Mock success - replace with API call
-    alert('Account created successfully!');
-    navigate('/admin/employees');
+    setLoading(true);
+    setError('');
+
+    try {
+      const response = await fetch('http://localhost:5000/api/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${context?.token}`
+        },
+        body: JSON.stringify(formData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create user');
+      }
+
+      navigate('/admin/employees'); // Redirect after success
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="max-w-2xl mx-auto">
-      <button 
-        onClick={() => navigate(-1)} 
-        className="flex items-center text-blue-600 mb-4"
-      >
+      <button onClick={() => navigate(-1)} className="flex items-center text-blue-600 mb-4">
         <HiArrowLeft className="mr-1" /> Back
       </button>
 
       <h1 className="text-2xl font-bold mb-6">Create New Account</h1>
       
+      {error && (
+        <div className="mb-4 p-2 bg-red-100 text-red-700 rounded">
+          {error}
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
-            <input
-              type="text"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              value={formData.firstName}
-              onChange={(e) => setFormData({...formData, firstName: e.target.value})}
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
-            <input
-              type="text"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              value={formData.lastName}
-              onChange={(e) => setFormData({...formData, lastName: e.target.value})}
-              required
-            />
-          </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Full Name
+          </label>
+          <input
+            type="text"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            value={formData.name}
+            onChange={(e) => setFormData({...formData, name: e.target.value})}
+            required
+          />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Email
+          </label>
           <input
             type="email"
             className="w-full px-3 py-2 border border-gray-300 rounded-md"
@@ -86,55 +96,34 @@ const CreateAccount = () => {
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
-            <select
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              value={formData.role}
-              onChange={(e) => setFormData({...formData, role: e.target.value})}
-              required
-            >
-              <option value="">Select Role</option>
-              {roles.map((role) => (
-                <option key={role} value={role}>{role}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Depot (if applicable)</label>
-            <select
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              value={formData.depot}
-              onChange={(e) => setFormData({...formData, depot: e.target.value})}
-            >
-              <option value="">Select Depot</option>
-              {depots.map((depot) => (
-                <option key={depot} value={depot}>{depot}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div className="flex items-center">
-          <input
-            type="checkbox"
-            id="sendCredentials"
-            className="h-4 w-4 text-blue-600 rounded"
-            checked={formData.sendCredentials}
-            onChange={(e) => setFormData({...formData, sendCredentials: e.target.checked})}
-          />
-          <label htmlFor="sendCredentials" className="ml-2 text-sm text-gray-700">
-            Send login credentials via email
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Role
           </label>
+          <select
+            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            value={formData.role}
+            onChange={(e) => setFormData({...formData, role: e.target.value})}
+            required
+          >
+            <option value="">Select Role</option>
+            {roles.map((role) => (
+              <option key={role} value={role}>
+                {role.replace(/_/g, ' ')}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="pt-4">
           <button
             type="submit"
-            className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
+            disabled={loading}
+            className={`w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 ${
+              loading ? 'opacity-70 cursor-not-allowed' : ''
+            }`}
           >
-            Create Account
+            {loading ? 'Creating...' : 'Create Account'}
           </button>
         </div>
       </form>
@@ -142,4 +131,4 @@ const CreateAccount = () => {
   );
 };
 
-export default CreateAccount;
+export default CreateAccount

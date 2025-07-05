@@ -39,7 +39,7 @@ context?.login(data.user, data.token);
 
 
     // 🧭 Redirect based on role
-    switch (data.user.role) {
+    switch (data.user.role.toLowerCase()) {
       case 'admin':
         navigate('/admin');
         break;

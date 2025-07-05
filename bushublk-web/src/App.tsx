@@ -55,7 +55,7 @@ import DGMTechnicalSidebarContent from './components/dgm-tech/DGMTechnicalSideba
 import DGMTechnicalDashboard from './pages/dashboards/dgm-tech/index'
 
 // CEO Components
-import CEOSidebarContent from './components/ceo/CEOSidebarContent'
+import CEOSidebarContent from './components/ceo/ceoSidebarContent'
 import CEODashboard from './pages/dashboards/ceo/index'
 
 const App = () => {
@@ -102,14 +102,14 @@ const App = () => {
 </Route>
 
         {/* Depot Manager Dashboard Routes */}
-        <Route element={<ProtectedRoute requiredRole="Depot Manager" />}>
+        <Route element={<ProtectedRoute requiredRole="Depot_manager" />}>
         <Route path="/depot-manager" element={<DashboardLayout role="Depot Manager" sidebarContent={<DepotManagerSidebarContent />} />}>
           <Route index element={<DepotManagerDashboard />} />
           <Route path="fleet-management" element={<FleetManagement />} />
           <Route path="driver-management" element={<DriverManagement />} /> 
           <Route path="schedules" element={<Schedules />} />
         </Route>
-        </Route>
+      </Route>
 
         {/* Depot Operations Manager Dashboard Routes */}
         <Route element={<ProtectedRoute requiredRole="Depot Operations Manager" />}>
@@ -120,7 +120,7 @@ const App = () => {
         </Route>
 
         {/* Depot Engineer Dashboard Routes */}
-        <Route element={<ProtectedRoute requiredRole="Depot Engineer" />}>
+        {/* <Route element={<ProtectedRoute requiredRole="Depot Engineer" />}> */}
         <Route path="/depot-engineer" element={<DashboardLayout role="Depot Engineer" sidebarContent={<DepotEngineerSidebarContent />} />}>
           <Route index element={<DepotEngineerDashboard />} />
           <Route path="Repairs" element={<Repairs />} />
@@ -129,7 +129,7 @@ const App = () => {
           <Route path="Performance" element={<Performance />} />
           {/* Add individual pages later */}
         </Route>
-        </Route>
+        {/* </Route> */}
 
         {/* Regional Technical Officer Dashboard Routes */}
         <Route element={<ProtectedRoute requiredRole="Regional Technical Officer" />}>
