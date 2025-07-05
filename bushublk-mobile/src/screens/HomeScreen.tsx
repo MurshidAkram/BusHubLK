@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, DrawerActions } from "@react-navigation/native";
 import {
   StyleSheet,
   View,
@@ -32,7 +32,7 @@ const AppColors = {
   green: "#198754",
 };
 
-const Maps_API_KEY = "YOUR_Maps_API_KEY"; // Replace with your actual key
+const GOOGLE_MAPS_API_KEY = "AIzaSyAeXR9ct7HrHMCQXSWLrWQl5OlRYjNhbxo";
 
 // --- Mock Data (Unchanged) ---
 const quickActions = [
@@ -46,6 +46,65 @@ const services = [
   { title: "Complaints & Feedback", icon: "chatbox-ellipses-outline" },
 ];
 
+// Dummy bus data for Sri Lankan context
+const busData = [
+  {
+    id: "1",
+    number: "101",
+    from: "Colombo",
+    to: "Kandy",
+    time: "08:00 AM",
+    frequency: "Every 15 min",
+  },
+  {
+    id: "2",
+    number: "112",
+    from: "Colombo",
+    to: "Negombo",
+    time: "09:00 AM",
+    frequency: "Every 20 min",
+  },
+  {
+    id: "3",
+    number: "154",
+    from: "Angulana",
+    to: "Kiribathgoda",
+    time: "07:30 AM",
+    frequency: "Every 10 min",
+  },
+  {
+    id: "4",
+    number: "98",
+    from: "Kandy",
+    to: "Badulla",
+    time: "10:00 AM",
+    frequency: "Every 30 min",
+  },
+  {
+    id: "5",
+    number: "17",
+    from: "Colombo",
+    to: "Jaffna",
+    time: "06:00 AM",
+    frequency: "Every 1 hour",
+  },
+  {
+    id: "6",
+    number: "120",
+    from: "Horana",
+    to: "Pettah",
+    time: "08:30 AM",
+    frequency: "Every 12 min",
+  },
+  {
+    id: "7",
+    number: "138",
+    from: "Homagama",
+    to: "Pettah",
+    time: "09:15 AM",
+    frequency: "Every 8 min",
+  },
+];
 
 export default function HomeScreen() {
   const navigation = useNavigation();
@@ -61,6 +120,9 @@ export default function HomeScreen() {
   const [showToSuggestions, setShowToSuggestions] = useState(false);
   const debounceTimeout = useRef(null);
 
+  // For local bus search (not Google)
+  const [filteredBuses, setFilteredBuses] = useState([]);
+
   // Google Places Autocomplete logic
   const fetchPlaceSuggestions = async (input, setSuggestions) => {
     if (input.length < 1) {
@@ -71,7 +133,7 @@ export default function HomeScreen() {
       const response = await axios.get(
         `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(
           input
-        )}&components=country:LK&language=en&key=${Maps_API_KEY}`
+        )}&components=country:LK&language=en&key=${GOOGLE_MAPS_API_KEY}`
       );
       if (response.data.status === "OK") {
         setSuggestions(response.data.predictions);
@@ -120,6 +182,18 @@ export default function HomeScreen() {
     Keyboard.dismiss();
   };
 
+  // For local bus search (not Google)
+  const handleJourneySearch = () => {
+    const fromLower = from.trim().toLowerCase();
+    const toLower = to.trim().toLowerCase();
+    const results = busData.filter(
+      (bus) =>
+        bus.from.toLowerCase().includes(fromLower) &&
+        bus.to.toLowerCase().includes(toLower)
+    );
+    setFilteredBuses(results);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Background Image */}
@@ -137,6 +211,7 @@ export default function HomeScreen() {
 
       {/* --- HEADER --- */}
       <View style={styles.header}>
+        
         <Text style={styles.headerTitle}>
           BusHub<Text style={styles.superscript}>LK</Text>
         </Text>
@@ -330,6 +405,49 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </LinearGradient>
 
+        {/* Show filtered buses below the card */}
+        {filteredBuses.length > 0 ? (
+          <View style={{ marginBottom: 20 }}>
+            {filteredBuses.map((bus) => (
+              <View key={bus.id} style={styles.busCard}>
+                <View style={styles.busInfo}>
+                  <View style={styles.busNumberContainer}>
+                    <Text
+                      style={{
+                        color: AppColors.primary,
+                        fontWeight: "bold",
+                        fontSize: 16,
+                      }}
+                    >
+                      {bus.number}
+                    </Text>
+                  </View>
+                  <View>
+                    <Text style={styles.busDestination}>
+                      {bus.from} → {bus.to}
+                    </Text>
+                    <View style={styles.arrivalContainer}>
+                      <Icon
+                        name="time-outline"
+                        size={16}
+                        color={AppColors.textSecondary}
+                      />
+                      <Text style={styles.arrivalTime}>{bus.time}</Text>
+                    </View>
+                    <Text style={styles.busArrival}>{bus.frequency}</Text>
+                  </View>
+                </View>
+              </View>
+            ))}
+          </View>
+        ) : from || to ? (
+          <Text
+            style={{ color: "#888", textAlign: "center", marginBottom: 20 }}
+          >
+            No buses found for this route.
+          </Text>
+        ) : null}
+
         {/* --- Quick Actions Section --- */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
@@ -392,7 +510,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: AppColors.background,
-    //paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
   },
   backgroundImage: {
     position: "absolute",
@@ -424,23 +542,22 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: "900",
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
-    flexDirection: 'row',
-    alignItems: 'center',
   },
-  // --- FIXED STYLE ---
   superscript: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    transform: [{ translateY: -6 }], // Correct vertical alignment
+    fontSize: 10,
+    lineHeight: 10,
+    textAlignVertical: 'top',
+    transform: [{ translateY: -18 }],
+    position: 'relative',
+    top: -6,
   },
   headerIconContainer: {
     padding: 5,
   },
-  // --- FIXED STYLE ---
   logoWrapper: {
-    width: 36, // Match image size
-    height: 36, // Match image size
-    borderRadius: 18, // Make it a perfect circle to match the image
+    width: 35,
+    height: 35,
+    borderRadius: 10,
     backgroundColor: "#FFFFFF",
     justifyContent: "center",
     alignItems: "center",
@@ -450,6 +567,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     resizeMode: "cover",
+    borderRadius: 18,
   },
   welcomeBanner: {
     flexDirection: "row",
@@ -476,13 +594,22 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: 20,
   },
-  // --- FIXED STYLE ---
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
   sectionTitle: {
     fontSize: 20,
     fontWeight: "600",
     color: AppColors.text,
-    textAlign: "left", // Changed from 'center' to 'left'
-    marginBottom: 16,  // Added space below the title
+    textAlign: "center",
+  },
+  seeAllText: {
+    fontSize: 14,
+    color: AppColors.primary,
+    fontWeight: "500",
   },
   journeyCard: {
     padding: 20,
@@ -509,7 +636,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 12,
     marginBottom: 12,
-    position: "relative",
+    position: "relative", // important for stacking context
     zIndex: 101,
   },
   inputIcon: {
@@ -567,9 +694,12 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   quickActionGrid: {
+    top: 10,
     flexDirection: "row",
     justifyContent: "space-between",
     flexWrap: "wrap",
+    gap: 4,
+    marginHorizontal: -2,
   },
   quickActionCard: {
     width: "31%",
@@ -600,15 +730,55 @@ const styles = StyleSheet.create({
     color: AppColors.textSecondary,
     textAlign: "center",
   },
-  // --- FIXED STYLE ---
+  busCard: {
+    backgroundColor: "#f8f9fa",
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  busInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+  },
+  busNumberContainer: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: AppColors.primaryMuted,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  busDestination: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: AppColors.text,
+  },
+  arrivalContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  arrivalTime: {
+    fontSize: 15,
+    fontWeight: "500",
+    color: AppColors.text,
+    marginLeft: 4,
+  },
+  busArrival: {
+    fontSize: 14,
+    color: AppColors.textSecondary,
+    marginTop: 4,
+  },
   serviceGrid: {
+    top: 10,
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "space-between", // Keeps items spaced apart
+    justifyContent: "space-between",
   },
-  // --- FIXED STYLE ---
   serviceCard: {
-    width: "48%", // Adjusted for a balanced 2-column layout
+    width: "42%",
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 20,
