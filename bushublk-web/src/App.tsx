@@ -41,6 +41,11 @@ import Performance from './pages/dashboards/depot-engineer/Performance'
 // Regional Technical Officer Components
 import RegionalTechnicalOfficerSidebarContent from './components/regional-tech/RegionalTechnicalOfficerSidebarContent'
 import RegionalTechnicalOfficerDashboard from './pages/dashboards/regional-tech/index'
+import Issuetracker from './pages/dashboards/regional-tech/Issuetracker'
+import Investigationlogs from './pages/dashboards/regional-tech/Investigationlogs'
+import Regionservicemonitor from './pages/dashboards/regional-tech/Regionservicemonitor'
+import Inspectionschedular from './pages/dashboards/regional-tech/Inspectionschedular'
+
 
 // Regional Operations Officer Components
 import RegionalOperationsOfficerSidebarContent from './components/regional-ops/RegionalOperationsOfficerSidebarContent'
@@ -57,6 +62,9 @@ import DGMTechnicalDashboard from './pages/dashboards/dgm-tech/index'
 // CEO Components
 import CEOSidebarContent from './components/ceo/CEOSidebarContent'
 import CEODashboard from './pages/dashboards/ceo/index'
+//import Inspectionschedular from './pages/dashboards/regional-tech/Inspectionschedular'
+//import Investigationlogs from './pages/dashboards/regional-tech/Investigationlogs'
+//import Regionservicemonitor from './pages/dashboards/regional-tech/Regionservicemonitor'
 //import Escalate from './pages/dashboards/depot-engineer/Escalate'
 
 const App = () => {
@@ -125,6 +133,10 @@ const App = () => {
         {/* Regional Technical Officer Dashboard Routes */}
         <Route path="/regional-technical-officer" element={<DashboardLayout role="Regional Technical Officer" sidebarContent={<RegionalTechnicalOfficerSidebarContent />} />}>
           <Route index element={<RegionalTechnicalOfficerDashboard />} />
+          <Route path="Issuetracker" element={<Issuetracker />} />
+          <Route path="Inspectionschedular" element={<Inspectionschedular />} />
+          <Route path="Investigationlogs" element={<Investigationlogs />} />
+          <Route path="Regionservicemonitor" element={<Regionservicemonitor />} />
           {/* Add individual pages later */}
         </Route>
 
