@@ -13,13 +13,8 @@ const Navbar = () => {
   // const { user, token, logout } = useContext(AppContext)
   
   // For now, using local state - replace with context values
-  const [token, setToken] = useState(true)
-  const [user, setUser] = useState({
-    name: "John Doe",
-    email: "john@bushublk.lk",
-    role: "Admin",
-    avatar: assets.profile_pic
-  })
+  const { user, token, logout } = useContext(AppContext);
+
 
   // Check if we're in a dashboard route
   const isDashboard = location.pathname.startsWith('/admin') || 
@@ -35,10 +30,10 @@ const Navbar = () => {
                      location.pathname.startsWith('/conductor')
 
   const handleLogout = () => {
-    setToken(false)
-    // Call your logout function from context
-    navigate('/')
-  }
+  logout();
+  navigate('/');
+};
+
 
   // Function to get dashboard route based on user role
   const getDashboardRoute = (role: string) => {

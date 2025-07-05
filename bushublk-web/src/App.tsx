@@ -9,6 +9,7 @@ import Myprofile from './pages/Myprofile'
 import Navbar from './components/Navbar'
 import Footer from './components/Footer'
 import DashboardLayout from './components/DashboardLayout'
+import ProtectedRoute from './components/ProtectedRoute'
 
 // Admin Components
 import AdminSidebarContent from './components/admin/AdminSidebarContent'
@@ -83,62 +84,84 @@ const App = () => {
         <Route path='/my-profile' element={<Myprofile/>} />
         
         {/* Admin Dashboard Routes */}
-        <Route path="/admin" element={<DashboardLayout role="Admin" sidebarContent={<AdminSidebarContent />} />}>
-          <Route index element={<AdminDashboard />} />
-          <Route path="create-account" element={<CreateAccount />} />
-          <Route path="manage-roles" element={<ManageRoles />} />
-          <Route path="employees" element={<Employees />} />
-        </Route>
+        <Route element={<ProtectedRoute requiredRole="Admin" />}>
+  <Route
+    path="/admin"
+    element={<DashboardLayout role="Admin" sidebarContent={<AdminSidebarContent />} />}
+  >
+    <Route index element={<AdminDashboard />} />
+    <Route path="create-account" element={<CreateAccount />} />
+    <Route path="manage-roles" element={<ManageRoles />} />
+    <Route path="employees" element={<Employees />} />
+  </Route>
+</Route>
 
         {/* Depot Manager Dashboard Routes */}
+        <Route element={<ProtectedRoute requiredRole="Depot Manager" />}>
         <Route path="/depot-manager" element={<DashboardLayout role="Depot Manager" sidebarContent={<DepotManagerSidebarContent />} />}>
           <Route index element={<DepotManagerDashboard />} />
           <Route path="fleet-management" element={<FleetManagement />} />
           <Route path="driver-management" element={<DriverManagement />} /> 
           <Route path="schedules" element={<Schedules />} />
         </Route>
+        </Route>
 
         {/* Depot Operations Manager Dashboard Routes */}
-        <Route path="/depot-operations-manager" element={<DashboardLayout role="Depot Operations Manager" sidebarContent={<DepotOperationsManagerSidebarContent />} />}>
-          <Route index element={<DepotOperationsManagerDashboard />} />
-          {/* Add individual pages later */}
+        <Route element={<ProtectedRoute requiredRole="Depot Operations Manager" />}>
+          <Route path="/depot-operations-manager" element={<DashboardLayout role="Depot Operations Manager" sidebarContent={<DepotOperationsManagerSidebarContent />} />}>
+            <Route index element={<DepotOperationsManagerDashboard />} />
+            {/* Add individual pages later */}
+          </Route>
         </Route>
 
         {/* Depot Engineer Dashboard Routes */}
+        <Route element={<ProtectedRoute requiredRole="Depot Engineer" />}>
         <Route path="/depot-engineer" element={<DashboardLayout role="Depot Engineer" sidebarContent={<DepotEngineerSidebarContent />} />}>
           <Route index element={<DepotEngineerDashboard />} />
           {/* Add individual pages later */}
         </Route>
+        </Route>
 
         {/* Regional Technical Officer Dashboard Routes */}
+        <Route element={<ProtectedRoute requiredRole="Regional Technical Officer" />}>
         <Route path="/regional-technical-officer" element={<DashboardLayout role="Regional Technical Officer" sidebarContent={<RegionalTechnicalOfficerSidebarContent />} />}>
           <Route index element={<RegionalTechnicalOfficerDashboard />} />
           {/* Add individual pages later */}
         </Route>
+        </Route>
 
         {/* Regional Operations Officer Dashboard Routes */}
-        <Route path="/regional-operations-officer" element={<DashboardLayout role="Regional Operations Officer" sidebarContent={<RegionalOperationsOfficerSidebarContent />} />}>
-          <Route index element={<RegionalOperationsOfficerDashboard />} />
-          {/* Add individual pages later */}
+        <Route element={<ProtectedRoute requiredRole="Regional Operations Officer" />}>
+          <Route path="/regional-operations-officer" element={<DashboardLayout role="Regional Operations Officer" sidebarContent={<RegionalOperationsOfficerSidebarContent />} />}>
+            <Route index element={<RegionalOperationsOfficerDashboard />} />
+            {/* Add individual pages later */}
+          </Route>
         </Route>
 
         {/* DGM Operations Dashboard Routes */}
-        <Route path="/dgm-operations" element={<DashboardLayout role="DGM Operations" sidebarContent={<DGMOperationsSidebarContent />} />}>
-          <Route index element={<DGMOperationsDashboard />} />
-          {/* Add individual pages later */}  
-        </Route>
+        <Route element={<ProtectedRoute requiredRole="DGM Operations" />}>
+  <Route path="/dgm-operations" element={<DashboardLayout role="DGM Operations" sidebarContent={<DGMOperationsSidebarContent />} />}>
+    <Route index element={<DGMOperationsDashboard />} />
+  </Route>
+</Route>
 
         {/* DGM Technical Dashboard Routes */}
-        <Route path="/dgm-technical" element={<DashboardLayout role="DGM Technical" sidebarContent={<DGMTechnicalSidebarContent />} />}>
-          <Route index element={<DGMTechnicalDashboard />} />
-          {/* Add individual pages later */}
-        </Route>
+        {/* DGM Technical Dashboard Routes */}
+<Route element={<ProtectedRoute requiredRole="DGM Technical" />}>
+  <Route path="/dgm-technical" element={<DashboardLayout role="DGM Technical" sidebarContent={<DGMTechnicalSidebarContent />} />}>
+    <Route index element={<DGMTechnicalDashboard />} />
+  </Route>
+</Route>
 
         {/* CEO Dashboard Routes */}
+        <Route element={<ProtectedRoute requiredRole="CEO" />}>
         <Route path="/ceo" element={<DashboardLayout role="CEO" sidebarContent={<CEOSidebarContent />} />}>
           <Route index element={<CEODashboard />} />
           {/* Add individual pages later */}
         </Route>
+        </Route>
+
+        {/* Fallback route */}
       </Routes>
       
       {/* Conditionally render footer */}
