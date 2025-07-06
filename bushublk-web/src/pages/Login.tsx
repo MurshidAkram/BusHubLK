@@ -40,37 +40,46 @@ context?.login(data.user, data.token);
 
     // 🧭 Redirect based on role
     // In Login.tsx, update the switch statement to match your backend roles:
-switch (data.user.role.toLowerCase()) {
-  case 'admin':
-    navigate('/admin');
-    break;
-  case 'ceo':
-    navigate('/ceo');
-    break;
-  case 'depot_manager':
-    navigate('/depot-manager');
-    break;
-  case 'depot_operations':
-    navigate('/depot-operations-manager');
-    break;
-  case 'depot_engineer':
-    navigate('/depot-engineer');
-    break;
-  case 'regional_tech':
-    navigate('/regional-technical-officer');
-    break;
-  case 'regional_operations':
-    navigate('/regional-operations-officer');
-    break;
-  case 'dgm_operations':
-    navigate('/dgm-operations');
-    break;
-  case 'dgm_technical':
-    navigate('/dgm-technical');
-    break;
-  default:
-    navigate('/');
-}
+switch (data.user.role) {
+      case 'admin':
+        navigate('/admin');
+        break;
+      case 'ceo':
+        navigate('/ceo');
+        break;
+      case 'depot_manager':
+        navigate('/depot-manager');
+        break;
+      case 'depot_operations':
+        navigate('/depot-operations-manager');
+        break;
+      case 'depot_engineer':
+        navigate('/depot-engineer');
+        break;
+      case 'regional_tech':
+        navigate('/regional-technical-officer');
+        break;
+      case 'regional_operations':
+        navigate('/regional-operations-officer');
+        break;
+      case 'dgm_operations':
+        navigate('/dgm-operations');
+        break;
+      case 'dgm_technical':
+        navigate('/dgm-technical');
+        break;
+      case 'driver':
+        navigate('/driver');
+        break;
+      case 'conductor':
+        navigate('/conductor');
+        break;
+      case 'passenger':
+        navigate('/');
+        break;
+      default:
+        navigate('/');
+    }
 
   } catch (err: any) {
     setError(err.message || 'Login failed. Try again.');

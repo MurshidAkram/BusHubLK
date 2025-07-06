@@ -13,11 +13,12 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ requiredRole }) => {
     return <Navigate to="/login" replace />;
   }
 
-  if (requiredRole && context.user?.role.toLowerCase() !== requiredRole.toLowerCase()) {
-  return <Navigate to="/" replace />;
-}
+  if (requiredRole && context.user?.role !== requiredRole) {
+    console.log('Access denied. User role:', context.user?.role, 'Required role:', requiredRole);
+    return <Navigate to="/" replace />;
+  }
 
   return <Outlet />;
 };
 
-export default ProtectedRoute;
+export default ProtectedRoute

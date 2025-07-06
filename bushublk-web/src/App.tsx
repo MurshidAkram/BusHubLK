@@ -60,7 +60,7 @@ import DGMTechnicalSidebarContent from './components/dgm-tech/DGMTechnicalSideba
 import DGMTechnicalDashboard from './pages/dashboards/dgm-tech/index'
 
 // CEO Components
-import CEOSidebarContent from './components/ceo/ceoSidebarContent'
+import CEOSidebarContent from './components/ceo/CEOSidebarContent'
 import CEODashboard from './pages/dashboards/ceo/index'
 
 const App = () => {
@@ -94,7 +94,7 @@ const App = () => {
         <Route path='/my-profile' element={<Myprofile/>} />
         
         {/* Admin Dashboard Routes */}
-        <Route element={<ProtectedRoute requiredRole="Admin" />}>
+        <Route element={<ProtectedRoute requiredRole="admin" />}>
   <Route
     path="/admin"
     element={<DashboardLayout role="Admin" sidebarContent={<AdminSidebarContent />} />}
@@ -107,7 +107,7 @@ const App = () => {
 </Route>
 
         {/* Depot Manager Dashboard Routes */}
-        <Route element={<ProtectedRoute requiredRole="Depot_manager" />}>
+        <Route element={<ProtectedRoute requiredRole="depot_manager" />}>
         <Route path="/depot-manager" element={<DashboardLayout role="Depot Manager" sidebarContent={<DepotManagerSidebarContent />} />}>
           <Route index element={<DepotManagerDashboard />} />
           <Route path="fleet-management" element={<FleetManagement />} />
@@ -122,7 +122,7 @@ const App = () => {
       </Route>
 
         {/* Depot Operations Manager Dashboard Routes */}
-        <Route element={<ProtectedRoute requiredRole="Depot Operations Manager" />}>
+        <Route element={<ProtectedRoute requiredRole="depot_operations" />}>
           <Route path="/depot-operations-manager" element={<DashboardLayout role="Depot Operations Manager" sidebarContent={<DepotOperationsManagerSidebarContent />} />}>
             <Route index element={<DepotOperationsManagerDashboard />} />
             {/* Add individual pages later */}
@@ -131,7 +131,7 @@ const App = () => {
 
         {/* Depot Engineer Dashboard Routes */}
         {/* <Route element={<ProtectedRoute requiredRole="Depot Engineer" />}> */}
-        <Route path="/depot-engineer" element={<DashboardLayout role="Depot Engineer" sidebarContent={<DepotEngineerSidebarContent />} />}>
+        <Route path="/depot-engineer" element={<DashboardLayout role="depot_engineer" sidebarContent={<DepotEngineerSidebarContent />} />}>
           <Route index element={<DepotEngineerDashboard />} />
           <Route path="Repairs" element={<Repairs />} />
           <Route path="assigned-buses" element={<Assignedbuses />} />
@@ -142,7 +142,7 @@ const App = () => {
         {/* </Route> */}
 
         {/* Regional Technical Officer Dashboard Routes */}
-        <Route element={<ProtectedRoute requiredRole="Regional Technical Officer" />}>
+        <Route element={<ProtectedRoute requiredRole="regional_tech" />}>
         <Route path="/regional-technical-officer" element={<DashboardLayout role="Regional Technical Officer" sidebarContent={<RegionalTechnicalOfficerSidebarContent />} />}>
           <Route index element={<RegionalTechnicalOfficerDashboard />} />
           {/* Add individual pages later */}
@@ -150,7 +150,7 @@ const App = () => {
         </Route>
 
         {/* Regional Operations Officer Dashboard Routes */}
-        <Route element={<ProtectedRoute requiredRole="Regional Operations Officer" />}>
+        <Route element={<ProtectedRoute requiredRole="regional_operations" />}>
           <Route path="/regional-operations-officer" element={<DashboardLayout role="Regional Operations Officer" sidebarContent={<RegionalOperationsOfficerSidebarContent />} />}>
             <Route index element={<RegionalOperationsOfficerDashboard />} />
             {/* Add individual pages later */}
@@ -158,7 +158,7 @@ const App = () => {
         </Route>
 
         {/* DGM Operations Dashboard Routes */}
-        <Route element={<ProtectedRoute requiredRole="DGM Operations" />}>
+        <Route element={<ProtectedRoute requiredRole="dgm_operations" />}>
   <Route path="/dgm-operations" element={<DashboardLayout role="DGM Operations" sidebarContent={<DGMOperationsSidebarContent />} />}>
     <Route index element={<DGMOperationsDashboard />} />
   </Route>
@@ -166,14 +166,14 @@ const App = () => {
 
         {/* DGM Technical Dashboard Routes */}
         {/* DGM Technical Dashboard Routes */}
-<Route element={<ProtectedRoute requiredRole="DGM Technical" />}>
+<Route element={<ProtectedRoute requiredRole="dgm_technical" />}>
   <Route path="/dgm-technical" element={<DashboardLayout role="DGM Technical" sidebarContent={<DGMTechnicalSidebarContent />} />}>
     <Route index element={<DGMTechnicalDashboard />} />
   </Route>
 </Route>
 
         {/* CEO Dashboard Routes */}
-        <Route element={<ProtectedRoute requiredRole="CEO" />}>
+        <Route element={<ProtectedRoute requiredRole="ceo" />}>
         <Route path="/ceo" element={<DashboardLayout role="CEO" sidebarContent={<CEOSidebarContent />} />}>
           <Route index element={<CEODashboard />} />
           {/* Add individual pages later */}
