@@ -40,12 +40,18 @@ import DepotEngineerDashboard from './pages/dashboards/depot-engineer/index'
 import Assignedbuses from './pages/dashboards/depot-engineer/Assignedbuses'
 import Repairs from './pages/dashboards/depot-engineer/Repairs'
 import Scheduling from './pages/dashboards/depot-engineer/Scheduling'
+import Escalate from './pages/dashboards/depot-engineer/Escalate'
 import Performance from './pages/dashboards/depot-engineer/Performance'
 
 
 // Regional Technical Officer Components
 import RegionalTechnicalOfficerSidebarContent from './components/regional-tech/RegionalTechnicalOfficerSidebarContent'
 import RegionalTechnicalOfficerDashboard from './pages/dashboards/regional-tech/index'
+import Issuetracker from './pages/dashboards/regional-tech/Issuetracker'
+import Investigationlogs from './pages/dashboards/regional-tech/Investigationlogs'
+import Regionservicemonitor from './pages/dashboards/regional-tech/Regionservicemonitor'
+import Inspectionschedular from './pages/dashboards/regional-tech/Inspectionschedular'
+
 
 // Regional Operations Officer Components
 import RegionalOperationsOfficerSidebarContent from './components/regional-ops/RegionalOperationsOfficerSidebarContent'
@@ -63,6 +69,10 @@ import DGMTechnicalDashboard from './pages/dashboards/dgm-tech/index'
 import CEOSidebarContent from './components/ceo/CEOSidebarContent'
 import CEODashboard from './pages/dashboards/ceo/index'
 import DepotAndRegions from './pages/dashboards/admin/DepotAndRegions'
+//import Inspectionschedular from './pages/dashboards/regional-tech/Inspectionschedular'
+//import Investigationlogs from './pages/dashboards/regional-tech/Investigationlogs'
+//import Regionservicemonitor from './pages/dashboards/regional-tech/Regionservicemonitor'
+//import Escalate from './pages/dashboards/depot-engineer/Escalate'
 
 const App = () => {
   const location = useLocation()
@@ -131,21 +141,26 @@ const App = () => {
         </Route>
 
         {/* Depot Engineer Dashboard Routes */}
-        {/* <Route element={<ProtectedRoute requiredRole="Depot Engineer" />}> */}
+        <Route element={<ProtectedRoute requiredRole="depot_engineer" />}>
         <Route path="/depot-engineer" element={<DashboardLayout role="depot_engineer" sidebarContent={<DepotEngineerSidebarContent />} />}>
           <Route index element={<DepotEngineerDashboard />} />
           <Route path="Repairs" element={<Repairs />} />
           <Route path="assigned-buses" element={<Assignedbuses />} />
           <Route path="scheduling" element={<Scheduling />} />
+          <Route path="Escalate" element={<Escalate />} />
           <Route path="Performance" element={<Performance />} />
           {/* Add individual pages later */}
         </Route>
-        {/* </Route> */}
+        </Route>
 
         {/* Regional Technical Officer Dashboard Routes */}
         <Route element={<ProtectedRoute requiredRole="regional_tech" />}>
         <Route path="/regional-technical-officer" element={<DashboardLayout role="Regional Technical Officer" sidebarContent={<RegionalTechnicalOfficerSidebarContent />} />}>
           <Route index element={<RegionalTechnicalOfficerDashboard />} />
+          <Route path="Issuetracker" element={<Issuetracker />} />
+          <Route path="Inspectionschedular" element={<Inspectionschedular />} />
+          <Route path="Investigationlogs" element={<Investigationlogs />} />
+          <Route path="Regionservicemonitor" element={<Regionservicemonitor />} />
           {/* Add individual pages later */}
         </Route>
         </Route>

@@ -1,308 +1,185 @@
 import React from 'react';
 import { 
-  HiOfficeBuilding,
-  HiCog, 
-  HiClipboardCheck, 
-  HiExclamationCircle, 
-  HiTruck, 
-  HiCollection,
-  HiChartBar,
-  HiUserGroup,
-  HiAcademicCap,
-  HiShieldCheck,
-  HiLightBulb,
-  HiCalendar
-} from 'react-icons/hi';
+  FaExclamationTriangle, 
+  FaCheckCircle, 
+  FaClock, 
+  FaWrench, 
+  FaCalendarAlt,
+  FaMapMarkerAlt 
+} from 'react-icons/fa';
 
-const RegionalTechnicalOfficerDashboard = () => {
-  // Mock data - replace with actual API calls
-  const stats = {
-    totalDepots: 8,
-    activeMaintenanceTasks: 45,
-    pendingInspections: 23,
-    criticalIssues: 7,
-    totalFleetVehicles: 320,
-    technicalStaff: 64,
-    trainingPrograms: 12,
-    complianceScore: 92,
-    resourceUtilization: 87,
-    completedToday: 28,
-    upcomingPM: 156,
-    innovationProjects: 5
-  };
-
-  const depotOverview = [
-    { id: 1, name: 'Colombo Central Depot', vehicles: 45, staff: 12, status: 'operational', compliance: 95, criticalIssues: 1 },
-    { id: 2, name: 'Maharagama Depot', vehicles: 38, staff: 9, status: 'operational', compliance: 88, criticalIssues: 2 },
-    { id: 3, name: 'Nugegoda Depot', vehicles: 42, staff: 11, status: 'maintenance', compliance: 92, criticalIssues: 0 },
-    { id: 4, name: 'Moratuwa Depot', vehicles: 35, staff: 8, status: 'operational', compliance: 90, criticalIssues: 1 }
-  ];
-
-  const criticalAlerts = [
-    { id: 1, depot: 'Colombo Central', issue: 'Engine overhaul required for 3 buses', priority: 'high', time: '15 minutes ago' },
-    { id: 2, depot: 'Maharagama', issue: 'Brake system maintenance backlog', priority: 'medium', time: '1 hour ago' },
-    { id: 3, depot: 'Nugegoda', issue: 'Parts inventory critically low', priority: 'high', time: '2 hours ago' },
-    { id: 4, depot: 'Moratuwa', issue: 'Safety compliance inspection due', priority: 'medium', time: '3 hours ago' }
-  ];
-
-  const performanceMetrics = [
-    { title: 'Fleet Availability', value: '89%', trend: '+2.3%', color: 'green' },
-    { title: 'Maintenance Efficiency', value: '92%', trend: '+1.8%', color: 'green' },
-    { title: 'Cost per KM', value: 'Rs. 24.5', trend: '-3.2%', color: 'green' },
-    { title: 'Technical Issues', value: '7', trend: '-15%', color: 'green' }
-  ];
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'operational': return 'text-green-600 bg-green-50';
-      case 'maintenance': return 'text-yellow-600 bg-yellow-50';
-      case 'critical': return 'text-red-600 bg-red-50';
-      default: return 'text-gray-600 bg-gray-50';
-    }
-  };
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'high': return 'text-red-600 bg-red-50';
-      case 'medium': return 'text-yellow-600 bg-yellow-50';
-      case 'low': return 'text-green-600 bg-green-50';
-      default: return 'text-gray-600 bg-gray-50';
-    }
-  };
-
-  const getTrendColor = (trend: string) => {
-    return trend.startsWith('+') || trend.startsWith('-') && trend.includes('%') 
-      ? 'text-green-600' 
-      : 'text-red-600';
-  };
-
+const MaintenanceDashboard = () => {
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Regional Technical Officer Dashboard</h1>
-          <p className="text-gray-600 mt-1">Regional engineering oversight and technical coordination</p>
-        </div>
-        <div className="text-right">
-          <p className="text-sm text-gray-500">Last updated</p>
-          <p className="text-lg font-semibold text-gray-900">{new Date().toLocaleTimeString()}</p>
-        </div>
-      </div>
-
-      {/* Primary Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center">
-            <div className="p-3 rounded-full bg-blue-50">
-              <HiOfficeBuilding className="h-6 w-6 text-blue-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Total Depots</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalDepots}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center">
-            <div className="p-3 rounded-full bg-orange-50">
-              <HiCog className="h-6 w-6 text-orange-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Active Tasks</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.activeMaintenanceTasks}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center">
-            <div className="p-3 rounded-full bg-red-50">
-              <HiExclamationCircle className="h-6 w-6 text-red-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Critical Issues</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.criticalIssues}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center">
-            <div className="p-3 rounded-full bg-green-50">
-              <HiTruck className="h-6 w-6 text-green-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Fleet Vehicles</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalFleetVehicles}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Secondary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center">
-            <div className="p-3 rounded-full bg-purple-50">
-              <HiUserGroup className="h-6 w-6 text-purple-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Technical Staff</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.technicalStaff}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center">
-            <div className="p-3 rounded-full bg-indigo-50">
-              <HiAcademicCap className="h-6 w-6 text-indigo-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Training Programs</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.trainingPrograms}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center">
-            <div className="p-3 rounded-full bg-green-50">
-              <HiShieldCheck className="h-6 w-6 text-green-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Compliance Score</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.complianceScore}%</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center">
-            <div className="p-3 rounded-full bg-yellow-50">
-              <HiLightBulb className="h-6 w-6 text-yellow-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Innovation Projects</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.innovationProjects}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Performance Metrics */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Regional Performance Metrics</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {performanceMetrics.map((metric, index) => (
-            <div key={index} className="p-4 rounded-lg bg-gray-50">
-              <p className="text-sm text-gray-600">{metric.title}</p>
-              <div className="flex items-center justify-between mt-1">
-                <p className="text-xl font-bold text-gray-900">{metric.value}</p>
-                <span className={`text-sm font-medium ${getTrendColor(metric.trend)}`}>
-                  {metric.trend}
-                </span>
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Top Metrics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          {/* Active Breakdowns */}
+          <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-red-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center mb-2">
+                  <FaExclamationTriangle className="w-5 h-5 text-red-500 mr-2" />
+                  <span className="text-gray-600 text-sm">Active Breakdowns</span>
+                </div>
+                <div className="text-3xl font-bold text-gray-900">12</div>
+                <div className="text-red-500 text-sm mt-1">+2 from yesterday</div>
               </div>
             </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Depot Overview */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Depot Overview</h3>
-            <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">View All</button>
           </div>
-          <div className="space-y-4">
-            {depotOverview.map((depot) => (
-              <div key={depot.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-2">
-                    <p className="font-medium text-gray-900">{depot.name}</p>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(depot.status)}`}>
-                      {depot.status}
-                    </span>
+
+          {/* Resolved Today */}
+          <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-green-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center mb-2">
+                  <FaCheckCircle className="w-5 h-5 text-green-500 mr-2" />
+                  <span className="text-gray-600 text-sm">Resolved Today</span>
+                </div>
+                <div className="text-3xl font-bold text-gray-900">8</div>
+                <div className="text-green-500 text-sm mt-1">+3 from yesterday</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Pending Inspections */}
+          <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-blue-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center mb-2">
+                  <FaCalendarAlt className="w-5 h-5 text-blue-500 mr-2" />
+                  <span className="text-gray-600 text-sm">Pending Inspections</span>
+                </div>
+                <div className="text-3xl font-bold text-gray-900">5</div>
+                <div className="text-blue-500 text-sm mt-1">Due this week</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Avg Repair Time */}
+          <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-orange-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center mb-2">
+                  <FaClock className="w-5 h-5 text-orange-500 mr-2" />
+                  <span className="text-gray-600 text-sm">Avg. Repair Time</span>
+                </div>
+                <div className="text-3xl font-bold text-gray-900">4.2h</div>
+                <div className="text-orange-500 text-sm mt-1">-0.5h from last week</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Main Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Regional Status */}
+          <div className="lg:col-span-2">
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-lg font-semibold text-gray-900">Regional Status</h2>
+                <button className="text-blue-600 text-sm hover:text-blue-800">View All</button>
+              </div>
+              
+              <div className="space-y-4">
+                {/* Status Summary */}
+                <div className="grid grid-cols-3 gap-4 mb-6">
+                  <div className="text-center">
+                    <div className="flex items-center justify-center mb-2">
+                      <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+                      <span className="text-sm text-gray-600">Operational</span>
+                    </div>
+                    <div className="text-lg font-semibold">8 Depots</div>
                   </div>
-                  <div className="flex items-center space-x-4 mt-1 text-sm text-gray-600">
-                    <span>{depot.vehicles} vehicles</span>
-                    <span>{depot.staff} staff</span>
-                    <span>Compliance: {depot.compliance}%</span>
+                  <div className="text-center">
+                    <div className="flex items-center justify-center mb-2">
+                      <div className="w-3 h-3 bg-orange-500 rounded-full mr-2"></div>
+                      <span className="text-sm text-gray-600">Minor Issues</span>
+                    </div>
+                    <div className="text-lg font-semibold">3 Depots</div>
                   </div>
-                  {depot.criticalIssues > 0 && (
-                    <p className="text-xs text-red-600 mt-1">{depot.criticalIssues} critical issue(s)</p>
-                  )}
+                  <div className="text-center">
+                    <div className="flex items-center justify-center mb-2">
+                      <div className="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
+                      <span className="text-sm text-gray-600">Critical Issues</span>
+                    </div>
+                    <div className="text-lg font-semibold">1 Depot</div>
+                  </div>
                 </div>
-                <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">
-                  Details
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
 
-        {/* Critical Alerts */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Critical Alerts</h3>
-            <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">View All</button>
-          </div>
-          <div className="space-y-4">
-            {criticalAlerts.map((alert) => (
-              <div key={alert.id} className="flex items-start space-x-3 p-3 rounded-lg hover:bg-gray-50">
-                <div className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(alert.priority)}`}>
-                  {alert.priority.charAt(0).toUpperCase() + alert.priority.slice(1)}
+                {/* Depot Details */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg border-l-4 border-red-500">
+                    <div>
+                      <div className="font-medium text-gray-900">Depot A</div>
+                      <div className="text-sm text-gray-600">3 active breakdowns, 1 awaiting parts</div>
+                    </div>
+                    <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">Critical</span>
+                  </div>
+                  
+                  <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg border-l-4 border-orange-500">
+                    <div>
+                      <div className="font-medium text-gray-900">Depot B</div>
+                      <div className="text-sm text-gray-600">2 minor issues, all repairs in progress</div>
+                    </div>
+                    <span className="px-2 py-1 bg-orange-100 text-orange-800 text-xs rounded-full">Minor</span>
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-900">{alert.depot}</p>
-                  <p className="text-sm text-gray-600">{alert.issue}</p>
-                  <p className="text-xs text-gray-500 mt-1">{alert.time}</p>
-                </div>
-                <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">
-                  Review
-                </button>
               </div>
-            ))}
+            </div>
           </div>
-        </div>
-      </div>
 
-      {/* Quick Actions */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          <button className="flex flex-col items-center p-4 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors">
-            <HiOfficeBuilding className="h-8 w-8 text-blue-600 mb-2" />
-            <span className="text-sm font-medium text-gray-700">Depot Status</span>
-          </button>
-          <button className="flex flex-col items-center p-4 rounded-lg border border-gray-200 hover:border-orange-300 hover:bg-orange-50 transition-colors">
-            <HiCog className="h-8 w-8 text-orange-600 mb-2" />
-            <span className="text-sm font-medium text-gray-700">Coordinate Tasks</span>
-          </button>
-          <button className="flex flex-col items-center p-4 rounded-lg border border-gray-200 hover:border-green-300 hover:bg-green-50 transition-colors">
-            <HiClipboardCheck className="h-8 w-8 text-green-600 mb-2" />
-            <span className="text-sm font-medium text-gray-700">Quality Review</span>
-          </button>
-          <button className="flex flex-col items-center p-4 rounded-lg border border-gray-200 hover:border-purple-300 hover:bg-purple-50 transition-colors">
-            <HiUserGroup className="h-8 w-8 text-purple-600 mb-2" />
-            <span className="text-sm font-medium text-gray-700">Staff Management</span>
-          </button>
-          <button className="flex flex-col items-center p-4 rounded-lg border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50 transition-colors">
-            <HiAcademicCap className="h-8 w-8 text-indigo-600 mb-2" />
-            <span className="text-sm font-medium text-gray-700">Training</span>
-          </button>
-          <button className="flex flex-col items-center p-4 rounded-lg border border-gray-200 hover:border-yellow-300 hover:bg-yellow-50 transition-colors">
-            <HiChartBar className="h-8 w-8 text-yellow-600 mb-2" />
-            <span className="text-sm font-medium text-gray-700">Analytics</span>
-          </button>
+          {/* Upcoming Inspections */}
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-lg font-semibold text-gray-900">Upcoming Inspections</h2>
+                <button className="text-blue-600 text-sm hover:text-blue-800">View All</button>
+              </div>
+              
+              <div className="space-y-4">
+                {/* Periodic Safety Check */}
+                <div className="flex items-start space-x-3 p-3 bg-blue-50 rounded-lg">
+                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <FaCalendarAlt className="w-4 h-4 text-blue-600" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-medium text-gray-900">Periodic Safety Check</div>
+                    <div className="text-sm text-gray-600">Tomorrow • 9:00 AM</div>
+                    <div className="text-sm text-gray-500">Depot C • 15 buses scheduled</div>
+                  </div>
+                </div>
+
+                {/* Oil Change Batch */}
+                <div className="flex items-start space-x-3 p-3 bg-purple-50 rounded-lg">
+                  <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                    <FaWrench className="w-4 h-4 text-purple-600" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-medium text-gray-900">Oil Change Batch</div>
+                    <div className="text-sm text-gray-600">Jul 15 • All day</div>
+                    <div className="text-sm text-gray-500">Depot A • 10 buses due</div>
+                  </div>
+                </div>
+
+                {/* Tire Rotation */}
+                <div className="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
+                  <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                    <FaMapMarkerAlt className="w-4 h-4 text-green-600" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-medium text-gray-900">Tire Rotation</div>
+                    <div className="text-sm text-gray-600">Jun 18 • 10:00 AM</div>
+                    <div className="text-sm text-gray-500">Depot B • 8 buses scheduled</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   );
 };
 
-export default RegionalTechnicalOfficerDashboard
+export default MaintenanceDashboard;
