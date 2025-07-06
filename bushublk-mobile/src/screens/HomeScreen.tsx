@@ -464,7 +464,9 @@ export default function HomeScreen() {
                     navigation.navigate("BusTracker");
                   } else if (action.title === "Bus Occupancy") {
                     navigation.navigate("BusOccupancy");
-                  }
+                  }else if (action.title === "Emergency Alert") { // 👈 **ADD THIS CONDITION**
+                  navigation.navigate("Emergency"); // Navigate to the new screen
+                }
                 }}
                 activeOpacity={0.8}
               >
@@ -513,6 +515,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: AppColors.background,
+
   },
   backgroundImage: {
     position: "absolute",
