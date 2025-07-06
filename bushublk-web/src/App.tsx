@@ -15,7 +15,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 import AdminSidebarContent from './components/admin/AdminSidebarContent'
 import CreateAccount from './pages/dashboards/admin/CreateAccount'
 import AdminDashboard from './pages/dashboards/admin'
-import ManageRoles from './pages/dashboards/admin/ManageRoles'
+import ManageRoles from './pages/dashboards/admin/DepotAndRegions'
 import Employees from './pages/dashboards/admin/Employees'
 
 // Depot Manager Components
@@ -62,6 +62,7 @@ import DGMTechnicalDashboard from './pages/dashboards/dgm-tech/index'
 // CEO Components
 import CEOSidebarContent from './components/ceo/CEOSidebarContent'
 import CEODashboard from './pages/dashboards/ceo/index'
+import DepotAndRegions from './pages/dashboards/admin/DepotAndRegions'
 
 const App = () => {
   const location = useLocation()
@@ -101,7 +102,7 @@ const App = () => {
   >
     <Route index element={<AdminDashboard />} />
     <Route path="create-account" element={<CreateAccount />} />
-    <Route path="manage-roles" element={<ManageRoles />} />
+    <Route path="depot-and-regions" element={<DepotAndRegions />} />
     <Route path="employees" element={<Employees />} />
   </Route>
 </Route>

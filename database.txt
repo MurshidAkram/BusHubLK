@@ -1,0 +1,183 @@
+-- Roles table to define all user roles in the system
+CREATE TABLE roles (
+    role_id SERIAL PRIMARY KEY,
+    role_name VARCHAR(50) UNIQUE NOT NULL,
+    role_description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users table with consistent INTEGER primary key
+CREATE TABLE users (
+    user_id SERIAL PRIMARY KEY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    first_name VARCHAR(50) NOT NULL,
+    last_name VARCHAR(50) NOT NULL,
+    phone VARCHAR(20),
+    role_id INTEGER NOT NULL REFERENCES roles(role_id) ON DELETE RESTRICT,
+    is_active BOOLEAN DEFAULT TRUE,
+    last_login TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Regions table
+CREATE TABLE regions (
+    region_id SERIAL PRIMARY KEY,
+    region_name VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Depots table
+CREATE TABLE depots (
+    depot_id SERIAL PRIMARY KEY,
+    depot_name VARCHAR(100) NOT NULL,
+    region_id INTEGER NOT NULL REFERENCES regions(region_id) ON DELETE CASCADE,
+    address TEXT,
+    contact_phone VARCHAR(20),
+    latitude DECIMAL(10, 8),
+    longitude DECIMAL(11, 8),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Insert roles first
+INSERT INTO roles (role_name, role_description) VALUES
+('ceo', 'Chief Executive Officer'),
+('dgm_technical', 'Deputy General Manager for Technical Operations'),
+('dgm_operations', 'Deputy General Manager for Operations'),
+('regional_tech', 'Regional Technical Officer'),
+('regional_operations', 'Regional Operation Officer'),
+('depot_manager', 'Depot Manager'),
+('depot_operations', 'Depot Operation Manager'),
+('depot_engineer', 'Depot Engineer'),
+('driver', 'Bus Driver'),
+('conductor', 'Bus Conductor'),
+('passenger', 'Passenger'),
+('admin', 'System Administrator');
+
+-- Insert regions
+INSERT INTO regions (region_name) VALUES
+('Colombo'),
+('Gampaha'),
+('Kaluthara'),
+('Wayamba'),
+('Mahanuwara'),
+('Sabaragamuwa'),
+('Southern'),
+('Rajarata'),
+('Nuwaraeliya'),
+('New Eastern'),
+('Northern'),
+('Uva');
+
+-- Insert depots for each region
+-- Colombo Region
+INSERT INTO depots (depot_name, region_id, address, contact_phone) VALUES
+('Rathmalana', 1, 'Rathmalana, Colombo', '+94112233445'),
+('Moratuwa', 1, 'Moratuwa, Colombo', '+94112233446'),
+('Katubedda', 1, 'Katubedda, Colombo', '+94112233447'),
+('Udahamulla', 1, 'Udahamulla, Colombo', '+94112233448'),
+('Maharagama', 1, 'Maharagama, Colombo', '+94112233449'),
+('Homagama', 1, 'Homagama, Colombo', '+94112233450'),
+('Kesbewa', 1, 'Kesbewa, Colombo', '+94112233451'),
+('Meetotamulla', 1, 'Meetotamulla, Colombo', '+94112233452'),
+('Talangama', 1, 'Talangama, Colombo', '+94112233453'),
+('Mattakkuliya', 1, 'Mattakkuliya, Colombo', '+94112233454'),
+('Angoda', 1, 'Angoda, Colombo', '+94112233455'),
+('Avissawalla', 1, 'Avissawalla, Colombo', '+94112233456');
+
+
+-- Role-specific tables with consistent INTEGER primary keys
+CREATE TABLE ceo (
+    ceo_id INTEGER PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+    appointment_date DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE dgm_technical (
+    dgm_technical_id INTEGER PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+    appointment_date DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE dgm_operations (
+    dgm_operations_id INTEGER PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+    appointment_date DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE regional_technical_officers (
+    rto_id INTEGER PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+    region_id INTEGER NOT NULL REFERENCES regions(region_id) ON DELETE CASCADE,
+    appointment_date DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE regional_operations_officers (
+    roo_id INTEGER PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+    region_id INTEGER NOT NULL REFERENCES regions(region_id) ON DELETE CASCADE,
+    appointment_date DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE depot_managers (
+    depot_manager_id INTEGER PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+    depot_id INTEGER NOT NULL REFERENCES depots(depot_id) ON DELETE CASCADE,
+    region_id INTEGER NOT NULL REFERENCES regions(region_id) ON DELETE CASCADE,
+    appointment_date DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE depot_operation_managers (
+    depot_op_manager_id INTEGER PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+    depot_id INTEGER NOT NULL REFERENCES depots(depot_id) ON DELETE CASCADE,
+    region_id INTEGER NOT NULL REFERENCES regions(region_id) ON DELETE CASCADE,
+    appointment_date DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE depot_engineers (
+    depot_engineer_id INTEGER PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+    depot_id INTEGER NOT NULL REFERENCES depots(depot_id) ON DELETE CASCADE,
+    region_id INTEGER NOT NULL REFERENCES regions(region_id) ON DELETE CASCADE,
+    appointment_date DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE drivers (
+    driver_id INTEGER PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+    depot_id INTEGER NOT NULL REFERENCES depots(depot_id) ON DELETE CASCADE,
+    region_id INTEGER NOT NULL REFERENCES regions(region_id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE conductors (
+    conductor_id INTEGER PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+    depot_id INTEGER NOT NULL REFERENCES depots(depot_id) ON DELETE CASCADE,
+    region_id INTEGER NOT NULL REFERENCES regions(region_id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE passengers (
+    passenger_id INTEGER PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE admins (
+    admin_id INTEGER PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create indexes for better performance
+CREATE INDEX idx_users_role_id ON users(role_id);
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_username ON users(username);
+CREATE INDEX idx_depots_region_id ON depots(region_id);
+CREATE INDEX idx_depot_managers_depot_id ON depot_managers(depot_id);
+CREATE INDEX idx_depot_managers_region_id ON depot_managers(region_id);
+CREATE INDEX idx_drivers_depot_id ON drivers(depot_id);
+CREATE INDEX idx_conductors_depot_id ON conductors(depot_id);
