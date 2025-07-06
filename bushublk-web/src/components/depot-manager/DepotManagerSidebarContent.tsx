@@ -78,7 +78,7 @@ const DepotManagerSidebarContent = () => {
       </NavLink>
 
       <NavLink
-        to="/depot-manager/routes"
+        to="/depot-manager/announcements"
         className={({ isActive }) =>
           `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
             ? 'bg-green-700 text-white' 
@@ -86,7 +86,7 @@ const DepotManagerSidebarContent = () => {
         }
       >
         <HiLocationMarker className="mr-3 flex-shrink-0 h-5 w-5" />
-        Route Management
+       Announcements
       </NavLink>
 
       <NavLink
@@ -113,17 +113,7 @@ const DepotManagerSidebarContent = () => {
         Depot Reports
       </NavLink>
 
-      <NavLink
-        to="/depot-manager/analytics"
-        className={({ isActive }) =>
-          `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
-            ? 'bg-green-700 text-white' 
-            : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`
-        }
-      >
-        <HiChartBar className="mr-3 flex-shrink-0 h-5 w-5" />
-        Performance Analytics
-      </NavLink>
+     
 
       <NavLink
         to="/depot-manager/settings"

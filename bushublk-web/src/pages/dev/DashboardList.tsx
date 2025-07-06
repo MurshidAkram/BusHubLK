@@ -2,6 +2,7 @@ export default function DashboardList() {
   const dashboards = [
     { name: 'Admin', path: '/dashboard/admin' },
     { name: 'Depot Manager', path: '/dashboard/depot-manager' },
+     { name: 'Depot Operations Manager', path: '/dashboard/depot-ops' },
     // Add all other dashboard links
   ];
 

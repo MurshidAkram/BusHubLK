@@ -24,6 +24,11 @@ import DepotManagerDashboard from './pages/dashboards/depot-manager'
 import FleetManagement from './pages/dashboards/depot-manager/FleetManagement'
 import DriverManagement from './pages/dashboards/depot-manager/DriverManagement'
 import Schedules from './pages/dashboards/depot-manager/Schedules'
+import Assignments from './pages/dashboards/depot-manager/Assignments'
+import Maintenance from './pages/dashboards/depot-manager/Maintenance'
+import Announcements from './pages/dashboards/depot-manager/Announcements'
+import Reports from './pages/dashboards/depot-manager/Reports'
+import Settings from './pages/dashboards/depot-manager/Settings'
 
 // Depot Operations Manager Components
 import DepotOperationsManagerSidebarContent from './components/depot-ops/DepotOperationsManagerSidebarContent'
@@ -108,6 +113,11 @@ const App = () => {
           <Route path="fleet-management" element={<FleetManagement />} />
           <Route path="driver-management" element={<DriverManagement />} /> 
           <Route path="schedules" element={<Schedules />} />
+          <Route path="assignments" element={<Assignments />} />
+          <Route path="maintenance" element={<Maintenance />} />
+          <Route path="announcements" element={<Announcements />} />
+          <Route path="reports" element={<Reports />} />
+          <Route path="settings" element={<Settings />} />
         </Route>
       </Route>
 
