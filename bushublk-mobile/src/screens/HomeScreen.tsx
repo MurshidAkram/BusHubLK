@@ -461,7 +461,9 @@ export default function HomeScreen() {
                     navigation.navigate("BusTracker");
                   } else if (action.title === "Bus Occupancy") {
                     navigation.navigate("BusOccupancy");
-                  }
+                  }else if (action.title === "Emergency Alert") { // 👈 **ADD THIS CONDITION**
+                  navigation.navigate("Emergency"); // Navigate to the new screen
+                }
                 }}
                 activeOpacity={0.8}
               >
@@ -510,7 +512,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: AppColors.background,
-    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
+    //paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
   },
   backgroundImage: {
     position: "absolute",
@@ -543,13 +545,11 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
-  superscript: {
-    fontSize: 10,
-    lineHeight: 10,
-    textAlignVertical: 'top',
-    transform: [{ translateY: -18 }],
-    position: 'relative',
-    top: -6,
+ superscript: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: "bold",
+    textAlignVertical: "top",
   },
   headerIconContainer: {
     padding: 5,

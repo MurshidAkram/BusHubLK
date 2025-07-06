@@ -13,7 +13,7 @@ import BusTracker from '../screens/BusTrackerScreen';
 import BusRouteResultsScreen from '../screens/BusRouteResultsScreen';
 import BusOccupancyScreen from '../screens/BusOccupancyScreen';
 import ComplaintsScreen from "../screens/ComplaintsScreen"; 
-
+import EmergencyScreen from '../screens/EmergencyAlertScreen';
 
 const Stack = createStackNavigator();
 
@@ -39,7 +39,11 @@ export default function AppNavigator() {
         />
         <Stack.Screen name="BusRouteResults" component={BusRouteResultsScreen} />
         <Stack.Screen name="BusOccupancy" component={BusOccupancyScreen} />
-      
+         <Stack.Screen 
+          name="Emergency" 
+          component={EmergencyScreen} 
+          options={{ headerShown: false }} // The screen has its own header
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );
