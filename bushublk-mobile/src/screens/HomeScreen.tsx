@@ -12,11 +12,15 @@ import {
   Platform,
   Alert,
   Keyboard,
+  Dimensions,
 } from "react-native";
 import Icon from "react-native-vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 import axios from "axios";
+
+// Get device dimensions
+const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
 // --- App Color Palette ---
 const AppColors = {
@@ -195,7 +199,7 @@ export default function HomeScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
       {/* Background Image */}
       <Image
         source={require("../../assets/logoblue.png")}
@@ -204,14 +208,13 @@ export default function HomeScreen() {
       />
 
       <StatusBar
-        barStyle="dark-content"
-        backgroundColor="transparent"
-        translucent={true}
+        barStyle="light-content"
+        backgroundColor={AppColors.primary}
+        translucent={false}
       />
 
       {/* --- HEADER --- */}
       <View style={styles.header}>
-        
         <Text style={styles.headerTitle}>
           BusHub<Text style={styles.superscript}>LK</Text>
         </Text>
@@ -512,16 +515,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: AppColors.background,
-    //paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
+
   },
   backgroundImage: {
     position: "absolute",
-    top: 280,
-    left: 50,
-    right: 0,
-    bottom: 0,
-    width: "100%",
-    height: "100%",
+    top: screenHeight * 0.35,
+    left: screenWidth * 0.1,
+    width: screenWidth * 0.8,
+    height: screenHeight * 0.4,
     opacity: 0.15,
     resizeMode: "contain",
   },
@@ -536,23 +537,50 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     backgroundColor: AppColors.primary,
     paddingHorizontal: 15,
-    paddingVertical: 10,
-    height: 60,
+    paddingVertical: Platform.OS === "ios" ? 15 : 16,
+    height: Platform.OS === "ios" ? 70 : 65,
+    ...Platform.select({
+      android: {
+        elevation: 4,
+      },
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+    }),
   },
   headerTitle: {
     color: "#FFFFFF",
-    fontSize: 22,
+    fontSize: Platform.OS === "ios" ? 22 : 20,
     fontWeight: "900",
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+    fontFamily: Platform.OS === "ios" ? "System" : "Roboto",
+    lineHeight: Platform.OS === "ios" ? 28 : 26,
+    includeFontPadding: false, // Android specific - removes extra padding
+    textAlignVertical: "center", // Android specific
   },
- superscript: {
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: "bold",
+  superscript: {
+    fontSize: Platform.OS === "ios" ? 10 : 9,
+    lineHeight: Platform.OS === "ios" ? 12 : 11,
     textAlignVertical: "top",
+    includeFontPadding: false, // Android specific
+    ...Platform.select({
+      ios: {
+        transform: [{ translateY: -18 }],
+        position: "relative",
+        top: -6,
+      },
+      android: {
+        transform: [{ translateY: -14 }],
+        position: "relative",
+        top: -4,
+      },
+    }),
   },
   headerIconContainer: {
     padding: 5,
+    marginLeft: 10,
   },
   logoWrapper: {
     width: 35,
@@ -575,21 +603,34 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: 18,
     marginBottom: 18,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
+    minHeight: Platform.OS === "android" ? 80 : 75, // Ensure enough height
+    ...Platform.select({
+      android: {
+        elevation: 2,
+      },
+      ios: {
+        shadowColor: "#000",
+        shadowOpacity: 0.06,
+        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 2 },
+      },
+    }),
   },
   welcomeTitle: {
     color: "#fff",
-    fontSize: 18,
+    fontSize: Platform.OS === "ios" ? 18 : 17,
     fontWeight: "bold",
+    lineHeight: Platform.OS === "ios" ? 24 : 22,
+    includeFontPadding: false, // Android specific
+    textAlignVertical: "center", // Android specific
   },
   welcomeSubtitle: {
     color: "#fff",
-    fontSize: 14,
+    fontSize: Platform.OS === "ios" ? 14 : 13,
     marginTop: 2,
+    lineHeight: Platform.OS === "ios" ? 18 : 17,
+    includeFontPadding: false, // Android specific
+    textAlignVertical: "center", // Android specific
   },
   section: {
     marginBottom: 20,
@@ -601,33 +642,45 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: Platform.OS === "ios" ? 20 : 19,
     fontWeight: "600",
     color: AppColors.text,
     textAlign: "center",
+    lineHeight: Platform.OS === "ios" ? 26 : 24,
+    includeFontPadding: false, // Android specific
   },
   seeAllText: {
     fontSize: 14,
     color: AppColors.primary,
     fontWeight: "500",
+    lineHeight: Platform.OS === "ios" ? 18 : 17,
+    includeFontPadding: false, // Android specific
   },
   journeyCard: {
     padding: 20,
     borderRadius: 20,
     marginBottom: 30,
     backgroundColor: "#fff",
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
+    ...Platform.select({
+      android: {
+        elevation: 2,
+      },
+      ios: {
+        shadowColor: "#000",
+        shadowOpacity: 0.06,
+        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 2 },
+      },
+    }),
   },
   journeyTitle: {
-    fontSize: 18,
+    fontSize: Platform.OS === "ios" ? 18 : 17,
     fontWeight: "600",
     color: AppColors.primary,
     marginBottom: 16,
     textAlign: "center",
+    lineHeight: Platform.OS === "ios" ? 24 : 22,
+    includeFontPadding: false, // Android specific
   },
   inputGroup: {
     flexDirection: "row",
@@ -636,8 +689,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 12,
     marginBottom: 12,
-    position: "relative", // important for stacking context
+    position: "relative",
     zIndex: 101,
+    minHeight: Platform.OS === "android" ? 52 : 48,
   },
   inputIcon: {
     marginRight: 10,
@@ -645,9 +699,13 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontSize: 16,
+    fontSize: Platform.OS === "ios" ? 16 : 15,
     color: AppColors.text,
-    paddingVertical: 14,
+    paddingVertical: Platform.OS === "ios" ? 14 : 12,
+    paddingRight: 35,
+    lineHeight: Platform.OS === "ios" ? 20 : 19,
+    includeFontPadding: false, // Android specific
+    textAlignVertical: "center", // Android specific
   },
   clearIcon: {
     position: "absolute",
@@ -658,7 +716,7 @@ const styles = StyleSheet.create({
   },
   suggestionBox: {
     position: "absolute",
-    top: 48,
+    top: Platform.OS === "ios" ? 48 : 52,
     left: 0,
     right: 0,
     backgroundColor: "#fff",
@@ -669,11 +727,17 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 8,
     maxHeight: 120,
     zIndex: 300,
-    elevation: 15,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
+    ...Platform.select({
+      android: {
+        elevation: 15,
+      },
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+      },
+    }),
   },
   suggestionItem: {
     padding: 12,
@@ -683,15 +747,18 @@ const styles = StyleSheet.create({
   },
   searchButton: {
     backgroundColor: AppColors.primary,
-    paddingVertical: 16,
+    paddingVertical: Platform.OS === "ios" ? 16 : 14,
     borderRadius: 14,
     alignItems: "center",
     marginTop: 8,
   },
   searchButtonText: {
     color: "#FFFFFF",
-    fontSize: 16,
+    fontSize: Platform.OS === "ios" ? 16 : 15,
     fontWeight: "600",
+    lineHeight: Platform.OS === "ios" ? 20 : 19,
+    includeFontPadding: false, // Android specific
+    textAlignVertical: "center", // Android specific
   },
   quickActionGrid: {
     top: 10,
@@ -703,7 +770,7 @@ const styles = StyleSheet.create({
   },
   quickActionCard: {
     width: "31%",
-    height: 100,
+    height: Platform.OS === "ios" ? 100 : 95,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: AppColors.card,
@@ -713,7 +780,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: AppColors.border,
     marginBottom: 10,
-    elevation: 1,
+    ...Platform.select({
+      android: {
+        elevation: 1,
+      },
+      ios: {
+        shadowColor: "#000",
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        shadowOffset: { width: 0, height: 1 },
+      },
+    }),
   },
   quickActionIconContainer: {
     width: 48,
@@ -725,16 +802,29 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   cardText: {
-    fontSize: 12,
+    fontSize: Platform.OS === "ios" ? 12 : 11,
     fontWeight: "500",
     color: AppColors.textSecondary,
     textAlign: "center",
+    lineHeight: Platform.OS === "ios" ? 16 : 15,
+    includeFontPadding: false, // Android specific
   },
   busCard: {
     backgroundColor: "#f8f9fa",
     padding: 16,
     borderRadius: 8,
     marginBottom: 12,
+    ...Platform.select({
+      android: {
+        elevation: 1,
+      },
+      ios: {
+        shadowColor: "#000",
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        shadowOffset: { width: 0, height: 1 },
+      },
+    }),
   },
   busInfo: {
     flexDirection: "row",
@@ -751,9 +841,11 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   busDestination: {
-    fontSize: 16,
+    fontSize: Platform.OS === "ios" ? 16 : 15,
     fontWeight: "600",
     color: AppColors.text,
+    lineHeight: Platform.OS === "ios" ? 20 : 19,
+    includeFontPadding: false, // Android specific
   },
   arrivalContainer: {
     flexDirection: "row",
@@ -761,15 +853,19 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   arrivalTime: {
-    fontSize: 15,
+    fontSize: Platform.OS === "ios" ? 15 : 14,
     fontWeight: "500",
     color: AppColors.text,
     marginLeft: 4,
+    lineHeight: Platform.OS === "ios" ? 19 : 18,
+    includeFontPadding: false, // Android specific
   },
   busArrival: {
-    fontSize: 14,
+    fontSize: Platform.OS === "ios" ? 14 : 13,
     color: AppColors.textSecondary,
     marginTop: 4,
+    lineHeight: Platform.OS === "ios" ? 18 : 17,
+    includeFontPadding: false, // Android specific
   },
   serviceGrid: {
     top: 10,
@@ -781,19 +877,31 @@ const styles = StyleSheet.create({
     width: "42%",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 20,
+    paddingVertical: Platform.OS === "ios" ? 20 : 18,
     marginBottom: 12,
     backgroundColor: AppColors.card,
     borderRadius: 18,
     borderWidth: 1,
     borderColor: AppColors.border,
-    elevation: 1,
+    ...Platform.select({
+      android: {
+        elevation: 1,
+      },
+      ios: {
+        shadowColor: "#000",
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        shadowOffset: { width: 0, height: 1 },
+      },
+    }),
   },
   serviceCardText: {
-    fontSize: 12,
+    fontSize: Platform.OS === "ios" ? 12 : 11,
     fontWeight: "500",
     color: AppColors.textSecondary,
     textAlign: "center",
     marginTop: 10,
+    lineHeight: Platform.OS === "ios" ? 16 : 15,
+    includeFontPadding: false, // Android specific
   },
 });
