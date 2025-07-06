@@ -66,8 +66,8 @@ const SAMPLE_BUS_LOCATIONS: BusLocation[] = [
     routeNumber: '138',
     operator: 'SLTB',
     driverName: 'Kamal Perera',
-    latitude: 6.9271,
-    longitude: 79.8612,
+    latitude: 6.8672, // Near Homagama
+    longitude: 80.0019,
     heading: 45,
     speed: 35,
     lastUpdated: new Date(),
@@ -83,13 +83,13 @@ const SAMPLE_BUS_LOCATIONS: BusLocation[] = [
     routeNumber: '138',
     operator: 'SLTB',
     driverName: 'Sunil Silva',
-    latitude: 7.2906,
-    longitude: 80.6337,
+    latitude: 6.9036, // Near Kottawa
+    longitude: 79.9553,
     heading: 180,
     speed: 42,
     lastUpdated: new Date(Date.now() - 2 * 60 * 1000), // 2 minutes ago
     status: 'active',
-    nextStop: 'Kandy Central',
+    nextStop: 'Nugegoda',
     estimatedArrival: '12 mins',
     passengerCount: 38,
     capacity: 60,
@@ -100,13 +100,13 @@ const SAMPLE_BUS_LOCATIONS: BusLocation[] = [
     routeNumber: 'E01',
     operator: 'Private',
     driverName: 'Nimal Fernando',
-    latitude: 6.9897,
-    longitude: 80.2142,
+    latitude: 6.849, // Near Horana
+    longitude: 80.063,
     heading: 90,
     speed: 55,
     lastUpdated: new Date(Date.now() - 1 * 60 * 1000), // 1 minute ago
     status: 'active',
-    nextStop: 'Kegalle',
+    nextStop: 'Kadawatha',
     estimatedArrival: '8 mins',
     passengerCount: 28,
     capacity: 45,
@@ -117,13 +117,13 @@ const SAMPLE_BUS_LOCATIONS: BusLocation[] = [
     routeNumber: '1',
     operator: 'SLTB',
     driverName: 'Ranjith Kumar',
-    latitude: 6.8485,
-    longitude: 79.9681,
+    latitude: 6.9333, // In Colombo Fort
+    longitude: 79.8479,
     heading: 225,
     speed: 28,
     lastUpdated: new Date(Date.now() - 5 * 60 * 1000), // 5 minutes ago
     status: 'active',
-    nextStop: 'Mount Lavinia',
+    nextStop: 'Galle Face',
     estimatedArrival: '3 mins',
     passengerCount: 52,
     capacity: 65,
@@ -132,10 +132,10 @@ const SAMPLE_BUS_LOCATIONS: BusLocation[] = [
 ];
 
 const SAMPLE_ROUTES: BusRoute[] = [
-  { routeNumber: '138', routeName: 'Colombo - Kandy', operator: 'SLTB', activeBuses: 2, totalBuses: 5 },
-  { routeNumber: 'E01', routeName: 'Colombo - Kandy Express', operator: 'Private', activeBuses: 1, totalBuses: 3 },
-  { routeNumber: '1', routeName: 'Colombo - Galle', operator: 'SLTB', activeBuses: 1, totalBuses: 4 },
-  { routeNumber: '4', routeName: 'Colombo - Matara', operator: 'SLTB', activeBuses: 0, totalBuses: 3 },
+  { routeNumber: '138', routeName: 'Homagama - Pettah', operator: 'SLTB', activeBuses: 2, totalBuses: 5 },
+  { routeNumber: 'E01', routeName: 'Colombo - Galle Exp', operator: 'Private', activeBuses: 1, totalBuses: 3 },
+  { routeNumber: '1', routeName: 'Colombo - Moratuwa', operator: 'SLTB', activeBuses: 1, totalBuses: 4 },
+  { routeNumber: '4', routeName: 'Colombo - Battaramulla', operator: 'SLTB', activeBuses: 0, totalBuses: 3 },
 ];
 
 export default function BusTrackingScreen({ navigation }: Props) {
@@ -147,7 +147,7 @@ export default function BusTrackingScreen({ navigation }: Props) {
   const [selectedBus, setSelectedBus] = useState<BusLocation | null>(null);
   const [showBusDetails, setShowBusDetails] = useState(false);
   const [mapRegion, setMapRegion] = useState({
-    latitude: 6.9271,
+    latitude: 6.9271, // Centered on Colombo
     longitude: 79.8612,
     latitudeDelta: 0.5,
     longitudeDelta: 0.5,
@@ -157,7 +157,6 @@ export default function BusTrackingScreen({ navigation }: Props) {
   const trackingInterval = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    // Start real-time tracking simulation
     startBusTracking();
     return () => {
       if (trackingInterval.current) {
@@ -171,12 +170,10 @@ export default function BusTrackingScreen({ navigation }: Props) {
   }, [selectedRoute, searchQuery, busLocations]);
 
   const startBusTracking = () => {
-    // Simulate real-time bus location updates
     trackingInterval.current = setInterval(() => {
-      setBusLocations(prevLocations => 
+      setBusLocations(prevLocations =>
         prevLocations.map(bus => ({
           ...bus,
-          // Simulate small movements (in real app, this comes from GPS)
           latitude: bus.latitude + (Math.random() - 0.5) * 0.001,
           longitude: bus.longitude + (Math.random() - 0.5) * 0.001,
           speed: Math.max(0, bus.speed + (Math.random() - 0.5) * 10),
@@ -184,24 +181,21 @@ export default function BusTrackingScreen({ navigation }: Props) {
           passengerCount: Math.min(bus.capacity, Math.max(0, bus.passengerCount + Math.floor((Math.random() - 0.5) * 5)))
         }))
       );
-    }, 5000); // Update every 5 seconds
+    }, 5000);
   };
 
   const filterBuses = () => {
     let filtered = busLocations;
-    
     if (selectedRoute) {
       filtered = filtered.filter(bus => bus.routeNumber === selectedRoute);
     }
-    
     if (searchQuery) {
-      filtered = filtered.filter(bus => 
+      filtered = filtered.filter(bus =>
         bus.routeNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
         bus.nextStop.toLowerCase().includes(searchQuery.toLowerCase()) ||
         bus.driverName.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
-    
     setFilteredBuses(filtered);
   };
 
@@ -229,19 +223,16 @@ export default function BusTrackingScreen({ navigation }: Props) {
     if (filteredBuses.length > 0) {
       const latitudes = filteredBuses.map(bus => bus.latitude);
       const longitudes = filteredBuses.map(bus => bus.longitude);
-      
       const minLat = Math.min(...latitudes);
       const maxLat = Math.max(...latitudes);
       const minLng = Math.min(...longitudes);
       const maxLng = Math.max(...longitudes);
-      
       const region = {
         latitude: (minLat + maxLat) / 2,
         longitude: (minLng + maxLng) / 2,
         latitudeDelta: (maxLat - minLat) * 1.5,
         longitudeDelta: (maxLng - minLng) * 1.5,
       };
-      
       setMapRegion(region);
       mapRef.current?.animateToRegion(region, 1000);
     }
@@ -272,26 +263,32 @@ export default function BusTrackingScreen({ navigation }: Props) {
       onPress={() => selectRoute(item.routeNumber)}
     >
       <View style={styles.routeHeader}>
-        <Text style={styles.routeNumber}>{item.routeNumber}</Text>
+        <Text style={[styles.routeNumber, selectedRoute === item.routeNumber && styles.routeNumberSelected]}>
+            {item.routeNumber}
+        </Text>
         <View style={styles.busCount}>
-          <Text style={styles.busCountText}>
+          <Text style={[styles.busCountText, selectedRoute === item.routeNumber && styles.routeTextSelected]}>
             {item.activeBuses}/{item.totalBuses} buses
           </Text>
           <View style={[
             styles.statusDot,
-            { backgroundColor: item.activeBuses > 0 ? AppColors.success : AppColors.textSecondary }
+            { backgroundColor: item.activeBuses > 0 ? (selectedRoute === item.routeNumber ? 'white' : AppColors.success) : AppColors.textSecondary }
           ]} />
         </View>
       </View>
-      <Text style={styles.routeName}>{item.routeName}</Text>
-      <Text style={styles.operator}>{item.operator}</Text>
+      <Text style={[styles.routeName, selectedRoute === item.routeNumber && styles.routeTextSelected]}>
+        {item.routeName}
+      </Text>
+      <Text style={[styles.operator, selectedRoute === item.routeNumber && styles.routeTextSelected]}>
+        {item.operator}
+      </Text>
     </TouchableOpacity>
   );
 
   const renderBusItem = ({ item }: { item: BusLocation }) => {
     const occupancy = item.passengerCount / item.capacity;
     const timeSinceUpdate = Math.floor((Date.now() - item.lastUpdated.getTime()) / 60000);
-    
+
     return (
       <TouchableOpacity
         style={styles.busCard}
@@ -311,7 +308,7 @@ export default function BusTrackingScreen({ navigation }: Props) {
             <Text style={styles.statusText}>{item.status}</Text>
           </View>
         </View>
-        
+
         <View style={styles.busDetails}>
           <View style={styles.busDetailRow}>
             <Icon name="location-outline" size={16} color={AppColors.textSecondary} />
@@ -328,7 +325,7 @@ export default function BusTrackingScreen({ navigation }: Props) {
             </Text>
           </View>
         </View>
-        
+
         <View style={styles.lastUpdated}>
           <Text style={styles.lastUpdatedText}>
             Updated {timeSinceUpdate === 0 ? 'now' : `${timeSinceUpdate}m ago`}
@@ -341,17 +338,17 @@ export default function BusTrackingScreen({ navigation }: Props) {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={AppColors.background} />
-      
-      {/* Header */}
-      <View style={styles.header}>
- 
-  <Text style={styles.title}>Bus Tracking</Text>
-  <TouchableOpacity onPress={showAllBuses} style={styles.viewAllButton}>
-    <Icon name="expand-outline" size={24} color={AppColors.primary} />
-  </TouchableOpacity>
-</View>
 
-      {/* Search Bar */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Icon name="arrow-back-outline" size={24} color={AppColors.text} />
+        </TouchableOpacity>
+        <Text style={styles.title}>Bus Tracking</Text>
+        <TouchableOpacity onPress={showAllBuses} style={styles.viewAllButton}>
+            <Icon name="expand-outline" size={24} color={AppColors.primary} />
+        </TouchableOpacity>
+      </View>
+
       <View style={styles.searchContainer}>
         <Icon name="search-outline" size={20} color={AppColors.textSecondary} />
         <TextInput
@@ -360,14 +357,13 @@ export default function BusTrackingScreen({ navigation }: Props) {
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
-               {searchQuery.length > 0 && (
+        {searchQuery.length > 0 && (
           <TouchableOpacity onPress={() => setSearchQuery('')}>
             <Icon name="close-circle" size={20} color={AppColors.textSecondary} />
           </TouchableOpacity>
         )}
       </View>
 
-      {/* Route Filter */}
       <View style={styles.routeFilterContainer}>
         <Text style={styles.filterTitle}>Routes:</Text>
         <FlatList
@@ -380,7 +376,6 @@ export default function BusTrackingScreen({ navigation }: Props) {
         />
       </View>
 
-      {/* Map View */}
       <View style={styles.mapContainer}>
         <MapView
           ref={mapRef}
@@ -411,7 +406,7 @@ export default function BusTrackingScreen({ navigation }: Props) {
               </View>
             </Marker>
           ))}
-          
+
           {selectedBus && (
             <Circle
               center={{
@@ -425,8 +420,7 @@ export default function BusTrackingScreen({ navigation }: Props) {
             />
           )}
         </MapView>
-        
-        {/* Map Controls */}
+
         <View style={styles.mapControls}>
           <TouchableOpacity
             style={styles.mapControlButton}
@@ -445,7 +439,6 @@ export default function BusTrackingScreen({ navigation }: Props) {
         </View>
       </View>
 
-      {/* Bus List */}
       <View style={styles.busListContainer}>
         <View style={styles.busListHeader}>
           <Text style={styles.busListTitle}>
@@ -460,7 +453,7 @@ export default function BusTrackingScreen({ navigation }: Props) {
             </TouchableOpacity>
           )}
         </View>
-        
+
         <FlatList
           data={filteredBuses}
           keyExtractor={(item) => item.busId}
@@ -470,7 +463,7 @@ export default function BusTrackingScreen({ navigation }: Props) {
             <View style={styles.emptyContainer}>
               <Icon name="bus-outline" size={48} color={AppColors.textSecondary} />
               <Text style={styles.emptyText}>
-                {selectedRoute 
+                {selectedRoute
                   ? `No active buses found for route ${selectedRoute}`
                   : 'No buses found matching your search'
                 }
@@ -480,7 +473,6 @@ export default function BusTrackingScreen({ navigation }: Props) {
         />
       </View>
 
-      {/* Bus Details Modal */}
       <Modal
         visible={showBusDetails}
         animationType="slide"
@@ -500,7 +492,7 @@ export default function BusTrackingScreen({ navigation }: Props) {
                     <Icon name="close" size={24} color={AppColors.text} />
                   </TouchableOpacity>
                 </View>
-                
+
                 <View style={styles.modalBody}>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Bus ID:</Text>
@@ -545,12 +537,12 @@ export default function BusTrackingScreen({ navigation }: Props) {
                       styles.detailValue,
                       { color: getOccupancyColor(selectedBus.passengerCount / selectedBus.capacity) }
                     ]}>
-                      {selectedBus.passengerCount}/{selectedBus.capacity} 
+                      {selectedBus.passengerCount}/{selectedBus.capacity}
                       ({Math.round((selectedBus.passengerCount / selectedBus.capacity) * 100)}%)
                     </Text>
                   </View>
                 </View>
-                
+
                 <View style={styles.modalActions}>
                   <TouchableOpacity
                     style={styles.trackButton}
@@ -573,329 +565,335 @@ export default function BusTrackingScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: AppColors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: AppColors.card,
-    borderBottomWidth: 1,
-    borderBottomColor: AppColors.border,
-  },
-  backButton: {
-    padding: 8,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: AppColors.text,
-  },
-  viewAllButton: {
-    padding: 8,
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: AppColors.card,
-    marginHorizontal: 16,
-    marginVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: AppColors.border,
-  },
-  searchInput: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    fontSize: 16,
-    color: AppColors.text,
-  },
-  routeFilterContainer: {
-    backgroundColor: AppColors.card,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: AppColors.border,
-  },
-  filterTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: AppColors.text,
-    marginLeft: 16,
-    marginBottom: 8,
-  },
-  routeList: {
-    paddingHorizontal: 12,
-  },
-  routeCard: {
-    backgroundColor: AppColors.background,
-    borderRadius: 8,
-    padding: 12,
-    marginHorizontal: 4,
-    minWidth: 120,
-    borderWidth: 1,
-    borderColor: AppColors.border,
-  },
-  routeCardSelected: {
-    backgroundColor: AppColors.primary,
-    borderColor: AppColors.primary,
-  },
-  routeHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  routeNumber: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: AppColors.text,
-  },
-  busCount: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  busCountText: {
-    fontSize: 10,
-    color: AppColors.textSecondary,
-    marginRight: 4,
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  routeName: {
-    fontSize: 12,
-    color: AppColors.textSecondary,
-    marginBottom: 2,
-  },
-  operator: {
-    fontSize: 10,
-    color: AppColors.textSecondary,
-    fontWeight: '500',
-  },
-  mapContainer: {
-    flex: 1,
-    position: 'relative',
-  },
-  map: {
-    flex: 1,
-  },
-  busMarker: {
-    backgroundColor: AppColors.primary,
-    borderRadius: 20,
-    padding: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 40,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  busMarkerText: {
-    color: 'white',
-    fontSize: 10,
-    fontWeight: 'bold',
-    marginTop: 2,
-  },
-  mapControls: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    flexDirection: 'column',
-  },
-  mapControlButton: {
-    backgroundColor: AppColors.card,
-    borderRadius: 8,
-    padding: 8,
-    alignItems: 'center',
-    marginBottom: 8,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
-  mapControlText: {
-    fontSize: 10,
-    color: AppColors.primary,
-    marginTop: 2,
-  },
-  busListContainer: {
-    maxHeight: 200,
-    backgroundColor: AppColors.card,
-    borderTopWidth: 1,
-    borderTopColor: AppColors.border,
-  },
-  busListHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: AppColors.border,
-  },
-  busListTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: AppColors.text,
-  },
-  clearFilterButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: AppColors.background,
-    borderRadius: 4,
-  },
-  clearFilterText: {
-    fontSize: 12,
-    color: AppColors.primary,
-  },
-  busCard: {
-    backgroundColor: AppColors.card,
-    marginHorizontal: 16,
-    marginVertical: 4,
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: AppColors.border,
-  },
-  busHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  busInfo: {
-    flex: 1,
-  },
-  busId: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: AppColors.text,
-  },
-  busRoute: {
-    fontSize: 12,
-    color: AppColors.textSecondary,
-  },
-  busStatus: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  statusText: {
-    fontSize: 12,
-    color: AppColors.textSecondary,
-    marginLeft: 4,
-    textTransform: 'capitalize',
-  },
-  busDetails: {
-    marginBottom: 8,
-  },
-  busDetailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  busDetailText: {
-    fontSize: 12,
-    color: AppColors.textSecondary,
-    marginLeft: 6,
-  },
-  lastUpdated: {
-    alignItems: 'flex-end',
-  },
-  lastUpdatedText: {
-    fontSize: 10,
-    color: AppColors.textSecondary,
-    fontStyle: 'italic',
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 32,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: AppColors.textSecondary,
-    textAlign: 'center',
-    marginTop: 8,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: AppColors.card,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '80%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: AppColors.border,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: AppColors.text,
-  },
-  modalCloseButton: {
-    padding: 4,
-  },
-  modalBody: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: AppColors.border,
-  },
-  detailLabel: {
-    fontSize: 14,
-    color: AppColors.textSecondary,
-    fontWeight: '500',
-  },
-  detailValue: {
-    fontSize: 14,
-    color: AppColors.text,
-    fontWeight: '600',
-  },
-  modalActions: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderTopWidth: 1,
-    borderTopColor: AppColors.border,
-  },
-  trackButton: {
-    backgroundColor: AppColors.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  trackButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginLeft: 8,
-  },
+    container: {
+        flex: 1,
+        backgroundColor: AppColors.background,
+    },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 10,
+        paddingVertical: 12,
+        backgroundColor: AppColors.card,
+        borderBottomWidth: 1,
+        borderBottomColor: AppColors.border,
+    },
+    backButton: {
+        padding: 8,
+    },
+    title: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: AppColors.text,
+    },
+    viewAllButton: {
+        padding: 8,
+    },
+    searchContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: AppColors.card,
+        marginHorizontal: 16,
+        marginVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: AppColors.border,
+    },
+    searchInput: {
+        flex: 1,
+        paddingVertical: 12,
+        paddingHorizontal: 8,
+        fontSize: 16,
+        color: AppColors.text,
+    },
+    routeFilterContainer: {
+        backgroundColor: AppColors.card,
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: AppColors.border,
+    },
+    filterTitle: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: AppColors.text,
+        marginLeft: 16,
+        marginBottom: 8,
+    },
+    routeList: {
+        paddingHorizontal: 12,
+    },
+    routeCard: {
+        backgroundColor: AppColors.background,
+        borderRadius: 8,
+        padding: 12,
+        marginHorizontal: 4,
+        minWidth: 120,
+        borderWidth: 1,
+        borderColor: AppColors.border,
+    },
+    routeCardSelected: {
+        backgroundColor: AppColors.primary,
+        borderColor: AppColors.primary,
+    },
+    routeHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 4,
+    },
+    routeNumber: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: AppColors.text,
+    },
+    routeNumberSelected: {
+        color: 'white',
+    },
+    routeTextSelected: {
+        color: '#E0E0E0',
+    },
+    busCount: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    busCountText: {
+        fontSize: 10,
+        color: AppColors.textSecondary,
+        marginRight: 4,
+    },
+    statusDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+    },
+    routeName: {
+        fontSize: 12,
+        color: AppColors.textSecondary,
+        marginBottom: 2,
+    },
+    operator: {
+        fontSize: 10,
+        color: AppColors.textSecondary,
+        fontWeight: '500',
+    },
+    mapContainer: {
+        flex: 1,
+        position: 'relative',
+    },
+    map: {
+        flex: 1,
+    },
+    busMarker: {
+        backgroundColor: AppColors.primary,
+        borderRadius: 20,
+        padding: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+        minWidth: 40,
+        elevation: 3,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+    },
+    busMarkerText: {
+        color: 'white',
+        fontSize: 10,
+        fontWeight: 'bold',
+        marginTop: 2,
+    },
+    mapControls: {
+        position: 'absolute',
+        top: 16,
+        right: 16,
+        flexDirection: 'column',
+    },
+    mapControlButton: {
+        backgroundColor: AppColors.card,
+        borderRadius: 8,
+        padding: 8,
+        alignItems: 'center',
+        marginBottom: 8,
+        elevation: 3,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+    },
+    mapControlText: {
+        fontSize: 10,
+        color: AppColors.primary,
+        marginTop: 2,
+    },
+    busListContainer: {
+        maxHeight: Dimensions.get('window').height * 0.35,
+        backgroundColor: AppColors.card,
+        borderTopWidth: 1,
+        borderTopColor: AppColors.border,
+    },
+    busListHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: AppColors.border,
+    },
+    busListTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: AppColors.text,
+    },
+    clearFilterButton: {
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        backgroundColor: AppColors.background,
+        borderRadius: 4,
+    },
+    clearFilterText: {
+        fontSize: 12,
+        color: AppColors.primary,
+    },
+    busCard: {
+        backgroundColor: AppColors.card,
+        marginHorizontal: 16,
+        marginVertical: 4,
+        padding: 12,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: AppColors.border,
+    },
+    busHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    busInfo: {
+        flex: 1,
+    },
+    busId: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: AppColors.text,
+    },
+    busRoute: {
+        fontSize: 12,
+        color: AppColors.textSecondary,
+    },
+    busStatus: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    statusText: {
+        fontSize: 12,
+        color: AppColors.textSecondary,
+        marginLeft: 4,
+        textTransform: 'capitalize',
+    },
+    busDetails: {
+        marginBottom: 8,
+    },
+    busDetailRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 4,
+    },
+    busDetailText: {
+        fontSize: 12,
+        color: AppColors.textSecondary,
+        marginLeft: 6,
+    },
+    lastUpdated: {
+        alignItems: 'flex-end',
+    },
+    lastUpdatedText: {
+        fontSize: 10,
+        color: AppColors.textSecondary,
+        fontStyle: 'italic',
+    },
+    emptyContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 32,
+    },
+    emptyText: {
+        fontSize: 14,
+        color: AppColors.textSecondary,
+        textAlign: 'center',
+        marginTop: 8,
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'flex-end',
+    },
+    modalContent: {
+        backgroundColor: AppColors.card,
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        maxHeight: '80%',
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: AppColors.border,
+    },
+    modalTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: AppColors.text,
+    },
+    modalCloseButton: {
+        padding: 4,
+    },
+    modalBody: {
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+    },
+    detailRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: 8,
+        borderBottomWidth: 1,
+        borderBottomColor: AppColors.border,
+    },
+    detailLabel: {
+        fontSize: 14,
+        color: AppColors.textSecondary,
+        fontWeight: '500',
+    },
+    detailValue: {
+        fontSize: 14,
+        color: AppColors.text,
+        fontWeight: '600',
+    },
+    modalActions: {
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        borderTopWidth: 1,
+        borderTopColor: AppColors.border,
+    },
+    trackButton: {
+        backgroundColor: AppColors.primary,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        borderRadius: 8,
+    },
+    trackButtonText: {
+        color: 'white',
+        fontSize: 16,
+        fontWeight: 'bold',
+        marginLeft: 8,
+    },
 });
