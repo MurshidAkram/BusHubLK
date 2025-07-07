@@ -8,6 +8,8 @@ import {
   ActivityIndicator,
   FlatList,
   Dimensions,
+  Platform,
+  StatusBar,
 } from "react-native";
 import Icon from "react-native-vector-icons/Ionicons";
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
@@ -15,15 +17,23 @@ import axios from "axios";
 
 const GOOGLE_MAPS_API_KEY = "AIzaSyAeXR9ct7HrHMCQXSWLrWQl5OlRYjNhbxo"; // <-- Replace with your key
 
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+
 const AppColors = {
   background: "#F8F9FA",
   card: "#FFFFFF",
   primary: "#0056b3",
+  primaryLight: "#E3F2FD",
   text: "#212529",
   textSecondary: "#6C757D",
   border: "#DEE2E6",
   success: "#28a745",
   warning: "#ffc107",
+  shadow: "#000000",
+  gradient: {
+    start: "#0056b3",
+    end: "#007bff",
+  },
 };
 
 const BASE_STAGE_KM = 3.2;
@@ -272,35 +282,51 @@ export default function BusRouteResultsScreen({ route, navigation }) {
     <View style={styles.routeCard}>
       <View style={styles.routeHeader}>
         <View style={styles.routeNumberContainer}>
-          <Text style={styles.routeNumber}>{item.routeNumber}</Text>
-          <Text style={[styles.busType, { color: getBusTypeColor(item.busType) }]}>
-            {item.busType}
-          </Text>
+          <View style={styles.routeNumberBadge}>
+            <Text style={styles.routeNumber}>{item.routeNumber}</Text>
+          </View>
+          <View style={[styles.busTypeBadge, { backgroundColor: getBusTypeColor(item.busType) + '20' }]}>
+            <Text style={[styles.busType, { color: getBusTypeColor(item.busType) }]}>
+              {item.busType}
+            </Text>
+          </View>
         </View>
         <View style={styles.operatorContainer}>
           <Text style={styles.operator}>{item.operator}</Text>
-          <Text style={styles.fare}>Rs. {item.fare}</Text>
+          <View style={styles.fareContainer}>
+            <Text style={styles.fareLabel}>Fare</Text>
+            <Text style={styles.fare}>Rs. {item.fare}</Text>
+          </View>
         </View>
       </View>
 
       <View style={styles.routeDetails}>
         <View style={styles.routeInfo}>
-          <Icon name="time-outline" size={16} color={AppColors.textSecondary} />
+          <View style={styles.iconContainer}>
+            <Icon name="time-outline" size={18} color={AppColors.primary} />
+          </View>
           <Text style={styles.routeText}>{item.frequency}</Text>
         </View>
         <View style={styles.routeInfo}>
-          <Icon name="clock-outline" size={16} color={AppColors.textSecondary} />
+          <View style={styles.iconContainer}>
+            <Icon name="clock-outline" size={18} color={AppColors.primary} />
+          </View>
           <Text style={styles.routeText}>{item.operatingHours}</Text>
         </View>
         <View style={styles.routeInfo}>
-          <Icon name="speedometer-outline" size={16} color={AppColors.textSecondary} />
+          <View style={styles.iconContainer}>
+            <Icon name="speedometer-outline" size={18} color={AppColors.primary} />
+          </View>
           <Text style={styles.routeText}>{item.estimatedDuration}</Text>
         </View>
       </View>
 
       {item.via && item.via.length > 0 && (
         <View style={styles.viaContainer}>
-          <Text style={styles.viaLabel}>Via: </Text>
+          <View style={styles.viaHeader}>
+            <Icon name="trail-sign-outline" size={16} color={AppColors.primary} />
+            <Text style={styles.viaLabel}>Route Via</Text>
+          </View>
           <Text style={styles.viaText}>{item.via.join(" → ")}</Text>
         </View>
       )}
@@ -309,110 +335,186 @@ export default function BusRouteResultsScreen({ route, navigation }) {
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity
-        onPress={() => navigation.goBack()}
-        style={styles.backButtonFloating}
-      >
-        <Icon name="arrow-back" size={28} color={AppColors.text} />
-      </TouchableOpacity>
-      <ScrollView style={{ flex: 1 }}>
-        <View style={styles.contentContainer}>
-          <Text style={styles.title}>Sri Lanka Bus Route Finder</Text>
-          <Text style={styles.subtitle}>
-            {fromText} → {toText}
-          </Text>
-
-          {loading && (
-            <ActivityIndicator
-              size="large"
-              color={AppColors.primary}
-              style={{ marginTop: 20 }}
-            />
-          )}
-
-          {/* Map View */}
-          {showMap && mapRegion && routeCoordinates.length > 0 && (
-            <View style={styles.mapContainer}>
-              <Text style={styles.sectionTitle}>Route Map</Text>
-              <MapView
-                ref={mapRef}
-                provider={PROVIDER_GOOGLE}
-                style={styles.map}
-                initialRegion={mapRegion}
-                showsUserLocation={true}
-                showsMyLocationButton={true}
-              >
-                <Marker
-                  coordinate={routeCoordinates[0]}
-                  title="Start"
-                  description={fromText}
-                  pinColor="green"
-                />
-                <Marker
-                  coordinate={routeCoordinates[routeCoordinates.length - 1]}
-                  title="Destination"
-                  description={toText}
-                  pinColor="red"
-                />
-                <Polyline
-                  coordinates={routeCoordinates}
-                  strokeColor={AppColors.primary}
-                  strokeWidth={4}
-                />
-              </MapView>
-            </View>
-          )}
-
-          {/* Route Information */}
-          {distance !== null && !loading && (
-            <View style={styles.resultCard}>
-              <Text style={styles.resultText}>
-                Distance: {distance?.toFixed(1)} km
-              </Text>
-              {fare !== null && (
-                <Text style={styles.resultText}>Estimated Fare: Rs. {fare}.00</Text>
-              )}
-              {duration && (
-                <Text style={styles.resultText}>Estimated Time: {duration}</Text>
-              )}
-            </View>
-          )}
-
-          {/* Available Bus Routes */}
-          {availableRoutes.length > 0 && (
-            <View style={styles.routesContainer}>
-              <Text style={styles.sectionTitle}>Available Bus Routes</Text>
-              <FlatList
-                data={availableRoutes}
-                keyExtractor={(item, index) => `${item.routeNumber}-${index}`}
-                renderItem={renderBusRoute}
-                scrollEnabled={false}
-              />
-            </View>
-          )}
-
-          {availableRoutes.length === 0 && fare !== null && !loading && (
-            <View style={styles.noRoutesCard}>
-              <Icon
-                name="information-circle-outline"
-                size={24}
-                color={AppColors.warning}
-              />
-              <Text style={styles.noRoutesText}>
-                No direct bus routes found. Fare calculated based on distance.
-              </Text>
-            </View>
-          )}
-
-          {fare === null && !loading && (
-            <Text style={styles.resultTextSecondary}>
-              No route found between the selected locations.
-            </Text>
-          )}
+      <StatusBar 
+        barStyle={Platform.OS === 'ios' ? 'dark-content' : 'light-content'} 
+        backgroundColor={AppColors.primary} 
+      />
+      
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+        >
+          <Icon name="arrow-back" size={24} color={AppColors.card} />
+        </TouchableOpacity>
+        <View style={styles.headerContent}>
+          <Text style={styles.headerTitle}>Route Results</Text>
+          <Text style={styles.headerSubtitle}>BusHubLK</Text>
         </View>
-      </ScrollView>
+      </View>
+
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        <View style={styles.contentContainer}>
+          {/* Route Summary Card */}
+          <View style={styles.summaryCard}>
+            <View style={styles.locationContainer}>
+              <View style={styles.locationItem}>
+                <View style={[styles.locationDot, { backgroundColor: AppColors.success }]} />
+                <Text style={styles.locationText} numberOfLines={2}>{fromText}</Text>
+              </View>
+              <View style={styles.routeLine} />
+              <View style={styles.locationItem}>
+                <View style={[styles.locationDot, { backgroundColor: AppColors.warning }]} />
+                <Text style={styles.locationText} numberOfLines={2}>{toText}</Text>
+              </View>
+            </View>
+            </View>
+
+{loading && (
+  <View style={styles.loadingContainer}>
+    <ActivityIndicator size="large" color={AppColors.primary} />
+    <Text style={styles.loadingText}>Finding best routes...</Text>
+  </View>
+)}
+
+{/* Map View */}
+{showMap && mapRegion && routeCoordinates.length > 0 && (
+  <View style={styles.mapContainer}>
+    <View style={styles.mapHeader}>
+      <Icon name="map-outline" size={20} color={AppColors.primary} />
+      <Text style={styles.mapTitle}>Route Map</Text>
     </View>
-  );
+    <View style={styles.mapWrapper}>
+      <MapView
+        ref={mapRef}
+        provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+        style={styles.map}
+        initialRegion={mapRegion}
+        showsUserLocation={true}
+        showsMyLocationButton={true}
+        showsCompass={true}
+        showsScale={true}
+        mapType="standard"
+        loadingEnabled={true}
+        loadingIndicatorColor={AppColors.primary}
+        loadingBackgroundColor={AppColors.background}
+      >
+        <Marker
+          coordinate={routeCoordinates[0]}
+          title="Start Location"
+          description={fromText}
+          pinColor="green"
+        >
+          <View style={styles.customMarker}>
+            <Icon name="location" size={24} color={AppColors.success} />
+          </View>
+        </Marker>
+        <Marker
+          coordinate={routeCoordinates[routeCoordinates.length - 1]}
+          title="Destination"
+          description={toText}
+          pinColor="red"
+        >
+          <View style={styles.customMarker}>
+            <Icon name="flag" size={24} color={AppColors.warning} />
+          </View>
+        </Marker>
+        <Polyline
+          coordinates={routeCoordinates}
+          strokeColor={AppColors.primary}
+          strokeWidth={4}
+          lineDashPattern={[1]}
+        />
+      </MapView>
+    </View>
+  </View>
+)}
+
+{/* Route Information */}
+{distance !== null && !loading && (
+  <View style={styles.infoGrid}>
+    <View style={styles.infoCard}>
+      <View style={styles.infoIconContainer}>
+        <Icon name="navigate-outline" size={24} color={AppColors.primary} />
+      </View>
+      <Text style={styles.infoLabel}>Distance</Text>
+      <Text style={styles.infoValue}>{distance?.toFixed(1)} km</Text>
+    </View>
+    
+    {fare !== null && (
+      <View style={styles.infoCard}>
+        <View style={styles.infoIconContainer}>
+          <Icon name="cash-outline" size={24} color={AppColors.success} />
+        </View>
+        <Text style={styles.infoLabel}>Est. Fare</Text>
+        <Text style={styles.infoValue}>Rs. {fare}</Text>
+      </View>
+    )}
+    
+    {duration && (
+      <View style={styles.infoCard}>
+        <View style={styles.infoIconContainer}>
+          <Icon name="time-outline" size={24} color={AppColors.warning} />
+        </View>
+        <Text style={styles.infoLabel}>Duration</Text>
+        <Text style={styles.infoValue}>{duration}</Text>
+      </View>
+    )}
+  </View>
+)}
+
+{/* Available Bus Routes */}
+{availableRoutes.length > 0 && (
+  <View style={styles.routesContainer}>
+    <View style={styles.sectionHeader}>
+      <Icon name="bus-outline" size={24} color={AppColors.primary} />
+      <Text style={styles.sectionTitle}>Available Bus Routes</Text>
+      <View style={styles.routeCount}>
+        <Text style={styles.routeCountText}>{availableRoutes.length}</Text>
+      </View>
+    </View>
+    <FlatList
+      data={availableRoutes}
+      keyExtractor={(item, index) => `${item.routeNumber}-${index}`}
+      renderItem={renderBusRoute}
+      scrollEnabled={false}
+      showsVerticalScrollIndicator={false}
+    />
+  </View>
+)}
+
+{availableRoutes.length === 0 && fare !== null && !loading && (
+  <View style={styles.noRoutesCard}>
+    <View style={styles.noRoutesIcon}>
+      <Icon
+        name="information-circle-outline"
+        size={32}
+        color={AppColors.warning}
+      />
+    </View>
+    <Text style={styles.noRoutesTitle}>No Direct Routes Found</Text>
+    <Text style={styles.noRoutesText}>
+      Fare has been calculated based on distance. You may need to take connecting buses or alternative transport.
+    </Text>
+  </View>
+)}
+
+{fare === null && !loading && (
+  <View style={styles.errorCard}>
+    <View style={styles.errorIcon}>
+      <Icon name="alert-circle-outline" size={32} color={AppColors.warning} />
+    </View>
+    <Text style={styles.errorTitle}>Route Not Found</Text>
+    <Text style={styles.errorText}>
+      No route found between the selected locations. Please try different locations.
+    </Text>
+  </View>
+)}
+</View>
+</ScrollView>
+</View>
+);
 }
 
 const styles = StyleSheet.create({
@@ -420,113 +522,301 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: AppColors.background,
   },
-  backButtonFloating: {
-    position: "absolute",
-    top: 18,
-    left: 18,
-    zIndex: 10,
-    backgroundColor: "rgba(255,255,255,0.9)",
-    borderRadius: 20,
+  header: {
+    backgroundColor: AppColors.primary,
+    paddingTop: Platform.OS === "ios" ? 50 : 25,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    ...Platform.select({
+      ios: {
+        shadowColor: AppColors.shadow,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  backButton: {
     padding: 8,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.2)",
+  },
+  headerContent: {
+    flex: 1,
+    marginLeft: 16,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: AppColors.card,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: "rgba(255,255,255,0.8)",
+    marginTop: 2,
+  },
+  scrollView: {
+    flex: 1,
   },
   contentContainer: {
     padding: 20,
-    marginTop: 40,
   },
-  title: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: AppColors.primary,
-    marginBottom: 8,
-    textAlign: "center",
+  summaryCard: {
+    backgroundColor: AppColors.card,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    ...Platform.select({
+      ios: {
+        shadowColor: AppColors.shadow,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
-  subtitle: {
+  locationContainer: {
+    flex: 1,
+  },
+  locationItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 8,
+  },
+  locationDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 12,
+  },
+  locationText: {
     fontSize: 16,
     color: AppColors.text,
+    flex: 1,
+    fontWeight: "500",
+  },
+  routeLine: {
+    width: 2,
+    height: 30,
+    backgroundColor: AppColors.border,
+    marginLeft: 5,
+    marginVertical: 4,
+  },
+  loadingContainer: {
+    backgroundColor: AppColors.card,
+    borderRadius: 16,
+    padding: 40,
+    alignItems: "center",
     marginBottom: 20,
-    textAlign: "center",
+    ...Platform.select({
+      ios: {
+        shadowColor: AppColors.shadow,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  loadingText: {
+    fontSize: 16,
+    color: AppColors.textSecondary,
+    marginTop: 16,
+    fontWeight: "500",
   },
   mapContainer: {
-    marginTop: 20,
-    borderRadius: 8,
+    marginBottom: 20,
+  },
+  mapHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  mapTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: AppColors.text,
+    marginLeft: 8,
+  },
+  mapWrapper: {
+    borderRadius: 16,
     overflow: "hidden",
-    elevation: 3,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    ...Platform.select({
+      ios: {
+        shadowColor: AppColors.shadow,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
   },
   map: {
-    height: 250,
+    height: screenHeight * 0.45, // Increased map size to 45% of screen height
     width: "100%",
+  },
+  customMarker: {
+    backgroundColor: AppColors.card,
+    borderRadius: 20,
+    padding: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: AppColors.shadow,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  infoGrid: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 20,
+    flexWrap: "wrap",
+  },
+  infoCard: {
+    backgroundColor: AppColors.card,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: "center",
+    flex: 1,
+    marginHorizontal: 4,
+    minWidth: screenWidth * 0.28,
+    ...Platform.select({
+      ios: {
+        shadowColor: AppColors.shadow,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  infoIconContainer: {
+    backgroundColor: AppColors.primaryLight,
+    borderRadius: 20,
+    padding: 8,
+    marginBottom: 8,
+  },
+  infoLabel: {
+    fontSize: 12,
+    color: AppColors.textSecondary,
+    marginBottom: 4,
+    fontWeight: "500",
+  },
+  infoValue: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: AppColors.text,
+  },
+  routesContainer: {
+    marginBottom: 20,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: "bold",
     color: AppColors.text,
-    marginBottom: 12,
-    marginTop: 20,
+    marginLeft: 8,
+    flex: 1,
   },
-  resultCard: {
-    backgroundColor: AppColors.card,
-    padding: 16,
-    marginTop: 20,
-    borderRadius: 8,
-    borderColor: AppColors.border,
-    borderWidth: 1,
+  routeCount: {
+    backgroundColor: AppColors.primary,
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
-  resultText: {
-    fontSize: 16,
+  routeCountText: {
+    fontSize: 12,
     fontWeight: "bold",
-    color: AppColors.primary,
-    marginBottom: 4,
-  },
-  resultTextSecondary: {
-    fontSize: 15,
-    color: AppColors.textSecondary,
-    marginTop: 10,
-    textAlign: "center",
-  },
-  routesContainer: {
-    marginTop: 20,
+    color: AppColors.card,
   },
   routeCard: {
     backgroundColor: AppColors.card,
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 12,
-    borderColor: AppColors.border,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
     borderWidth: 1,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    borderColor: AppColors.border,
+    ...Platform.select({
+      ios: {
+        shadowColor: AppColors.shadow,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   routeHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 12,
+    marginBottom: 16,
   },
   routeNumberContainer: {
     flex: 1,
   },
+  routeNumberBadge: {
+    backgroundColor: AppColors.primary,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    alignSelf: "flex-start",
+    marginBottom: 8,
+  },
   routeNumber: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "bold",
-    color: AppColors.primary,
+    color: AppColors.card,
+  },
+  busTypeBadge: {
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    alignSelf: "flex-start",
   },
   busType: {
     fontSize: 12,
     fontWeight: "600",
-    marginTop: 2,
   },
   operatorContainer: {
     alignItems: "flex-end",
   },
   operator: {
     fontSize: 12,
+    color: AppColors.textSecondary,
+    marginBottom: 4,
+    fontWeight: "500",
+  },
+  fareContainer: {
+    alignItems: "flex-end",
+  },
+  fareLabel: {
+    fontSize: 10,
     color: AppColors.textSecondary,
     marginBottom: 2,
   },
@@ -536,50 +826,121 @@ const styles = StyleSheet.create({
     color: AppColors.success,
   },
   routeDetails: {
-    marginBottom: 8,
+    marginBottom: 12,
   },
   routeInfo: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 4,
+    marginBottom: 8,
+  },
+  iconContainer: {
+    width: 32,
+    alignItems: "center",
   },
   routeText: {
     fontSize: 14,
     color: AppColors.textSecondary,
-    marginLeft: 6,
+    marginLeft: 8,
+    flex: 1,
   },
   viaContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    marginTop: 8,
-    paddingTop: 8,
+    marginTop: 12,
+    paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: AppColors.border,
   },
+  viaHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
   viaLabel: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: "600",
-    color: AppColors.textSecondary,
+    color: AppColors.text,
+    marginLeft: 6,
   },
   viaText: {
-    fontSize: 12,
+    fontSize: 14,
     color: AppColors.textSecondary,
-    flex: 1,
+    lineHeight: 20,
   },
   noRoutesCard: {
     backgroundColor: AppColors.card,
-    borderRadius: 8,
-    padding: 16,
-    marginTop: 20,
-    borderColor: AppColors.warning,
-    borderWidth: 1,
-    flexDirection: "row",
+    borderRadius: 16,
+    padding: 24,
     alignItems: "center",
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: AppColors.warning + "30",
+    ...Platform.select({
+      ios: {
+        shadowColor: AppColors.shadow,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  noRoutesIcon: {
+    backgroundColor: AppColors.warning + "20",
+    borderRadius: 30,
+    padding: 16,
+    marginBottom: 16,
+  },
+  noRoutesTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: AppColors.text,
+    marginBottom: 8,
+    textAlign: "center",
   },
   noRoutesText: {
     fontSize: 14,
     color: AppColors.textSecondary,
-    marginLeft: 12,
-    flex: 1,
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  errorCard: {
+    backgroundColor: AppColors.card,
+    borderRadius: 16,
+    padding: 24,
+    alignItems: "center",
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: AppColors.warning + "30",
+    ...Platform.select({
+      ios: {
+        shadowColor: AppColors.shadow,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  errorIcon: {
+    backgroundColor: AppColors.warning + "20",
+    borderRadius: 30,
+    padding: 16,
+    marginBottom: 16,
+  },
+  errorTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: AppColors.text,
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  errorText: {
+    fontSize: 14,
+    color: AppColors.textSecondary,
+    textAlign: "center",
+    lineHeight: 20,
   },
 });
