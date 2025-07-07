@@ -39,7 +39,8 @@ context?.login(data.user, data.token);
 
 
     // 🧭 Redirect based on role
-    switch (data.user.role) {
+    // In Login.tsx, update the switch statement to match your backend roles:
+switch (data.user.role) {
       case 'admin':
         navigate('/admin');
         break;
@@ -49,23 +50,32 @@ context?.login(data.user, data.token);
       case 'depot_manager':
         navigate('/depot-manager');
         break;
-      case 'depot_operations_manager':
+      case 'depot_operations':
         navigate('/depot-operations-manager');
         break;
       case 'depot_engineer':
         navigate('/depot-engineer');
         break;
-        case 'regional_technical_officer':
+      case 'regional_tech':
         navigate('/regional-technical-officer');
-      break;
-      case 'regional_operations_officer':
+        break;
+      case 'regional_operations':
         navigate('/regional-operations-officer');
         break;
       case 'dgm_operations':
         navigate('/dgm-operations');
-        break;  
+        break;
       case 'dgm_technical':
         navigate('/dgm-technical');
+        break;
+      case 'driver':
+        navigate('/driver');
+        break;
+      case 'conductor':
+        navigate('/conductor');
+        break;
+      case 'passenger':
+        navigate('/');
         break;
       default:
         navigate('/');

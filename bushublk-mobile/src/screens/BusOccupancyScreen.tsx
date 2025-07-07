@@ -19,6 +19,15 @@ import * as Location from 'expo-location';
 
 const GOOGLE_MAPS_API_KEY = "AIzaSyAeXR9ct7HrHMCQXSWLrWQl5OlRYjNhbxo";
 
+// Enhanced detection constants
+const MOVEMENT_HISTORY_SIZE = 10; // Keep last 10 GPS points
+const SYNC_CORRELATION_THRESHOLD = 0.7; // 70% correlation needed
+const SPEED_TOLERANCE = 5; // km/h tolerance for speed matching
+const DIRECTION_TOLERANCE = 15; // degrees tolerance for direction matching
+const HIGH_CONFIDENCE_THRESHOLD = 80; // 80% confidence for high accuracy
+const MEDIUM_CONFIDENCE_THRESHOLD = 60; // 60% confidence for medium accuracy
+const LOCATION_UPDATE_INTERVAL = 5000; // 5 seconds
+
 interface Bus {
   id: string;
   number: string;
@@ -39,6 +48,23 @@ interface UserLocation {
   latitude: number;
   longitude: number;
   accuracy?: number;
+  timestamp?: number;
+  speed?: number;
+  direction?: number;
+}
+
+interface MovementPoint {
+  latitude: number;
+  longitude: number;
+  timestamp: number;
+  speed: number;
+  direction: number;
+}
+
+interface DetectionResult {
+  bus: Bus | null;
+  confidence: number;
+  reason: string;
 }
 
 const OCCUPANCY_LEVELS = [
@@ -47,9 +73,6 @@ const OCCUPANCY_LEVELS = [
   { label: 'High', value: 'high', color: '#dc3545', description: 'Standing room only' },
   { label: 'Full', value: 'full', color: '#6f42c1', description: 'Bus is full' },
 ];
-
-const BUS_DETECTION_RADIUS = 50; // meters
-const LOCATION_UPDATE_INTERVAL = 5000; // 5 seconds
 
 // Dummy bus data for Sri Lankan bus numbers
 const generateDummyBuses = (userLat: number, userLng: number): Bus[] => {
@@ -79,7 +102,7 @@ const generateDummyBuses = (userLat: number, userLng: number): Bus[] => {
     direction: bus.direction,
     latitude: userLat + (Math.random() - 0.5) * 0.01,
     longitude: userLng + (Math.random() - 0.5) * 0.01,
-    estimatedSpeed: Math.floor(Math.random() * 60) + 20, // 20-80 km/h
+    estimatedSpeed: Math.floor(Math.random() * 40) + 20, // 20-60 km/h
   }));
 };
 
@@ -99,14 +122,267 @@ const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: numbe
   return R * c;
 };
 
-// Simulate bus movement
-const simulateBusMovement = (bus: Bus): Bus => {
-  const latChange = (Math.random() - 0.5) * 0.0005;
-  const lngChange = (Math.random() - 0.5) * 0.0005;
+// Calculate speed between two GPS points
+const calculateSpeed = (point1: MovementPoint | UserLocation, point2: MovementPoint | UserLocation): number => {
+  if (!point1 || !point2 || !point1.timestamp || !point2.timestamp) return 0;
+  
+  const distance = calculateDistance(
+    point1.latitude, point1.longitude,
+    point2.latitude, point2.longitude
+  );
+  const timeDiff = (point2.timestamp - point1.timestamp) / 1000; // seconds
+  if (timeDiff === 0) return 0;
+  return (distance / timeDiff) * 3.6; // Convert m/s to km/h
+};
+
+// Calculate direction between two GPS points
+const calculateDirection = (point1: MovementPoint | UserLocation | null, point2: MovementPoint | UserLocation): number => {
+  if (!point1 || !point2) return 0;
+  
+  const lat1 = point1.latitude * Math.PI / 180;
+  const lat2 = point2.latitude * Math.PI / 180;
+  const deltaLng = (point2.longitude - point1.longitude) * Math.PI / 180;
+  
+  const x = Math.sin(deltaLng) * Math.cos(lat2);
+  const y = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(deltaLng);
+  
+  const bearing = Math.atan2(x, y);
+  return (bearing * 180 / Math.PI + 360) % 360; // Convert to degrees
+};
+
+// Simulate bus movement with realistic patterns
+const simulateBusMovement = (bus: Bus, prevHistory: MovementPoint[] = []): Bus => {
+  const currentTime = Date.now();
+  const prevPoint = prevHistory[prevHistory.length - 1];
+  
+  // More realistic movement simulation
+  let latChange, lngChange;
+  
+  if (prevPoint && currentTime - prevPoint.timestamp < 30000) {
+    // Continue in similar direction with some variation
+    const prevDirection = prevPoint.direction * Math.PI / 180;
+    const speed = bus.estimatedSpeed || 30; // km/h
+    const distance = (speed / 3.6) * 10; // distance in 10 seconds in meters
+    
+    // Add some randomness to the direction
+    const directionVariation = (Math.random() - 0.5) * 0.3; // ±0.15 radians
+    const newDirection = prevDirection + directionVariation;
+    
+    latChange = (distance / 111000) * Math.cos(newDirection);
+    lngChange = (distance / 111000) * Math.sin(newDirection);
+  } else {
+    // Random movement for new buses
+    latChange = (Math.random() - 0.5) * 0.0005;
+    lngChange = (Math.random() - 0.5) * 0.0005;
+  }
+  
   return {
     ...bus,
     latitude: +(bus.latitude + latChange).toFixed(6),
     longitude: +(bus.longitude + lngChange).toFixed(6),
+  };
+};
+
+// Enhanced Bus Detection Hook
+const useEnhancedBusDetection = (userLocation: UserLocation | null, buses: Bus[]) => {
+  const [movementHistory, setMovementHistory] = useState<MovementPoint[]>([]);
+  const [busMovementHistory, setBusMovementHistory] = useState<{[key: string]: MovementPoint[]}>({});
+  const [detectedBus, setDetectedBus] = useState<Bus | null>(null);
+  const [confidence, setConfidence] = useState(0);
+  const [detectionReason, setDetectionReason] = useState('');
+
+  // Track user movement history
+  useEffect(() => {
+    if (userLocation) {
+      const currentTime = Date.now();
+      const prevPoint = movementHistory[movementHistory.length - 1];
+      
+      const newPoint: MovementPoint = {
+        latitude: userLocation.latitude,
+        longitude: userLocation.longitude,
+        timestamp: currentTime,
+        speed: calculateSpeed(prevPoint, { ...userLocation, timestamp: currentTime }),
+        direction: calculateDirection(prevPoint, userLocation)
+      };
+      
+      setMovementHistory(prev => {
+        const newHistory = [...prev, newPoint];
+        return newHistory.slice(-MOVEMENT_HISTORY_SIZE);
+      });
+    }
+  }, [userLocation]);
+
+  // Track bus movement history
+  useEffect(() => {
+    buses.forEach(bus => {
+      setBusMovementHistory(prev => {
+        const currentTime = Date.now();
+        const prevPoints = prev[bus.id] || [];
+        const prevPoint = prevPoints[prevPoints.length - 1];
+        
+        const newPoint: MovementPoint = {
+          latitude: bus.latitude,
+          longitude: bus.longitude,
+          timestamp: currentTime,
+          speed: bus.estimatedSpeed || 0,
+          direction: calculateDirection(prevPoint, bus)
+        };
+        
+        return {
+          ...prev,
+          [bus.id]: [...prevPoints, newPoint].slice(-MOVEMENT_HISTORY_SIZE)
+        };
+      });
+    });
+  }, [buses]);
+
+  // Calculate movement correlation between user and bus
+  const calculateMovementCorrelation = (userHistory: MovementPoint[], busHistory: MovementPoint[]): number => {
+    if (userHistory.length < 3 || busHistory.length < 3) return 0;
+    
+    let correlationScore = 0;
+    let totalChecks = 0;
+    
+    const minLength = Math.min(userHistory.length, busHistory.length);
+    const recentPoints = Math.min(5, minLength - 1);
+    
+    for (let i = minLength - recentPoints; i < minLength - 1; i++) {
+      const userPoint = userHistory[i];
+      const busPoint = busHistory[i];
+      
+      if (userPoint && busPoint) {
+        const distance = calculateDistance(
+          userPoint.latitude, userPoint.longitude,
+          busPoint.latitude, busPoint.longitude
+        );
+        
+        const speedDiff = Math.abs(userPoint.speed - busPoint.speed);
+        const directionDiff = Math.min(
+          Math.abs(userPoint.direction - busPoint.direction),
+          360 - Math.abs(userPoint.direction - busPoint.direction)
+        );
+        
+        let pointCorrelation = 0;
+        
+        // Proximity score
+        if (distance < 30) pointCorrelation += 0.4;
+        else if (distance < 50) pointCorrelation += 0.2;
+        else if (distance < 100) pointCorrelation += 0.1;
+        
+        // Speed correlation
+        if (speedDiff < SPEED_TOLERANCE) pointCorrelation += 0.3;
+        else if (speedDiff < SPEED_TOLERANCE * 2) pointCorrelation += 0.15;
+        
+        // Direction correlation
+        if (directionDiff < DIRECTION_TOLERANCE) pointCorrelation += 0.3;
+        else if (directionDiff < DIRECTION_TOLERANCE * 2) pointCorrelation += 0.15;
+        
+        correlationScore += pointCorrelation;
+        totalChecks++;
+      }
+    }
+    
+    return totalChecks > 0 ? correlationScore / totalChecks : 0;
+  };
+
+  // Main detection logic
+  const detectBusFromSync = (): DetectionResult => {
+    if (!userLocation || movementHistory.length < 3) {
+      return { bus: null, confidence: 0, reason: 'Insufficient movement data' };
+    }
+    
+    let bestMatch: Bus | null = null;
+    let bestScore = 0;
+    let bestReason = '';
+    
+    buses.forEach(bus => {
+      const busHistory = busMovementHistory[bus.id] || [];
+      
+      if (busHistory.length < 3) return;
+      
+      // Calculate correlation
+      const correlation = calculateMovementCorrelation(movementHistory, busHistory);
+      
+      // Current distance check
+      const currentDistance = calculateDistance(
+        userLocation.latitude, userLocation.longitude,
+        bus.latitude, bus.longitude
+      );
+      
+      // Current speed check
+      const currentUserSpeed = movementHistory[movementHistory.length - 1]?.speed || 0;
+      const currentBusSpeed = bus.estimatedSpeed || 0;
+      const speedDiff = Math.abs(currentUserSpeed - currentBusSpeed);
+      
+      // Calculate final confidence score
+      let finalScore = correlation * 100;
+      
+      // Proximity bonus
+      if (currentDistance < 25) {
+        finalScore += 15;
+      } else if (currentDistance < 50) {
+        finalScore += 10;
+      } else if (currentDistance < 100) {
+        finalScore += 5;
+      }
+      
+      // Speed matching bonus
+      if (speedDiff < 3) {
+        finalScore += 10;
+      } else if (speedDiff < 5) {
+        finalScore += 5;
+      }
+      
+      // Moving together bonus (both moving at reasonable speed)
+      if (currentUserSpeed > 10 && currentBusSpeed > 10) {
+        finalScore += 10;
+      }
+      
+      // Distance penalty
+      if (currentDistance > 100) {
+        finalScore -= 20;
+      }
+      
+      // Speed mismatch penalty
+      if (speedDiff > 15) {
+        finalScore -= 15;
+      }
+      
+      if (finalScore > bestScore && finalScore > SYNC_CORRELATION_THRESHOLD * 100) {
+        bestMatch = bus;
+        bestScore = finalScore;
+        bestReason = `Distance: ${currentDistance.toFixed(0)}m, Speed sync: ${speedDiff.toFixed(1)}km/h diff, Movement correlation: ${(correlation * 100).toFixed(0)}%`;
+      }
+    });
+    
+    return { 
+      bus: bestMatch, 
+      confidence: Math.min(bestScore, 100), 
+      reason: bestReason || 'No suitable bus match found' 
+    };
+  };
+
+  // Run detection
+  useEffect(() => {
+    const detection = detectBusFromSync();
+    
+    if (detection.bus && detection.confidence > SYNC_CORRELATION_THRESHOLD * 100) {
+      setDetectedBus(detection.bus);
+      setConfidence(detection.confidence);
+      setDetectionReason(detection.reason);
+    } else if (confidence < 50) {
+      setDetectedBus(null);
+      setConfidence(0);
+      setDetectionReason('No reliable bus detection');
+    }
+  }, [movementHistory, busMovementHistory]);
+
+  return {
+    detectedBus,
+    confidence: Math.round(confidence),
+    detectionReason,
+    movementHistory,
+    busMovementHistory
   };
 };
 
@@ -126,28 +402,34 @@ export default function BusOccupancyScreen() {
   
   const movementIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const locationWatchRef = useRef<Location.LocationSubscription | null>(null);
+  const busHistoryRef = useRef<{[key: string]: MovementPoint[]}>({});
+
+  // Enhanced bus detection
+  const { detectedBus, confidence, detectionReason, movementHistory } = useEnhancedBusDetection(userLocation, buses);
 
   // Filter buses by number and proximity to user
-  const filteredSuggestions = buses.filter(bus => {
-    const matchesNumber = bus.number.toLowerCase().includes(typedBusNumber.toLowerCase()) && typedBusNumber !== '';
-    if (!userLocation) return matchesNumber;
-    
-    const distance = calculateDistance(
-      userLocation.latitude,
-      userLocation.longitude,
-      bus.latitude,
-      bus.longitude
+const filteredSuggestions = buses.filter(bus => {
+  if (!userLocation) return true;
+  const distance = calculateDistance(
+    userLocation.latitude,
+    userLocation.longitude,
+    bus.latitude,
+    bus.longitude
+  );
+  // If there's a search, filter by number and distance; otherwise, show all nearby buses
+  if (typedBusNumber.trim() !== '') {
+    return (
+      bus.number.toLowerCase().includes(typedBusNumber.toLowerCase()) &&
+      distance <= 1000
     );
-    
-    return matchesNumber && distance <= 1000; // Within 1km
-  }).sort((a, b) => {
-    if (!userLocation) return 0;
-    
-    const distanceA = calculateDistance(userLocation.latitude, userLocation.longitude, a.latitude, a.longitude);
-    const distanceB = calculateDistance(userLocation.latitude, userLocation.longitude, b.latitude, b.longitude);
-    
-    return distanceA - distanceB;
-  });
+  }
+  return distance <= 1000;
+}).sort((a, b) => {
+  if (!userLocation) return 0;
+  const distanceA = calculateDistance(userLocation.latitude, userLocation.longitude, a.latitude, a.longitude);
+  const distanceB = calculateDistance(userLocation.latitude, userLocation.longitude, b.latitude, b.longitude);
+  return distanceA - distanceB;
+});
 
   // Request location permission and get current location
   useEffect(() => {
@@ -171,6 +453,7 @@ export default function BusOccupancyScreen() {
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
           accuracy: location.coords.accuracy,
+          timestamp: Date.now(),
         };
         
         setUserLocation(userPos);
@@ -184,13 +467,14 @@ export default function BusOccupancyScreen() {
           {
             accuracy: Location.Accuracy.High,
             timeInterval: LOCATION_UPDATE_INTERVAL,
-            distanceInterval: 10,
+            distanceInterval: 5, // Update every 5 meters
           },
           (location) => {
             const newUserPos = {
               latitude: location.coords.latitude,
               longitude: location.coords.longitude,
               accuracy: location.coords.accuracy,
+              timestamp: Date.now(),
             };
             setUserLocation(newUserPos);
           }
@@ -213,7 +497,33 @@ export default function BusOccupancyScreen() {
     };
   }, []);
 
-  // Detect nearby buses and current bus
+  // Enhanced bus detection with confidence-based alerts
+  useEffect(() => {
+    if (detectedBus && confidence > HIGH_CONFIDENCE_THRESHOLD) {
+      if (!currentBus || currentBus.id !== detectedBus.id) {
+        setCurrentBus(detectedBus);
+        setSelectedBus(detectedBus);
+        Alert.alert(
+          'Bus Detected! 🚌', 
+          `High confidence (${confidence}%): You are in Bus ${detectedBus.number} (${detectedBus.route})\n\n${detectionReason}`
+        );
+      }
+    } else if (detectedBus && confidence > MEDIUM_CONFIDENCE_THRESHOLD) {
+      if (!currentBus || currentBus.id !== detectedBus.id) {
+        setCurrentBus(detectedBus);
+        setSelectedBus(detectedBus);
+        Alert.alert(
+          'Bus Detected ⚠️', 
+          `Medium confidence (${confidence}%): You might be in Bus ${detectedBus.number} (${detectedBus.route})\n\n${detectionReason}`
+        );
+      }
+    } else if (currentBus && confidence < 40) {
+      setCurrentBus(null);
+      Alert.alert('Bus Left', 'You have left the bus or detection confidence is low.');
+    }
+  }, [detectedBus, confidence, currentBus]);
+
+  // Detect nearby buses
   useEffect(() => {
     if (!userLocation || buses.length === 0) return;
     
@@ -225,39 +535,37 @@ export default function BusOccupancyScreen() {
         bus.longitude
       );
       return distance <= 200; // Within 200m
+    }).sort((a, b) => {
+      const distanceA = calculateDistance(userLocation.latitude, userLocation.longitude, a.latitude, a.longitude);
+      const distanceB = calculateDistance(userLocation.latitude, userLocation.longitude, b.latitude, b.longitude);
+      return distanceA - distanceB;
     });
     
     setNearbyBuses(nearby);
-    
-    // Detect if user is in a bus
-    const inBus = nearby.find(bus => {
-      const distance = calculateDistance(
-        userLocation.latitude,
-        userLocation.longitude,
-        bus.latitude,
-        bus.longitude
-      );
-      return distance <= BUS_DETECTION_RADIUS;
-    });
-    
-    if (inBus && (!currentBus || currentBus.id !== inBus.id)) {
-      setCurrentBus(inBus);
-      setSelectedBus(inBus);
-      Alert.alert('Bus Detected', `You are now in Bus ${inBus.number} (${inBus.route})`);
-    } else if (!inBus && currentBus) {
-      setCurrentBus(null);
-      Alert.alert('Bus Left', 'You have left the bus.');
-    }
-  }, [userLocation, buses, currentBus]);
+  }, [userLocation, buses]);
 
-  // Simulate bus movement
+  // Simulate bus movement with history tracking
   useEffect(() => {
     if (buses.length === 0) return;
     
     movementIntervalRef.current = setInterval(() => {
       setBuses(prevBuses => 
         prevBuses.map(bus => {
-          const movedBus = simulateBusMovement(bus);
+          const currentHistory = busHistoryRef.current[bus.id] || [];
+          const movedBus = simulateBusMovement(bus, currentHistory);
+          
+          // Update bus movement history
+          const newPoint: MovementPoint = {
+            latitude: movedBus.latitude,
+            longitude: movedBus.longitude,
+            timestamp: Date.now(),
+            speed: movedBus.estimatedSpeed || 0,
+            direction: calculateDirection(currentHistory[currentHistory.length - 1], movedBus)
+          };
+          
+          busHistoryRef.current[bus.id] = [...currentHistory, newPoint].slice(-MOVEMENT_HISTORY_SIZE);
+          
+          // Update bus status if exists
           setBusStatuses(prevStatuses => {
             if (prevStatuses[bus.id]) {
               return {
@@ -271,10 +579,11 @@ export default function BusOccupancyScreen() {
             }
             return prevStatuses;
           });
+          
           return movedBus;
         })
       );
-    }, 10000);
+    }, 10000); // Update every 10 seconds
 
     return () => {
       if (movementIntervalRef.current) {
@@ -299,6 +608,24 @@ export default function BusOccupancyScreen() {
       Alert.alert('Error', 'You can only update occupancy when you are inside a bus.');
       return;
     }
+    
+    if (confidence < MEDIUM_CONFIDENCE_THRESHOLD) {
+      Alert.alert(
+        'Low Confidence Warning', 
+        `Detection confidence is only ${confidence}%. Are you sure you want to update occupancy?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Yes, Update', onPress: () => performOccupancyUpdate(level) }
+        ]
+      );
+      return;
+    }
+    
+    performOccupancyUpdate(level);
+  };
+
+  const performOccupancyUpdate = (level: string) => {
+    if (!currentBus) return;
     
     // Prevent frequent updates (minimum 2 minutes between updates)
     if (lastOccupancyUpdate) {
@@ -325,7 +652,10 @@ export default function BusOccupancyScreen() {
     setShowOccupancyModal(false);
     
     const levelInfo = OCCUPANCY_LEVELS.find(l => l.value === level);
-    Alert.alert('Updated', `Occupancy set to ${levelInfo?.label.toUpperCase()}`);
+    Alert.alert(
+      'Updated! ✅', 
+      `Occupancy set to ${levelInfo?.label.toUpperCase()} with ${confidence}% confidence`
+    );
   };
 
   const handleBusSelect = (bus: Bus) => {
@@ -343,6 +673,18 @@ export default function BusOccupancyScreen() {
       bus.longitude
     );
     return distance < 1000 ? `${Math.round(distance)}m away` : `${(distance / 1000).toFixed(1)}km away`;
+  };
+
+  const getConfidenceColor = (confidence: number): string => {
+    if (confidence >= HIGH_CONFIDENCE_THRESHOLD) return '#198754';
+    if (confidence >= MEDIUM_CONFIDENCE_THRESHOLD) return '#ffc107';
+    return '#dc3545';
+  };
+
+  const getConfidenceText = (confidence: number): string => {
+    if (confidence >= HIGH_CONFIDENCE_THRESHOLD) return 'High Confidence';
+    if (confidence >= MEDIUM_CONFIDENCE_THRESHOLD) return 'Medium Confidence';
+    return 'Low Confidence';
   };
 
   if (loading) {
@@ -372,47 +714,73 @@ export default function BusOccupancyScreen() {
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
         <Text style={styles.title}>🚍 SLTB Bus Occupancy Monitor</Text>
+        <Text style={styles.subtitle}>Enhanced GPS Sync Detection</Text>
 
-        {/* Current Bus Status */}
+        {/* Enhanced Current Bus Status */}
         {currentBus && (
           <View style={[styles.card, styles.currentBusCard]}>
             <View style={styles.currentBusHeader}>
               <Icon name="bus" size={20} color="#007bff" />
-              <Text style={styles.currentBusTitle}>You are in Bus {currentBus.number}</Text>
+              <Text style={styles.currentBusTitle}>Detected Bus {currentBus.number}</Text>
             </View>
             <Text style={styles.currentBusRoute}>{currentBus.route} ({currentBus.direction})</Text>
-            <TouchableOpacity 
-              style={styles.updateButton}
-              onPress={() => setShowOccupancyModal(true)}
-            >
-              <Text style={styles.updateButtonText}>Update Occupancy</Text>
-            </TouchableOpacity>
+            
+            <View style={styles.confidenceContainer}>
+              <Text style={[styles.confidenceText, { color: getConfidenceColor(confidence) }]}>
+                {getConfidenceText(confidence)}: {confidence}%
+              </Text>
+              <Text style={styles.detectionReason}>{detectionReason}</Text>
+            </View>
+          
           </View>
         )}
 
-        {/* Location Status */}
+                    <TouchableOpacity
+  style={[
+    styles.updateButton,
+    { backgroundColor: currentBus ? '#007bff' : '#6c757d', marginBottom: 16 }
+  ]}
+  onPress={() => setShowOccupancyModal(true)}
+>
+  <Text style={styles.updateButtonText}>Update Occupancy</Text>
+</TouchableOpacity>
+
+{/* Enhanced Location Status */}
         {userLocation && (
           <View style={styles.card}>
-            <Text style={styles.label}>📍 Your Location</Text>
-            <Text style={styles.locationText}>
+            <Text style={styles.label}>📍 Your Location & Movement</Text>
+            <Text style={styles.value}>
               Lat: {userLocation.latitude.toFixed(6)}, Lng: {userLocation.longitude.toFixed(6)}
             </Text>
-            <Text style={styles.accuracyText}>
-              Accuracy: {userLocation.accuracy ? `±${Math.round(userLocation.accuracy)}m` : 'Unknown'}
-            </Text>
+            {userLocation.accuracy && (
+              <Text style={styles.subValue}>Accuracy: ±{Math.round(userLocation.accuracy)}m</Text>
+            )}
+            {movementHistory.length > 0 && (
+              <View style={styles.movementInfo}>
+                <Text style={styles.subValue}>
+                  Speed: {movementHistory[movementHistory.length - 1]?.speed?.toFixed(1) || 0} km/h
+                </Text>
+                <Text style={styles.subValue}>
+                  Direction: {movementHistory[movementHistory.length - 1]?.direction?.toFixed(0) || 0}°
+                </Text>
+                <Text style={styles.subValue}>
+                  Movement Points: {movementHistory.length}/{MOVEMENT_HISTORY_SIZE}
+                </Text>
+              </View>
+            )}
           </View>
         )}
 
         {/* Bus Search */}
         <View style={styles.card}>
-          <Text style={styles.label}>🔍 Search Bus Number</Text>
+          <Text style={styles.label}>🔍 Search Bus</Text>
           <TextInput
             style={styles.input}
+            placeholder="Enter bus number (e.g., 100, 101)"
             value={typedBusNumber}
             onChangeText={setTypedBusNumber}
-            placeholder="Type bus number (e.g., 100, 101)..."
-            keyboardType="numeric"
           />
+          
           {filteredSuggestions.length > 0 && (
             <FlatList
               data={filteredSuggestions}
@@ -423,138 +791,193 @@ export default function BusOccupancyScreen() {
                   onPress={() => handleBusSelect(item)}
                 >
                   <View style={styles.suggestionContent}>
-                    <Text style={styles.suggestionNumber}>{item.number}</Text>
+                    <Text style={styles.suggestionNumber}>Bus {item.number}</Text>
                     <Text style={styles.suggestionRoute}>{item.route} ({item.direction})</Text>
                     <Text style={styles.suggestionDistance}>{getDistanceText(item)}</Text>
                   </View>
                 </TouchableOpacity>
               )}
               style={styles.suggestionsList}
-              scrollEnabled={false}
             />
           )}
         </View>
 
-        {/* Selected Bus Map */}
-        {selectedBus && userLocation && (
-          <View style={styles.card}>
-            <Text style={styles.label}>🗺️ Bus Location: {selectedBus.number}</Text>
-            <MapView
-              style={styles.map}
-              region={{
-                latitude: (selectedBus.latitude + userLocation.latitude) / 2,
-                longitude: (selectedBus.longitude + userLocation.longitude) / 2,
-                latitudeDelta: 0.01,
-                longitudeDelta: 0.01,
-              }}
-              provider="google"
-            >
-              <Marker
-                coordinate={{ latitude: selectedBus.latitude, longitude: selectedBus.longitude }}
-                title={`Bus ${selectedBus.number}`}
-                description={selectedBus.route}
-                pinColor="blue"
-              />
-              <Marker
-                coordinate={{ latitude: userLocation.latitude, longitude: userLocation.longitude }}
-                title="Your Location"
-                description="You are here"
-                pinColor="red"
-              />
-              <Circle
-                center={{ latitude: userLocation.latitude, longitude: userLocation.longitude }}
-                radius={BUS_DETECTION_RADIUS}
-                fillColor="rgba(0, 123, 255, 0.1)"
-                strokeColor="rgba(0, 123, 255, 0.3)"
-              />
-            </MapView>
-          </View>
-        )}
-
         {/* Nearby Buses */}
         {nearbyBuses.length > 0 && (
           <View style={styles.card}>
-            <Text style={styles.label}>🚌 Nearby Buses</Text>
+            <Text style={styles.label}>🚌 Nearby Buses (Within 200m)</Text>
             <FlatList
               data={nearbyBuses}
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => (
-                <View style={styles.nearbyBusItem}>
-                  <View style={styles.nearbyBusInfo}>
-                    <Text style={styles.nearbyBusNumber}>{item.number}</Text>
+                <TouchableOpacity
+                  style={[
+                    styles.nearbyBusItem,
+                    item.id === currentBus?.id && styles.detectedBusItem
+                  ]}
+                  onPress={() => handleBusSelect(item)}
+                >
+                  <View style={styles.nearbyBusContent}>
+                    <Text style={styles.nearbyBusNumber}>Bus {item.number}</Text>
                     <Text style={styles.nearbyBusRoute}>{item.route}</Text>
                     <Text style={styles.nearbyBusDistance}>{getDistanceText(item)}</Text>
+                    {item.estimatedSpeed && (
+                      <Text style={styles.nearbyBusSpeed}>~{item.estimatedSpeed} km/h</Text>
+                    )}
+                    {busStatuses[item.id] && (
+                      <Text style={[
+                        styles.occupancyStatus,
+                        { color: OCCUPANCY_LEVELS.find(l => l.value === busStatuses[item.id].occupancy)?.color }
+                      ]}>
+                        {OCCUPANCY_LEVELS.find(l => l.value === busStatuses[item.id].occupancy)?.label} occupancy
+                      </Text>
+                    )}
+                    {item.id === currentBus?.id && (
+                      <Text style={styles.detectedLabel}>✅ Detected ({confidence}%)</Text>
+                    )}
                   </View>
-                  {item.estimatedSpeed && (
-                    <Text style={styles.speedText}>{item.estimatedSpeed} km/h</Text>
-                  )}
-                </View>
+                </TouchableOpacity>
               )}
-              scrollEnabled={false}
             />
           </View>
         )}
 
-        {/* Live Updates */}
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>📊 Live Bus Updates</Text>
-          <FlatList
-            data={Object.values(busStatuses)}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <View style={styles.statusCard}>
-                <Text style={styles.busInfo}>
-                  <Icon name="bus" size={16} /> {item.number} - {item.route}
-                </Text>
-                <Text style={styles.statusText}>
-                  Occupancy:{' '}
-                  <Text style={{ color: OCCUPANCY_LEVELS.find(l => l.value === item.occupancy)?.color || '#000' }}>
-                    {item.occupancy?.toUpperCase()}
-                  </Text>
-                </Text>
-                <Text style={styles.updateTime}>Updated: {item.updatedAt}</Text>
-              </View>
-            )}
-            ListEmptyComponent={<Text style={styles.emptyText}>No updates yet today.</Text>}
-            scrollEnabled={false}
-          />
-        </View>
-
-        {/* Occupancy Modal */}
-        <Modal
-          visible={showOccupancyModal}
-          transparent={true}
-          animationType="slide"
-          onRequestClose={() => setShowOccupancyModal(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Set Bus Occupancy</Text>
-              <Text style={styles.modalSubtitle}>
-                Bus {currentBus?.number} - {currentBus?.route}
-              </Text>
+        {/* Map View */}
+        {userLocation && (
+          <View style={styles.card}>
+            <Text style={styles.label}>🗺️ Map View</Text>
+            <MapView
+              style={styles.map}
+              initialRegion={{
+                latitude: userLocation.latitude,
+                longitude: userLocation.longitude,
+                latitudeDelta: 0.01,
+                longitudeDelta: 0.01,
+              }}
+              region={{
+                latitude: userLocation.latitude,
+                longitude: userLocation.longitude,
+                latitudeDelta: 0.01,
+                longitudeDelta: 0.01,
+              }}
+              showsUserLocation={true}
+              showsMyLocationButton={true}
+            >
+              {/* User Location Circle */}
+              <Circle
+                center={{
+                  latitude: userLocation.latitude,
+                  longitude: userLocation.longitude,
+                }}
+                radius={userLocation.accuracy || 50}
+                fillColor="rgba(0, 123, 255, 0.1)"
+                strokeColor="rgba(0, 123, 255, 0.3)"
+                strokeWidth={2}
+              />
               
+              {/* Bus Markers */}
+              {filteredSuggestions.map((bus) => (
+  <Marker
+    key={bus.id}
+    coordinate={{
+      latitude: bus.latitude,
+      longitude: bus.longitude,
+    }}
+    title={`Bus ${bus.number}`}
+    description={`${bus.route} - ${getDistanceText(bus)}`}
+  >
+    <Icon name="bus" size={28} color={bus.id === currentBus?.id ? "#007bff" : "#dc3545"} />
+  </Marker>
+))}
+            </MapView>
+          </View>
+        )}
+
+        {/* Bus Status History */}
+        {Object.keys(busStatuses).length > 0 && (
+          <View style={styles.card}>
+            <Text style={styles.label}>📊 Today's Bus Status Updates</Text>
+            {Object.values(busStatuses).map((bus) => (
+              <View key={bus.id} style={styles.statusItem}>
+                <Text style={styles.statusBusNumber}>Bus {bus.number}</Text>
+                <Text style={styles.statusRoute}>{bus.route}</Text>
+                <View style={styles.statusOccupancy}>
+                  <Text style={[
+                    styles.statusOccupancyText,
+                    { color: OCCUPANCY_LEVELS.find(l => l.value === bus.occupancy)?.color }
+                  ]}>
+                    {OCCUPANCY_LEVELS.find(l => l.value === bus.occupancy)?.label.toUpperCase()}
+                  </Text>
+                  <Text style={styles.statusTime}>Updated at {bus.updatedAt}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Detection Debug Info
+        {__DEV__ && (
+          <View style={styles.card}>
+            <Text style={styles.label}>🔧 Debug Information</Text>
+            <Text style={styles.debugText}>Movement History: {movementHistory.length} points</Text>
+            <Text style={styles.debugText}>Nearby Buses: {nearbyBuses.length}</Text>
+            <Text style={styles.debugText}>Detection Confidence: {confidence}%</Text>
+            <Text style={styles.debugText}>Current Bus: {currentBus?.number || 'None'}</Text>
+            <Text style={styles.debugText}>Detection Reason: {detectionReason}</Text>
+          </View>
+        )} */}
+      </ScrollView>
+
+      {/* Occupancy Update Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showOccupancyModal}
+        onRequestClose={() => setShowOccupancyModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Update Bus Occupancy</Text>
+            {currentBus && (
+              <Text style={styles.modalSubtitle}>
+                Bus {currentBus.number} - {currentBus.route}
+              </Text>
+            )}
+            
+            <View style={styles.occupancyOptions}>
               {OCCUPANCY_LEVELS.map((level) => (
                 <TouchableOpacity
                   key={level.value}
-                  style={[styles.modalButton, { backgroundColor: level.color }]}
-                  onPress={() => updateOccupancy(level.value)}
+                  style={[
+                    styles.occupancyOption,
+                    { backgroundColor: level.color },
+                    occupancy === level.value && styles.selectedOccupancy
+                  ]}
+                  onPress={() => setOccupancy(level.value)}
                 >
-                  <Text style={styles.modalButtonText}>{level.label}</Text>
-                  <Text style={styles.modalButtonDesc}>{level.description}</Text>
+                  <Text style={styles.occupancyLabel}>{level.label}</Text>
+                  <Text style={styles.occupancyDescription}>{level.description}</Text>
                 </TouchableOpacity>
               ))}
-              
+            </View>
+            
+            <View style={styles.modalButtons}>
               <TouchableOpacity
-                style={styles.modalCancelButton}
-                onPress={() => setShowOccupancyModal(false)}
-              >
-                <Text style={styles.modalCancelText}>Cancel</Text>
-              </TouchableOpacity>
+  style={[styles.modalButton, styles.confirmButton]}
+  onPress={() => {
+    if (!currentBus) {
+      Alert.alert("Error", "You're currently not inside this bus.");
+      return;
+    }
+    updateOccupancy(occupancy);
+  }}
+>
+  <Text style={styles.confirmButtonText}>Update</Text>
+</TouchableOpacity>
             </View>
           </View>
-        </Modal>
-      </ScrollView>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -569,7 +992,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 60,
   },
   loadingContainer: {
     flex: 1,
@@ -577,7 +999,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 16,
+    marginTop: 10,
     fontSize: 16,
     color: '#6c757d',
   },
@@ -589,39 +1011,43 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 18,
-    fontWeight: 'bold',
     color: '#dc3545',
-    marginTop: 16,
+    marginTop: 10,
     textAlign: 'center',
   },
   errorSubtext: {
     fontSize: 14,
     color: '#6c757d',
-    marginTop: 8,
+    marginTop: 5,
     textAlign: 'center',
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 20,
+    color: '#007bff',
     textAlign: 'center',
-    color: '#343a40',
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#6c757d',
+    textAlign: 'center',
+    marginBottom: 20,
   },
   card: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#fff',
+    borderRadius: 10,
     padding: 16,
-    borderRadius: 12,
     marginBottom: 16,
-    elevation: 3,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
+    elevation: 3,
   },
   currentBusCard: {
-    backgroundColor: '#e7f3ff',
     borderColor: '#007bff',
-    borderWidth: 1,
+    borderWidth: 2,
   },
   currentBusHeader: {
     flexDirection: 'row',
@@ -631,66 +1057,81 @@ const styles = StyleSheet.create({
   currentBusTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#007bff',
     marginLeft: 8,
+    color: '#007bff',
   },
   currentBusRoute: {
-    fontSize: 14,
-    color: '#6c757d',
+    fontSize: 16,
+    color: '#495057',
     marginBottom: 12,
+  },
+  confidenceContainer: {
+    marginBottom: 16,
+  },
+  confidenceText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  detectionReason: {
+    fontSize: 12,
+    color: '#6c757d',
+    fontStyle: 'italic',
   },
   updateButton: {
     backgroundColor: '#007bff',
-    padding: 12,
+    paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',
   },
   updateButtonText: {
-    color: '#ffffff',
-    fontWeight: 'bold',
+    color: '#fff',
     fontSize: 16,
+    fontWeight: 'bold',
   },
   label: {
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: 'bold',
     marginBottom: 8,
     color: '#495057',
-    fontSize: 16,
   },
-  locationText: {
+  value: {
     fontSize: 14,
     color: '#6c757d',
     marginBottom: 4,
   },
-  accuracyText: {
+  subValue: {
     fontSize: 12,
     color: '#6c757d',
+    marginBottom: 2,
+  },
+  movementInfo: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#e9ecef',
   },
   input: {
-    backgroundColor: '#f8f9fa',
-    padding: 12,
-    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#dee2e6',
-    marginBottom: 8,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
     fontSize: 16,
+    marginBottom: 12,
   },
   suggestionsList: {
-    maxHeight: 300,
-    marginBottom: 8,
+    maxHeight: 200,
   },
   suggestionItem: {
-    backgroundColor: '#f8f9fa',
     padding: 12,
-    borderRadius: 8,
-    marginBottom: 4,
-    borderWidth: 1,
-    borderColor: '#dee2e6',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e9ecef',
   },
   suggestionContent: {
-    flexDirection: 'column',
+    flex: 1,
   },
   suggestionNumber: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#007bff',
   },
@@ -704,22 +1145,19 @@ const styles = StyleSheet.create({
     color: '#6c757d',
     marginTop: 2,
   },
-  map: {
-    height: 250,
-    width: '100%',
-    borderRadius: 10,
-    marginTop: 10,
-  },
   nearbyBusItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     padding: 12,
-    backgroundColor: '#f8f9fa',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e9ecef',
     borderRadius: 8,
     marginBottom: 8,
   },
-  nearbyBusInfo: {
+  detectedBusItem: {
+    backgroundColor: '#e3f2fd',
+    borderColor: '#007bff',
+    borderWidth: 1,
+  },
+  nearbyBusContent: {
     flex: 1,
   },
   nearbyBusNumber: {
@@ -730,48 +1168,66 @@ const styles = StyleSheet.create({
   nearbyBusRoute: {
     fontSize: 14,
     color: '#495057',
+    marginTop: 2,
   },
   nearbyBusDistance: {
     fontSize: 12,
     color: '#6c757d',
+    marginTop: 2,
   },
-  speedText: {
+  nearbyBusSpeed: {
     fontSize: 12,
     color: '#28a745',
+    marginTop: 2,
+  },
+  occupancyStatus: {
+    fontSize: 12,
     fontWeight: 'bold',
+    marginTop: 2,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 12,
-    color: '#343a40',
+  detectedLabel: {
+    fontSize: 12,
+    color: '#007bff',
+    fontWeight: 'bold',
+    marginTop: 4,
   },
-  statusCard: {
-    backgroundColor: '#f8f9fa',
-    padding: 12,
+  map: {
+    height: 200,
     borderRadius: 8,
-    marginBottom: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: '#007bff',
   },
-  busInfo: {
-    fontWeight: 'bold',
-    marginBottom: 4,
-    color: '#212529',
+  statusItem: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e9ecef',
+  },
+  statusBusNumber: {
     fontSize: 16,
+    fontWeight: 'bold',
+    color: '#007bff',
   },
-  statusText: {
+  statusRoute: {
     fontSize: 14,
-    marginBottom: 2,
+    color: '#495057',
+    marginTop: 2,
   },
-  updateTime: {
+  statusOccupancy: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  statusOccupancyText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  statusTime: {
     fontSize: 12,
     color: '#6c757d',
   },
-  emptyText: {
-    textAlign: 'center',
+  debugText: {
+    fontSize: 12,
     color: '#6c757d',
-    marginTop: 8,
+    marginBottom: 4,
   },
   modalOverlay: {
     flex: 1,
@@ -780,51 +1236,72 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
+    backgroundColor: '#fff',
+    borderRadius: 10,
     padding: 20,
     width: '90%',
     maxWidth: 400,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 8,
-    color: '#343a40',
   },
   modalSubtitle: {
     fontSize: 14,
+    color: '#6c757d',
     textAlign: 'center',
     marginBottom: 20,
-    color: '#6c757d',
   },
-  modalButton: {
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 12,
-    alignItems: 'center',
+  occupancyOptions: {
+    marginBottom: 20,
   },
-  modalButtonText: {
-    color: '#ffffff',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  modalButtonDesc: {
-    color: '#ffffff',
-    fontSize: 12,
-    marginTop: 4,
-    opacity: 0.9,
-  },
-  modalCancelButton: {
+  occupancyOption: {
     padding: 12,
     borderRadius: 8,
-    backgroundColor: '#6c757d',
+    marginBottom: 8,
     alignItems: 'center',
-    marginTop: 8,
   },
-  modalCancelText: {
-    color: '#ffffff',
+  selectedOccupancy: {
+    borderWidth: 2,
+    borderColor: '#007bff',
+  },
+  occupancyLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  occupancyDescription: {
+    fontSize: 12,
+    color: '#fff',
+    marginTop: 2,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  modalButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginHorizontal: 4,
+  },
+  cancelButton: {
+    backgroundColor: '#6c757d',
+  },
+  confirmButton: {
+    backgroundColor: '#007bff',
+  },
+  cancelButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  confirmButtonText: {
+    color: '#fff',
+    fontSize: 16,
     fontWeight: 'bold',
   },
 });
