@@ -15,8 +15,12 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width, height } = Dimensions.get("window");
+
+// Add your backend URL here
+const API_BASE_URL = "http://192.168.1.30:5000/api"; // Replace with your actual backend URL
 
 export default function DriverLoginScreen({ navigation }: any) {
   const [email, setEmail] = useState("");
@@ -33,22 +37,56 @@ export default function DriverLoginScreen({ navigation }: any) {
     setIsLoading(true);
 
     try {
-      // Add your driver login logic here
-      // Example: await authenticateDriver(email, password);
+      console.log("Attempting login to:", `${API_BASE_URL}/driver/login`);
 
-      // Simulate API call
-      setTimeout(() => {
+      const response = await fetch(`${API_BASE_URL}/driver/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: email.trim(),
+          password: password.trim(),
+        }),
+      });
+
+      console.log("Response status:", response.status);
+
+      const data = await response.json();
+      console.log("Response data:", data);
+
+      if (response.ok && data.success) {
+        // Store the token for future requests
+        await AsyncStorage.setItem("driverToken", data.token);
+        await AsyncStorage.setItem("driverUser", JSON.stringify(data.user));
+
         setIsLoading(false);
-        // Navigate to driver dashboard on successful login
-        // navigation.navigate('DriverDashboard');
-        Alert.alert("Success", "Login successful!");
-      }, 2000);
+        Alert.alert("Success", `Welcome ${data.user.first_name}!`, [
+          {
+            text: "OK",
+            onPress: () => {
+              // Navigate to driver dashboard
+              // navigation.navigate('DriverDashboard');
+              console.log("Driver logged in:", data.user);
+            },
+          },
+        ]);
+      } else {
+        setIsLoading(false);
+        Alert.alert(
+          "Error",
+          data.error || "Login failed. Please check your credentials."
+        );
+      }
     } catch (error) {
       setIsLoading(false);
-      Alert.alert("Error", "Login failed. Please check your credentials.");
+      console.error("Login error:", error);
+      Alert.alert(
+        "Error",
+        "Network error. Please check your connection and try again."
+      );
     }
   };
-
   return (
     <>
       <StatusBar barStyle="light-content" backgroundColor="#1e3a8a" />
@@ -444,3 +482,4 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
 });
+
