@@ -28,10 +28,16 @@ app.use('/api/auth', authRoutes);
 const userRoutes = require('./routes/userRoutes');
 app.use('/api/users', userRoutes);
 
-
-
+const driverAuthRoutes = require('./routes/driverAuth');
+app.use('/api/driver', driverAuthRoutes);
 // app.use('/api/users', require('./routes/userRoutes'));
 
 app.listen(PORT, () => {
   console.log(`🚀 Server is running on http://localhost:${PORT}`);
 });
+
+// Add this to your existing routes file or create if it doesn't exist
+
+
+
+
