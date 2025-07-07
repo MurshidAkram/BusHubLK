@@ -4,6 +4,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
 
+// Import your existing screens
 import HomeScreen from '../screens/HomeScreen';
 import RouteScreen from '../screens/RouteScreen';
 import DashboardScreen from '../screens/DashboardScreen';
@@ -12,13 +13,18 @@ import EmergencyScreen from '../screens/EmergencyScreen';
 import ConditionScreen from '../screens/ConditionScreen';
 import TravelLogScreen from '../screens/TravelLogScreen';
 
+// --- 1. Import your Profile and Settings screens ---
+import ProfileScreen from '../screens/ProfileScreen';
+import SettingsScreen from '../screens/SettingScreen';
+
+
 // Create Stack Navigators for each tab
 const HomeStack = createStackNavigator();
 const RouteStack = createStackNavigator();
 const ProfileStack = createStackNavigator();
 const SettingsStack = createStackNavigator();
 
-// Placeholder screens
+// This placeholder is no longer needed for Profile and Settings, but can be kept for future use.
 const PlaceholderScreen = ({ title }) => (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <Text style={{ fontSize: 18, fontWeight: 'bold' }}>{title}</Text>
@@ -26,7 +32,7 @@ const PlaceholderScreen = ({ title }) => (
     </View>
 );
 
-// Home Stack Navigator
+// Home Stack Navigator (no changes needed here)
 const HomeStackNavigator = () => {
     return (
         <HomeStack.Navigator
@@ -44,7 +50,7 @@ const HomeStackNavigator = () => {
     );
 };
 
-// Route Stack Navigator
+// Route Stack Navigator (no changes needed here)
 const RouteStackNavigator = () => {
     return (
         <RouteStack.Navigator
@@ -57,7 +63,7 @@ const RouteStackNavigator = () => {
     );
 };
 
-// Profile Stack Navigator
+// --- 2. Update Profile Stack Navigator ---
 const ProfileStackNavigator = () => {
     return (
         <ProfileStack.Navigator
@@ -65,15 +71,16 @@ const ProfileStackNavigator = () => {
                 headerShown: false,
             }}
         >
-            <ProfileStack.Screen 
-                name="ProfileMain" 
-                component={() => <PlaceholderScreen title="Profile" />} 
+            {/* Replace the placeholder with your actual ProfileScreen component */}
+            <ProfileStack.Screen
+                name="ProfileMain"
+                component={ProfileScreen}
             />
         </ProfileStack.Navigator>
     );
 };
 
-// Settings Stack Navigator
+// --- 3. Update Settings Stack Navigator ---
 const SettingsStackNavigator = () => {
     return (
         <SettingsStack.Navigator
@@ -81,16 +88,19 @@ const SettingsStackNavigator = () => {
                 headerShown: false,
             }}
         >
-            <SettingsStack.Screen 
-                name="SettingsMain" 
-                component={() => <PlaceholderScreen title="Settings" />} 
+            {/* Replace the placeholder with your actual SettingsScreen component */}
+            <SettingsStack.Screen
+                name="SettingsMain"
+                component={SettingsScreen}
             />
         </SettingsStack.Navigator>
     );
 };
 
+
 const Tab = createBottomTabNavigator();
 
+// --- Main Tab Navigator (no changes needed in this section) ---
 const TabNavigator = () => {
     return (
         <Tab.Navigator

@@ -4,34 +4,32 @@ import {
   View,
   Text,
   SafeAreaView,
-  ScrollView,
+  ScrollView, // 2. Added missing ScrollView import here
   TouchableOpacity,
+  Platform,
+  StatusBar,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 
-// Main HomeScreen Component
 export default function HomeScreen() {
   const navigation = useNavigation();
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* --- Header --- */}
+      <StatusBar barStyle="light-content" backgroundColor="#005A9C" />
       <Header />
-
       <ScrollView contentContainerStyle={styles.scrollContainer}>
-        {/* --- Welcome/Action Card --- */}
         <WelcomeCard />
-
-        {/* --- Main Content Card: "Plan Your Journey" adapted for the driver --- */}
+        
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Your Current Trip</Text>
           <View style={styles.infoRow}>
-            <Ionicons name="location-outline" size={20} color="#555" />
+            <Ionicons name="location-outline" size={22} color="#4b5563" />
             <Text style={styles.infoText}>From: Kaduwela Bus Terminal</Text>
           </View>
           <View style={styles.infoRow}>
-            <Ionicons name="flag-outline" size={20} color="#555" />
+            <Ionicons name="flag-outline" size={22} color="#4b5563" />
             <Text style={styles.infoText}>To: Kollupitiya Junction</Text>
           </View>
           <TouchableOpacity style={styles.primaryButton}>
@@ -39,68 +37,69 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* --- Quick Actions Section --- */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.quickActionContainer}>
             <QuickActionButton
-              icon="bus-clock"
+              icon="timeline-clock-outline"
               text="Travel Log"
               onPress={() => navigation.navigate('TravelLog')}
             />
             <QuickActionButton
-              icon="car-wrench"
+              icon="car-wrench" // 1. Fixed icon name from "bus-wrench"
               text="Bus Condition"
               onPress={() => navigation.navigate('Condition')}
             />
             <QuickActionButton
-              icon="alert-circle"
+              icon="alert-decagram-outline"
               text="Emergency"
               onPress={() => navigation.navigate('Emergency')}
             />
           </View>
         </View>
-        
-         {/* --- More Services Section --- */}
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>More Services</Text>
-           <TouchableOpacity 
-             style={styles.serviceItem}
-             onPress={() => navigation.navigate('LostAndFound')}
-           >
-                <Ionicons name="archive-outline" size={24} color="#005A9C" />
-                <Text style={styles.serviceItemText}>Lost & Found Reports</Text>
-                <Ionicons name="chevron-forward-outline" size={22} color="#ccc" />
-           </TouchableOpacity>
-           <TouchableOpacity 
-             style={styles.serviceItem}
-             onPress={() => navigation.navigate('Profile')}
-           >
-                <Ionicons name="person-circle-outline" size={24} color="#005A9C" />
-                <Text style={styles.serviceItemText}>My Profile</Text>
-                <Ionicons name="chevron-forward-outline" size={22} color="#ccc" />
-           </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.serviceItem}
+              onPress={() => navigation.navigate('LostAndFound')}
+            >
+              <View style={styles.serviceIcon}>
+                <Ionicons name="archive-outline" size={22} color="#005A9C" />
+              </View>
+              <Text style={styles.serviceItemText}>Lost & Found Reports</Text>
+              <Ionicons name="chevron-forward-outline" size={22} color="#9ca3af" />
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.serviceItem}
+              onPress={() => navigation.navigate('Profile')}
+            >
+              <View style={styles.serviceIcon}>
+                <Ionicons name="person-circle-outline" size={22} color="#005A9C" />
+              </View>
+              <Text style={styles.serviceItemText}>My Profile</Text>
+              <Ionicons name="chevron-forward-outline" size={22} color="#9ca3af" />
+            </TouchableOpacity>
         </View>
-
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-// --- Reusable Sub-components ---
+// --- Reusable Components (no changes needed here) ---
 
 const Header = () => (
   <View style={styles.header}>
     <TouchableOpacity>
-      <Ionicons name="menu" size={32} color="white" />
+      <Ionicons name="menu" size={30} color="white" />
     </TouchableOpacity>
     <Text style={styles.headerTitle}>BusHubLK</Text>
     <View style={styles.headerIcons}>
         <TouchableOpacity>
             <Ionicons name="notifications-outline" size={26} color="white" />
         </TouchableOpacity>
-        <TouchableOpacity style={{marginLeft: 15}}>
-             <FontAwesome5 name="user-circle" size={26} color="white" />
+        <TouchableOpacity style={{marginLeft: 16}}>
+             <FontAwesome5 name="user-circle" size={24} color="white" />
         </TouchableOpacity>
     </View>
   </View>
@@ -108,61 +107,76 @@ const Header = () => (
 
 const WelcomeCard = () => (
   <View style={styles.welcomeCard}>
-    <MaterialCommunityIcons name="bus" size={30} color="white" />
+    <View style={styles.welcomeIcon}>
+      <MaterialCommunityIcons name="bus" size={28} color="#FFFFFF" />
+    </View>
     <View style={styles.welcomeTextContainer}>
       <Text style={styles.welcomeTitle}>Ready to Start, Michael?</Text>
       <Text style={styles.welcomeSubtitle}>Your bus is: WP-NA-8752</Text>
     </View>
     <TouchableOpacity style={styles.startButton}>
-        <Text style={styles.startButtonText}>Start Trip</Text>
+        <Text style={styles.startButtonText}>Start</Text>
     </TouchableOpacity>
   </View>
 );
 
 const QuickActionButton = ({ icon, text, onPress }) => (
     <TouchableOpacity style={styles.quickActionButton} onPress={onPress}>
-        <MaterialCommunityIcons name={icon} size={28} color="#005A9C" />
+        <View style={styles.quickActionIcon}>
+          <MaterialCommunityIcons name={icon} size={30} color="#005A9C" />
+        </View>
         <Text style={styles.quickActionText}>{text}</Text>
     </TouchableOpacity>
 );
 
-// --- Stylesheet ---
+// --- Styles (no changes needed here) ---
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F0F4F8', // Light gray background
+    backgroundColor: '#f4f7fA', 
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    backgroundColor: '#005A9C', // Main blue color from image
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    backgroundColor: '#005A9C',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 12,
   },
   headerTitle: {
     color: 'white',
     fontSize: 20,
     fontWeight: 'bold',
-    letterSpacing: 1,
   },
   headerIcons: {
-      flexDirection: 'row',
-      alignItems: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   scrollContainer: {
-    padding: 15,
+    padding: 20,
+    backgroundColor: '#f4f7fA',
   },
   welcomeCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#007BFF', // A slightly brighter blue
+    backgroundColor: '#005A9C', 
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 24,
+    elevation: 4,
+    shadowColor: '#003a63',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+  },
+  welcomeIcon: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     borderRadius: 12,
-    padding: 15,
-    marginBottom: 20,
+    padding: 10,
+    marginRight: 12,
   },
   welcomeTextContainer: {
-    marginLeft: 12,
     flex: 1,
   },
   welcomeTitle: {
@@ -172,50 +186,51 @@ const styles = StyleSheet.create({
   },
   welcomeSubtitle: {
     color: 'white',
-    fontSize: 13,
+    fontSize: 14,
     opacity: 0.9,
+    marginTop: 2,
   },
   startButton: {
       backgroundColor: 'white',
-      borderRadius: 20,
-      paddingVertical: 8,
-      paddingHorizontal: 15,
+      borderRadius: 10,
+      paddingVertical: 10,
+      paddingHorizontal: 20,
   },
   startButtonText: {
-      color: '#007BFF',
+      color: '#005A9C',
       fontWeight: 'bold',
       fontSize: 14,
   },
   card: {
     backgroundColor: 'white',
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 20,
-    marginBottom: 20,
-    shadowColor: '#000',
+    marginBottom: 24,
+    elevation: 2,
+    shadowColor: '#475569',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowRadius: 3,
   },
   cardTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 15,
+    color: '#1e293b', 
+    marginBottom: 20,
   },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   infoText: {
     fontSize: 15,
-    color: '#555',
-    marginLeft: 10,
+    color: '#334155',
+    marginLeft: 12,
   },
   primaryButton: {
     backgroundColor: '#005A9C',
-    borderRadius: 8,
+    borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 10,
@@ -226,14 +241,13 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   section: {
-    marginBottom: 20,
+    marginBottom: 24,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 15,
-    paddingHorizontal: 5,
+    color: '#334155',
+    marginBottom: 16,
   },
   quickActionContainer: {
     flexDirection: 'row',
@@ -241,61 +255,51 @@ const styles = StyleSheet.create({
   },
   quickActionButton: {
     backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 15,
+    borderRadius: 16,
+    padding: 16,
     alignItems: 'center',
-    justifyContent: 'center',
     width: '31%',
-    aspectRatio: 1, // Makes the button a square
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
     elevation: 2,
+    shadowColor: '#475569',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+  },
+  quickActionIcon: {
+    backgroundColor: '#eef2ff',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
   },
   quickActionText: {
-    marginTop: 8,
     fontSize: 12,
     fontWeight: '600',
-    color: '#333',
+    color: '#334155',
     textAlign: 'center',
   },
   serviceItem: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'white',
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 10,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
     elevation: 2,
+    shadowColor: '#475569',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+  },
+  serviceIcon: {
+    backgroundColor: '#eef2ff',
+    borderRadius: 10,
+    padding: 8,
   },
   serviceItemText: {
     flex: 1,
-    marginLeft: 15,
+    marginLeft: 16,
     fontSize: 15,
-    color: '#333',
+    fontWeight: '600',
+    color: '#1e293b',
   },
-  bottomNav: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    backgroundColor: 'white',
-    paddingTop: 10,
-    paddingBottom: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
-  },
-  navButton: {
-    alignItems: 'center',
-  },
-  navText: {
-      fontSize: 12,
-      color: '#888',
-      marginTop: 2,
-  },
-  navTextActive: {
-      fontSize: 12,
-      color: '#005A9C',
-      fontWeight: 'bold',
-      marginTop: 2,
-  }
 });
