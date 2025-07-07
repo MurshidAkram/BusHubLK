@@ -408,26 +408,28 @@ export default function BusOccupancyScreen() {
   const { detectedBus, confidence, detectionReason, movementHistory } = useEnhancedBusDetection(userLocation, buses);
 
   // Filter buses by number and proximity to user
-  const filteredSuggestions = buses.filter(bus => {
-    const matchesNumber = bus.number.toLowerCase().includes(typedBusNumber.toLowerCase()) && typedBusNumber !== '';
-    if (!userLocation) return matchesNumber;
-    
-    const distance = calculateDistance(
-      userLocation.latitude,
-      userLocation.longitude,
-      bus.latitude,
-      bus.longitude
+const filteredSuggestions = buses.filter(bus => {
+  if (!userLocation) return true;
+  const distance = calculateDistance(
+    userLocation.latitude,
+    userLocation.longitude,
+    bus.latitude,
+    bus.longitude
+  );
+  // If there's a search, filter by number and distance; otherwise, show all nearby buses
+  if (typedBusNumber.trim() !== '') {
+    return (
+      bus.number.toLowerCase().includes(typedBusNumber.toLowerCase()) &&
+      distance <= 1000
     );
-    
-    return matchesNumber && distance <= 1000; // Within 1km
-  }).sort((a, b) => {
-    if (!userLocation) return 0;
-    
-    const distanceA = calculateDistance(userLocation.latitude, userLocation.longitude, a.latitude, a.longitude);
-    const distanceB = calculateDistance(userLocation.latitude, userLocation.longitude, b.latitude, b.longitude);
-    
-    return distanceA - distanceB;
-  });
+  }
+  return distance <= 1000;
+}).sort((a, b) => {
+  if (!userLocation) return 0;
+  const distanceA = calculateDistance(userLocation.latitude, userLocation.longitude, a.latitude, a.longitude);
+  const distanceB = calculateDistance(userLocation.latitude, userLocation.longitude, b.latitude, b.longitude);
+  return distanceA - distanceB;
+});
 
   // Request location permission and get current location
   useEffect(() => {
@@ -729,20 +731,19 @@ export default function BusOccupancyScreen() {
               </Text>
               <Text style={styles.detectionReason}>{detectionReason}</Text>
             </View>
-            
-            <TouchableOpacity 
-              style={[
-                styles.updateButton,
-                { backgroundColor: confidence >= MEDIUM_CONFIDENCE_THRESHOLD ? '#007bff' : '#6c757d' }
-              ]}
-              onPress={() => setShowOccupancyModal(true)}
-            >
-              <Text style={styles.updateButtonText}>
-                {confidence >= MEDIUM_CONFIDENCE_THRESHOLD ? 'Update Occupancy' : 'Update (Low Confidence)'}
-              </Text>
-            </TouchableOpacity>
+          
           </View>
         )}
+
+                    <TouchableOpacity
+  style={[
+    styles.updateButton,
+    { backgroundColor: currentBus ? '#007bff' : '#6c757d', marginBottom: 16 }
+  ]}
+  onPress={() => setShowOccupancyModal(true)}
+>
+  <Text style={styles.updateButtonText}>Update Occupancy</Text>
+</TouchableOpacity>
 
 {/* Enhanced Location Status */}
         {userLocation && (
@@ -914,7 +915,7 @@ export default function BusOccupancyScreen() {
           </View>
         )}
 
-        {/* Detection Debug Info */}
+        {/* Detection Debug Info
         {__DEV__ && (
           <View style={styles.card}>
             <Text style={styles.label}>🔧 Debug Information</Text>
@@ -924,7 +925,7 @@ export default function BusOccupancyScreen() {
             <Text style={styles.debugText}>Current Bus: {currentBus?.number || 'None'}</Text>
             <Text style={styles.debugText}>Detection Reason: {detectionReason}</Text>
           </View>
-        )}
+        )} */}
       </ScrollView>
 
       {/* Occupancy Update Modal */}
@@ -962,17 +963,17 @@ export default function BusOccupancyScreen() {
             
             <View style={styles.modalButtons}>
               <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setShowOccupancyModal(false)}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.confirmButton]}
-                onPress={() => updateOccupancy(occupancy)}
-              >
-                <Text style={styles.confirmButtonText}>Update</Text>
-              </TouchableOpacity>
+  style={[styles.modalButton, styles.confirmButton]}
+  onPress={() => {
+    if (!currentBus) {
+      Alert.alert("Error", "You're currently not inside this bus.");
+      return;
+    }
+    updateOccupancy(occupancy);
+  }}
+>
+  <Text style={styles.confirmButtonText}>Update</Text>
+</TouchableOpacity>
             </View>
           </View>
         </View>
