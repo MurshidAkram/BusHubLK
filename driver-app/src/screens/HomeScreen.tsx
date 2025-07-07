@@ -64,12 +64,18 @@ export default function HomeScreen() {
          {/* --- More Services Section --- */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>More Services</Text>
-           <TouchableOpacity style={styles.serviceItem}>
+           <TouchableOpacity 
+             style={styles.serviceItem}
+             onPress={() => navigation.navigate('LostAndFound')}
+           >
                 <Ionicons name="archive-outline" size={24} color="#005A9C" />
                 <Text style={styles.serviceItemText}>Lost & Found Reports</Text>
                 <Ionicons name="chevron-forward-outline" size={22} color="#ccc" />
            </TouchableOpacity>
-           <TouchableOpacity style={styles.serviceItem}>
+           <TouchableOpacity 
+             style={styles.serviceItem}
+             onPress={() => navigation.navigate('Profile')}
+           >
                 <Ionicons name="person-circle-outline" size={24} color="#005A9C" />
                 <Text style={styles.serviceItemText}>My Profile</Text>
                 <Ionicons name="chevron-forward-outline" size={22} color="#ccc" />
@@ -77,8 +83,6 @@ export default function HomeScreen() {
         </View>
 
       </ScrollView>
-       {/* --- Bottom Navigation Bar (Visual Only) --- */}
-       <BottomNavBar />
     </SafeAreaView>
   );
 }
@@ -121,29 +125,6 @@ const QuickActionButton = ({ icon, text, onPress }) => (
         <Text style={styles.quickActionText}>{text}</Text>
     </TouchableOpacity>
 );
-
-// Visual replica of a bottom tab navigator
-const BottomNavBar = () => (
-    <View style={styles.bottomNav}>
-        <TouchableOpacity style={styles.navButton}>
-            <Ionicons name="home" size={28} color="#005A9C" />
-            <Text style={styles.navTextActive}>Home</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navButton}>
-            <Ionicons name="map-outline" size={28} color="#888" />
-            <Text style={styles.navText}>Route</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navButton}>
-            <Ionicons name="person-outline" size={28} color="#888" />
-            <Text style={styles.navText}>Profile</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navButton}>
-            <Ionicons name="settings-outline" size={28} color="#888" />
-            <Text style={styles.navText}>Settings</Text>
-        </TouchableOpacity>
-    </View>
-);
-
 
 // --- Stylesheet ---
 const styles = StyleSheet.create({

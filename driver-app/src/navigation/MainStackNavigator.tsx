@@ -1,66 +1,34 @@
-// navigators/TabNavigator.js
+// MainStackNavigator.js
 import React from 'react';
-import { View } from 'react-native';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Ionicons } from '@expo/vector-icons';
+import { createStackNavigator } from '@react-navigation/stack';
+import TabNavigator from './TabNavigator';
+import DashboardScreen from '../screens/DashboardScreen';
+import LostAndFoundScreen from '../screens/LostAndFoundScreen';
+import EmergencyScreen from '../screens/EmergencyScreen';
+import ConditionScreen from '../screens/ConditionScreen';
+import TravelLogScreen from '../screens/TravelLogScreen';
 
-// Import your STACK NAVIGATOR and any other root screens for tabs
-import MainStackNavigator from './MainStackNavigator';
-import RouteScreen from '../screens/RouteScreen'; // This is the screen for the "Route" tab
+const Stack = createStackNavigator();
 
-// A placeholder for other tabs
-const PlaceholderScreen = () => <View />;
-
-const Tab = createBottomTabNavigator();
-
-const TabNavigator = () => {
-  return (
-    <Tab.Navigator
-      screenOptions={({ route }) => ({
-        headerShown: false,
-        tabBarIcon: ({ focused, color, size }) => {
-          let iconName;
-          if (route.name === 'HomeStack') { // Changed from 'Home'
-            iconName = focused ? 'home' : 'home-outline';
-          } else if (route.name === 'RouteTab') { // Changed from 'Route'
-            iconName = focused ? 'map' : 'map-outline';
-          } else if (route.name === 'Profile') {
-            iconName = focused ? 'person' : 'person-outline';
-          } else if (route.name === 'Settings') {
-            iconName = focused ? 'settings' : 'settings-outline';
-          }
-          return <Ionicons name={iconName as any} size={size} color={color} />;
-        },
-        tabBarActiveTintColor: '#005A9C',
-        tabBarInactiveTintColor: 'gray',
-        tabBarStyle: {
-            height: 60,
-            paddingBottom: 5,
-        }
-      })}
-    >
-      {/* The "Home" tab now renders the ENTIRE stack of home-related screens */}
-      <Tab.Screen
-        name="HomeStack"
-        component={MainStackNavigator}
-        options={{ tabBarLabel: 'Home' }} // This sets the text label on the tab
-      />
-      {/* The "Route" tab renders a separate RouteScreen */}
-      <Tab.Screen
-        name="RouteTab"
-        component={RouteScreen}
-        options={{ tabBarLabel: 'Route' }}
-      />
-      <Tab.Screen
-        name="Profile"
-        component={PlaceholderScreen}
-      />
-      <Tab.Screen
-        name="Settings"
-        component={PlaceholderScreen}
-      />
-    </Tab.Navigator>
-  );
+const MainStackNavigator = () => {
+    return (
+        <Stack.Navigator
+            initialRouteName="MainTabs"
+            screenOptions={{
+                headerShown: false,
+            }}
+        >
+            {/* Tab Navigator as the main screen */}
+            <Stack.Screen name="MainTabs" component={TabNavigator} />
+            
+            {/* Stack screens that should be pushed on top of tabs */}
+            <Stack.Screen name="Dashboard" component={DashboardScreen} />
+            <Stack.Screen name="LostAndFound" component={LostAndFoundScreen} />
+            <Stack.Screen name="Emergency" component={EmergencyScreen} />
+            <Stack.Screen name="Condition" component={ConditionScreen} />
+            <Stack.Screen name="TravelLog" component={TravelLogScreen} />
+        </Stack.Navigator>
+    );
 };
 
-export default TabNavigator;
+export default MainStackNavigator;
