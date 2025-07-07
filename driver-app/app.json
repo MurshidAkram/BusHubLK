@@ -1,24 +1,32 @@
 {
   "expo": {
-    "name": "driver-app",
-    "slug": "driver-app",
+    "name": "BusHubLK Driver",
+    "slug": "bushublk-driver-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/logoblue.png",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/logoblue.png",
+      "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#dc2626"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.bushublk.driverapp"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/logoblue.png",
-        "backgroundColor": "#ffffff"
-      }
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#dc2626"
+      },
+      "package": "com.bushublk.driverapp"
+    },
+    "web": {
+      "favicon": "./assets/icon.png"
     }
   }
 }
