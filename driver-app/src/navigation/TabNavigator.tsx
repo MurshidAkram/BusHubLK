@@ -1,14 +1,15 @@
 // navigators/TabNavigator.js
 import React from 'react';
+// Import 'View' from react-native
 import { View } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 
-// Import your STACK NAVIGATOR and any other root screens for tabs
 import MainStackNavigator from './MainStackNavigator';
-import RouteScreen from '../screens/RouteScreen'; // This is the screen for the "Route" tab
+import RouteScreen from '../screens/RouteScreen';
 
-// A placeholder for other tabs
+// You can create these placeholder screens for now
+// This component now has access to the 'View' component
 const PlaceholderScreen = () => <View />;
 
 const Tab = createBottomTabNavigator();
@@ -20,9 +21,9 @@ const TabNavigator = () => {
         headerShown: false,
         tabBarIcon: ({ focused, color, size }) => {
           let iconName;
-          if (route.name === 'HomeStack') { // Changed from 'Home'
+          if (route.name === 'HomeStack') {
             iconName = focused ? 'home' : 'home-outline';
-          } else if (route.name === 'RouteTab') { // Changed from 'Route'
+          } else if (route.name === 'RouteTab') {
             iconName = focused ? 'map' : 'map-outline';
           } else if (route.name === 'Profile') {
             iconName = focused ? 'person' : 'person-outline';
@@ -39,13 +40,11 @@ const TabNavigator = () => {
         }
       })}
     >
-      {/* The "Home" tab now renders the ENTIRE stack of home-related screens */}
       <Tab.Screen
         name="HomeStack"
         component={MainStackNavigator}
-        options={{ tabBarLabel: 'Home' }} // This sets the text label on the tab
+        options={{ tabBarLabel: 'Home' }}
       />
-      {/* The "Route" tab renders a separate RouteScreen */}
       <Tab.Screen
         name="RouteTab"
         component={RouteScreen}
@@ -53,11 +52,11 @@ const TabNavigator = () => {
       />
       <Tab.Screen
         name="Profile"
-        component={PlaceholderScreen}
+        component={PlaceholderScreen} // This will now work correctly
       />
       <Tab.Screen
         name="Settings"
-        component={PlaceholderScreen}
+        component={PlaceholderScreen} // This will now work correctly
       />
     </Tab.Navigator>
   );
