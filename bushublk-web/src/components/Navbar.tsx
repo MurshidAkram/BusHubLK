@@ -38,30 +38,28 @@ const Navbar = () => {
   // Function to get dashboard route based on user role
   const getDashboardRoute = (role: string) => {
     switch (role) {
-      case 'Admin':
+      case 'admin':
         return '/admin'
-      case 'Depot Manager':
+      case 'depot_manager':
         return '/depot-manager'
-      case 'Depot Operations Manager':
+      case 'depot-operations-manager':
         return '/depot-operations-manager'
-      case 'Depot Engineer':
+      case 'depot-engineer':
         return '/depot-engineer'
-      case 'Regional Technical Officer':
+      case 'regional-technical-officer':
         return '/regional-technical-officer'
-      case 'Regional Operations Officer':
+      case 'regional-operations-officer':
         return '/regional-operations-officer'
-      case 'DGM Technical':
+      case 'dgm-technical':
         return '/dgm-technical'
-      case 'DGM Operations':
+      case 'dgm-operations':
         return '/dgm-operations'
-      case 'CEO':
+      case 'ceo':
         return '/ceo'
-      case 'Driver':
+      case 'driver':
         return '/driver'
-      case 'Conductor':
-        return '/conductor'
       default:
-        return '/admin'
+        return '/'
     }
   }
 

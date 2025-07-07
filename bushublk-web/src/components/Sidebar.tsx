@@ -1,5 +1,7 @@
 // components/common/Sidebar/Sidebar.tsx
-import React from 'react';
+import React, { useContext } from 'react';
+import { AppContext } from '../context/AppContext';
+
 
 interface SidebarProps {
   role?: string;
@@ -7,6 +9,9 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ role, children }) => {
+    const context = useContext(AppContext);
+  const user = context?.user;
+    
   return (
     <aside className="w-64 bg-gray-800 text-white flex-shrink-0">
       <div className="h-full flex flex-col">
@@ -34,23 +39,28 @@ const Sidebar: React.FC<SidebarProps> = ({ role, children }) => {
           )}
         </nav>
         
-        {/* User Profile/Logout */}
-        <div className="p-4 border-t border-gray-700">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center">
+         
+      {/* User Profile Section - Updated */}
+      <div className="p-4 border-t border-gray-700">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center">
+            {user?.avatar ? (
+              <img src={user.avatar} alt="Profile" className="w-full h-full rounded-full" />
+            ) : (
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
               </svg>
-            </div>
-            <div className="text-sm">
-              <p className="font-medium">Admin User</p>
-              <p className="text-gray-400 text-xs">admin@bushublk.lk</p>
-            </div>
+            )}
+          </div>
+          <div className="text-sm">
+            <p className="font-medium">{user?.name || 'User'}</p>
+            <p className="text-gray-400 text-xs">{user?.email || 'No email'}</p>
           </div>
         </div>
       </div>
+        </div>
     </aside>
   );
 };
 
-export default Sidebar
+export default Sidebar;

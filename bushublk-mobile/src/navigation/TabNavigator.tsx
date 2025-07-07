@@ -5,9 +5,10 @@ import Icon from 'react-native-vector-icons/Ionicons';
 
 // Import your screens
 import HomeScreen from '../screens/HomeScreen';
-import LocationScreen from '../screens/LocationScreen';
+import LocationScreen from '../screens/BusTrackerScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import BusTrackingScreen from '../screens/BusTrackerScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -41,7 +42,7 @@ const TabNavigator = () => {
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Location" component={LocationScreen} />
+      <Tab.Screen name="Location" component={BusTrackingScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
       <Tab.Screen name="Settings" component={SettingsScreen} />
     </Tab.Navigator>
