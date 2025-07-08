@@ -65,8 +65,8 @@ export default function DriverLoginScreen({ navigation }: any) {
           {
             text: "OK",
             onPress: () => {
-              // Navigate to driver dashboard
-              // navigation.navigate('DriverDashboard');
+              
+              navigation.navigate('Home');
               console.log("Driver logged in:", data.user);
             },
           },

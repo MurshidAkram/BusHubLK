@@ -11,7 +11,7 @@ import {
   Alert,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import Icon from "react-native-vector-icons/Ionicons";
+import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import * as ImagePicker from "expo-image-picker";
@@ -126,7 +126,7 @@ export default function ComplaintsScreen() {
       contactInfo,
     };
 
-    Alert.alert("Complaint Submitted", JSON.stringify(complaintData, null, 2));
+    Alert.alert("Complaint Submitted", "Your complaint has been submitted successfully!");
     navigation.goBack();
   };
 
@@ -138,7 +138,7 @@ export default function ComplaintsScreen() {
           onPress={() => navigation.goBack()}
           style={styles.headerIconContainer}
         >
-          <Icon name="arrow-back-outline" size={28} color="#FFFFFF" />
+          <Ionicons name="arrow-back-outline" size={28} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Submit Complaint</Text>
         <View style={{ width: 40 }} />
@@ -152,24 +152,22 @@ export default function ComplaintsScreen() {
         <View style={styles.form}>
           {/* --- Complaint Type Dropdown --- */}
           <Text style={styles.label}>Complaint Type</Text>
-       <DropDownPicker
-    open={complaintTypeOpen}
-    value={complaintTypeValue}
-    items={complaintTypeItems}
-    setOpen={setComplaintTypeOpen}
-    setValue={setComplaintTypeValue}
-    setItems={setComplaintTypeItems}
-    style={styles.dropdownPicker}
-    textStyle={styles.inputText}
-    placeholder="Select a complaint type"
-    placeholderStyle={styles.placeholderText}
-    dropDownContainerStyle={styles.dropdownContainer}
-    
-    listMode="SCROLLVIEW" // <-- THIS IS THE CORRECT FIX for your requirement
-
-    zIndex={3000}
-    zIndexInverse={1000}
-  />
+          <DropDownPicker
+            open={complaintTypeOpen}
+            value={complaintTypeValue}
+            items={complaintTypeItems}
+            setOpen={setComplaintTypeOpen}
+            setValue={setComplaintTypeValue}
+            setItems={setComplaintTypeItems}
+            style={styles.dropdownPicker}
+            textStyle={styles.inputText}
+            placeholder="Select a complaint type"
+            placeholderStyle={styles.placeholderText}
+            dropDownContainerStyle={styles.dropdownContainer}
+            listMode="SCROLLVIEW"
+            zIndex={3000}
+            zIndexInverse={1000}
+          />
 
           {/* --- Route & Bus Number --- */}
           <View style={styles.row}>
@@ -207,7 +205,7 @@ export default function ComplaintsScreen() {
                 onPress={() => setShowDatePicker(true)}
                 style={styles.inputContainer}
               >
-                <Icon name="calendar-outline" style={styles.inputIcon} />
+                <Ionicons name="calendar-outline" style={styles.inputIcon} />
                 <Text style={styles.inputText}>{date.toLocaleDateString()}</Text>
               </TouchableOpacity>
             </View>
@@ -217,7 +215,7 @@ export default function ComplaintsScreen() {
                 onPress={() => setShowTimePicker(true)}
                 style={styles.inputContainer}
               >
-                <Icon name="time-outline" style={styles.inputIcon} />
+                <Ionicons name="time-outline" style={styles.inputIcon} />
                 <Text style={styles.inputText}>
                   {time.toLocaleTimeString([], {
                     hour: "2-digit",
@@ -290,7 +288,7 @@ export default function ComplaintsScreen() {
               <Image source={{ uri: image }} style={styles.previewImage} />
             ) : (
               <>
-                <Icon
+                <Ionicons
                   name="camera-outline"
                   size={40}
                   color={AppColors.textSecondary}
