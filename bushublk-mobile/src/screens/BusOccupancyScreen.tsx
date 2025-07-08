@@ -14,14 +14,6 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import * as Location from 'expo-location';
 
-// Enhanced detection constants
-const MOVEMENT_HISTORY_SIZE = 10;
-const SYNC_CORRELATION_THRESHOLD = 0.7;
-const SPEED_TOLERANCE = 5;
-const DIRECTION_TOLERANCE = 15;
-const HIGH_CONFIDENCE_THRESHOLD = 80;
-const MEDIUM_CONFIDENCE_THRESHOLD = 60;
-const LOCATION_UPDATE_INTERVAL = 5000;
 
 // Enhanced detection constants
 const MOVEMENT_HISTORY_SIZE = 10; // Keep last 10 GPS points
@@ -690,11 +682,6 @@ const filteredSuggestions = buses.filter(bus => {
     );
   };
 
-  const getConfidenceColor = (confidence: number): string => {
-    if (confidence >= HIGH_CONFIDENCE_THRESHOLD) return '#198754';
-    if (confidence >= MEDIUM_CONFIDENCE_THRESHOLD) return '#ffc107';
-    return '#dc3545';
-  };
 
   const getConfidenceText = (confidence: number): string => {
     if (confidence >= HIGH_CONFIDENCE_THRESHOLD) return 'High Confidence';
@@ -708,11 +695,7 @@ const filteredSuggestions = buses.filter(bus => {
     return '#dc3545';
   };
 
-  const getConfidenceText = (confidence: number): string => {
-    if (confidence >= HIGH_CONFIDENCE_THRESHOLD) return 'High Confidence';
-    if (confidence >= MEDIUM_CONFIDENCE_THRESHOLD) return 'Medium Confidence';
-    return 'Low Confidence';
-  };
+
 
   if (loading) {
     return (
@@ -944,18 +927,8 @@ const filteredSuggestions = buses.filter(bus => {
         )}
       </ScrollView>
 
-        {/* Detection Debug Info
-        {__DEV__ && (
-          <View style={styles.card}>
-            <Text style={styles.label}>🔧 Debug Information</Text>
-            <Text style={styles.debugText}>Movement History: {movementHistory.length} points</Text>
-            <Text style={styles.debugText}>Nearby Buses: {nearbyBuses.length}</Text>
-            <Text style={styles.debugText}>Detection Confidence: {confidence}%</Text>
-            <Text style={styles.debugText}>Current Bus: {currentBus?.number || 'None'}</Text>
-            <Text style={styles.debugText}>Detection Reason: {detectionReason}</Text>
-          </View>
-        )} */}
-      </ScrollView>
+        {/* Detection Debug Info */}
+   
 
       {/* Occupancy Update Modal */}
 
