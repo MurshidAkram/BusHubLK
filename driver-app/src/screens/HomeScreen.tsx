@@ -1,10 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   StyleSheet,
   View,
   Text,
   SafeAreaView,
-  ScrollView, // 2. Added missing ScrollView import here
+  ScrollView,
   TouchableOpacity,
   Platform,
   StatusBar,
@@ -12,27 +12,103 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 
+// --- Reusable Components ---
+
+const Header = () => {
+  const navigation = useNavigation();
+  return (
+    <View style={styles.header}>
+      <TouchableOpacity>
+        <Ionicons name="menu" size={30} color="white" />
+      </TouchableOpacity>
+      <Text style={styles.headerTitle}>BusHubLK</Text>
+      <View style={styles.headerIcons}>
+          <TouchableOpacity>
+              <Ionicons name="notifications-outline" size={26} color="white" />
+          </TouchableOpacity>
+          {/* Navigate to the Profile tab, then to the ProfileMain screen */}
+          <TouchableOpacity style={{marginLeft: 16}} onPress={() => navigation.navigate('Profile', { screen: 'ProfileMain' })}>
+              <FontAwesome5 name="user-circle" size={24} color="white" />
+          </TouchableOpacity>
+      </View>
+    </View>
+  );
+};
+
+const WelcomeCard = ({ isTripStarted, onStartPress, busNumber }) => (
+  <View style={styles.welcomeCard}>
+    <View style={styles.welcomeIcon}>
+      <MaterialCommunityIcons name="bus" size={28} color="#FFFFFF" />
+    </View>
+    <View style={styles.welcomeTextContainer}>
+      <Text style={styles.welcomeTitle}>
+        {isTripStarted ? "You're on your way!" : "Ready to Start, Michael?"}
+      </Text>
+      <Text style={styles.welcomeSubtitle}>Your bus is: {busNumber}</Text>
+    </View>
+    <TouchableOpacity 
+      style={[styles.startButton, isTripStarted && { backgroundColor: '#FF6347' }]}
+      onPress={onStartPress}
+    >
+      <Text style={[styles.startButtonText, isTripStarted && { color: 'white' }]}>
+        {isTripStarted ? 'End' : 'Start'}
+      </Text>
+    </TouchableOpacity>
+  </View>
+);
+
+const QuickActionButton = ({ icon, text, onPress }) => (
+    <TouchableOpacity style={styles.quickActionButton} onPress={onPress}>
+        <View style={styles.quickActionIcon}>
+          <MaterialCommunityIcons name={icon} size={30} color="#005A9C" />
+        </View>
+        <Text style={styles.quickActionText}>{text}</Text>
+    </TouchableOpacity>
+);
+
+
+// --- Main HomeScreen Component ---
+
 export default function HomeScreen() {
   const navigation = useNavigation();
+  const [isTripStarted, setTripStarted] = useState(false);
+
+  const tripDetails = {
+    from: 'Kaduwela Bus Terminal',
+    to: 'Kollupitiya Junction',
+    bus: 'WP-NA-8752',
+  };
+
+  const handleStartTrip = () => {
+    setTripStarted(!isTripStarted); 
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" backgroundColor="#005A9C" />
       <Header />
       <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <WelcomeCard />
+        <WelcomeCard 
+          isTripStarted={isTripStarted}
+          onStartPress={handleStartTrip}
+          busNumber={tripDetails.bus}
+        />
         
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Your Current Trip</Text>
           <View style={styles.infoRow}>
             <Ionicons name="location-outline" size={22} color="#4b5563" />
-            <Text style={styles.infoText}>From: Kaduwela Bus Terminal</Text>
+            <Text style={styles.infoText}>From: {tripDetails.from}</Text>
           </View>
           <View style={styles.infoRow}>
             <Ionicons name="flag-outline" size={22} color="#4b5563" />
-            <Text style={styles.infoText}>To: Kollupitiya Junction</Text>
+            <Text style={styles.infoText}>To: {tripDetails.to}</Text>
           </View>
-          <TouchableOpacity style={styles.primaryButton}>
+          <TouchableOpacity 
+            style={styles.primaryButton}
+            // Navigate to RouteDetails, which needs to be in your HomeStackNavigator
+            onPress={() => navigation.navigate('RouteDetails', { trip: tripDetails })}
+          >
             <Text style={styles.primaryButtonText}>View Route Details</Text>
           </TouchableOpacity>
         </View>
@@ -46,7 +122,7 @@ export default function HomeScreen() {
               onPress={() => navigation.navigate('TravelLog')}
             />
             <QuickActionButton
-              icon="car-wrench" // 1. Fixed icon name from "bus-wrench"
+              icon="car-wrench"
               text="Bus Condition"
               onPress={() => navigation.navigate('Condition')}
             />
@@ -72,7 +148,8 @@ export default function HomeScreen() {
             </TouchableOpacity>
             <TouchableOpacity 
               style={styles.serviceItem}
-              onPress={() => navigation.navigate('Profile')}
+              // This navigates to the 'Profile' tab, and then to the 'ProfileMain' screen inside that tab's stack.
+              onPress={() => navigation.navigate('Profile', { screen: 'ProfileMain' })}
             >
               <View style={styles.serviceIcon}>
                 <Ionicons name="person-circle-outline" size={22} color="#005A9C" />
@@ -86,50 +163,7 @@ export default function HomeScreen() {
   );
 }
 
-// --- Reusable Components (no changes needed here) ---
-
-const Header = () => (
-  <View style={styles.header}>
-    <TouchableOpacity>
-      <Ionicons name="menu" size={30} color="white" />
-    </TouchableOpacity>
-    <Text style={styles.headerTitle}>BusHubLK</Text>
-    <View style={styles.headerIcons}>
-        <TouchableOpacity>
-            <Ionicons name="notifications-outline" size={26} color="white" />
-        </TouchableOpacity>
-        <TouchableOpacity style={{marginLeft: 16}}>
-             <FontAwesome5 name="user-circle" size={24} color="white" />
-        </TouchableOpacity>
-    </View>
-  </View>
-);
-
-const WelcomeCard = () => (
-  <View style={styles.welcomeCard}>
-    <View style={styles.welcomeIcon}>
-      <MaterialCommunityIcons name="bus" size={28} color="#FFFFFF" />
-    </View>
-    <View style={styles.welcomeTextContainer}>
-      <Text style={styles.welcomeTitle}>Ready to Start, Michael?</Text>
-      <Text style={styles.welcomeSubtitle}>Your bus is: WP-NA-8752</Text>
-    </View>
-    <TouchableOpacity style={styles.startButton}>
-        <Text style={styles.startButtonText}>Start</Text>
-    </TouchableOpacity>
-  </View>
-);
-
-const QuickActionButton = ({ icon, text, onPress }) => (
-    <TouchableOpacity style={styles.quickActionButton} onPress={onPress}>
-        <View style={styles.quickActionIcon}>
-          <MaterialCommunityIcons name={icon} size={30} color="#005A9C" />
-        </View>
-        <Text style={styles.quickActionText}>{text}</Text>
-    </TouchableOpacity>
-);
-
-// --- Styles (no changes needed here) ---
+// --- Styles ---
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,

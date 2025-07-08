@@ -6,22 +6,18 @@ import {
   TouchableOpacity,
   FlatList,
   Alert,
+  TextInput,
   SafeAreaView,
   ScrollView,
   ActivityIndicator,
   Modal,
+  Dimensions,
 } from 'react-native';
+import MapView, { Marker, Circle } from 'react-native-maps';
 import Icon from 'react-native-vector-icons/Ionicons';
 import * as Location from 'expo-location';
 
-// Enhanced detection constants
-const MOVEMENT_HISTORY_SIZE = 10;
-const SYNC_CORRELATION_THRESHOLD = 0.7;
-const SPEED_TOLERANCE = 5;
-const DIRECTION_TOLERANCE = 15;
-const HIGH_CONFIDENCE_THRESHOLD = 80;
-const MEDIUM_CONFIDENCE_THRESHOLD = 60;
-const LOCATION_UPDATE_INTERVAL = 5000;
+const GOOGLE_MAPS_API_KEY = "AIzaSyAeXR9ct7HrHMCQXSWLrWQl5OlRYjNhbxo";
 
 // Enhanced detection constants
 const MOVEMENT_HISTORY_SIZE = 10; // Keep last 10 GPS points
@@ -72,13 +68,13 @@ interface DetectionResult {
 }
 
 const OCCUPANCY_LEVELS = [
-  { label: 'Not Crowded', value: 'not_crowded', color: '#198754', description: 'Plenty of seats available' },
-  { label: 'Not Too Crowded', value: 'not_too_crowded', color: '#ffc107', description: 'Some seats occupied' },
-  { label: 'Crowded', value: 'crowded', color: '#ff8c00', description: 'Standing room only' },
-  { label: 'Very Crowded', value: 'very_crowded', color: '#dc3545', description: 'Bus is full' },
+  { label: 'Low', value: 'low', color: '#198754', description: 'Plenty of seats available' },
+  { label: 'Medium', value: 'medium', color: '#ffc107', description: 'Some seats occupied' },
+  { label: 'High', value: 'high', color: '#dc3545', description: 'Standing room only' },
+  { label: 'Full', value: 'full', color: '#6f42c1', description: 'Bus is full' },
 ];
 
-
+// Dummy bus data for Sri Lankan bus numbers
 const generateDummyBuses = (userLat: number, userLng: number): Bus[] => {
   const busNumbers = [
     { number: '100', route: 'Colombo - Kandy', direction: 'Up' },
@@ -110,8 +106,9 @@ const generateDummyBuses = (userLat: number, userLng: number): Bus[] => {
   }));
 };
 
+// Calculate distance between two coordinates
 const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
-  const R = 6371e3;
+  const R = 6371e3; // Earth's radius in meters
   const φ1 = lat1 * Math.PI / 180;
   const φ2 = lat2 * Math.PI / 180;
   const Δφ = (lat2 - lat1) * Math.PI / 180;
@@ -125,7 +122,6 @@ const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: numbe
   return R * c;
 };
 
-
 // Calculate speed between two GPS points
 const calculateSpeed = (point1: MovementPoint | UserLocation, point2: MovementPoint | UserLocation): number => {
   if (!point1 || !point2 || !point1.timestamp || !point2.timestamp) return 0;
@@ -134,12 +130,12 @@ const calculateSpeed = (point1: MovementPoint | UserLocation, point2: MovementPo
     point1.latitude, point1.longitude,
     point2.latitude, point2.longitude
   );
-
-   const timeDiff = (point2.timestamp - point1.timestamp) / 1000; // seconds
+  const timeDiff = (point2.timestamp - point1.timestamp) / 1000; // seconds
   if (timeDiff === 0) return 0;
   return (distance / timeDiff) * 3.6; // Convert m/s to km/h
 };
 
+// Calculate direction between two GPS points
 const calculateDirection = (point1: MovementPoint | UserLocation | null, point2: MovementPoint | UserLocation): number => {
   if (!point1 || !point2) return 0;
   
@@ -155,12 +151,10 @@ const calculateDirection = (point1: MovementPoint | UserLocation | null, point2:
 };
 
 // Simulate bus movement with realistic patterns
-
 const simulateBusMovement = (bus: Bus, prevHistory: MovementPoint[] = []): Bus => {
   const currentTime = Date.now();
   const prevPoint = prevHistory[prevHistory.length - 1];
   
-
   // More realistic movement simulation
   let latChange, lngChange;
   
@@ -172,13 +166,12 @@ const simulateBusMovement = (bus: Bus, prevHistory: MovementPoint[] = []): Bus =
     
     // Add some randomness to the direction
     const directionVariation = (Math.random() - 0.5) * 0.3; // ±0.15 radians
-
     const newDirection = prevDirection + directionVariation;
     
     latChange = (distance / 111000) * Math.cos(newDirection);
     lngChange = (distance / 111000) * Math.sin(newDirection);
   } else {
-
+    // Random movement for new buses
     latChange = (Math.random() - 0.5) * 0.0005;
     lngChange = (Math.random() - 0.5) * 0.0005;
   }
@@ -190,7 +183,7 @@ const simulateBusMovement = (bus: Bus, prevHistory: MovementPoint[] = []): Bus =
   };
 };
 
-
+// Enhanced Bus Detection Hook
 const useEnhancedBusDetection = (userLocation: UserLocation | null, buses: Bus[]) => {
   const [movementHistory, setMovementHistory] = useState<MovementPoint[]>([]);
   const [busMovementHistory, setBusMovementHistory] = useState<{[key: string]: MovementPoint[]}>({});
@@ -198,6 +191,7 @@ const useEnhancedBusDetection = (userLocation: UserLocation | null, buses: Bus[]
   const [confidence, setConfidence] = useState(0);
   const [detectionReason, setDetectionReason] = useState('');
 
+  // Track user movement history
   useEffect(() => {
     if (userLocation) {
       const currentTime = Date.now();
@@ -218,9 +212,7 @@ const useEnhancedBusDetection = (userLocation: UserLocation | null, buses: Bus[]
     }
   }, [userLocation]);
 
-
   // Track bus movement history
-
   useEffect(() => {
     buses.forEach(bus => {
       setBusMovementHistory(prev => {
@@ -244,9 +236,7 @@ const useEnhancedBusDetection = (userLocation: UserLocation | null, buses: Bus[]
     });
   }, [buses]);
 
-
   // Calculate movement correlation between user and bus
-
   const calculateMovementCorrelation = (userHistory: MovementPoint[], busHistory: MovementPoint[]): number => {
     if (userHistory.length < 3 || busHistory.length < 3) return 0;
     
@@ -274,18 +264,16 @@ const useEnhancedBusDetection = (userLocation: UserLocation | null, buses: Bus[]
         
         let pointCorrelation = 0;
         
-
         // Proximity score
-
         if (distance < 30) pointCorrelation += 0.4;
         else if (distance < 50) pointCorrelation += 0.2;
         else if (distance < 100) pointCorrelation += 0.1;
         
-
         // Speed correlation
         if (speedDiff < SPEED_TOLERANCE) pointCorrelation += 0.3;
         else if (speedDiff < SPEED_TOLERANCE * 2) pointCorrelation += 0.15;
-
+        
+        // Direction correlation
         if (directionDiff < DIRECTION_TOLERANCE) pointCorrelation += 0.3;
         else if (directionDiff < DIRECTION_TOLERANCE * 2) pointCorrelation += 0.15;
         
@@ -297,9 +285,7 @@ const useEnhancedBusDetection = (userLocation: UserLocation | null, buses: Bus[]
     return totalChecks > 0 ? correlationScore / totalChecks : 0;
   };
 
-
   // Main detection logic
-
   const detectBusFromSync = (): DetectionResult => {
     if (!userLocation || movementHistory.length < 3) {
       return { bus: null, confidence: 0, reason: 'Insufficient movement data' };
@@ -314,20 +300,16 @@ const useEnhancedBusDetection = (userLocation: UserLocation | null, buses: Bus[]
       
       if (busHistory.length < 3) return;
       
-
       // Calculate correlation
       const correlation = calculateMovementCorrelation(movementHistory, busHistory);
       
       // Current distance check
-
       const currentDistance = calculateDistance(
         userLocation.latitude, userLocation.longitude,
         bus.latitude, bus.longitude
       );
       
-
       // Current speed check
-
       const currentUserSpeed = movementHistory[movementHistory.length - 1]?.speed || 0;
       const currentBusSpeed = bus.estimatedSpeed || 0;
       const speedDiff = Math.abs(currentUserSpeed - currentBusSpeed);
@@ -336,7 +318,6 @@ const useEnhancedBusDetection = (userLocation: UserLocation | null, buses: Bus[]
       let finalScore = correlation * 100;
       
       // Proximity bonus
-
       if (currentDistance < 25) {
         finalScore += 15;
       } else if (currentDistance < 50) {
@@ -346,30 +327,23 @@ const useEnhancedBusDetection = (userLocation: UserLocation | null, buses: Bus[]
       }
       
       // Speed matching bonus
-
       if (speedDiff < 3) {
         finalScore += 10;
       } else if (speedDiff < 5) {
         finalScore += 5;
       }
       
-
       // Moving together bonus (both moving at reasonable speed)
-
       if (currentUserSpeed > 10 && currentBusSpeed > 10) {
         finalScore += 10;
       }
       
-
       // Distance penalty
-
       if (currentDistance > 100) {
         finalScore -= 20;
       }
       
-
       // Speed mismatch penalty
-
       if (speedDiff > 15) {
         finalScore -= 15;
       }
@@ -388,9 +362,7 @@ const useEnhancedBusDetection = (userLocation: UserLocation | null, buses: Bus[]
     };
   };
 
-
   // Run detection
-
   useEffect(() => {
     const detection = detectBusFromSync();
     
@@ -398,9 +370,7 @@ const useEnhancedBusDetection = (userLocation: UserLocation | null, buses: Bus[]
       setDetectedBus(detection.bus);
       setConfidence(detection.confidence);
       setDetectionReason(detection.reason);
-
     } else if (confidence < 50) {
-
       setDetectedBus(null);
       setConfidence(0);
       setDetectionReason('No reliable bus detection');
@@ -418,9 +388,12 @@ const useEnhancedBusDetection = (userLocation: UserLocation | null, buses: Bus[]
 
 export default function BusOccupancyScreen() {
   const [buses, setBuses] = useState<Bus[]>([]);
-  const [occupancy, setOccupancy] = useState('not_crowded');
+  const [typedBusNumber, setTypedBusNumber] = useState('');
+  const [selectedBus, setSelectedBus] = useState<Bus | null>(null);
+  const [occupancy, setOccupancy] = useState('low');
   const [busStatuses, setBusStatuses] = useState<BusStatuses>({});
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
+  const [nearbyBuses, setNearbyBuses] = useState<Bus[]>([]);
   const [currentBus, setCurrentBus] = useState<Bus | null>(null);
   const [loading, setLoading] = useState(true);
   const [locationPermission, setLocationPermission] = useState(false);
@@ -458,20 +431,20 @@ const filteredSuggestions = buses.filter(bus => {
   return distanceA - distanceB;
 });
 
-
+  // Request location permission and get current location
   useEffect(() => {
     const requestLocationPermission = async () => {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== 'granted') {
-          setLocationPermission(false);
+          Alert.alert('Permission Denied', 'Location permission is required to detect nearby buses.');
           setLoading(false);
-          Alert.alert('Permission Denied', 'Location permission is required to detect bus.');
           return;
         }
         
         setLocationPermission(true);
         
+        // Get initial location
         const location = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.High,
         });
@@ -485,16 +458,16 @@ const filteredSuggestions = buses.filter(bus => {
         
         setUserLocation(userPos);
         
+        // Generate dummy buses around user location
         const dummyBuses = generateDummyBuses(userPos.latitude, userPos.longitude);
         setBuses(dummyBuses);
         
+        // Start location watching
         locationWatchRef.current = await Location.watchPositionAsync(
           {
             accuracy: Location.Accuracy.High,
             timeInterval: LOCATION_UPDATE_INTERVAL,
-
             distanceInterval: 5, // Update every 5 meters
-
           },
           (location) => {
             const newUserPos = {
@@ -511,7 +484,6 @@ const filteredSuggestions = buses.filter(bus => {
       } catch (error) {
         console.error('Error requesting location permission:', error);
         Alert.alert('Error', 'Failed to get location permission.');
-        setLocationPermission(false);
         setLoading(false);
       }
     };
@@ -573,7 +545,6 @@ const filteredSuggestions = buses.filter(bus => {
   }, [userLocation, buses]);
 
   // Simulate bus movement with history tracking
-
   useEffect(() => {
     if (buses.length === 0) return;
     
@@ -584,7 +555,6 @@ const filteredSuggestions = buses.filter(bus => {
           const movedBus = simulateBusMovement(bus, currentHistory);
           
           // Update bus movement history
-
           const newPoint: MovementPoint = {
             latitude: movedBus.latitude,
             longitude: movedBus.longitude,
@@ -595,9 +565,7 @@ const filteredSuggestions = buses.filter(bus => {
           
           busHistoryRef.current[bus.id] = [...currentHistory, newPoint].slice(-MOVEMENT_HISTORY_SIZE);
           
-
           // Update bus status if exists
-
           setBusStatuses(prevStatuses => {
             if (prevStatuses[bus.id]) {
               return {
@@ -624,6 +592,7 @@ const filteredSuggestions = buses.filter(bus => {
     };
   }, [buses]);
 
+  // Reset bus statuses at midnight
   useEffect(() => {
     const now = new Date();
     const msUntilMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime() - now.getTime();
@@ -659,10 +628,9 @@ const filteredSuggestions = buses.filter(bus => {
     if (!currentBus) return;
     
     // Prevent frequent updates (minimum 2 minutes between updates)
-
     if (lastOccupancyUpdate) {
       const timeSinceLastUpdate = Date.now() - new Date(lastOccupancyUpdate).getTime();
-      if (timeSinceLastUpdate < 120000) {
+      if (timeSinceLastUpdate < 120000) { // 2 minutes
         const remainingTime = Math.ceil((120000 - timeSinceLastUpdate) / 1000);
         Alert.alert('Too Soon', `Please wait ${remainingTime} seconds before updating again.`);
         return;
@@ -690,16 +658,21 @@ const filteredSuggestions = buses.filter(bus => {
     );
   };
 
-  const getConfidenceColor = (confidence: number): string => {
-    if (confidence >= HIGH_CONFIDENCE_THRESHOLD) return '#198754';
-    if (confidence >= MEDIUM_CONFIDENCE_THRESHOLD) return '#ffc107';
-    return '#dc3545';
+  const handleBusSelect = (bus: Bus) => {
+    setTypedBusNumber(bus.number);
+    setSelectedBus(bus);
+    setOccupancy(busStatuses[bus.id]?.occupancy || 'low');
   };
 
-  const getConfidenceText = (confidence: number): string => {
-    if (confidence >= HIGH_CONFIDENCE_THRESHOLD) return 'High Confidence';
-    if (confidence >= MEDIUM_CONFIDENCE_THRESHOLD) return 'Medium Confidence';
-    return 'Low Confidence';
+  const getDistanceText = (bus: Bus): string => {
+    if (!userLocation) return '';
+    const distance = calculateDistance(
+      userLocation.latitude,
+      userLocation.longitude,
+      bus.latitude,
+      bus.longitude
+    );
+    return distance < 1000 ? `${Math.round(distance)}m away` : `${(distance / 1000).toFixed(1)}km away`;
   };
 
   const getConfidenceColor = (confidence: number): string => {
@@ -719,7 +692,7 @@ const filteredSuggestions = buses.filter(bus => {
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#007bff" />
-          <Text style={styles.loadingText}>Detecting your location...</Text>
+          <Text style={styles.loadingText}>Getting your location...</Text>
         </View>
       </SafeAreaView>
     );
@@ -730,8 +703,8 @@ const filteredSuggestions = buses.filter(bus => {
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.errorContainer}>
           <Icon name="location-outline" size={50} color="#dc3545" />
-          <Text style={styles.errorText}>Location Permission Required</Text>
-          <Text style={styles.errorSubtext}>Please enable location access to detect if you're on a bus</Text>
+          <Text style={styles.errorText}>Location permission is required</Text>
+          <Text style={styles.errorSubtext}>Please enable location access to detect nearby buses</Text>
         </View>
       </SafeAreaView>
     );
@@ -798,7 +771,7 @@ const filteredSuggestions = buses.filter(bus => {
           </View>
         )}
 
-
+        {/* Bus Search */}
         <View style={styles.card}>
           <Text style={styles.label}>🔍 Search Bus</Text>
           <TextInput
@@ -939,10 +912,8 @@ const filteredSuggestions = buses.filter(bus => {
                 </View>
               </View>
             ))}
-
           </View>
         )}
-      </ScrollView>
 
         {/* Detection Debug Info
         {__DEV__ && (
@@ -958,7 +929,6 @@ const filteredSuggestions = buses.filter(bus => {
       </ScrollView>
 
       {/* Occupancy Update Modal */}
-
       <Modal
         animationType="slide"
         transparent={true}
@@ -968,12 +938,10 @@ const filteredSuggestions = buses.filter(bus => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Update Bus Occupancy</Text>
-
             {currentBus && (
               <Text style={styles.modalSubtitle}>
                 Bus {currentBus.number} - {currentBus.route}
               </Text>
-
             )}
             
             <View style={styles.occupancyOptions}>
@@ -1006,7 +974,6 @@ const filteredSuggestions = buses.filter(bus => {
 >
   <Text style={styles.confirmButtonText}>Update</Text>
 </TouchableOpacity>
-
             </View>
           </View>
         </View>
@@ -1018,7 +985,7 @@ const filteredSuggestions = buses.filter(bus => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#f0f4f8',
+    backgroundColor: '#f8f9fa',
   },
   container: {
     flex: 1,
@@ -1055,7 +1022,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   title: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#007bff',
     textAlign: 'center',
@@ -1077,7 +1044,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
-
   },
   currentBusCard: {
     borderColor: '#007bff',
@@ -1086,10 +1052,10 @@ const styles = StyleSheet.create({
   currentBusHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   currentBusTitle: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: 'bold',
     marginLeft: 8,
     color: '#007bff',
@@ -1109,7 +1075,6 @@ const styles = StyleSheet.create({
   },
   detectionReason: {
     fontSize: 12,
-
     color: '#6c757d',
     fontStyle: 'italic',
   },
@@ -1118,12 +1083,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',
-    marginTop: 12,
-    marginBottom: 8,
-    elevation: 2,
-  },
-  disabledButton: {
-    backgroundColor: '#b0b8c1',
   },
   updateButtonText: {
     color: '#fff',
@@ -1174,14 +1133,17 @@ const styles = StyleSheet.create({
   suggestionNumber: {
     fontSize: 16,
     fontWeight: 'bold',
-    marginBottom: 10,
-    color: '#495057',
-    letterSpacing: 0.5,
+    color: '#007bff',
   },
-  value: {
-    fontSize: 15,
+  suggestionRoute: {
+    fontSize: 14,
+    color: '#495057',
+    marginTop: 2,
+  },
+  suggestionDistance: {
+    fontSize: 12,
     color: '#6c757d',
-    marginBottom: 6,
+    marginTop: 2,
   },
   nearbyBusItem: {
     padding: 12,
@@ -1198,13 +1160,13 @@ const styles = StyleSheet.create({
   nearbyBusContent: {
     flex: 1,
   },
-  statusBusNumber: {
-    fontSize: 17,
+  nearbyBusNumber: {
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#007bff',
   },
-  statusRoute: {
-    fontSize: 15,
+  nearbyBusRoute: {
+    fontSize: 14,
     color: '#495057',
     marginTop: 2,
   },
@@ -1269,7 +1231,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1299,10 +1261,7 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     marginBottom: 8,
-
     alignItems: 'center',
-    width: '100%',
-    elevation: 1,
   },
   selectedOccupancy: {
     borderWidth: 2,
@@ -1317,7 +1276,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#fff',
     marginTop: 2,
-
   },
   modalButtons: {
     flexDirection: 'row',
@@ -1329,7 +1287,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     marginHorizontal: 4,
-
   },
   cancelButton: {
     backgroundColor: '#6c757d',
@@ -1345,7 +1302,6 @@ const styles = StyleSheet.create({
   confirmButtonText: {
     color: '#fff',
     fontSize: 16,
-
     fontWeight: 'bold',
   },
 });
