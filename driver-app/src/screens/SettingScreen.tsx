@@ -8,9 +8,19 @@ import {
   Switch,
   Alert,
   SafeAreaView,
+  // 1. Add Platform and StatusBar
+  Platform,
+  StatusBar,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+
+// 2. Define the Header component
+const Header = () => (
+  <View style={styles.header}>
+    <Text style={styles.headerTitle}>Settings</Text>
+  </View>
+);
 
 const SettingsScreen = ({ navigation }) => {
   const [notifications, setNotifications] = useState(true);
@@ -20,10 +30,7 @@ const SettingsScreen = ({ navigation }) => {
 
   const handleLogout = async () => {
     Alert.alert("Logout", "Are you sure you want to logout?", [
-      {
-        text: "Cancel",
-        style: "cancel",
-      },
+      { text: "Cancel", style: "cancel" },
       {
         text: "Logout",
         style: "destructive",
@@ -31,6 +38,7 @@ const SettingsScreen = ({ navigation }) => {
           try {
             await AsyncStorage.removeItem("driverToken");
             await AsyncStorage.removeItem("driverData");
+            // Replace with your actual login screen name if different
             navigation.replace("DriverLogin");
           } catch (error) {
             console.error("Logout error:", error);
@@ -43,21 +51,8 @@ const SettingsScreen = ({ navigation }) => {
   const handleChangePassword = () => {
     Alert.alert(
       "Change Password",
-      "This feature will redirect you to change password screen.",
-      [
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
-        {
-          text: "Continue",
-          onPress: () => {
-            // Navigate to change password screen
-            // navigation.navigate('ChangePassword');
-            Alert.alert("Info", "Change password feature coming soon!");
-          },
-        },
-      ]
+      "This feature is not yet available.",
+      [{ text: "OK" }]
     );
   };
 
@@ -66,10 +61,7 @@ const SettingsScreen = ({ navigation }) => {
       "Clear Cache",
       "This will clear all cached data. Are you sure?",
       [
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
+        { text: "Cancel", style: "cancel" },
         {
           text: "Clear",
           style: "destructive",
@@ -81,15 +73,8 @@ const SettingsScreen = ({ navigation }) => {
     );
   };
 
-  const SettingItem = ({
-    icon,
-    title,
-    subtitle,
-    onPress,
-    rightComponent,
-    showArrow = true,
-  }) => (
-    <TouchableOpacity style={styles.settingItem} onPress={onPress}>
+  const SettingItem = ({ icon, title, subtitle, onPress, rightComponent, showArrow = true }) => (
+    <TouchableOpacity style={styles.settingItem} onPress={onPress} disabled={!onPress}>
       <View style={styles.settingLeft}>
         <View style={styles.settingIcon}>
           <Ionicons name={icon} size={20} color="#dc2626" />
@@ -109,8 +94,14 @@ const SettingsScreen = ({ navigation }) => {
   );
 
   return (
+    // 3. Add the Header component here
     <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.content}>
+      <StatusBar barStyle="light-content" backgroundColor="#005A9C" />
+      <Header />
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.contentContainer}
+      >
         {/* App Settings */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>App Settings</Text>
@@ -118,7 +109,6 @@ const SettingsScreen = ({ navigation }) => {
             <SettingItem
               icon="notifications-outline"
               title="Push Notifications"
-              subtitle="Receive alerts and updates"
               rightComponent={
                 <Switch
                   value={notifications}
@@ -129,11 +119,9 @@ const SettingsScreen = ({ navigation }) => {
               }
               showArrow={false}
             />
-
             <SettingItem
               icon="location-outline"
               title="Location Tracking"
-              subtitle="Allow location access for route tracking"
               rightComponent={
                 <Switch
                   value={locationTracking}
@@ -144,26 +132,9 @@ const SettingsScreen = ({ navigation }) => {
               }
               showArrow={false}
             />
-
-            <SettingItem
-              icon="sync-outline"
-              title="Auto Sync"
-              subtitle="Automatically sync data when connected"
-              rightComponent={
-                <Switch
-                  value={autoSync}
-                  onValueChange={setAutoSync}
-                  trackColor={{ false: "#f1f5f9", true: "#fecaca" }}
-                  thumbColor={autoSync ? "#dc2626" : "#9ca3af"}
-                />
-              }
-              showArrow={false}
-            />
-
             <SettingItem
               icon="moon-outline"
               title="Dark Mode"
-              subtitle="Switch to dark theme"
               rightComponent={
                 <Switch
                   value={darkMode}
@@ -184,24 +155,17 @@ const SettingsScreen = ({ navigation }) => {
             <SettingItem
               icon="person-outline"
               title="Edit Profile"
-              subtitle="Update your personal information"
               onPress={() => navigation.navigate("Profile")}
             />
-
             <SettingItem
               icon="lock-closed-outline"
               title="Change Password"
-              subtitle="Update your login password"
               onPress={handleChangePassword}
             />
-
             <SettingItem
               icon="shield-checkmark-outline"
               title="Privacy Settings"
-              subtitle="Manage your privacy preferences"
-              onPress={() =>
-                Alert.alert("Info", "Privacy settings coming soon!")
-              }
+              onPress={() => Alert.alert("Info", "Coming soon!")}
             />
           </View>
         </View>
@@ -211,24 +175,9 @@ const SettingsScreen = ({ navigation }) => {
           <Text style={styles.sectionTitle}>Data & Storage</Text>
           <View style={styles.sectionContent}>
             <SettingItem
-              icon="cloud-download-outline"
-              title="Sync Data"
-              subtitle="Manually sync your data"
-              onPress={() => Alert.alert("Info", "Data synced successfully!")}
-            />
-
-            <SettingItem
               icon="trash-outline"
               title="Clear Cache"
-              subtitle="Free up storage space"
               onPress={handleClearCache}
-            />
-
-            <SettingItem
-              icon="download-outline"
-              title="Backup Data"
-              subtitle="Create a backup of your data"
-              onPress={() => Alert.alert("Info", "Backup feature coming soon!")}
             />
           </View>
         </View>
@@ -240,29 +189,12 @@ const SettingsScreen = ({ navigation }) => {
             <SettingItem
               icon="help-circle-outline"
               title="Help & FAQ"
-              subtitle="Get help and find answers"
-              onPress={() =>
-                Alert.alert(
-                  "Help",
-                  "For support, please contact your depot manager."
-                )
-              }
+              onPress={() => Alert.alert("Help", "Contact your depot manager for help.")}
             />
-
-            <SettingItem
-              icon="chatbubble-outline"
-              title="Contact Support"
-              subtitle="Get in touch with our team"
-              onPress={() => Alert.alert("Contact", "Support: +94 11 123 4567")}
-            />
-
             <SettingItem
               icon="information-circle-outline"
               title="About"
-              subtitle="App version and information"
-              onPress={() =>
-                Alert.alert("About", "BusHubLK Driver App\nVersion 1.0.0")
-              }
+              onPress={() => Alert.alert("About", "BusHubLK Driver App\nVersion 1.0.0")}
             />
           </View>
         </View>
@@ -270,10 +202,7 @@ const SettingsScreen = ({ navigation }) => {
         {/* Logout */}
         <View style={styles.section}>
           <View style={styles.sectionContent}>
-            <TouchableOpacity
-              style={styles.logoutButton}
-              onPress={handleLogout}
-            >
+            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
               <Ionicons name="log-out-outline" size={20} color="#ef4444" />
               <Text style={styles.logoutText}>Logout</Text>
             </TouchableOpacity>
@@ -284,43 +213,55 @@ const SettingsScreen = ({ navigation }) => {
   );
 };
 
+// 4. Updated Styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#005A9C", // Set status bar area color
   },
-  content: {
-    flex: 1,
+  header: {
+    backgroundColor: "#005A9C",
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight + 10 : 15,
+    paddingBottom: 15,
+    alignItems: "center",
+  },
+  headerTitle: {
+    color: "white",
+    fontSize: 20,
+    fontWeight: "bold",
+  },
+  scrollView: {
+    backgroundColor: "#f8fafc", // Main screen background
+  },
+  contentContainer: {
     paddingHorizontal: 20,
+    paddingVertical: 20,
   },
   section: {
-    marginTop: 20,
+    marginBottom: 24, // Added more space between sections
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: "bold",
     color: "#374151",
     marginBottom: 12,
-    paddingHorizontal: 4,
   },
   sectionContent: {
     backgroundColor: "#ffffff",
     borderRadius: 12,
+    overflow: 'hidden', // Ensures items inside respect the border radius
+    elevation: 2,
     shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
-    elevation: 2,
   },
   settingItem: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: "#f1f5f9",
   },
@@ -342,14 +283,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   settingTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "600",
     color: "#1f2937",
-    marginBottom: 2,
   },
   settingSubtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: "#6b7280",
+    marginTop: 2,
   },
   settingRight: {
     flexDirection: "row",
@@ -359,8 +300,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 16,
-    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
   logoutText: {
     fontSize: 16,
