@@ -13,6 +13,8 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import * as Location from 'expo-location';
+import MapView, { Marker, Circle } from 'react-native-maps';
+import { TextInput } from 'react-native';
 
 
 // Enhanced detection constants
@@ -409,6 +411,9 @@ const useEnhancedBusDetection = (userLocation: UserLocation | null, buses: Bus[]
 };
 
 export default function BusOccupancyScreen() {
+  const [nearbyBuses, setNearbyBuses] = useState<Bus[]>([]);
+  const [selectedBus, setSelectedBus] = useState<Bus | null>(null);
+  const [typedBusNumber, setTypedBusNumber] = useState('');
   const [buses, setBuses] = useState<Bus[]>([]);
   const [occupancy, setOccupancy] = useState('not_crowded');
   const [busStatuses, setBusStatuses] = useState<BusStatuses>({});
@@ -695,7 +700,22 @@ const filteredSuggestions = buses.filter(bus => {
     return '#dc3545';
   };
 
+  const handleBusSelect = (bus: Bus) => {
+  setSelectedBus(bus);
+  setCurrentBus(bus);
+};
 
+const getDistanceText = (bus: Bus) => {
+  if (!userLocation) return '';
+  const distance = calculateDistance(
+    userLocation.latitude,
+    userLocation.longitude,
+    bus.latitude,
+    bus.longitude
+  );
+  if (distance < 1000) return `${distance.toFixed(0)} m away`;
+  return `${(distance / 1000).toFixed(2)} km away`;
+};
 
   if (loading) {
     return (
