@@ -41,3 +41,4 @@ export const submitTravelLog = async (logData) => {
     });
     return response.json();
 };
+

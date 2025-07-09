@@ -16,11 +16,10 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
+import { API_BASE_URL } from "../config/api"; 
 const { width, height } = Dimensions.get("window");
 
-// Add your backend URL here
-const API_BASE_URL = "http://192.168.1.30:5000/api"; // Replace with your actual backend URL
+
 
 export default function DriverLoginScreen({ navigation }: any) {
   const [email, setEmail] = useState("");
@@ -37,9 +36,11 @@ export default function DriverLoginScreen({ navigation }: any) {
     setIsLoading(true);
 
     try {
-      console.log("Attempting login to:", `${API_BASE_URL}/driver/login`);
+      const apiUrl = `${API_BASE_URL}/driver/login`;
+      console.log("Attempting login to:", apiUrl);
 
-      const response = await fetch(`${API_BASE_URL}/driver/login`, {
+
+      const response = await fetch(apiUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -66,7 +67,7 @@ export default function DriverLoginScreen({ navigation }: any) {
             text: "OK",
             onPress: () => {
               
-              navigation.navigate('Home');
+              navigation.navigate('Main');
               console.log("Driver logged in:", data.user);
             },
           },
