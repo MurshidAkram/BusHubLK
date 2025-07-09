@@ -1,21 +1,24 @@
-import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  StyleSheet, 
-  Image, 
-  KeyboardAvoidingView, 
-  Platform, 
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   Dimensions,
-  StatusBar
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+  StatusBar,
+  Alert,
+} from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { API_BASE_URL } from "../config/api";
 
-const { width, height } = Dimensions.get('window');
+const { width, height } = Dimensions.get("window");
 
 export default function SignupScreen({ navigation }: any) {
   const [fullName, setFullName] = useState('');
@@ -29,11 +32,83 @@ export default function SignupScreen({ navigation }: any) {
   const [agreeToTerms, setAgreeToTerms] = useState(false);
 
   const handleSignup = async () => {
+    if (!fullName.trim() || !email.trim() || !username.trim() || !password.trim() || !confirmPassword.trim()) {
+      Alert.alert("Error", "Please fill in all required fields");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      Alert.alert("Error", "Passwords do not match");
+      return;
+    }
+
+    if (!agreeToTerms) {
+      Alert.alert("Error", "Please agree to the Terms of Service and Privacy Policy");
+      return;
+    }
+
     setIsLoading(true);
-    // Add your signup logic here
-    setTimeout(() => {
+
+    try {
+      const apiUrl = `${API_BASE_URL}/passengers/register`;
+      console.log("Attempting registration to:", apiUrl);
+
+      // Split full name into first and last name
+      const nameParts = fullName.trim().split(' ');
+      const first_name = nameParts[0];
+      const last_name = nameParts.slice(1).join(' ') || nameParts[0];
+
+      const userData = {
+        username: username.trim(),
+        email: email.trim().toLowerCase(),
+        password: password.trim(),
+        first_name,
+        last_name,
+      };
+
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(userData),
+      });
+
+      console.log("Response status:", response.status);
+
+      const data = await response.json();
+      console.log("Response data:", data);
+
+      if (response.ok && data.success) {
+        // Store the token for future requests
+        await AsyncStorage.setItem("authToken", data.token);
+        await AsyncStorage.setItem("userData", JSON.stringify(data.user));
+
+        setIsLoading(false);
+        Alert.alert("Success", `Welcome ${data.user.first_name}! Your account has been created successfully.`, [
+          {
+            text: "OK",
+            onPress: () => {
+              navigation.navigate('Main');
+              console.log("Passenger registered:", data.user);
+            },
+          },
+        ]);
+      } else {
+        setIsLoading(false);
+        Alert.alert(
+          "Error",
+          data.error || data.errors?.[0]?.msg || "Registration failed. Please try again."
+        );
+      }
+    } catch (error) {
       setIsLoading(false);
-    }, 2000);
+      console.error("Signup error:", error);
+      Alert.alert(
+        "Error",
+        "Network error. Please check your connection and try again."
+      );
+    }
   };
 
   return (
@@ -249,6 +324,8 @@ export default function SignupScreen({ navigation }: any) {
   );
 }
 
+// Add this to complete the styles object (replace the incomplete styles at the end):
+
 const styles = StyleSheet.create({
   gradient: {
     flex: 1,
@@ -271,8 +348,6 @@ const styles = StyleSheet.create({
     height: 180,
     marginBottom: 2,
     marginTop: 40,
-   
-    
   },
   appName: {
     fontSize: 28,

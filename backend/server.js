@@ -32,6 +32,11 @@ const driverAuthRoutes = require('./routes/driverAuth');
 app.use('/api/driver', driverAuthRoutes);
 // app.use('/api/users', require('./routes/userRoutes'));
 
+const passengerAuthRoutes = require('./routes/passengerAuth');
+
+// Register the passenger routes
+app.use('/api/passengers', passengerAuthRoutes);
+
 app.listen(PORT, () => {
   console.log(`🚀 Server is running on http://localhost:${PORT}`);
 });

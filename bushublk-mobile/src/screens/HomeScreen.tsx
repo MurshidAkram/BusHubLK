@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useNavigation, DrawerActions } from "@react-navigation/native";
 import {
   StyleSheet,
@@ -18,6 +18,7 @@ import Icon from "react-native-vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 import axios from "axios";
+import { storageAPI } from "../services/api";
 
 // Get device dimensions
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
@@ -113,6 +114,9 @@ const busData = [
 export default function HomeScreen() {
   const navigation = useNavigation();
 
+  // User state
+  const [userData, setUserData] = useState(null);
+
   // Plan Your Journey state
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -126,6 +130,46 @@ export default function HomeScreen() {
 
   // For local bus search (not Google)
   const [filteredBuses, setFilteredBuses] = useState([]);
+
+  // Load user data on component mount
+  useEffect(() => {
+    loadUserData();
+  }, []);
+
+  const loadUserData = async () => {
+    try {
+      const user = await storageAPI.getUserData();
+      setUserData(user);
+    } catch (error) {
+      console.error('Error loading user data:', error);
+    }
+  };
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await storageAPI.clearStorage();
+              navigation.replace('Login');
+            } catch (error) {
+              console.error('Error during logout:', error);
+              Alert.alert('Error', 'Failed to logout. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
 
   // Google Places Autocomplete logic
   const fetchPlaceSuggestions = async (input, setSuggestions) => {
@@ -227,8 +271,14 @@ export default function HomeScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.headerIconContainer}
+            onPress={handleLogout}
+          >
+            <Icon name="log-out-outline" size={28} color="#FFFFFF" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.headerIconContainer}
             onPress={() =>
-              Alert.alert("Logo Pressed", "This button is now clickable.")
+              Alert.alert("Profile", `Welcome ${userData?.first_name || 'User'}!`)
             }
           >
             <View style={styles.logoWrapper}>
@@ -261,7 +311,7 @@ export default function HomeScreen() {
           />
           <View>
             <Text style={styles.welcomeTitle}>
-              Welcome to BusHub<Text style={styles.superscript}>LK</Text>!
+              Welcome {userData?.first_name || 'to'} BusHub<Text style={styles.superscript}>LK</Text>!
             </Text>
             <Text style={styles.welcomeSubtitle}>
               Plan your journey and explore services
@@ -464,9 +514,9 @@ export default function HomeScreen() {
                     navigation.navigate("BusTracker");
                   } else if (action.title === "Bus Occupancy") {
                     navigation.navigate("BusOccupancy");
-                  }else if (action.title === "Emergency Alert") { // 👈 **ADD THIS CONDITION**
-                  navigation.navigate("Emergency"); // Navigate to the new screen
-                }
+                  } else if (action.title === "Emergency Alert") {
+                    navigation.navigate("Emergency");
+                  }
                 }}
                 activeOpacity={0.8}
               >
@@ -515,7 +565,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: AppColors.background,
-
   },
   backgroundImage: {
     position: "absolute",
@@ -557,14 +606,14 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     fontFamily: Platform.OS === "ios" ? "System" : "Roboto",
     lineHeight: Platform.OS === "ios" ? 28 : 26,
-    includeFontPadding: false, // Android specific - removes extra padding
-    textAlignVertical: "center", // Android specific
+    includeFontPadding: false,
+    textAlignVertical: "center",
   },
   superscript: {
     fontSize: Platform.OS === "ios" ? 10 : 9,
     lineHeight: Platform.OS === "ios" ? 12 : 11,
     textAlignVertical: "top",
-    includeFontPadding: false, // Android specific
+    includeFontPadding: false,
     ...Platform.select({
       ios: {
         transform: [{ translateY: -18 }],
@@ -603,7 +652,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: 18,
     marginBottom: 18,
-    minHeight: Platform.OS === "android" ? 80 : 75, // Ensure enough height
+    minHeight: Platform.OS === "android" ? 80 : 75,
     ...Platform.select({
       android: {
         elevation: 2,
@@ -621,16 +670,16 @@ const styles = StyleSheet.create({
     fontSize: Platform.OS === "ios" ? 18 : 17,
     fontWeight: "bold",
     lineHeight: Platform.OS === "ios" ? 24 : 22,
-    includeFontPadding: false, // Android specific
-    textAlignVertical: "center", // Android specific
+    includeFontPadding: false,
+    textAlignVertical: "center",
   },
   welcomeSubtitle: {
     color: "#fff",
     fontSize: Platform.OS === "ios" ? 14 : 13,
     marginTop: 2,
     lineHeight: Platform.OS === "ios" ? 18 : 17,
-    includeFontPadding: false, // Android specific
-    textAlignVertical: "center", // Android specific
+    includeFontPadding: false,
+    textAlignVertical: "center",
   },
   section: {
     marginBottom: 20,
@@ -647,14 +696,14 @@ const styles = StyleSheet.create({
     color: AppColors.text,
     textAlign: "center",
     lineHeight: Platform.OS === "ios" ? 26 : 24,
-    includeFontPadding: false, // Android specific
+    includeFontPadding: false,
   },
   seeAllText: {
     fontSize: 14,
     color: AppColors.primary,
     fontWeight: "500",
     lineHeight: Platform.OS === "ios" ? 18 : 17,
-    includeFontPadding: false, // Android specific
+    includeFontPadding: false,
   },
   journeyCard: {
     padding: 20,
@@ -680,7 +729,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     textAlign: "center",
     lineHeight: Platform.OS === "ios" ? 24 : 22,
-    includeFontPadding: false, // Android specific
+    includeFontPadding: false,
   },
   inputGroup: {
     flexDirection: "row",
@@ -704,8 +753,8 @@ const styles = StyleSheet.create({
     paddingVertical: Platform.OS === "ios" ? 14 : 12,
     paddingRight: 35,
     lineHeight: Platform.OS === "ios" ? 20 : 19,
-    includeFontPadding: false, // Android specific
-    textAlignVertical: "center", // Android specific
+    includeFontPadding: false,
+    textAlignVertical: "center",
   },
   clearIcon: {
     position: "absolute",
@@ -757,8 +806,8 @@ const styles = StyleSheet.create({
     fontSize: Platform.OS === "ios" ? 16 : 15,
     fontWeight: "600",
     lineHeight: Platform.OS === "ios" ? 20 : 19,
-    includeFontPadding: false, // Android specific
-    textAlignVertical: "center", // Android specific
+    includeFontPadding: false,
+    textAlignVertical: "center",
   },
   quickActionGrid: {
     top: 10,
@@ -807,7 +856,7 @@ const styles = StyleSheet.create({
     color: AppColors.textSecondary,
     textAlign: "center",
     lineHeight: Platform.OS === "ios" ? 16 : 15,
-    includeFontPadding: false, // Android specific
+    includeFontPadding: false,
   },
   busCard: {
     backgroundColor: "#f8f9fa",
@@ -845,7 +894,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: AppColors.text,
     lineHeight: Platform.OS === "ios" ? 20 : 19,
-    includeFontPadding: false, // Android specific
+    includeFontPadding: false,
   },
   arrivalContainer: {
     flexDirection: "row",
@@ -858,14 +907,14 @@ const styles = StyleSheet.create({
     color: AppColors.text,
     marginLeft: 4,
     lineHeight: Platform.OS === "ios" ? 19 : 18,
-    includeFontPadding: false, // Android specific
+    includeFontPadding: false,
   },
   busArrival: {
     fontSize: Platform.OS === "ios" ? 14 : 13,
     color: AppColors.textSecondary,
     marginTop: 4,
     lineHeight: Platform.OS === "ios" ? 18 : 17,
-    includeFontPadding: false, // Android specific
+    includeFontPadding: false,
   },
   serviceGrid: {
     top: 10,
@@ -902,6 +951,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 10,
     lineHeight: Platform.OS === "ios" ? 16 : 15,
-    includeFontPadding: false, // Android specific
+    includeFontPadding: false,
   },
 });
