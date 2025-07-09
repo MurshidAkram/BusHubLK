@@ -29,13 +29,22 @@ import Announcements from './pages/dashboards/depot-manager/Announcements'
 import Reports from './pages/dashboards/depot-manager/Reports'
 import Settings from './pages/dashboards/depot-manager/Settings'
 
-// Depot Operations Manager Components
+// Depot Operations Manager Components  
 import DepotOperationsManagerSidebarContent from './components/depot-ops/DepotOperationsManagerSidebarContent'
 import DepotOperationsManagerDashboard from './pages/dashboards/depot-ops'
+import DailyOperations from './pages/dashboards/depot-ops/DailyOperations'
+import ScheduleMonitoring from './pages/dashboards/depot-ops/ScheduleMonitoring'
+import RouteOptimization from './pages/dashboards/depot-ops/RouteOptimization'
+import CrewManagement from './pages/dashboards/depot-ops/CrewManagement'
+import IncidentManagement from './pages/dashboards/depot-ops/IncidentManagement'  
+import AnnouncementCenter from './pages/dashboards/depot-ops/AnnouncementCenter'
+import OperationsReports from './pages/dashboards/depot-ops/OperationsReports'
+import OperationsSettings from './pages/dashboards/depot-ops/OperationsSettings'
 
 // Depot Engineer Components  
 import DepotEngineerSidebarContent from './components/depot-engineer/DepotEngineerSidebarContent'
 import DepotEngineerDashboard from './pages/dashboards/depot-engineer/index'
+
 
 // Regional Technical Officer Components
 import RegionalTechnicalOfficerSidebarContent from './components/regional-tech/RegionalTechnicalOfficerSidebarContent'
@@ -111,6 +120,15 @@ const App = () => {
         {/* Depot Operations Manager Dashboard Routes */}
         <Route path="/depot-operations-manager" element={<DashboardLayout role="Depot Operations Manager" sidebarContent={<DepotOperationsManagerSidebarContent />} />}>
           <Route index element={<DepotOperationsManagerDashboard />} />
+          <Route path="fleet-management" element={<FleetManagement />} />
+          <Route path="daily-operations" element={<DailyOperations />} />
+          <Route path="schedule-monitoring" element={<ScheduleMonitoring />} />
+          <Route path="crew-management" element={<CrewManagement />} />
+          <Route path="route-optimization" element={<RouteOptimization />} /> 
+          <Route path="incident-management" element={<IncidentManagement />} />
+          <Route path="announcement-center" element={<AnnouncementCenter />} />
+          <Route path="operations-reports" element={<OperationsReports />} />
+          <Route path="operations-settings" element={<OperationsSettings />} />
           {/* Add individual pages later */}
         </Route>
 
