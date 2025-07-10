@@ -15,7 +15,7 @@ import TravelLogScreen from "../screens/TravelLogScreen";
 
 // --- 1. Import your Profile and Settings screens ---
 import ProfileScreen from "../screens/ProfileScreen";
-import SettingsScreen from "../screens/SettingScreen";
+import SettingScreen from "../screens/SettingScreen";
 
 // Create Stack Navigators for each tab
 const HomeStack = createStackNavigator();
@@ -86,7 +86,7 @@ const SettingsStackNavigator = () => {
       }}
     >
       {/* Replace the placeholder with your actual SettingsScreen component */}
-      <SettingsStack.Screen name="SettingsMain" component={SettingsScreen} />
+      <SettingsStack.Screen name="SettingsMain" component={SettingScreen} />
     </SettingsStack.Navigator>
   );
 };
