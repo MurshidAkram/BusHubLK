@@ -146,31 +146,37 @@ export default function HomeScreen() {
   };
 
   const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await storageAPI.clearStorage();
-              navigation.replace('Login');
-            } catch (error) {
-              console.error('Error during logout:', error);
-              Alert.alert('Error', 'Failed to logout. Please try again.');
-            }
-          },
-        },
-      ]
-    );
-  };
+    Alert.alert("Logout", "Are you sure you want to logout?", [
+      {
+        text: "Cancel",
+        style: "cancel",
+      },
+      {
+        text: "Logout",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            console.log("Starting logout process...");
 
+            // Clear storage using storageAPI
+            await storageAPI.clearStorage();
+
+            // Verify storage is cleared
+            const token = await storageAPI.getAuthToken();
+            const userData = await storageAPI.getUserData();
+            console.log("After logout - Token:", token);
+            console.log("After logout - UserData:", userData);
+
+            console.log("User logged out successfully");
+          } catch (error) {
+            console.error("Error during logout:", error);
+            Alert.alert("Error", "Failed to logout. Please try again.");
+          }
+        },
+      },
+    ]);
+  };
+  
   // Google Places Autocomplete logic
   const fetchPlaceSuggestions = async (input, setSuggestions) => {
     if (input.length < 1) {

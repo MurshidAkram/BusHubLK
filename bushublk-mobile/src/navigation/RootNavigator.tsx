@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
 import AuthNavigator from "./AuthNavigator";
@@ -11,44 +11,53 @@ export default function RootNavigator() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    checkAuthStatus();
-
-    // Check auth status periodically to detect login/logout
-    const interval = setInterval(checkAuthStatus, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const checkAuthStatus = async () => {
+  const checkAuthStatus = useCallback(async () => {
     try {
-      // Fix: Use getAuthToken instead of getToken
       const token = await storageAPI.getAuthToken();
-      const newAuthState = !!token;
+      const userData = await storageAPI.getUserData();
+      const newAuthState = !!(token && userData);
 
-      if (newAuthState !== isAuthenticated) {
-        setIsAuthenticated(newAuthState);
-      }
+      
+
+      // Force state update
+      setIsAuthenticated((prevState) => {
+        if (prevState !== newAuthState) {
+          console.log("🔄 Auth state updated:", prevState, "->", newAuthState);
+        }
+        return newAuthState;
+      });
     } catch (error) {
       console.error("Error checking auth status:", error);
       setIsAuthenticated(false);
     } finally {
-      if (isLoading) {
-        setIsLoading(false);
-      }
+      setIsLoading(false);
     }
-  };
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    checkAuthStatus();
+
+    const interval = setInterval(checkAuthStatus, 1000); // Even more frequent
+    return () => clearInterval(interval);
+  }, [checkAuthStatus]);
+
+ 
 
   if (isLoading) {
-    return null; // You can return a loading screen component here
+    return null;
   }
 
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {isAuthenticated ? (
-          <Stack.Screen name="App" component={AppNavigator} />
+          <Stack.Screen name="App" component={AppNavigator} key="app-screen" />
         ) : (
-          <Stack.Screen name="Auth" component={AuthNavigator} />
+          <Stack.Screen
+            name="Auth"
+            component={AuthNavigator}
+            key="auth-screen"
+          />
         )}
       </Stack.Navigator>
     </NavigationContainer>

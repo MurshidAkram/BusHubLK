@@ -184,9 +184,12 @@ export const storageAPI = {
   // Clear all stored data
   clearStorage: async () => {
     try {
+      console.log('Clearing storage...');
       await AsyncStorage.multiRemove(['authToken', 'userData']);
+      console.log('Storage cleared successfully');
     } catch (error) {
       console.error('Error clearing storage:', error);
+      throw error;
     }
   },
 };
