@@ -1,22 +1,26 @@
-// routes/passengerRoutes.js
-
 const express = require('express');
 const router = express.Router();
-
-// Import the controller function
-const { 
-  getEmergencyContacts,
+const {
   addEmergencyContact,
+  getEmergencyContacts,
   updateEmergencyContact,
   deleteEmergencyContact,
 } = require('../controllers/passengerController');
-console.log('✅ passengerRoutes.js file is being read by Node.js');
-// Define the route for GET and POST requests
-router.route('/:id/contacts')
-  .get(getEmergencyContacts) // This handles the GET request
-  .post(addEmergencyContact);
 
-  router.route('/:id/contacts/:contactId')
-  .put(updateEmergencyContact)
-  .delete(deleteEmergencyContact);
+// GET all contacts for a specific passenger
+// Route: GET /api/passengers/:id/contacts
+router.get('/:id/contacts', getEmergencyContacts);
+
+// POST a new contact for a specific passenger
+// Route: POST /api/passengers/:id/contacts
+router.post('/:id/contacts', addEmergencyContact);
+
+// PUT (update) a specific contact for a specific passenger
+// Route: PUT /api/passengers/:id/contacts/:contactId
+router.put('/:id/contacts/:contactId', updateEmergencyContact);
+
+// DELETE a specific contact for a specific passenger
+// Route: DELETE /api/passengers/:id/contacts/:contactId
+router.delete('/:id/contacts/:contactId', deleteEmergencyContact);
+
 module.exports = router;
