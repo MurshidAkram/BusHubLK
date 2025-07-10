@@ -28,6 +28,20 @@ export const driverAPI = {
     return response.json();
   },
 
+  // Update driver profile
+  updateDriverProfile: async (profileData: any) => {
+    const token = await storageAPI.getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/driver/profile`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(profileData),
+    });
+    return response.json();
+  },
+
   // Logout
   logout: async () => {
     try {
@@ -93,10 +107,47 @@ export const storageAPI = {
     }
   },
 
+  // Store settings
+  saveSettings: async (settings: any) => {
+    try {
+      await AsyncStorage.setItem('driverSettings', JSON.stringify(settings));
+    } catch (error) {
+      console.error('Error saving settings:', error);
+    }
+  },
+
+  // Get settings
+  getSettings: async (): Promise<any | null> => {
+    try {
+      const settings = await AsyncStorage.getItem('driverSettings');
+      return settings ? JSON.parse(settings) : null;
+    } catch (error) {
+      console.error('Error getting settings:', error);
+      return null;
+    }
+  },
+
+  // Clear cache (keep auth data)
+  clearCache: async () => {
+    try {
+      const keysToRemove = ['driverCache', 'tempData', 'routeCache'];
+      await AsyncStorage.multiRemove(keysToRemove);
+    } catch (error) {
+      console.error('Error clearing cache:', error);
+    }
+  },
+
   // Clear all stored data
   clearStorage: async () => {
     try {
-      await AsyncStorage.multiRemove(['driverToken', 'driverUser']);
+      await AsyncStorage.multiRemove([
+        'driverToken', 
+        'driverUser', 
+        'driverSettings',
+        'driverCache',
+        'tempData',
+        'routeCache'
+      ]);
     } catch (error) {
       console.error('Error clearing storage:', error);
     }
