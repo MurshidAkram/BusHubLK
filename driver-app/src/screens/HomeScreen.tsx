@@ -3,9 +3,10 @@ import {
   StyleSheet,
   View,
   Text,
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
+  Platform,        // --- 1. Import Platform
+  StatusBar,       // --- 2. Import StatusBar
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import {
@@ -18,8 +19,12 @@ import {
 export default function HomeScreen() {
   const navigation = useNavigation();
 
+  // --- 3. Change the root component to a View with the new container style ---
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={styles.container}>
+      {/* This StatusBar component ensures the text/icons in the bar are visible */}
+      <StatusBar backgroundColor="#005A9C" barStyle="light-content" />
+
       {/* --- Header --- */}
       <Header />
 
@@ -86,78 +91,57 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
-      {/* --- Bottom Navigation Bar (Visual Only) --- */}
-      <BottomNavBar />
-    </SafeAreaView>
+    </View>
   );
 }
 
-// --- Reusable Sub-components ---
-
+// ... (Header, WelcomeCard, and QuickActionButton components remain the same)
 const Header = () => (
-  <View style={styles.header}>
-    <TouchableOpacity>
-      <Ionicons name="menu" size={32} color="white" />
-    </TouchableOpacity>
-    <Text style={styles.headerTitle}>BusHubLK</Text>
-    <View style={styles.headerIcons}>
+    <View style={styles.header}>
       <TouchableOpacity>
-        <Ionicons name="notifications-outline" size={26} color="white" />
+        <Ionicons name="menu" size={32} color="white" />
       </TouchableOpacity>
-      <TouchableOpacity style={{ marginLeft: 15 }}>
-        <FontAwesome5 name="user-circle" size={26} color="white" />
+      <Text style={styles.headerTitle}>BusHubLK</Text>
+      <View style={styles.headerIcons}>
+        <TouchableOpacity>
+          <Ionicons name="notifications-outline" size={26} color="white" />
+        </TouchableOpacity>
+        <TouchableOpacity style={{ marginLeft: 15 }}>
+          <FontAwesome5 name="user-circle" size={26} color="white" />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+  
+  const WelcomeCard = () => (
+    <View style={styles.welcomeCard}>
+      <MaterialCommunityIcons name="bus" size={30} color="white" />
+      <View style={styles.welcomeTextContainer}>
+        <Text style={styles.welcomeTitle}>Ready to Start, Michael?</Text>
+        <Text style={styles.welcomeSubtitle}>Your bus is: WP-NA-8752</Text>
+      </View>
+      <TouchableOpacity style={styles.startButton}>
+        <Text style={styles.startButtonText}>Start Trip</Text>
       </TouchableOpacity>
     </View>
-  </View>
-);
+  );
+  
+  const QuickActionButton = ({ icon, text, onPress }) => (
+    <TouchableOpacity style={styles.quickActionButton} onPress={onPress}>
+      <MaterialCommunityIcons name={icon} size={28} color="#005A9C" />
+      <Text style={styles.quickActionText}>{text}</Text>
+    </TouchableOpacity>
+  );
 
-const WelcomeCard = () => (
-  <View style={styles.welcomeCard}>
-    <MaterialCommunityIcons name="bus" size={30} color="white" />
-    <View style={styles.welcomeTextContainer}>
-      <Text style={styles.welcomeTitle}>Ready to Start, Michael?</Text>
-      <Text style={styles.welcomeSubtitle}>Your bus is: WP-NA-8752</Text>
-    </View>
-    <TouchableOpacity style={styles.startButton}>
-      <Text style={styles.startButtonText}>Start Trip</Text>
-    </TouchableOpacity>
-  </View>
-);
-
-const QuickActionButton = ({ icon, text, onPress }) => (
-  <TouchableOpacity style={styles.quickActionButton} onPress={onPress}>
-    <MaterialCommunityIcons name={icon} size={28} color="#005A9C" />
-    <Text style={styles.quickActionText}>{text}</Text>
-  </TouchableOpacity>
-);
-
-// Visual replica of a bottom tab navigator
-const BottomNavBar = () => (
-  <View style={styles.bottomNav}>
-    <TouchableOpacity style={styles.navButton}>
-      <Ionicons name="home" size={28} color="#005A9C" />
-      <Text style={styles.navTextActive}>Home</Text>
-    </TouchableOpacity>
-    <TouchableOpacity style={styles.navButton}>
-      <Ionicons name="map-outline" size={28} color="#888" />
-      <Text style={styles.navText}>Route</Text>
-    </TouchableOpacity>
-    <TouchableOpacity style={styles.navButton}>
-      <Ionicons name="person-outline" size={28} color="#888" />
-      <Text style={styles.navText}>Profile</Text>
-    </TouchableOpacity>
-    <TouchableOpacity style={styles.navButton}>
-      <Ionicons name="settings-outline" size={28} color="#888" />
-      <Text style={styles.navText}>Settings</Text>
-    </TouchableOpacity>
-  </View>
-);
 
 // --- Stylesheet ---
 const styles = StyleSheet.create({
-  safeArea: {
+  // --- 4. Replace `safeArea` style with this new `container` style ---
+  container: {
     flex: 1,
-    backgroundColor: "#F0F4F8", // Light gray background
+    backgroundColor: "#F0F4F8",
+    // Add padding to the top of the screen for Android to account for the status bar
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
   },
   header: {
     flexDirection: "row",
@@ -165,7 +149,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 15,
     paddingVertical: 10,
-    backgroundColor: "#005A9C", // Main blue color from image
+    backgroundColor: "#005A9C", // This now sits nicely at the top
   },
   headerTitle: {
     color: "white",

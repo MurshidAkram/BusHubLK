@@ -1,16 +1,33 @@
-import React, { useState } from 'react';
-import { Text, View, TouchableOpacity, StyleSheet, ScrollView, SafeAreaView, StatusBar } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { SafeAreaView } from 'react-native-safe-area-context'; // At the top, use this import
+import { LinearGradient } from 'expo-linear-gradient';
+
+import {
+  Text,
+  View,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  StatusBar,
+  ActivityIndicator,
+  Modal,
+  TextInput,
+  Platform,
+  Switch,
+} from 'react-native';
 
 // --- App Color Palette ---
 const AppColors = {
-  background: '#F9FAFB',
+  background: '#F8F9FA', // Slightly off-white for a softer look
   card: '#FFFFFF',
-  primary: '#2563EB',
-  text: '#111827',
+  primary: '#3B82F6', // A brighter blue
+  primaryLight: '#DBEAFE', // Light blue for highlights
+  text: '#1F2937',
   textSecondary: '#6B7280',
   border: '#E5E7EB',
-  red: '#DC2626',
-  green: '#059669',
+  red: '#EF4444',
+  green: '#10B981',
+  orange: '#F59E0B',
 };
 
 // --- Type Definitions ---
@@ -31,9 +48,18 @@ type AlertType = {
 };
 
 type ScreenType = 'emergency' | 'contacts' | 'history';
+type Status = 'idle' | 'loading' | 'succeeded' | 'failed';
+
+// --- API Configuration ---
+const API_BASE_URL = 'http://192.168.43.114:5000/api'; // Use your actual IP address
+const PASSENGER_ID = 12;
 
 // --- Reusable Components ---
-const ContactCard: React.FC<{ contact: Contact }> = ({ contact }) => (
+const ContactCard: React.FC<{
+  contact: Contact;
+  onEdit: (c: Contact) => void;
+  onDelete: (id: number) => void;
+}> = ({ contact, onEdit, onDelete }) => (
   <View style={styles.contactCard}>
     <View style={styles.contactInfo}>
       <Text style={styles.contactName}>{contact.name}</Text>
@@ -41,16 +67,14 @@ const ContactCard: React.FC<{ contact: Contact }> = ({ contact }) => (
       <Text style={styles.contactDetail}>{contact.phone}</Text>
       <Text style={styles.contactDetail}>{contact.email}</Text>
     </View>
-    
     <View style={styles.contactActions}>
-      <TouchableOpacity style={styles.actionButton}>
+      <TouchableOpacity style={styles.actionButton} onPress={() => onEdit(contact)}>
         <Text style={styles.editIcon}>✏️</Text>
       </TouchableOpacity>
-      <TouchableOpacity style={styles.actionButton}>
+      <TouchableOpacity style={styles.actionButton} onPress={() => onDelete(contact.id)}>
         <Text style={styles.deleteIcon}>🗑️</Text>
       </TouchableOpacity>
     </View>
-    
     <View style={styles.primaryBadgeContainer}>
       {contact.isPrimary ? (
         <View style={styles.primaryBadge}>
@@ -66,206 +90,428 @@ const ContactCard: React.FC<{ contact: Contact }> = ({ contact }) => (
 );
 
 const AlertCard: React.FC<{ alert: AlertType }> = ({ alert }) => (
-  <View style={styles.alertCard}>
-    <View style={styles.alertHeader}>
-      <View style={styles.alertInfo}>
-        <Text style={styles.alertType}>{alert.type}</Text>
-        <Text style={styles.alertId}>Alert ID: {alert.id}</Text>
-        <Text style={styles.alertTimestamp}>{alert.timestamp}</Text>
+    <View style={styles.alertCard}>
+      <View style={styles.alertHeader}>
+        <View style={styles.alertInfo}>
+          <Text style={styles.alertType}>{alert.type}</Text>
+          <Text style={styles.alertId}>Alert ID: {alert.id}</Text>
+          <Text style={styles.alertTimestamp}>{alert.timestamp}</Text>
+        </View>
+        <View
+          style={[
+            styles.statusBadge,
+            alert.status === 'Resolved'
+              ? styles.resolvedBadge
+              : styles.pendingBadge,
+          ]}>
+          <Text style={styles.statusText}>{alert.status}</Text>
+        </View>
       </View>
-      <View style={[
-        styles.statusBadge,
-        alert.status === 'Resolved' ? styles.resolvedBadge : styles.pendingBadge
-      ]}>
-        <Text style={styles.statusText}>{alert.status}</Text>
+
+      <View style={styles.alertFooter}>
+        <View style={styles.alertFeature}>
+          <Text style={styles.featureIcon}>📍</Text>
+          <Text style={styles.featureText}>Location tracked</Text>
+        </View>
+        <View style={styles.alertFeature}>
+          <Text style={styles.featureIcon}>👤</Text>
+          <Text style={styles.featureText}>Contacts notified</Text>
+        </View>
+        <View style={styles.alertFeature}>
+          <Text style={styles.featureIcon}>🛡️</Text>
+          <Text style={styles.featureText}>Authorities alerted</Text>
+        </View>
       </View>
     </View>
-    
-    <View style={styles.alertFooter}>
-      <View style={styles.alertFeature}>
-        <Text style={styles.featureIcon}>📍</Text>
-        <Text style={styles.featureText}>Location tracked</Text>
-      </View>
-      <View style={styles.alertFeature}>
-        <Text style={styles.featureIcon}>👤</Text>
-        <Text style={styles.featureText}>Contacts notified</Text>
-      </View>
-      <View style={styles.alertFeature}>
-        <Text style={styles.featureIcon}>🛡️</Text>
-        <Text style={styles.featureText}>Authorities alerted</Text>
-      </View>
-    </View>
-  </View>
-);
+  );
 
 // --- Main Screen Component ---
-const EmergencyScreen: React.FC = () => {
+const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const [activeScreen, setActiveScreen] = useState<ScreenType>('emergency');
   const [isEmergencyActive, setIsEmergencyActive] = useState(false);
+  const [editContact, setEditContact] = useState<Contact | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [countdown, setCountdown] = useState(5);
+  const [countdownTimer, setCountdownTimer] = useState<NodeJS.Timeout | null>(null);
 
-  // --- Mock Data ---
-  const contacts: Contact[] = [
-    { 
-      id: 1, 
-      name: 'Venukaran Loganathan', 
-      relationship: 'Brother', 
-      phone: '+94 74724822', 
-      email: 'ksvenu@gmail.com', 
-      isPrimary: true 
-    },
-    { 
-      id: 2, 
-      name: 'Sharminy Loganathan', 
-      relationship: 'Sister', 
-      phone: '+94 74724823', 
-      email: 'sharminy@gmail.com', 
-      isPrimary: false 
-    },
-  ];
+  // --- State for Data, Loading, and Errors ---
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [alerts, setAlerts] = useState<AlertType[]>([]);
+  const [status, setStatus] = useState<Status>('idle');
+  const [error, setError] = useState<string | null>(null);
 
-  const alerts: AlertType[] = [
-    { 
-      id: 10, 
-      type: 'Panic Alert', 
-      status: 'Resolved',
-      timestamp: '2 hours ago'
-    },
-    { 
-      id: 9, 
-      type: 'Medical Emergency', 
-      status: 'Resolved',
-      timestamp: '1 day ago' 
-    },
-  ];
+  // --- State for Add Contact Modal ---
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newPhone, setNewPhone] = useState('');
+  const [newRelationship, setNewRelationship] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [newIsPrimary, setNewIsPrimary] = useState(false);
+
+  // --- Data Fetching Logic ---
+  const fetchContacts = useCallback(async () => {
+    setStatus('loading');
+    setError(null);
+    try {
+      const response = await fetch(`${API_BASE_URL}/passengers/${PASSENGER_ID}/contacts`);
+      if (!response.ok) throw new Error('Failed to fetch contacts.');
+      const data = await response.json();
+      
+      const formattedContacts = data.map((item: any) => ({
+        id: item.id,
+        name: item.emergency_contact_name,
+        phone: item.emergency_contact_phone,
+        relationship: item.relationship,
+        email: item.email,
+        isPrimary: item.is_primary,
+      }));
+
+      setContacts(formattedContacts);
+      setStatus('succeeded');
+    } catch (err: any) {
+      setError(err.message || 'An unknown error occurred.');
+      setStatus('failed');
+    }
+  }, []);
+
+  const fetchAlertHistory = useCallback(async () => {
+    setStatus('loading');
+    setError(null);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      const mockAlerts: AlertType[] = [
+        { id: 10, type: 'Panic Alert', status: 'Resolved', timestamp: '2 hours ago' },
+        { id: 9, type: 'Medical Emergency', status: 'Resolved', timestamp: '1 day ago' },
+      ];
+      setAlerts(mockAlerts);
+      setStatus('succeeded');
+    } catch (err: any) {
+      setError(err.message);
+      setStatus('failed');
+    }
+  }, []);
+
+  const handleAddContact = async () => {
+    if (!newName.trim() || !newPhone.trim()) {
+      alert('Name and phone are required.');
+      return;
+    }
+    setAdding(true);
+    setError(null);
+    try {
+      const response = await fetch(`${API_BASE_URL}/passengers/${PASSENGER_ID}/contacts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newName.trim(),
+          phone: newPhone.trim(),
+          relationship: newRelationship.trim() || 'N/A',
+          email: newEmail.trim() || 'N/A',
+          isPrimary: newIsPrimary,
+        }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to add contact.');
+      }
+      setShowAddModal(false);
+      // Clear all form fields
+      setNewName('');
+      setNewPhone('');
+      setNewRelationship('');
+      setNewEmail('');
+      setNewIsPrimary(false);
+      
+      fetchContacts(); // Refresh list
+    } catch (err: any) {
+      alert(err.message || 'An error occurred.');
+    } finally {
+        setAdding(false);
+    }
+  };
+
+
+  useEffect(() => {
+    if (activeScreen === 'contacts') {
+      fetchContacts();
+    } else if (activeScreen === 'history') {
+      fetchAlertHistory();
+    }
+  }, [activeScreen, fetchContacts, fetchAlertHistory]);
+
 
   const handleEmergencyAction = (type: string) => {
     setIsEmergencyActive(true);
-    setTimeout(() => {
-      setIsEmergencyActive(false);
-      setActiveScreen('history');
-    }, 2000);
+    setCountdown(5);
+    if (countdownTimer) clearInterval(countdownTimer);
+
+    const timer = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          setIsEmergencyActive(false);
+          setActiveScreen('history');
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    setCountdownTimer(timer);
+  };
+
+  const handleCancelEmergency = () => {
+    setIsEmergencyActive(false);
+    setCountdown(5);
+    if (countdownTimer) clearInterval(countdownTimer);
   };
 
   // --- Render Functions for Each View ---
   const renderEmergencyView = () => (
-    <View style={styles.emergencyContainer}>
-      <View style={styles.emergencyCard}>
-        <View style={styles.emergencyIcon}>
-          <Text style={styles.emergencyIconText}>⚠️</Text>
+    <LinearGradient
+      colors={['#3B82F6', '#60A5FA', '#DBEAFE']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.emergencyGradient}
+    >
+      <View style={styles.emergencyContainer}>
+        <View style={styles.emergencyCard}>
+          <View style={styles.emergencyIcon}>
+            <Text style={styles.emergencyIconText}>⚠️</Text>
+          </View>
+          <Text style={styles.emergencyTitle}>Report Emergency</Text>
+          <View style={styles.emergencyDivider} />
+          <Text style={styles.emergencySubtitle}>
+            Select the type of emergency to alert your contacts and authorities.
+          </Text>
+          <View style={styles.emergencyButtonsArea}>
+            <TouchableOpacity
+              style={[styles.emergencyButton, styles.panicButton]}
+              onPress={() => handleEmergencyAction('Panic Alert')}
+              disabled={isEmergencyActive}>
+              <Text style={styles.emergencyButtonText}>
+                {isEmergencyActive ? 'Activating...' : 'Panic Alert'}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.emergencyButton, styles.medicalButton]}
+              onPress={() => handleEmergencyAction('Security/Medical')}
+              disabled={isEmergencyActive}>
+              <Text style={styles.emergencyButtonText}>
+                {isEmergencyActive ? 'Activating...' : 'Security/Medical'}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
-        
-        <Text style={styles.emergencyTitle}>Report Emergency</Text>
-        <Text style={styles.emergencySubtitle}>
-          Select the type of emergency to alert your contacts and authorities.
-        </Text>
-        
-        <View style={styles.emergencyButtons}>
-          <TouchableOpacity 
-            style={[styles.emergencyButton, styles.panicButton]}
-            onPress={() => handleEmergencyAction('Panic Alert')}
-            disabled={isEmergencyActive}
-          >
-            <Text style={styles.emergencyButtonText}>
-              {isEmergencyActive ? 'Activating...' : 'Panic Alert'}
-            </Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.emergencyButton, styles.medicalButton]}
-            onPress={() => handleEmergencyAction('Security/Medical')}
-            disabled={isEmergencyActive}
-          >
-            <Text style={styles.emergencyButtonText}>
-              {isEmergencyActive ? 'Activating...' : 'Security/Medical'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-        
-        <TouchableOpacity style={styles.cancelButton}>
-          <Text style={styles.cancelButtonText}>Cancel</Text>
-        </TouchableOpacity>
       </View>
-    </View>
+    </LinearGradient>
   );
 
   const renderContactsView = () => (
-    <View style={styles.contactsContainer}>
-      <View style={styles.contactsHeader}>
-        <Text style={styles.contactsTitle}>Emergency Contacts</Text>
-        <TouchableOpacity style={styles.addContactButton}>
-          <Text style={styles.addContactText}>Add Contact</Text>
+    <View style={styles.listContainer}>
+      <View style={styles.listHeader}>
+        <Text style={styles.listTitle}>Emergency Contacts</Text>
+        <TouchableOpacity style={styles.addButton} onPress={() => setShowAddModal(true)}>
+          <Text style={styles.addButtonText}>+ Add</Text>
         </TouchableOpacity>
       </View>
-      
-      <ScrollView style={styles.contactsList}>
-        {contacts.map(contact => (
-          <ContactCard key={contact.id} contact={contact} />
-        ))}
-      </ScrollView>
+      {status === 'loading' && <ActivityIndicator size="large" color={AppColors.primary} />}
+      {status === 'failed' && <Text style={styles.errorText}>Error: {error}</Text>}
+      {status === 'succeeded' && (
+        <ScrollView style={styles.scrollableList}>
+          {contacts.map(contact => (
+            <ContactCard
+              key={contact.id}
+              contact={contact}
+              onEdit={setEditContact}
+              onDelete={setDeletingId}
+            />
+          ))}
+        </ScrollView>
+      )}
+
+      {/* Add Contact Modal */}
+      <Modal
+        visible={showAddModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowAddModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Add Emergency Contact</Text>
+            <TextInput placeholder="Name" placeholderTextColor={AppColors.textSecondary} value={newName} onChangeText={setNewName} style={styles.modalInput}/>
+            <TextInput placeholder="Phone" placeholderTextColor={AppColors.textSecondary} value={newPhone} onChangeText={setNewPhone} keyboardType="phone-pad" style={styles.modalInput}/>
+            <TextInput placeholder="Relationship (e.g., Brother, Friend)" placeholderTextColor={AppColors.textSecondary} value={newRelationship} onChangeText={setNewRelationship} style={styles.modalInput}/>
+            <TextInput placeholder="Email" placeholderTextColor={AppColors.textSecondary} value={newEmail} onChangeText={setNewEmail} keyboardType="email-address" autoCapitalize="none" style={styles.modalInput}/>
+            <View style={styles.modalToggleContainer}>
+              <Text style={styles.modalToggleLabel}>Set as Primary Contact</Text>
+              <Switch
+                trackColor={{ false: "#767577", true: AppColors.primary }}
+                thumbColor={"#f4f3f4"}
+                onValueChange={setNewIsPrimary}
+                value={newIsPrimary}
+              />
+            </View>
+            <View style={styles.modalActions}>
+              <TouchableOpacity onPress={() => setShowAddModal(false)} style={[styles.modalButton, styles.modalButtonSecondary]} disabled={adding}>
+                <Text style={[styles.modalButtonText, styles.modalButtonSecondaryText]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleAddContact} style={[styles.modalButton, styles.modalButtonPrimary, { opacity: adding ? 0.6 : 1 }]} disabled={adding}>
+                <Text style={[styles.modalButtonText, styles.modalButtonPrimaryText]}>
+                  {adding ? 'Adding...' : 'Add'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Edit Contact Modal */}
+      <Modal
+        visible={!!editContact}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setEditContact(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Edit Emergency Contact</Text>
+            <TextInput placeholder="Name" placeholderTextColor={AppColors.textSecondary} value={editContact?.name || ''} onChangeText={name => setEditContact(ec => ec ? { ...ec, name } : ec)} style={styles.modalInput}/>
+            <TextInput placeholder="Phone" placeholderTextColor={AppColors.textSecondary} value={editContact?.phone || ''} onChangeText={phone => setEditContact(ec => ec ? { ...ec, phone } : ec)} keyboardType="phone-pad" style={styles.modalInput}/>
+            <TextInput placeholder="Relationship" placeholderTextColor={AppColors.textSecondary} value={editContact?.relationship || ''} onChangeText={relationship => setEditContact(ec => ec ? { ...ec, relationship } : ec)} style={styles.modalInput}/>
+            <TextInput placeholder="Email" placeholderTextColor={AppColors.textSecondary} value={editContact?.email || ''} onChangeText={email => setEditContact(ec => ec ? { ...ec, email } : ec)} keyboardType="email-address" style={styles.modalInput}/>
+            <View style={styles.modalToggleContainer}>
+              <Text style={styles.modalToggleLabel}>Set as Primary Contact</Text>
+              <Switch
+                trackColor={{ false: "#767577", true: AppColors.primary }}
+                thumbColor={"#f4f3f4"}
+                onValueChange={isPrimary => setEditContact(ec => ec ? { ...ec, isPrimary } : ec)}
+                value={!!editContact?.isPrimary}
+              />
+            </View>
+            <View style={styles.modalActions}>
+               <TouchableOpacity onPress={() => setEditContact(null)} style={[styles.modalButton, styles.modalButtonSecondary]}>
+                <Text style={[styles.modalButtonText, styles.modalButtonSecondaryText]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={async () => {
+                  if (!editContact) return;
+                  await fetch(`${API_BASE_URL}/passengers/${PASSENGER_ID}/contacts/${editContact.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(editContact),
+                  });
+                  setEditContact(null);
+                  fetchContacts();
+                }}
+                style={[styles.modalButton, styles.modalButtonPrimary]}>
+                <Text style={[styles.modalButtonText, styles.modalButtonPrimaryText]}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Delete Contact Modal */}
+      {deletingId !== null && (
+        <Modal transparent visible onRequestClose={() => setDeletingId(null)}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Delete Contact?</Text>
+              <Text style={styles.modalConfirmationText}>Are you sure you want to delete this contact?</Text>
+              <View style={styles.modalActions}>
+                <TouchableOpacity onPress={() => setDeletingId(null)} style={[styles.modalButton, styles.modalButtonSecondary]}>
+                  <Text style={[styles.modalButtonText, styles.modalButtonSecondaryText]}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={async () => {
+                    await fetch(`${API_BASE_URL}/passengers/${PASSENGER_ID}/contacts/${deletingId}`, { method: 'DELETE' });
+                    setDeletingId(null);
+                    fetchContacts();
+                  }}
+                  style={[styles.modalButton, styles.modalButtonDelete]}>
+                  <Text style={[styles.modalButtonText, styles.modalButtonPrimaryText]}>Delete</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
-
   const renderHistoryView = () => (
-    <View style={styles.historyContainer}>
-      <View style={styles.historyHeader}>
-        <Text style={styles.historyTitle}>Alert History</Text>
-        <Text style={styles.historySubtitle}>View your past emergency alerts and their status.</Text>
+    <View style={styles.listContainer}>
+      <View style={styles.listHeader}>
+        <Text style={styles.listTitle}>Alert History</Text>
       </View>
-      
-      <ScrollView style={styles.historyList}>
-        {alerts.map(alert => (
-          <AlertCard key={alert.id} alert={alert} />
-        ))}
-      </ScrollView>
+      {status === 'loading' && <ActivityIndicator size="large" color={AppColors.primary} />}
+      {status === 'failed' && <Text style={styles.errorText}>Error: {error}</Text>}
+      {status === 'succeeded' && (
+        <ScrollView style={styles.scrollableList}>
+          {alerts.map(alert => (
+            <AlertCard key={alert.id} alert={alert} />
+          ))}
+        </ScrollView>
+      )}
     </View>
   );
 
   const renderContent = () => {
     switch (activeScreen) {
-      case 'emergency':
-        return renderEmergencyView();
-      case 'contacts':
-        return renderContactsView();
-      case 'history':
-        return renderHistoryView();
-      default:
-        return null;
+      case 'emergency': return renderEmergencyView();
+      case 'contacts': return renderContactsView();
+      case 'history': return renderHistoryView();
+      default: return null;
     }
   };
 
   // --- Main Render ---
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={AppColors.card} />
-      
-      {/* Tab Navigator */}
-      <View style={styles.tabContainer}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      {/* Header block */}
+      <SafeAreaView style={styles.header} edges={['top']}>
+        <View style={styles.pageHeader}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => {
+              // If using React Navigation:
+              if (typeof navigation !== 'undefined' && navigation.goBack) {
+                navigation.goBack();
+              }
+              // Otherwise, you can add your own logic here
+            }}
+          >
+            <Text style={styles.backButtonText}>←</Text>
+          </TouchableOpacity>
+          <Text style={styles.pageHeaderTitle}>Emergency Alert</Text>
+        </View>
         <View style={styles.tabBar}>
           {[
             { key: 'emergency', label: 'Emergency' },
             { key: 'contacts', label: 'Contacts' },
-            { key: 'history', label: 'History' }
+            { key: 'history', label: 'History' },
           ].map(tab => (
             <TouchableOpacity
               key={tab.key}
               onPress={() => setActiveScreen(tab.key as ScreenType)}
               style={[
                 styles.tab,
-                activeScreen === tab.key ? styles.activeTab : styles.inactiveTab
-              ]}
-            >
-              <Text style={[
-                styles.tabText,
-                activeScreen === tab.key ? styles.activeTabText : styles.inactiveTabText
+                activeScreen === tab.key && styles.activeTab,
               ]}>
+              <Text
+                style={[
+                  styles.tabText,
+                  activeScreen === tab.key ? styles.activeTabText : styles.inactiveTabText,
+                ]}>
                 {tab.label}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
-      </View>
+      </SafeAreaView>
 
-      {/* Dynamic Content */}
       <View style={styles.content}>
         {isEmergencyActive && (
           <View style={styles.emergencyOverlay}>
@@ -274,15 +520,37 @@ const EmergencyScreen: React.FC = () => {
                 <Text style={styles.emergencyModalIconText}>⚠️</Text>
               </View>
               <Text style={styles.emergencyModalTitle}>Emergency Activated</Text>
-              <Text style={styles.emergencyModalText}>Notifying contacts and authorities...</Text>
+              <Text style={styles.emergencyModalText}>
+                Notifying contacts and authorities in {countdown} second{countdown !== 1 ? 's' : ''}...
+              </Text>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonSecondary, { marginTop: 24 }]}
+                onPress={handleCancelEmergency}
+              >
+                <Text style={[styles.modalButtonText, styles.modalButtonSecondaryText]}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
         )}
-        
         {renderContent()}
       </View>
     </SafeAreaView>
   );
+};
+
+// --- Styles ---
+
+const baseCardStyle = {
+  backgroundColor: AppColors.card,
+  borderRadius: 12,
+  width: '100%',
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 4 },
+  shadowOpacity: 0.05,
+  shadowRadius: 10,
+  elevation: 3,
 };
 
 const styles = StyleSheet.create({
@@ -290,35 +558,57 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: AppColors.background,
   },
-  tabContainer: {
+  header: {
     backgroundColor: AppColors.card,
-    paddingTop: 40,
-  },
-  tabBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: AppColors.border,
   },
-  tab: {
-    flex: 1,
-    paddingVertical: 8,
+  backButton: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    zIndex: 2,
+  },
+  backButtonText: {
+    fontSize: 24,
+    color: AppColors.primary,
+    fontWeight: 'bold',
+  },
+  pageHeader: {
+    paddingTop: 0,
+    paddingBottom: 8,
     alignItems: 'center',
+    backgroundColor: AppColors.card,
+    justifyContent: 'center',
+    minHeight: 48,
+  },
+  pageHeaderTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: AppColors.primary,
+    letterSpacing: 1,
+  },
+  tabBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingHorizontal: 16,
+  },
+  tab: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginBottom: 8,
   },
   activeTab: {
-    borderBottomWidth: 2,
-    borderBottomColor: AppColors.primary,
-  },
-  inactiveTab: {
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
+    backgroundColor: AppColors.primaryLight,
   },
   tabText: {
     fontSize: 14,
     fontWeight: '600',
-    color: AppColors.textSecondary,
+    textAlign: 'center',
   },
   activeTabText: {
     color: AppColors.primary,
@@ -328,149 +618,195 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    padding: 16,
   },
-  
-  // Emergency View Styles
-  emergencyContainer: {
+  errorText: {
+    color: AppColors.red,
+    textAlign: 'center',
+    marginTop: 20,
+  },
+  // Emergency View
+  emergencyGradient: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  emergencyCard: {
-    backgroundColor: AppColors.card,
-    borderRadius: 8,
-    padding: 16,
-    alignItems: 'center',
-    maxWidth: 380,
+  emergencyContainer: {
+    flex: 1,
     width: '100%',
-  },
-  emergencyIcon: {
-    width: 48,
-    height: 48,
-    backgroundColor: AppColors.red,
-    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    paddingVertical: 32,
+    paddingHorizontal: 12, // slightly more padding
+  },
+  emergencyCard: {
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderRadius: 24,
+    paddingVertical: 36,
+    paddingHorizontal: 18,
+    alignItems: 'center',
+    width: '92%',
+    maxWidth: 400,
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.13,
+    shadowRadius: 32,
+    elevation: 12,
+    borderWidth: 0, // Remove border for a floating look
+  },
+  emergencyIcon: {
+    width: 90,
+    height: 90,
+    backgroundColor: '#fff',
+    borderRadius: 45,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 18,
+    borderWidth: 0,
+    shadowColor: AppColors.red,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 18,
+    elevation: 10,
   },
   emergencyIconText: {
-    fontSize: 24,
-    color: AppColors.card,
+    fontSize: 44,
+    textShadowColor: AppColors.red,
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 10,
   },
   emergencyTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: AppColors.text,
-    marginBottom: 8,
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: AppColors.primary,
+    marginBottom: 2,
+    letterSpacing: 1,
     textAlign: 'center',
+  },
+  emergencyDivider: {
+    width: 60,
+    height: 3,
+    backgroundColor: AppColors.primaryLight,
+    borderRadius: 2,
+    marginVertical: 8,
   },
   emergencySubtitle: {
-    fontSize: 14,
+    fontSize: 15,
     color: AppColors.textSecondary,
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: 28,
+    marginHorizontal: 8,
+    lineHeight: 22,
   },
-  emergencyButtons: {
+  emergencyButtonsArea: {
     width: '100%',
-    gap: 8,
+    backgroundColor: '#f3f6fb',
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 18,
+    gap: 12,
+    shadowColor: AppColors.primary,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 2,
   },
   emergencyButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    paddingVertical: 16,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginBottom: 8,
+    width: '100%',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
   },
   panicButton: {
+    backgroundColor: 'linear-gradient(90deg, #ef4444 0%, #f87171 100%)', // If you use a gradient lib, otherwise keep AppColors.red
     backgroundColor: AppColors.red,
   },
   medicalButton: {
-    backgroundColor: '#F59E0B',
+    backgroundColor: 'linear-gradient(90deg, #f59e0b 0%, #fbbf24 100%)', // If you use a gradient lib, otherwise keep AppColors.orange
+    backgroundColor: AppColors.orange,
   },
   emergencyButtonText: {
-    color: AppColors.card,
-    fontSize: 14,
-    fontWeight: '600',
-    textAlign: 'center',
+    color: '#fff',
+    fontSize: 17,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
-  cancelButton: {
-    marginTop: 16,
-    paddingVertical: 8,
-  },
-  cancelButtonText: {
-    color: AppColors.textSecondary,
-    fontSize: 14,
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-  
-  // Contacts View Styles
-  contactsContainer: {
+  // Lists (Contacts & History)
+  listContainer: {
     flex: 1,
   },
-  contactsHeader: {
+  listHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
   },
-  contactsTitle: {
+  listTitle: {
     fontSize: 24,
-    fontWeight: '600',
+    fontWeight: '700',
     color: AppColors.text,
   },
-  addContactButton: {
+  addButton: {
     backgroundColor: AppColors.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
   },
-  addContactText: {
+  addButtonText: {
     color: AppColors.card,
-    fontSize: 12,
-    fontWeight: '500',
+    fontSize: 14,
+    fontWeight: '600',
   },
-  contactsList: {
+  scrollableList: {
     flex: 1,
   },
+  // Contact Card
   contactCard: {
     backgroundColor: AppColors.card,
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 16,
-    marginBottom: 8,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: AppColors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
   },
   contactInfo: {
-    marginBottom: 8,
+    paddingRight: 40,
   },
   contactName: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
     color: AppColors.text,
-    marginBottom: 4,
   },
   contactDetail: {
-    fontSize: 12,
+    fontSize: 14,
     color: AppColors.textSecondary,
-    marginBottom: 2,
+    marginTop: 4,
   },
   contactActions: {
     position: 'absolute',
     top: 16,
     right: 16,
     flexDirection: 'row',
-    gap: 8,
+    gap: 16,
   },
-  actionButton: {
-    padding: 4,
-  },
+  actionButton: {},
   editIcon: {
-    fontSize: 14,
+    fontSize: 20,
     color: AppColors.primary,
   },
   deleteIcon: {
-    fontSize: 14,
+    fontSize: 20,
     color: AppColors.red,
   },
   primaryBadgeContainer: {
@@ -479,54 +815,33 @@ const styles = StyleSheet.create({
     right: 16,
   },
   primaryBadge: {
-    backgroundColor: AppColors.primary,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
+    backgroundColor: AppColors.green,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
   primaryBadgeText: {
     color: AppColors.card,
-    fontSize: 10,
-    fontWeight: '500',
+    fontSize: 12,
+    fontWeight: '600',
   },
   setPrimaryButton: {
     borderWidth: 1,
     borderColor: AppColors.primary,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
   setPrimaryText: {
     color: AppColors.primary,
-    fontSize: 10,
-    fontWeight: '500',
-  },
-  
-  // History View Styles
-  historyContainer: {
-    flex: 1,
-  },
-  historyHeader: {
-    marginBottom: 16,
-  },
-  historyTitle: {
-    fontSize: 24,
+    fontSize: 12,
     fontWeight: '600',
-    color: AppColors.text,
-    marginBottom: 4,
   },
-  historySubtitle: {
-    fontSize: 14,
-    color: AppColors.textSecondary,
-  },
-  historyList: {
-    flex: 1,
-  },
+  // Alert Card
   alertCard: {
-    backgroundColor: AppColors.card,
-    borderRadius: 8,
+    ...baseCardStyle,
     padding: 16,
-    marginBottom: 8,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: AppColors.border,
   },
@@ -534,11 +849,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 16,
+    marginBottom: 12,
   },
-  alertInfo: {
-    flex: 1,
-  },
+  alertInfo: {},
   alertType: {
     fontSize: 16,
     fontWeight: '600',
@@ -547,95 +860,182 @@ const styles = StyleSheet.create({
   alertId: {
     fontSize: 12,
     color: AppColors.textSecondary,
-    marginTop: 2,
+    marginTop: 4,
   },
   alertTimestamp: {
-    fontSize: 10,
+    fontSize: 12,
     color: AppColors.textSecondary,
-    marginTop: 2,
+    marginTop: 4,
   },
   statusBadge: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 4,
+    borderRadius: 12,
   },
   resolvedBadge: {
     backgroundColor: AppColors.green,
   },
   pendingBadge: {
-    backgroundColor: '#F59E0B',
+    backgroundColor: AppColors.orange,
   },
   statusText: {
-    fontSize: 10,
-    fontWeight: '500',
+    fontSize: 12,
+    fontWeight: '600',
     color: AppColors.card,
   },
   alertFooter: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingTop: 8,
+    justifyContent: 'space-around',
+    paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: AppColors.border,
   },
   alertFeature: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
   },
   featureIcon: {
-    fontSize: 12,
-    color: AppColors.textSecondary,
+    fontSize: 14,
   },
   featureText: {
     fontSize: 12,
     color: AppColors.textSecondary,
   },
-  
-  // Emergency Overlay Styles
+  // Emergency Modal Overlay
   emergencyOverlay: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    backgroundColor: 'rgba(15, 23, 42, 0.75)', // Much darker overlay (almost black/blue)
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1000,
+    padding: 16,
   },
   emergencyModal: {
-    backgroundColor: AppColors.card,
-    padding: 16,
-    borderRadius: 8,
+    backgroundColor: '#fff',
+    padding: 36,
+    borderRadius: 32,
     alignItems: 'center',
-    maxWidth: 280,
     width: '90%',
+    maxWidth: 340,
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.22,
+    shadowRadius: 32,
+    elevation: 16,
   },
   emergencyModalIcon: {
-    width: 48,
-    height: 48,
+    width: 80,
+    height: 80,
     backgroundColor: AppColors.red,
-    borderRadius: 24,
+    borderRadius: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 18,
+    shadowColor: AppColors.red,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 18,
+    elevation: 10,
   },
   emergencyModalIconText: {
-    fontSize: 24,
-    color: AppColors.card,
+    fontSize: 44,
   },
   emergencyModalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: AppColors.text,
-    marginBottom: 4,
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: AppColors.primary,
+    marginBottom: 8,
     textAlign: 'center',
   },
   emergencyModalText: {
-    fontSize: 14,
+    fontSize: 17,
     color: AppColors.textSecondary,
     textAlign: 'center',
+    marginTop: 4,
   },
+  // Add/Edit Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    padding: 24,
+    borderRadius: 16,
+    width: '100%',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 20,
+    color: AppColors.text,
+  },
+  modalInput: {
+    backgroundColor: AppColors.background,
+    borderWidth: 1,
+    borderColor: AppColors.border,
+    borderRadius: 8,
+    padding: Platform.OS === 'ios' ? 14 : 12,
+    marginBottom: 12,
+    fontSize: 16,
+    color: AppColors.text,
+  },
+  modalToggleContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginVertical: 12,
+  },
+  modalToggleLabel: {
+    fontSize: 16,
+    color: AppColors.text,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    marginTop: 24,
+  },
+  modalButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalButtonPrimary: {
+    backgroundColor: AppColors.primary,
+  },
+  modalButtonSecondary: {
+    backgroundColor: AppColors.border,
+  },
+  modalButtonDelete: {
+    backgroundColor: AppColors.red,
+  },
+  modalButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalButtonPrimaryText: {
+    color: '#fff',
+  },
+  modalButtonSecondaryText: {
+    color: AppColors.textSecondary,
+  },
+  modalConfirmationText: {
+    fontSize: 16,
+    color: AppColors.textSecondary,
+    marginBottom: 20,
+    lineHeight: 24,
+  }
 });
 
 export default EmergencyScreen;
