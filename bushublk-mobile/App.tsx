@@ -1,18 +1,6 @@
 import React from "react";
-import AppNavigator from "./src/navigation/AppNavigator";
+import RootNavigator from "./src/navigation/RootNavigator";
 
 export default function App() {
-  return <AppNavigator />;
+  return <RootNavigator />;
 }
-
-/* import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
-import AuthNavigator from './src/navigation/AuthNavigator';
-
-export default function App() {
-  return (
-    <NavigationContainer>
-      <AuthNavigator />
-    </NavigationContainer>
-  );
-} */
