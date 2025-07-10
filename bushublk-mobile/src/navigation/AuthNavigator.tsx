@@ -7,6 +7,8 @@ import ForgotPasswordScreen from "../screens/ForgotPasswordScreen";
 const Stack = createStackNavigator();
 
 export default function AuthNavigator() {
+  console.log("🔐 AuthNavigator rendering");
+
   return (
     <Stack.Navigator
       initialRouteName="Login"
