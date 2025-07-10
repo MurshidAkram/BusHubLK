@@ -78,6 +78,16 @@ export const authAPI = {
     const response = await api.put('/passengers/profile', userData);
     return response.data;
   },
+  logout: async () => {
+    try {
+      await storageAPI.clearStorage();
+      return { success: true };
+    } catch (error) {
+      console.error('Logout error:', error);
+      return { success: false, error: 'Failed to logout' };
+    }
+  },
+
 
   // Delete passenger account
   deletePassengerAccount: async () => {
@@ -137,6 +147,17 @@ export const storageAPI = {
     } catch (error) {
       console.error('Error getting auth token:', error);
       return null;
+    }
+  },
+
+  isAuthenticated: async (): Promise<boolean> => {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      const userData = await AsyncStorage.getItem('userData');
+      return !!(token && userData);
+    } catch (error) {
+      console.error('Error checking authentication:', error);
+      return false;
     }
   },
 
