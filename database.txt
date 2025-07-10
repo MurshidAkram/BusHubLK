@@ -181,3 +181,14 @@ CREATE INDEX idx_depot_managers_depot_id ON depot_managers(depot_id);
 CREATE INDEX idx_depot_managers_region_id ON depot_managers(region_id);
 CREATE INDEX idx_drivers_depot_id ON drivers(depot_id);
 CREATE INDEX idx_conductors_depot_id ON conductors(depot_id);
+
+
+CREATE TABLE emergency_contacts (
+    id SERIAL PRIMARY KEY,
+    passenger_id INTEGER NOT NULL REFERENCES passengers(passenger_id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
+    phone VARCHAR(20) NOT NULL,
+    relationship VARCHAR(50) DEFAULT 'N/A',
+    email VARCHAR(100) DEFAULT 'N/A',
+    is_primary BOOLEAN DEFAULT FALSE
+);

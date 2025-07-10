@@ -3,7 +3,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 require('dotenv').config();
-
+const passengerRoutes = require('./routes/passengerRoutes');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -31,11 +31,11 @@ app.use('/api/users', userRoutes);
 const driverAuthRoutes = require('./routes/driverAuth');
 app.use('/api/driver', driverAuthRoutes);
 // app.use('/api/users', require('./routes/userRoutes'));
-
+app.use('/api/passengers', passengerRoutes);
 app.listen(PORT, () => {
   console.log(`🚀 Server is running on http://localhost:${PORT}`);
 });
-
+console.log('Is passengerRoutes object loaded correctly?', passengerRoutes);
 // Add this to your existing routes file or create if it doesn't exist
 
 
