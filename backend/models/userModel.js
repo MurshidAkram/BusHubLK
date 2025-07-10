@@ -211,6 +211,55 @@ class User {
     return result.rows;
   }
 
+  static async findByUsername(username) {
+    try {
+      const result = await db.query(
+        `SELECT u.*, r.role_name 
+         FROM users u
+         JOIN roles r ON u.role_id = r.role_id
+         WHERE u.username = $1`,
+        [username]
+      );
+      return result.rows[0] || null;
+    } catch (error) {
+      console.error('Error finding user by username:', error);
+      throw error;
+    }
+  }
+
+  static async updateProfile(userId, updateData) {
+    try {
+      const { first_name, last_name, phone } = updateData;
+      
+      const result = await db.query(
+        `UPDATE users 
+         SET first_name = COALESCE($2, first_name),
+             last_name = COALESCE($3, last_name),
+             phone = COALESCE($4, phone),
+             updated_at = CURRENT_TIMESTAMP
+         WHERE user_id = $1
+         RETURNING user_id, username, email, first_name, last_name, phone, role_id, is_active`,
+        [userId, first_name, last_name, phone]
+      );
+      return result.rows[0];
+    } catch (error) {
+      console.error('Error updating user profile:', error);
+      throw error;
+    }
+  }
+
+  static async updateLastLogin(userId) {
+    try {
+      await db.query(
+        'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE user_id = $1',
+        [userId]
+      );
+    } catch (error) {
+      console.error('Error updating last login:', error);
+      throw error;
+    }
+  }
+
   // Helper method to create role-specific entries
   static async createRoleSpecificEntry(user_id, role_name, additional_data = {}) {
     const roleTableMap = {

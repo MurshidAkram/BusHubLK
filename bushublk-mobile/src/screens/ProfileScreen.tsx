@@ -1,359 +1,268 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
-  Image,
   TouchableOpacity,
   ScrollView,
-  StatusBar,
-  TextInput,
-  Switch,
-  ActivityIndicator,
-} from 'react-native';
-import Icon from 'react-native-vector-icons/Ionicons';
-import { LinearGradient } from 'expo-linear-gradient';
+  Alert,
+  SafeAreaView,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { authAPI, storageAPI } from "../services/api";
 
-// --- Color Palette ---
-const AppColors = {
-  background: '#F4F7FC',
-  primary: '#0056b3',
-  primaryLight: '#4A90E2',
-  text: '#212529',
-  textSecondary: '#6C757D',
-  card: '#FFFFFF',
-  border: '#E9ECEF',
-  danger: '#dc3545',
-  success: '#198754',
-};
-
-// --- MOCK API & DATA (Updated) ---
-const mockUserData = {
-  profile: {
-    name: 'Jane Doe',
-    membership: 'Platinum Member',
-    email: 'jane.doe@example.com',
-    phone: '+94 77 987 6543',
-    avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d',
-  },
-  paymentMethods: [
-    { id: '1', type: 'Visa', number: '4242', default: true },
-    { id: '2', type: 'Mastercard', number: '5566', default: false },
-  ],
-  security: {
-    twoFactorEnabled: false,
-  },
-  helpContent: [
-      { id: 'q1', question: 'How do I track a bus?', answer: 'Use the "Live Tracking" feature from the home screen and enter a route number to see the bus locations on the map.'},
-      { id: 'q2', question: 'What if I lose an item?', answer: 'Go to the "Lost & Found" section to report a lost item or browse found items reported by others.'}
-  ],
-  preferences: {
-    notifications: {
-      push: true,
-      email: false,
-      sms: true,
-    },
-  },
-};
-
-const fetchUserData = () => {
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            resolve(mockUserData);
-        }, 1500);
-    });
-};
-
-// --- Header for the Sub-Pages ---
-const SubPageHeader = ({ title, onBack }) => (
-    <View style={styles.subPageHeader}>
-        <TouchableOpacity onPress={onBack} style={styles.backButton}>
-            <Icon name="arrow-back-outline" size={28} color={AppColors.text} />
-        </TouchableOpacity>
-        <Text style={styles.subPageHeaderTitle}>{title}</Text>
-    </View>
-);
-
-// --- Edit Profile View ---
-const EditProfileView = ({ profile, onBack }) => {
-    const [name, setName] = useState(profile.name);
-    const [phone, setPhone] = useState(profile.phone);
-
-    return(
-        <>
-            <SubPageHeader title="Edit Profile" onBack={onBack}/>
-            <ScrollView contentContainerStyle={styles.subPageContainer}>
-                <View style={styles.editAvatarContainer}>
-                    <Image source={{ uri: profile.avatar }} style={styles.avatar} />
-                    <TouchableOpacity style={styles.editAvatarButton}>
-                        <Icon name="camera-outline" size={24} color={AppColors.primary} />
-                    </TouchableOpacity>
-                </View>
-                <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>Full Name</Text>
-                    <TextInput style={styles.textInput} value={name} onChangeText={setName} />
-                </View>
-                <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>Email Address</Text>
-                    <TextInput style={styles.textInput} value={profile.email} editable={false} />
-                </View>
-                <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>Phone Number</Text>
-                    <TextInput style={styles.textInput} value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
-                </View>
-                <TouchableOpacity style={styles.saveButton}>
-                    <Text style={styles.saveButtonText}>Save Changes</Text>
-                </TouchableOpacity>
-            </ScrollView>
-        </>
-    );
-};
-
-// --- Security View ---
-const SecurityView = ({ security, onBack }) => {
-    const [twoFactor, setTwoFactor] = useState(security.twoFactorEnabled);
-    return(
-        <>
-            <SubPageHeader title="Security" onBack={onBack}/>
-             <ScrollView contentContainerStyle={styles.subPageContainer}>
-                <View style={styles.menu}>
-                    <TouchableOpacity style={styles.menuItem}>
-                        <Text style={styles.menuItemText}>Change Password</Text>
-                        <Icon name="chevron-forward-outline" size={22} color={AppColors.textSecondary} />
-                    </TouchableOpacity>
-                    <View style={styles.menuItem}>
-                        <Text style={styles.menuItemText}>Two-Factor Authentication</Text>
-                        <Switch trackColor={{ false: "#ccc", true: AppColors.primary }} thumbColor={"#fff"} value={twoFactor} onValueChange={setTwoFactor} />
-                    </View>
-                </View>
-             </ScrollView>
-        </>
-    );
-};
-
-// --- Payment Methods View ---
-const PaymentMethodsView = ({ methods, onBack }) => (
-    <>
-        <SubPageHeader title="Payment Methods" onBack={onBack}/>
-        <ScrollView contentContainerStyle={styles.subPageContainer}>
-            {methods.map(card => (
-                 <View key={card.id} style={styles.paymentCard}>
-                    <Icon name="card" size={40} color={AppColors.primary}/>
-                    <View style={styles.paymentDetails}>
-                        <Text style={styles.paymentCardType}>{card.type}</Text>
-                        <Text style={styles.paymentCardNumber}>**** **** **** {card.number}</Text>
-                    </View>
-                    {card.default && <Text style={styles.paymentDefault}>Default</Text>}
-                </View>
-            ))}
-             <TouchableOpacity style={styles.addButton}>
-                <Icon name="add-circle-outline" size={22} color={AppColors.primary}/>
-                <Text style={styles.addButtonText}>Add New Payment Method</Text>
-            </TouchableOpacity>
-        </ScrollView>
-    </>
-);
-
-// --- Help & Support View ---
-const HelpSupportView = ({ helpContent, onBack }) => (
-    <>
-        <SubPageHeader title="Help & Support" onBack={onBack}/>
-        <ScrollView contentContainerStyle={styles.subPageContainer}>
-            {helpContent.map(item => (
-                <View key={item.id} style={styles.contentCard}>
-                    <Text style={styles.contentTitle}>{item.question}</Text>
-                    <Text style={styles.contentParagraph}>{item.answer}</Text>
-                </View>
-            ))}
-        </ScrollView>
-    </>
-);
-
-// --- Preferences View ---
-const PreferencesView = ({ preferences, onBack }) => {
-    const [prefs, setPrefs] = useState(preferences.notifications);
-
-    const togglePref = (key) => {
-        setPrefs(currentPrefs => ({ ...currentPrefs, [key]: !currentPrefs[key] }));
-    };
-
-    return (
-        <>
-            <SubPageHeader title="Preferences" onBack={onBack} />
-            <ScrollView contentContainerStyle={styles.subPageContainer}>
-                <Text style={styles.menuTitle}>Notifications</Text>
-                <View style={styles.menu}>
-                    <View style={styles.menuItem}>
-                        <Text style={styles.menuItemText}>Push Notifications</Text>
-                        <Switch trackColor={{ false: "#ccc", true: AppColors.primary }} thumbColor={"#fff"} value={prefs.push} onValueChange={() => togglePref('push')} />
-                    </View>
-                    <View style={styles.menuItem}>
-                        <Text style={styles.menuItemText}>Email Notifications</Text>
-                        <Switch trackColor={{ false: "#ccc", true: AppColors.primary }} thumbColor={"#fff"} value={prefs.email} onValueChange={() => togglePref('email')} />
-                    </View>
-                    <View style={styles.menuItem}>
-                        <Text style={styles.menuItemText}>SMS Alerts</Text>
-                        <Switch trackColor={{ false: "#ccc", true: AppColors.primary }} thumbColor={"#fff"} value={prefs.sms} onValueChange={() => togglePref('sms')} />
-                    </View>
-                </View>
-            </ScrollView>
-        </>
-    );
-};
-
-// --- Main Profile View (Updated) ---
-const MainProfileView = ({ user, onNavigate }) => {
-    const accountMenuItems = [
-      { key: 'editProfile', text: 'Edit Profile', icon: 'person-outline' },
-      { key: 'paymentMethods', text: 'Payment Methods', icon: 'card-outline' },
-      { key: 'security', text: 'Security', icon: 'shield-checkmark-outline' },
-    ];
-    const moreMenuItems = [
-      { key: 'preferences', text: 'Preferences', icon: 'options-outline' },
-      { key: 'help', text: 'Help & Support', icon: 'help-buoy-outline' },
-    ];
-
-    const renderMenuItems = (items) => (
-        <View style={styles.menu}>
-            {items.map((item, index) => (
-                <TouchableOpacity
-                    key={item.key}
-                    style={[styles.menuItem, index === items.length - 1 && { borderBottomWidth: 0 }]}
-                    activeOpacity={0.7}
-                    onPress={() => onNavigate(item.key)}
-                >
-                    <Icon name={item.icon} size={22} color={AppColors.primary} style={styles.menuIcon} />
-                    <Text style={styles.menuItemText}>{item.text}</Text>
-                    <Icon name="chevron-forward-outline" size={22} color={AppColors.textSecondary} />
-                </TouchableOpacity>
-            ))}
-        </View>
-    );
-
-    return(
-    <>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.container}>
-        <LinearGradient colors={[AppColors.primary, AppColors.primaryLight]} style={styles.header}>
-          <TouchableOpacity style={styles.settingsButton} onPress={() => onNavigate('settings')}>
-            <Icon name="settings-outline" size={24} color="#fff" />
-          </TouchableOpacity>
-          <Image source={{ uri: user.profile.avatar }} style={styles.avatar} />
-          <Text style={styles.userName}>{user.profile.name}</Text>
-          <Text style={styles.userMembership}>{user.profile.membership}</Text>
-        </LinearGradient>
-
-        <View style={styles.menuWrapper}>
-          <Text style={styles.menuTitle}>Account</Text>
-          {renderMenuItems(accountMenuItems)}
-        </View>
-
-        <View style={styles.menuWrapper}>
-          <Text style={styles.menuTitle}>More</Text>
-          {renderMenuItems(moreMenuItems)}
-        </View>
-
-        <TouchableOpacity style={styles.logoutButton} activeOpacity={0.7}>
-          <Icon name="log-out-outline" size={22} color={AppColors.danger} />
-          <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
-      </ScrollView>
-    </>
-    );
-};
-
-// --- Main ProfileScreen Component (Updated) ---
-const ProfileScreen = ({ navigation }) => {
-  const [view, setView] = useState('main');
+export default function ProfileScreen({ navigation }: any) {
+  const [userData, setUserData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [userData, setUserData] = useState(null);
 
   useEffect(() => {
-    fetchUserData().then(data => {
-      setUserData(data);
-      setIsLoading(false);
-    });
+    loadUserData();
   }, []);
 
-  const goToSettingsPage = () => {
-      navigation.navigate('Settings');
-  };
-
-  const renderContent = () => {
-    if (isLoading) {
-      return <View style={styles.loadingContainer}><ActivityIndicator size="large" color={AppColors.primary} /></View>;
-    }
-
-    switch (view) {
-      case 'editProfile':
-        return <EditProfileView profile={userData.profile} onBack={() => setView('main')} />;
-      case 'security':
-        return <SecurityView security={userData.security} onBack={() => setView('main')} />;
-      case 'paymentMethods':
-        return <PaymentMethodsView methods={userData.paymentMethods} onBack={() => setView('main')} />;
-      case 'help':
-        return <HelpSupportView helpContent={userData.helpContent} onBack={() => setView('main')} />;
-      case 'preferences':
-        return <PreferencesView preferences={userData.preferences} onBack={() => setView('main')} />;
-      case 'settings':
-          goToSettingsPage();
-          return <MainProfileView user={userData} onNavigate={setView} />;
-      default:
-        return <MainProfileView user={userData} onNavigate={setView} />;
+  const loadUserData = async () => {
+    try {
+      const data = await storageAPI.getUserData();
+      setUserData(data);
+    } catch (error) {
+      console.error("Error loading user data:", error);
+    } finally {
+      setIsLoading(false);
     }
   };
+
+  const handleLogout = () => {
+    Alert.alert("Logout", "Are you sure you want to logout?", [
+      {
+        text: "Cancel",
+        style: "cancel",
+      },
+      {
+        text: "Logout",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await authAPI.logout();
+            // The App.tsx will automatically detect the auth state change
+          } catch (error) {
+            console.error("Logout error:", error);
+            Alert.alert("Error", "Failed to logout. Please try again.");
+          }
+        },
+      },
+    ]);
+  };
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text>Loading...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle={view === 'main' ? 'light-content' : 'dark-content'} backgroundColor={view === 'main' ? AppColors.primary : AppColors.background} />
-      {renderContent()}
+    <SafeAreaView style={styles.container}>
+      <ScrollView style={styles.scrollView}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Profile</Text>
+        </View>
+
+        {/* User Info Card */}
+        <View style={styles.card}>
+          <View style={styles.userInfo}>
+            <View style={styles.avatar}>
+              <Ionicons name="person" size={40} color="#0056b3" />
+            </View>
+            <View style={styles.userDetails}>
+              <Text style={styles.userName}>
+                {userData?.first_name} {userData?.last_name}
+              </Text>
+              <Text style={styles.userEmail}>{userData?.email}</Text>
+              <Text style={styles.userRole}>{userData?.role}</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Profile Options */}
+        <View style={styles.optionsContainer}>
+          <TouchableOpacity style={styles.option}>
+            <Ionicons name="person-outline" size={24} color="#0056b3" />
+            <Text style={styles.optionText}>Edit Profile</Text>
+            <Ionicons name="chevron-forward" size={20} color="#666" />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.option}>
+            <Ionicons name="notifications-outline" size={24} color="#0056b3" />
+            <Text style={styles.optionText}>Notifications</Text>
+            <Ionicons name="chevron-forward" size={20} color="#666" />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.option}>
+            <Ionicons name="help-circle-outline" size={24} color="#0056b3" />
+            <Text style={styles.optionText}>Help & Support</Text>
+            <Ionicons name="chevron-forward" size={20} color="#666" />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.option}>
+            <Ionicons name="shield-outline" size={24} color="#0056b3" />
+            <Text style={styles.optionText}>Privacy Policy</Text>
+            <Ionicons name="chevron-forward" size={20} color="#666" />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.option}>
+            <Ionicons name="document-text-outline" size={24} color="#0056b3" />
+            <Text style={styles.optionText}>Terms of Service</Text>
+            <Ionicons name="chevron-forward" size={20} color="#666" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Logout Button */}
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <Ionicons name="log-out-outline" size={24} color="#dc3545" />
+          <Text style={styles.logoutText}>Logout</Text>
+        </TouchableOpacity>
+
+        {/* App Version */}
+        <View style={styles.versionContainer}>
+          <Text style={styles.versionText}>BusHubLK v1.0.0</Text>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
-};
+}
 
-// --- Styles (Updated) ---
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: AppColors.background },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: AppColors.background },
-  container: { paddingBottom: 40 },
-  header: { backgroundColor: AppColors.primary, paddingHorizontal: 20, paddingTop: 40, paddingBottom: 30, alignItems: 'center', borderBottomLeftRadius: 40, borderBottomRightRadius: 40, }, // Adjusted padding
-  settingsButton: { position: 'absolute', top: 50, right: 20, padding: 10 },
-  avatar: { width: 110, height: 110, borderRadius: 55, borderWidth: 4, borderColor: AppColors.card, marginBottom: 10, },
-  userName: { fontSize: 26, fontWeight: 'bold', color: AppColors.card },
-  userMembership: { fontSize: 16, color: AppColors.card, opacity: 0.8, marginTop: 4 },
-  menuWrapper: { marginTop: 30, marginHorizontal: 20 },
-  menuTitle: { fontSize: 18, fontWeight: '600', color: AppColors.text, marginBottom: 10, paddingHorizontal: 5 },
-  menu: { backgroundColor: AppColors.card, borderRadius: 16, overflow: 'hidden' },
-  menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 15, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: AppColors.border, },
-  menuIcon: { marginRight: 15 },
-  menuItemText: { flex: 1, fontSize: 16, fontWeight: '500', color: AppColors.text },
-  logoutButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: AppColors.card, borderRadius: 16, marginHorizontal: 20, marginTop: 30, paddingVertical: 15, elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5 },
-  logoutText: { fontSize: 16, color: AppColors.danger, fontWeight: '600', marginLeft: 10, },
-  // Sub-Page Styles
-  subPageHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingTop: 40, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: AppColors.border, backgroundColor:AppColors.background },
-  backButton: { padding: 10 },
-  subPageHeaderTitle: { fontSize: 22, fontWeight: '600', color: AppColors.text, marginLeft: 10, },
-  subPageContainer: { padding: 20 },
-  // Edit Profile
-  editAvatarContainer: { alignItems: 'center', marginBottom: 30 },
-  editAvatarButton: { position: 'absolute', bottom: 0, right: '35%', backgroundColor: AppColors.card, borderRadius: 20, padding: 8, elevation: 5, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 5 },
-  inputGroup: { marginBottom: 20 },
-  inputLabel: { fontSize: 14, color: AppColors.textSecondary, marginBottom: 8 },
-  textInput: { backgroundColor: AppColors.card, padding: 15, borderRadius: 10, fontSize: 16, color: AppColors.text, borderWidth: 1, borderColor: AppColors.border },
-  saveButton: { backgroundColor: AppColors.primary, padding: 18, borderRadius: 12, alignItems: 'center', marginTop: 10 },
-  saveButtonText: { color: AppColors.card, fontSize: 16, fontWeight: 'bold' },
-  // Payment
-  paymentCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: AppColors.card, padding: 20, borderRadius: 12, marginBottom: 15, borderWidth: 1, borderColor: AppColors.border },
-  paymentDetails: { flex: 1, marginLeft: 15 },
-  paymentCardType: { fontSize: 16, fontWeight: 'bold', color: AppColors.text },
-  paymentCardNumber: { fontSize: 14, color: AppColors.textSecondary, marginTop: 4 },
-  paymentDefault: { color: AppColors.success, fontWeight: '600' },
-  addButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: AppColors.card, padding: 15, borderRadius: 12, borderWidth: 1, borderColor: AppColors.border, borderStyle: 'dashed' },
-  addButtonText: { color: AppColors.primary, fontSize: 16, fontWeight: '600', marginLeft: 10, },
-  // Help Content
-  contentCard: { backgroundColor: AppColors.card, borderRadius: 12, padding: 15, marginBottom: 15, },
-  contentTitle: { fontSize: 16, fontWeight: '600', color: AppColors.primary, marginBottom: 8 },
-  contentParagraph: { fontSize: 14, color: AppColors.textSecondary, lineHeight: 22 },
+  container: {
+    flex: 1,
+    backgroundColor: "#F8F9FA",
+  },
+  scrollView: {
+    flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  header: {
+    backgroundColor: "#0056b3",
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    paddingTop: 40,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#FFFFFF",
+    textAlign: "center",
+  },
+  card: {
+    backgroundColor: "#FFFFFF",
+    margin: 20,
+    borderRadius: 12,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  userInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "#E3F2FD",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 16,
+  },
+  userDetails: {
+    flex: 1,
+  },
+  userName: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#212529",
+    marginBottom: 4,
+  },
+  userEmail: {
+    fontSize: 16,
+    color: "#6C757D",
+    marginBottom: 4,
+  },
+  userRole: {
+    fontSize: 14,
+    color: "#0056b3",
+    fontWeight: "600",
+    textTransform: "capitalize",
+  },
+  optionsContainer: {
+    backgroundColor: "#FFFFFF",
+    marginHorizontal: 20,
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  option: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F3F4",
+  },
+  optionText: {
+    flex: 1,
+    fontSize: 16,
+    color: "#212529",
+    marginLeft: 16,
+  },
+  logoutButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF",
+    marginHorizontal: 20,
+    marginTop: 20,
+    paddingVertical: 16,
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  logoutText: {
+    fontSize: 16,
+    color: "#dc3545",
+    fontWeight: "600",
+    marginLeft: 8,
+  },
+  versionContainer: {
+    alignItems: "center",
+    paddingVertical: 20,
+  },
+  versionText: {
+    fontSize: 14,
+    color: "#6C757D",
+  },
 });
-
-export default ProfileScreen;
