@@ -1,21 +1,45 @@
 import React from "react";
 import { createStackNavigator } from "@react-navigation/stack";
-// Remove any NavigationContainer import if present
 
+// Import the Tab Navigator
 import TabNavigator from "./TabNavigator";
-// ... other imports
+
+// Import other screens
+import LostAndFoundScreen from "../screens/LostAndFoundScreen";
+import NotificationsScreen from "../screens/NotificationsScreen";
+import BusTracker from "../screens/BusTrackerScreen";
+import BusRouteResultsScreen from "../screens/BusRouteResultsScreen";
+import BusOccupancyScreen from "../screens/BusOccupancyScreen";
+import ComplaintsScreen from "../screens/ComplaintsScreen";
+import EmergencyScreen from "../screens/EmergencyAlertScreen";
 
 const Stack = createStackNavigator();
 
 export default function AppNavigator() {
   return (
-    // No NavigationContainer here - only the Stack.Navigator
     <Stack.Navigator
       initialRouteName="Tabs"
       screenOptions={{ headerShown: false }}
     >
+      {/* The Bottom Tab Navigator */}
       <Stack.Screen name="Tabs" component={TabNavigator} />
-      {/* ... other screens */}
+
+      {/* Other screens that will be pushed on top of the tabs */}
+      <Stack.Screen name="LostAndFound" component={LostAndFoundScreen} />
+      <Stack.Screen name="Notifications" component={NotificationsScreen} />
+      <Stack.Screen name="BusTracker" component={BusTracker} />
+      <Stack.Screen
+        name="Complaints"
+        component={ComplaintsScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen name="BusRouteResults" component={BusRouteResultsScreen} />
+      <Stack.Screen name="BusOccupancy" component={BusOccupancyScreen} />
+      <Stack.Screen
+        name="Emergency"
+        component={EmergencyScreen}
+        options={{ headerShown: false }}
+      />
     </Stack.Navigator>
   );
 }
