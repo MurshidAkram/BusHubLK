@@ -40,8 +40,8 @@ import DepotEngineerDashboard from './pages/dashboards/depot-engineer/index'
 import Assignedbuses from './pages/dashboards/depot-engineer/Assignedbuses'
 import Repairs from './pages/dashboards/depot-engineer/Repairs'
 import Scheduling from './pages/dashboards/depot-engineer/Scheduling'
-import Escalate from './pages/dashboards/depot-engineer/Escalate'
 import Performance from './pages/dashboards/depot-engineer/Performance'
+import DepotEscalateissues from './pages/dashboards/depot-engineer/DepotEscalateissues'
 
 
 // Regional Technical Officer Components
@@ -76,6 +76,7 @@ import Escalations from './pages/dashboards/dgm-tech/Escalations'
 import CEOSidebarContent from './components/ceo/CEOSidebarContent'
 import CEODashboard from './pages/dashboards/ceo/index'
 import DepotAndRegions from './pages/dashboards/admin/DepotAndRegions'
+//import DepotEscalateissues from './pages/dashboards/depot-engineer/DepotEscalateissues'
 //import Inspectionschedular from './pages/dashboards/regional-tech/Inspectionschedular'
 //import Investigationlogs from './pages/dashboards/regional-tech/Investigationlogs'
 //import Regionservicemonitor from './pages/dashboards/regional-tech/Regionservicemonitor'
@@ -154,8 +155,8 @@ const App = () => {
           <Route path="Repairs" element={<Repairs />} />
           <Route path="assigned-buses" element={<Assignedbuses />} />
           <Route path="scheduling" element={<Scheduling />} />
-          <Route path="Escalate" element={<Escalate />} />
           <Route path="Performance" element={<Performance />} />
+          <Route path="DepotEscalateissues" element={<DepotEscalateissues />} />
           {/* Add individual pages later */}
         </Route>
         </Route>
