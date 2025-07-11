@@ -62,7 +62,7 @@ const DGMTechnicalSidebarContent = () => {
         Service History Explorer
       </NavLink>
 
-      <NavLink
+      {/* <NavLink
         to="/dgm-technical/Inspectionandmaintenance"
         className={({ isActive }) =>
           `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
@@ -72,10 +72,10 @@ const DGMTechnicalSidebarContent = () => {
       >
         <HiTruck className="mr-3 flex-shrink-0 h-5 w-5" />
         Inspection and Maintenance Schedule
-      </NavLink>
+      </NavLink> */}
 
       <NavLink
-        to="/dgm-technical/RaisedIssues"
+        to="/dgm-technical/Dgmtechnicalissue"
         className={({ isActive }) =>
           `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
             ? 'bg-green-700 text-white' 
@@ -98,17 +98,7 @@ const DGMTechnicalSidebarContent = () => {
         Reports
       </NavLink>
 
-      <NavLink
-        to="/dgm-technical/Escalations"
-        className={({ isActive }) =>
-          `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
-            ? 'bg-green-700 text-white' 
-            : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`
-        }
-      >
-        <HiExclamationCircle className="mr-3 flex-shrink-0 h-5 w-5" />
-        Escalated Issues
-      </NavLink>
+      
 
     </div>
   );

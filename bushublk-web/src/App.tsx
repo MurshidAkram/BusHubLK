@@ -65,17 +65,16 @@ import DGMOperationsDashboard from './pages/dashboards/dgm-ops/index'
 import DGMTechnicalSidebarContent from './components/dgm-tech/DGMTechnicalSidebarContent'
 import DGMTechnicalDashboard from './pages/dashboards/dgm-tech/index'
 import Fleetmonitor from './pages/dashboards/dgm-tech/Fleetmonitor'
-import RaisedIssues from './pages/dashboards/dgm-tech/RaisedIssues'
-import Inspectionandmaintenance from './pages/dashboards/dgm-tech/Inspectionandmaintenance'
 import Servicehistoryexplorer from './pages/dashboards/dgm-tech/Servicehistoryexplorer'
 import GenerateReports from './pages/dashboards/dgm-tech/GenerateReports'
-import Escalations from './pages/dashboards/dgm-tech/Escalations'
+import Dgmtechnicalissue from './pages/dashboards/dgm-tech/Dgmtechnicalissue'
 
 
 // CEO Components
 import CEOSidebarContent from './components/ceo/CEOSidebarContent'
 import CEODashboard from './pages/dashboards/ceo/index'
 import DepotAndRegions from './pages/dashboards/admin/DepotAndRegions'
+//import Dgmtechnicalissue from './pages/dashboards/dgm-tech/Dgmtechnicalissue'
 //import Rtoissuetracker from './pages/dashboards/regional-tech/Rtoissuetracker'
 //import DepotEscalateissues from './pages/dashboards/depot-engineer/DepotEscalateissues'
 //import Inspectionschedular from './pages/dashboards/regional-tech/Inspectionschedular'
@@ -195,11 +194,9 @@ const App = () => {
   <Route path="/dgm-technical" element={<DashboardLayout role="DGM Technical" sidebarContent={<DGMTechnicalSidebarContent />} />}>
     <Route index element={<DGMTechnicalDashboard />} />
     <Route path="Fleetmonitor" element={<Fleetmonitor />} />
-    <Route path="RaisedIssues" element={<RaisedIssues />} />
-    <Route path="Inspectionandmaintenance" element={<Inspectionandmaintenance />} />
     <Route path="Servicehistoryexplorer" element={<Servicehistoryexplorer />} />
     <Route path="GenerateReports" element={<GenerateReports />} />
-    <Route path="Escalations" element={<Escalations />} />
+    <Route path="Dgmtechnicalissue" element={<Dgmtechnicalissue />} />
 
   </Route>
 </Route>
