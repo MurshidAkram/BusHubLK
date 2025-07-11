@@ -47,10 +47,10 @@ import DepotEscalateissues from './pages/dashboards/depot-engineer/DepotEscalate
 // Regional Technical Officer Components
 import RegionalTechnicalOfficerSidebarContent from './components/regional-tech/RegionalTechnicalOfficerSidebarContent'
 import RegionalTechnicalOfficerDashboard from './pages/dashboards/regional-tech/index'
-import Issuetracker from './pages/dashboards/regional-tech/Issuetracker'
 import Investigationlogs from './pages/dashboards/regional-tech/Investigationlogs'
 import Regionservicemonitor from './pages/dashboards/regional-tech/Regionservicemonitor'
 import Inspectionschedular from './pages/dashboards/regional-tech/Inspectionschedular'
+import Rtoissuetracker from './pages/dashboards/regional-tech/Rtoissuetracker'
 
 
 // Regional Operations Officer Components
@@ -76,6 +76,7 @@ import Escalations from './pages/dashboards/dgm-tech/Escalations'
 import CEOSidebarContent from './components/ceo/CEOSidebarContent'
 import CEODashboard from './pages/dashboards/ceo/index'
 import DepotAndRegions from './pages/dashboards/admin/DepotAndRegions'
+//import Rtoissuetracker from './pages/dashboards/regional-tech/Rtoissuetracker'
 //import DepotEscalateissues from './pages/dashboards/depot-engineer/DepotEscalateissues'
 //import Inspectionschedular from './pages/dashboards/regional-tech/Inspectionschedular'
 //import Investigationlogs from './pages/dashboards/regional-tech/Investigationlogs'
@@ -165,10 +166,10 @@ const App = () => {
         <Route element={<ProtectedRoute requiredRole="regional_tech" />}>
         <Route path="/regional-technical-officer" element={<DashboardLayout role="Regional Technical Officer" sidebarContent={<RegionalTechnicalOfficerSidebarContent />} />}>
           <Route index element={<RegionalTechnicalOfficerDashboard />} />
-          <Route path="Issuetracker" element={<Issuetracker />} />
           <Route path="Inspectionschedular" element={<Inspectionschedular />} />
           <Route path="Investigationlogs" element={<Investigationlogs />} />
           <Route path="Regionservicemonitor" element={<Regionservicemonitor />} />
+          <Route path="Rtoissuetracker" element={<Rtoissuetracker />} />
           {/* Add individual pages later */}
         </Route>
         </Route>
