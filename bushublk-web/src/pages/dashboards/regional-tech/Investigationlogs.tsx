@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FaSearch, FaChevronDown, FaEye } from 'react-icons/fa';
+import { FaSearch, FaChevronDown, FaEye, FaTimes } from 'react-icons/fa';
 
 interface InvestigationLog {
   logId: string;
@@ -80,6 +80,8 @@ const Investigationlogs: React.FC = () => {
   const [selectedDepot, setSelectedDepot] = useState<string>('All Depots');
   const [selectedStatus, setSelectedStatus] = useState<string>('All Statuses');
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [selectedLog, setSelectedLog] = useState<InvestigationLog | null>(null);
+  const [showModal, setShowModal] = useState<boolean>(false);
 
   // Get unique depots and statuses for filters
   const uniqueDepots = Array.from(new Set(logs.map(log => log.depot)));
@@ -99,8 +101,14 @@ const Investigationlogs: React.FC = () => {
     return matchesSearch && matchesDepot && matchesStatus;
   });
 
-  const handleViewClick = (logId: string) => {
-    alert(`Viewing details for ${logId}`);
+  const handleViewClick = (log: InvestigationLog) => {
+    setSelectedLog(log);
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setSelectedLog(null);
   };
 
   return (
@@ -214,7 +222,7 @@ const Investigationlogs: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <button
-                      onClick={() => handleViewClick(log.logId)}
+                      onClick={() => handleViewClick(log)}
                       className="inline-flex items-center px-3 py-1 border border-blue-300 text-xs font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                     >
                       <FaEye className="w-3 h-3 mr-1" />
@@ -237,7 +245,6 @@ const Investigationlogs: React.FC = () => {
         {/* Summary Footer */}
         <div className="bg-gray-50 px-6 py-4 border-t">
           <div className="flex justify-between items-center text-sm text-gray-600">
-           
             <div className="flex space-x-6">
               <span>
                 Resolved: <span className="font-medium text-green-600">
@@ -258,6 +265,63 @@ const Investigationlogs: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Detail Modal */}
+      {showModal && selectedLog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div className="flex justify-between items-center p-4 border-b">
+              <h3 className="text-lg font-semibold text-gray-800">
+                Investigation Log: {selectedLog.logId}
+              </h3>
+              <button 
+                onClick={closeModal}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <FaTimes className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6">
+              <div className="space-y-4">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Depot:</span>
+                  <span className="font-medium">{selectedLog.depot}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Bus Number:</span>
+                  <span className="font-medium">{selectedLog.bus}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Issue:</span>
+                  <span className="font-medium">{selectedLog.issue}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Assigned To:</span>
+                  <span className="font-medium">{selectedLog.assignedTo}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Status:</span>
+                  <span className={getStatusBadge(selectedLog.status)}>
+                    {selectedLog.status}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Closed On:</span>
+                  <span className="font-medium">{selectedLog.closedOn}</span>
+                </div>
+              </div>
+            </div>
+            <div className="p-4 border-t flex justify-end">
+              <button
+                onClick={closeModal}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
