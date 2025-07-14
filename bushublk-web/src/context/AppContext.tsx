@@ -2,9 +2,15 @@ import React, { createContext, useState, useEffect } from "react";
 
 interface User {
   id: string;
-  name: string;
+  username: string;
   email: string;
+  first_name: string;
+  last_name: string;
+  phone?: string;
   role: string;
+  is_active: boolean;
+  last_login?: string;
+  created_at?: string;
   avatar?: string;
 }
 
@@ -29,8 +35,16 @@ const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const savedUser = localStorage.getItem('bushublk_user');
     
     if (savedToken && savedUser) {
-      setToken(savedToken);
-      setUser(JSON.parse(savedUser));
+      try {
+        const parsedUser = JSON.parse(savedUser);
+        setToken(savedToken);
+        setUser(parsedUser);
+      } catch (error) {
+        console.error('Error parsing saved user data:', error);
+        // Clear corrupted data
+        localStorage.removeItem('bushublk_token');
+        localStorage.removeItem('bushublk_user');
+      }
     }
   }, []);
 
@@ -59,7 +73,7 @@ const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const value: AppContextType = {
     user,
     token,
-    isAuthenticated: !!token,
+    isAuthenticated: !!token && !!user,
     login,
     logout,
     updateUser,

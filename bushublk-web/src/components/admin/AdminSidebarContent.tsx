@@ -36,17 +36,6 @@ const AdminSidebarContent = () => {
         Create Account
       </NavLink>
       <NavLink
-        to="/admin/manage-roles"
-        className={({ isActive }) =>
-          `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
-            ? 'bg-blue-700 text-white' 
-            : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`
-        }
-      >
-        <HiCog className="mr-3 flex-shrink-0 h-5 w-5" />
-        Manage Roles
-      </NavLink>
-      <NavLink
         to="/admin/employees"
         className={({ isActive }) =>
           `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
@@ -58,26 +47,15 @@ const AdminSidebarContent = () => {
         Employee Management
       </NavLink>
       <NavLink
-        to="/admin/reports"
+        to="/admin/depot-and-regions"
         className={({ isActive }) =>
           `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
             ? 'bg-blue-700 text-white' 
             : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`
         }
       >
-        <HiDocumentReport className="mr-3 flex-shrink-0 h-5 w-5" />
-        System Reports
-      </NavLink>
-      <NavLink
-        to="/admin/analytics"
-        className={({ isActive }) =>
-          `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
-            ? 'bg-blue-700 text-white' 
-            : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`
-        }
-      >
-        <HiChartBar className="mr-3 flex-shrink-0 h-5 w-5" />
-        Analytics
+        <HiUsers className="mr-3 flex-shrink-0 h-5 w-5" />
+        Depots And Regions
       </NavLink>
     </div>
   );

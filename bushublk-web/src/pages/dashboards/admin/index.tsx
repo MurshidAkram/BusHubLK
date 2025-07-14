@@ -13,7 +13,7 @@ const AdminDashboard = () => {
 
   const quickActions = [
     { icon: <HiUserAdd className="h-6 w-6" />, name: 'Add Employee', href: 'admin/create-account' },
-    { icon: <HiCog className="h-6 w-6" />, name: 'Manage Roles', href: 'manage-roles' },
+    { icon: <HiCog className="h-6 w-6" />, name: 'Manage Roles', href: 'depot-and-regions' },
     { icon: <HiUsers className="h-6 w-6" />, name: 'View All Staff', href: 'employees' },
     { icon: <HiChartBar className="h-6 w-6" />, name: 'Analytics', href: 'analytics' },
   ];
