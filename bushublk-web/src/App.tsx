@@ -30,9 +30,17 @@ import Announcements from './pages/dashboards/depot-manager/Announcements'
 import Reports from './pages/dashboards/depot-manager/Reports'
 import Settings from './pages/dashboards/depot-manager/Settings'
 
-// Depot Operations Manager Components
+// Depot Operations Manager Components  
 import DepotOperationsManagerSidebarContent from './components/depot-ops/DepotOperationsManagerSidebarContent'
 import DepotOperationsManagerDashboard from './pages/dashboards/depot-ops'
+import DailyOperations from './pages/dashboards/depot-ops/DailyOperations'
+import ScheduleMonitoring from './pages/dashboards/depot-ops/ScheduleMonitoring'
+import RouteOptimization from './pages/dashboards/depot-ops/RouteOptimization'
+import CrewManagement from './pages/dashboards/depot-ops/CrewManagement'
+import IncidentManagement from './pages/dashboards/depot-ops/IncidentManagement'  
+import AnnouncementCenter from './pages/dashboards/depot-ops/AnnouncementCenter'
+import OperationsReports from './pages/dashboards/depot-ops/OperationsReports'
+import OperationsSettings from './pages/dashboards/depot-ops/OperationsSettings'
 
 // Depot Engineer Components  
 import DepotEngineerSidebarContent from './components/depot-engineer/DepotEngineerSidebarContent'
@@ -42,6 +50,7 @@ import Repairs from './pages/dashboards/depot-engineer/Repairs'
 import Scheduling from './pages/dashboards/depot-engineer/Scheduling'
 import Performance from './pages/dashboards/depot-engineer/Performance'
 import DepotEscalateissues from './pages/dashboards/depot-engineer/DepotEscalateissues'
+
 
 
 // Regional Technical Officer Components
@@ -144,7 +153,15 @@ const App = () => {
         <Route element={<ProtectedRoute requiredRole="depot_operations" />}>
           <Route path="/depot-operations-manager" element={<DashboardLayout role="Depot Operations Manager" sidebarContent={<DepotOperationsManagerSidebarContent />} />}>
             <Route index element={<DepotOperationsManagerDashboard />} />
-            {/* Add individual pages later */}
+            <Route path="fleet-management" element={<FleetManagement />} />
+          <Route path="daily-operations" element={<DailyOperations />} />
+          <Route path="schedule-monitoring" element={<ScheduleMonitoring />} />
+          <Route path="crew-management" element={<CrewManagement />} />
+          <Route path="route-optimization" element={<RouteOptimization />} /> 
+          <Route path="incident-management" element={<IncidentManagement />} />
+          <Route path="announcement-center" element={<AnnouncementCenter />} />
+          <Route path="operations-reports" element={<OperationsReports />} />
+          <Route path="operations-settings" element={<OperationsSettings />} />
           </Route>
         </Route>
 

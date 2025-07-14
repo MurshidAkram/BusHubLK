@@ -56,7 +56,7 @@ const DepotOperationsManagerSidebarContent = () => {
       </NavLink>
 
       <NavLink
-        to="/depot-operations-manager/crew-coordination"
+        to="/depot-operations-manager/crew-management"
         className={({ isActive }) =>
           `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
             ? 'bg-indigo-700 text-white' 
@@ -64,19 +64,7 @@ const DepotOperationsManagerSidebarContent = () => {
         }
       >
         <HiUsers className="mr-3 flex-shrink-0 h-5 w-5" />
-        Crew Coordination
-      </NavLink>
-
-      <NavLink
-        to="/depot-operations-manager/fleet-tracking"
-        className={({ isActive }) =>
-          `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
-            ? 'bg-indigo-700 text-white' 
-            : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`
-        }
-      >
-        <HiTruck className="mr-3 flex-shrink-0 h-5 w-5" />
-        Fleet Tracking
+        Crew Management
       </NavLink>
 
       <NavLink
@@ -91,18 +79,7 @@ const DepotOperationsManagerSidebarContent = () => {
         Route Optimization
       </NavLink>
 
-      <NavLink
-        to="/depot-operations-manager/shift-planning"
-        className={({ isActive }) =>
-          `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
-            ? 'bg-indigo-700 text-white' 
-            : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`
-        }
-      >
-        <HiCalendar className="mr-3 flex-shrink-0 h-5 w-5" />
-        Shift Planning
-      </NavLink>
-
+      
       <NavLink
         to="/depot-operations-manager/incident-management"
         className={({ isActive }) =>
@@ -116,7 +93,7 @@ const DepotOperationsManagerSidebarContent = () => {
       </NavLink>
 
       <NavLink
-        to="/depot-operations-manager/communication-center"
+        to="/depot-operations-manager/announcement-center"
         className={({ isActive }) =>
           `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
             ? 'bg-indigo-700 text-white' 
@@ -124,19 +101,7 @@ const DepotOperationsManagerSidebarContent = () => {
         }
       >
         <HiPhone className="mr-3 flex-shrink-0 h-5 w-5" />
-        Communication Center
-      </NavLink>
-
-      <NavLink
-        to="/depot-operations-manager/performance-analytics"
-        className={({ isActive }) =>
-          `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
-            ? 'bg-indigo-700 text-white' 
-            : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`
-        }
-      >
-        <HiChartBar className="mr-3 flex-shrink-0 h-5 w-5" />
-        Performance Analytics
+       Announcement Center
       </NavLink>
 
       <NavLink
@@ -152,7 +117,7 @@ const DepotOperationsManagerSidebarContent = () => {
       </NavLink>
 
       <NavLink
-        to="/depot-operations-manager/settings"
+        to="/depot-operations-manager/operations-settings"
         className={({ isActive }) =>
           `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
             ? 'bg-indigo-700 text-white' 
