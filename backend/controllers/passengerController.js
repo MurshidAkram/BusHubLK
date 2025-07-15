@@ -111,11 +111,43 @@ const notifyEmergencyContacts = async (req, res) => {
   }
 };
 
+// === NEW ALERT CONTROLLERS ===
+const createAlert = async (req, res) => {
+  const { id } = req.params; // passengerId from the URL
+  const { emergencyType, status } = req.body;
+
+  if (!emergencyType || !status) {
+    return res.status(400).json({ message: 'emergencyType and status are required fields.' });
+  }
+
+  try {
+    const newAlert = await Passenger.createAlertForPassenger(id, emergencyType, status);
+    res.status(201).json(newAlert);
+  } catch (error) {
+    console.error('Error creating alert:', error);
+    res.status(500).json({ message: 'Server Error', error: error.message });
+  }
+};
+
+const getAlertsByPassenger = async (req, res) => {
+  const { id } = req.params; // passengerId
+
+  try {
+    const alerts = await Passenger.getAlertsForPassenger(id);
+    res.status(200).json(alerts);
+  } catch (error) {
+    console.error('Error fetching alerts:', error);
+    res.status(500).json({ message: 'Server Error', error: error.message });
+  }
+};
+
 // --- UPDATE YOUR EXPORTS ---
 module.exports = {
   addEmergencyContact,
   getEmergencyContacts,
   updateEmergencyContact,
   deleteEmergencyContact,
-  notifyEmergencyContacts // Add the new function here
+  notifyEmergencyContacts, // Add the new function here
+  createAlert, // Add new function
+  getAlertsByPassenger, // Add new function
 };

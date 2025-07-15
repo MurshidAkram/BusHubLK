@@ -53,6 +53,26 @@ const Passenger = {
     const { rows } = await pool.query(query);
     return rows[0];
   },
+  createAlertForPassenger: async (passengerId, emergencyType, status) => {
+    const query = {
+      text: 'INSERT INTO alerts(passenger_id, emergency_type, status) VALUES($1, $2, $3) RETURNING *',
+      values: [passengerId, emergencyType, status],
+    };
+    const { rows } = await pool.query(query);
+    return rows[0];
+  },
+
+  /**
+   * Finds all alerts for a specific passenger.
+   */
+  getAlertsForPassenger: async (passengerId) => {
+    const query = {
+      text: 'SELECT * FROM alerts WHERE passenger_id = $1 ORDER BY created_at DESC',
+      values: [passengerId],
+    };
+    const { rows } = await pool.query(query);
+    return rows;
+  },
 };
 
 module.exports = Passenger;
