@@ -42,7 +42,7 @@ const operationsSummary: OperationsSummary[] = [
 
 const Reports: React.FC = () => {
   return (
-    <div className="space-y-6 p-6 bg-gray-50 min-h-screen">
+    <div className="space-y-6 ">
       {/* Depot Reports Header */}
       <div className="bg-white rounded-lg shadow-md p-6">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Depot Reports</h1>

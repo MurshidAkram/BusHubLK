@@ -1,4 +1,3 @@
-// At the top of your controller, add the clients for Twilio and SendGrid
 const twilio = require('twilio')(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 const sendgrid = require('@sendgrid/mail');
 sendgrid.setApiKey(process.env.SENDGRID_API_KEY);
@@ -50,6 +49,7 @@ const deleteEmergencyContact = async (req, res) => {
   try {
     const { id, contactId } = req.params;
     const deleted = await Passenger.deleteEmergencyContact(id, contactId);
+
 
     if (!deleted) {
       return res.status(404).json({ message: 'Contact not found or does not belong to this passenger.' });
@@ -141,7 +141,6 @@ const getAlertsByPassenger = async (req, res) => {
   }
 };
 
-// --- UPDATE YOUR EXPORTS ---
 module.exports = {
   addEmergencyContact,
   getEmergencyContacts,
