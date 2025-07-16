@@ -3,7 +3,7 @@ import header_img from './header_img.png'
 import group_profiles from './group_profiles.png'
 import profile_pic from './profile_pic.png'
 import contact_image from './contact_image.png'
-import about_image from './about_image.png'
+import about_img from './about_img.png'
 import logo from './logo.svg'
 import dropdown_icon from './dropdown_icon.svg'
 import menu_icon from './menu_icon.svg'
@@ -36,6 +36,13 @@ import General_physician from './General_physician.svg'
 import Gynecologist from './Gynecologist.svg'
 import Neurologist from './Neurologist.svg'
 import Pediatricians from './Pediatricians.svg'
+import team1 from './team1.jpg';
+import team2 from './team2.jpg';
+import team3 from './team3.jpg';
+import team4 from './team4.jpg';
+import team5 from './team5.jpg';
+import team6 from './team6.jpg';
+import team7 from './team7.jpg';
 
 
 export const assets = {
@@ -49,13 +56,20 @@ export const assets = {
     profile_pic,
     arrow_icon,
     contact_image,
-    about_image,
+    about_img,
     menu_icon,
     cross_icon,
     dropdown_icon,
     upload_icon,
     stripe_logo,
-    razorpay_logo
+    razorpay_logo,
+    team1,
+    team2,
+    team3,
+    team4,
+    team5,
+    team6,
+    team7
 }
 
 export const doctors = [
