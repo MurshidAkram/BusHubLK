@@ -43,7 +43,7 @@ const About = () => {
                     </svg>
                   </div>
                   <p className="text-gray-700">
-                    Digitizing the entire SLTB operations ecosystem
+                    Digitizing the SLTB operations ecosystem
                   </p>
                 </div>
                 <div className="flex items-start gap-4">
@@ -53,7 +53,7 @@ const About = () => {
                     </svg>
                   </div>
                   <p className="text-gray-700">
-                    Reducing operational costs by 30% through automation
+                    Reducing operational costs through automation
                   </p>
                 </div>
                 <div className="flex items-start gap-4">
@@ -85,23 +85,23 @@ const About = () => {
               },
               {
                 icon: "📊",
-                title: "Real-time Analytics",
+                title: "Reports & Analytics",
                 description: "Data-driven insights for route optimization, passenger load analysis, and operational efficiency."
               },
               {
                 icon: "⏱️",
-                title: "Schedule Automation",
+                title: "Schedule Management",
                 description: "Automated timetable management with dynamic adjustments for peak hours and special events."
               },
               {
-                icon: "💰",
-                title: "Revenue Management",
-                description: "Integrated ticketing and fare collection system with centralized financial reporting."
+                icon: "📋",
+                title: "Review Complaints",
+                description: "Monitor and evaluate complaints regarding to the services."
               },
               {
-                icon: "📱",
-                title: "Passenger App Integration",
-                description: "Seamless connectivity with mobile apps for real-time bus tracking and digital ticketing."
+                icon: "📢",
+                title: "Special Announcements",
+                description: "Share important updates or alerts across the system."
               },
               {
                 icon: "🛠️",
@@ -127,27 +127,45 @@ const About = () => {
             {[
               {
                 name: "Murshid Akram",
-                role: "CEO & Founder",
+                role: "Team Leader",
                 bio: "Transportation expert with 15+ years in public transit management",
                 img: assets.team1
               },
               {
-                name: "Sanjaya Bandara",
-                role: "CTO",
+                name: "Abinaia Kuganesan",
+                role: "Lead Developer",
                 bio: "Tech visionary specializing in large-scale transport systems",
                 img: assets.team2
               },
               {
-                name: "Nimali Fernando",
-                role: "Operations Director",
+                name: "Nirukshiya Loganathan",
+                role: "Lead Developer",
                 bio: "Former SLTB operations manager with deep institutional knowledge",
                 img: assets.team3
               },
               {
-                name: "Kamal Silva",
+                name: "Sankavi Thayaparan",
                 role: "Lead Developer",
                 bio: "Full-stack developer focused on scalable solutions",
                 img: assets.team4
+              },
+              {
+                name: "Sajidha",
+                role: "Lead Developer",
+                bio: "Full-stack developer focused on scalable solutions",
+                img: assets.team5
+              },
+              {
+                name: "Jude Ajanthan",
+                role: "Lead Developer",
+                bio: "Full-stack developer focused on scalable solutions",
+                img: assets.team6
+              },
+              {
+                name: "Sahas Viyath",
+                role: "Lead Developer",
+                bio: "Full-stack developer focused on scalable solutions",
+                img: assets.team7
               }
             ].map((member, index) => (
               <div key={index} className="bg-gray-50 rounded-xl overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300">
@@ -179,7 +197,7 @@ const About = () => {
                     <svg className="w-6 h-6 text-blue-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
                     </svg>
-                    <span>Official technology partner since 2023</span>
+                    <span>Regular feedbacks by SLTB dispatchers and managers</span>
                   </li>
                   <li className="flex items-start gap-3">
                     <svg className="w-6 h-6 text-blue-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -191,7 +209,7 @@ const About = () => {
                     <svg className="w-6 h-6 text-blue-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
                     </svg>
-                    <span>Training provided to 1,200+ SLTB staff members</span>
+                    <span>Interviewed 30+ drivers and staff to refine UI/UX</span>
                   </li>
                 </ul>
               </div>
