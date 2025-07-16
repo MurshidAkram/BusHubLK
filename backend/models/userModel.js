@@ -151,6 +151,19 @@ class User {
     return result.rows[0];
   }
 
+  static async updatePassword(userId, hashedPassword) {
+  try {
+    const result = await db.query(
+      'UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE user_id = $2 RETURNING user_id',
+      [hashedPassword, userId]
+    );
+    return result.rows[0];
+  } catch (error) {
+    console.error('Error updating password:', error);
+    throw error;
+  }
+}
+
   static async getUsersByRole(role_name) {
     const result = await db.query(
       `SELECT u.*, r.role_name, r.role_description 

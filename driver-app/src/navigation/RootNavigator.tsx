@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
 import DriverLoginScreen from "../screens/DriverLoginScreen";
+import ForgotPasswordScreen from "../screens/ForgotPasswordScreen";
+import ResetPasswordScreen from "../screens/ResetPasswordScreen";
 import TabNavigator from "./TabNavigator";
 import { storageAPI } from "../services/api";
 
@@ -89,11 +91,23 @@ export default function RootNavigator() {
             key="main-screen"
           />
         ) : (
-          <Stack.Screen
-            name="Login"
-            component={DriverLoginScreen}
-            key="login-screen"
-          />
+          <>
+            <Stack.Screen
+              name="Login"
+              component={DriverLoginScreen}
+              key="login-screen"
+            />
+            <Stack.Screen
+              name="ForgotPassword"
+              component={ForgotPasswordScreen}
+              key="forgot-password-screen"
+            />
+            <Stack.Screen
+              name="ResetPassword"
+              component={ResetPasswordScreen}
+              key="reset-password-screen"
+            />
+          </>
         )}
       </Stack.Navigator>
     </NavigationContainer>

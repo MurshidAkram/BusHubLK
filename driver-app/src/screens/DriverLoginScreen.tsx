@@ -110,7 +110,6 @@ export default function DriverLoginScreen() {
                 <Text style={styles.loginSubtitle}>
                   Enter your credentials to access the portal
                 </Text>
-
                 {/* Email Input */}
                 <View style={styles.inputContainer}>
                   <View style={styles.inputWrapper}>
@@ -132,7 +131,6 @@ export default function DriverLoginScreen() {
                     />
                   </View>
                 </View>
-
                 {/* Password Input */}
                 <View style={styles.inputContainer}>
                   <View style={styles.inputWrapper}>
@@ -163,7 +161,6 @@ export default function DriverLoginScreen() {
                     </TouchableOpacity>
                   </View>
                 </View>
-
                 {/* Login Button */}
                 <TouchableOpacity
                   style={[
@@ -190,22 +187,19 @@ export default function DriverLoginScreen() {
                     </View>
                   </LinearGradient>
                 </TouchableOpacity>
-
+                {/* Forgot Password */}
+                // Update the forgot password TouchableOpacity in your existing
+                DriverLoginScreen.tsx
                 {/* Forgot Password */}
                 <TouchableOpacity
-                  onPress={() =>
-                    Alert.alert(
-                      "Contact Admin",
-                      "Please contact your administrator to reset your password."
-                    )
-                  }
+                  onPress={() => navigation.navigate("ForgotPassword")}
                   style={styles.forgotPasswordContainer}
                 >
                   <Text style={styles.forgotPasswordText}>
                     Forgot Password?
                   </Text>
                 </TouchableOpacity>
-              </View>            
+              </View>
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
