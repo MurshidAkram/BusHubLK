@@ -1,11 +1,23 @@
+// In routes/passengerRoutes.js
+
 const express = require('express');
 const router = express.Router();
 const {
-  addEmergencyContact,
-  getEmergencyContacts,
-  updateEmergencyContact,
-  deleteEmergencyContact,
+    addEmergencyContact,
+    getEmergencyContacts,
+    updateEmergencyContact,
+    deleteEmergencyContact,
+    notifyEmergencyContacts, // 1. Import the new controller function
+    createAlert, // 1. Import the new controller functions
+  getAlertsByPassenger, // from the same file
 } = require('../controllers/passengerController');
+
+// --- NEW: Route to trigger emergency notifications ---
+// Route: POST /api/passengers/notify-contacts
+router.post('/notify-contacts', notifyEmergencyContacts); // 2. Add the new route
+
+router.post('/:id/alerts', createAlert); // 2. Add the new routes
+router.get('/:id/alerts', getAlertsByPassenger);
 
 // GET all contacts for a specific passenger
 // Route: GET /api/passengers/:id/contacts

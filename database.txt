@@ -192,3 +192,10 @@ CREATE TABLE emergency_contacts (
     email VARCHAR(100) DEFAULT 'N/A',
     is_primary BOOLEAN DEFAULT FALSE
 );
+CREATE TABLE alerts (
+    id SERIAL PRIMARY KEY,
+    passenger_id INTEGER NOT NULL,
+    emergency_type VARCHAR(255) NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);

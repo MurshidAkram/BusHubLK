@@ -33,15 +33,17 @@ app.use('/api/driver', driverAuthRoutes);
 
 const passengerRoutes = require('./routes/passengerRoutes');
 const passengerAuthRoutes = require('./routes/passengerAuth');
+
+app.use('/api/passengers', passengerAuthRoutes); // handles /login, /register, etc.
+app.use('/api/passengers', passengerRoutes);     // handles /contacts, /alerts, etc.
 const BusOccupancyRoutes = require('./routes/BusOccupancyRoutes');
 
-app.use('/api/passengers', passengerAuthRoutes);
-app.use('/api/passengers', passengerRoutes);     // handles /contacts, /alerts, etc.
 app.use('/api/bus-occupancy', require('./routes/BusOccupancyRoutes'));
+
 app.listen(PORT, () => {
   console.log(`🚀 Server is running on http://localhost:${PORT}`);
 });
-console.log('Is passengerRoutes object loaded correctly?', passengerRoutes);
+//console.log('Is passengerRoutes object loaded correctly?', passengerRoutes);
 // Add this to your existing routes file or create if it doesn't exist
 
 
