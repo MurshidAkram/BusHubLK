@@ -3,25 +3,47 @@ const os = require('os');
 const getLocalIPAddress = () => {
   const interfaces = os.networkInterfaces();
   
-  for (const name of Object.keys(interfaces)) {
-    for (const interface of interfaces[name]) {
-      // Skip over non-IPv4 and internal (i.e. 127.0.0.1) addresses
-      if (interface.family === 'IPv4' && !interface.internal) {
-        return interface.address;
+  // Priority order for network interfaces
+  const priorityOrder = ['Wi-Fi', 'Ethernet', 'en0', 'eth0', 'wlan0'];
+  
+  // First, try to find interfaces in priority order
+  for (const interfaceName of priorityOrder) {
+    if (interfaces[interfaceName]) {
+      for (const iface of interfaces[interfaceName]) {
+        if (iface.family === 'IPv4' && !iface.internal) {
+          return iface.address;
+        }
       }
     }
   }
   
-  return 'localhost'; // fallback
+  // Fallback: find any non-internal IPv4 address
+  for (const interfaceName of Object.keys(interfaces)) {
+    for (const iface of interfaces[interfaceName]) {
+      if (iface.family === 'IPv4' && !iface.internal) {
+        return iface.address;
+      }
+    }
+  }
+  
+  // Final fallback
+  return 'localhost';
 };
 
-const getBaseURL = () => {
+const getDynamicBaseURL = () => {
   const ip = getLocalIPAddress();
   const port = process.env.PORT || 5000;
+  
+  // If we're in production, use the production URL
+  if (process.env.NODE_ENV === 'production') {
+    return process.env.BACKEND_URL || `http://${ip}:${port}`;
+  }
+  
+  // For development, use dynamic IP
   return `http://${ip}:${port}`;
 };
 
 module.exports = {
   getLocalIPAddress,
-  getBaseURL
+  getDynamicBaseURL
 };

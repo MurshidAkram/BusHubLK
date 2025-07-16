@@ -20,7 +20,7 @@ router.post('/request', [
 ], requestPasswordReset);
 
 // @route   POST /api/password-reset/reset
-// @desc    Reset password with token
+// @desc    Reset password with token (handles both JSON and form data)
 // @access  Public
 router.post('/reset', [
   body('token')
@@ -31,7 +31,45 @@ router.post('/reset', [
     .withMessage('Password must be at least 6 characters long')
     .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
     .withMessage('Password must contain at least one uppercase letter, one lowercase letter, and one number')
-], resetPassword);
+], async (req, res) => {
+  try {
+    // Handle both JSON and form submissions
+    const result = await resetPassword(req, res);
+    
+    // If it's a form submission (from web), redirect or show success page
+    if (req.get('Content-Type') && req.get('Content-Type').includes('application/x-www-form-urlencoded')) {
+      if (result && result.success) {
+        res.send(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Password Reset Success</title>
+            <style>
+              body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+              .success { color: #065f46; background: #d1fae5; padding: 20px; border-radius: 8px; }
+            </style>
+          </head>
+          <body>
+            <div class="success">
+              <h2>✅ Password Reset Successful!</h2>
+              <p>Your password has been reset successfully. You can now login with your new password.</p>
+              <p><a href="bushublk://login">Open BusHubLK App</a></p>
+            </div>
+          </body>
+          </html>
+        `);
+      }
+    }
+  } catch (error) {
+    console.error('Password reset error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({
+        success: false,
+        error: 'Server error. Please try again later.'
+      });
+    }
+  }
+});
 
 // @route   GET /api/password-reset/validate/:token
 // @desc    Validate reset token

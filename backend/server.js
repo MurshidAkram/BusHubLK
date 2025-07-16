@@ -37,17 +37,21 @@ const passengerRoutes = require('./routes/passengerRoutes');
 const passengerAuthRoutes = require('./routes/passengerAuth');
 const BusOccupancyRoutes = require('./routes/BusOccupancyRoutes');
 const passwordResetRoutes = require('./routes/passwordReset');
+const { getDynamicBaseURL } = require('./utils/networkUtils');
 
 app.use('/api/passengers', passengerAuthRoutes);
 app.use('/api/passengers', passengerRoutes);  
 app.use('/api/bus-occupancy', BusOccupancyRoutes);
 app.use('/api/password-reset', passwordResetRoutes);
-
-app.listen(PORT, () => {
-  console.log(`🚀 Server is running on http://localhost:${PORT}`);
+app.get('/resetPassword.js', (req, res) => {
+  res.setHeader('Content-Type', 'application/javascript');
+  res.sendFile(path.join(__dirname, 'public/resetPassword.js'));
 });
-console.log('Is passengerRoutes object loaded correctly?', passengerRoutes);
-// Add this to your existing routes file or create if it doesn't exist
-
-
+app.listen(PORT, '0.0.0.0', () => {
+  const baseURL = getDynamicBaseURL();
+  console.log(`🚀 Server is running on ${baseURL}`);
+  console.log(`📧 Email service configured: ${process.env.EMAIL_SERVICE || 'gmail'}`);
+  console.log(`🌐 Base URL: ${baseURL}`);
+});
+module.exports = app;
 

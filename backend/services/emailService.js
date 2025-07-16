@@ -1,5 +1,5 @@
-
 const nodemailer = require('nodemailer');
+const { getDynamicBaseURL } = require('../utils/networkUtils');
 
 const createTransport = () => {
   const emailService = process.env.EMAIL_SERVICE || 'gmail';
@@ -57,8 +57,12 @@ const sendPasswordResetEmail = async (email, firstName, resetToken) => {
     await transporter.verify();
     console.log('Email server connection verified');
     
-    const webResetUrl = `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/password-reset/web/${resetToken}?token=${resetToken}`;
+    // Use dynamic IP address
+    const baseURL = getDynamicBaseURL();
+    const webResetUrl = `${baseURL}/api/password-reset/web/${resetToken}?token=${resetToken}`;
     const mobileResetUrl = `bushublk://reset-password?token=${resetToken}`;
+    
+    console.log('Generated reset URLs:', { webResetUrl, mobileResetUrl, baseURL });
     
     const mailOptions = {
       from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
