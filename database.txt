@@ -91,6 +91,148 @@ INSERT INTO depots (depot_name, region_id, address, contact_phone) VALUES
 ('Avissawalla', 1, 'Avissawalla, Colombo', '+94112233456');
 
 
+
+-- Gampaha Region
+INSERT INTO depots (depot_name, region_id, address, contact_phone) VALUES
+('Negombo', 2, 'Negombo, Gampaha', '+94113344556'),
+('Divulapitiya', 2, 'Divulapitiya, Gampaha', '+94113344557'),
+('Nittambuwa', 2, 'Nittambuwa, Gampaha', '+94113344558'),
+('Kirindiwela', 2, 'Kirindiwela, Gampaha', '+94113344559'),
+('Gampaha', 2, 'Gampaha Town', '+94113344560'),
+('Kadawatha', 2, 'Kadawatha, Gampaha', '+94113344561'),
+('Kelaniya', 2, 'Kelaniya, Gampaha', '+94113344562'),
+('Welisara', 2, 'Welisara, Gampaha', '+94113344563'),
+('Ja-Ela', 2, 'Ja-Ela, Gampaha', '+94113344564');
+
+-- Kaluthara Region
+INSERT INTO depots (depot_name, region_id, address, contact_phone) VALUES
+('Panadura', 3, 'Panadura, Kaluthara', '+94114455667'),
+('Kaluthara', 3, 'Kaluthara Town', '+94114455668'),
+('Aluthgama', 3, 'Aluthgama, Kaluthara', '+94114455669'),
+('Mathugama', 3, 'Mathugama, Kaluthara', '+94114455670'),
+('Horana', 3, 'Horana, Kaluthara', '+94114455671');
+
+-- Wayamba Region
+INSERT INTO depots (depot_name, region_id, address, contact_phone) VALUES
+('Kuliyapitiya', 4, 'Kuliyapitiya, Wayamba', '+94115566778'),
+('Kurunegala South', 4, 'Kurunegala South, Wayamba', '+94115566779'),
+('Kurunegala North', 4, 'Kurunegala North, Wayamba', '+94115566780'),
+('Alawwa', 4, 'Alawwa, Wayamba', '+94115566781'),
+('Chilaw', 4, 'Chilaw, Wayamba', '+94115566782'),
+('Puttalam', 4, 'Puttalam, Wayamba', '+94115566783'),
+('Wennappuwa', 4, 'Wennappuwa, Wayamba', '+94115566784'),
+('Giriulla', 4, 'Giriulla, Wayamba', '+94115566785'),
+('Maho', 4, 'Maho, Wayamba', '+94115566786'),
+('Nikaweratiya', 4, 'Nikaweratiya, Wayamba', '+94115566787'),
+('Wariyapola', 4, 'Wariyapola, Wayamba', '+94115566788'),
+('Galgamuwa', 4, 'Galgamuwa, Wayamba', '+94115566789'),
+('Narammala', 4, 'Narammala, Wayamba', '+94115566790'),
+('Redegama', 4, 'Redegama, Wayamba', '+94115566791'),
+('Anamaduwa', 4, 'Anamaduwa, Wayamba', '+94115566792');
+
+-- Mahanuwara Region
+INSERT INTO depots (depot_name, region_id, address, contact_phone) VALUES
+('Kandy North', 5, 'Kandy North, Mahanuwara', '+94116677889'),
+('Kandy South', 5, 'Kandy South, Mahanuwara', '+94116677890'),
+('Matale', 5, 'Matale, Mahanuwara', '+94116677891'),
+('Yatinuwara', 5, 'Yatinuwara, Mahanuwara', '+94116677892'),
+('Wattegama', 5, 'Wattegama, Mahanuwara', '+94116677893'),
+('Teldeniya', 5, 'Teldeniya, Mahanuwara', '+94116677894'),
+('Ududumbara', 5, 'Ududumbara, Mahanuwara', '+94116677895');
+
+-- Sabaragamuwa Region
+INSERT INTO depots (depot_name, region_id, address, contact_phone) VALUES
+('Rathnapura', 6, 'Rathnapura Town', '+94117788900'),
+('Kalawana', 6, 'Kalawana, Sabaragamuwa', '+94117788901'),
+('Balangoda', 6, 'Balangoda, Sabaragamuwa', '+94117788902'),
+('Godakawela', 6, 'Godakawela, Sabaragamuwa', '+94117788903'),
+('Embilipitiya', 6, 'Embilipitiya, Sabaragamuwa', '+94117788904'),
+('Kagalle', 6, 'Kagalle, Sabaragamuwa', '+94117788905'),
+('Mawanella', 6, 'Mawanella, Sabaragamuwa', '+94117788906'),
+('Rambukkana', 6, 'Rambukkana, Sabaragamuwa', '+94117788907'),
+('Deraniyagala', 6, 'Deraniyagala, Sabaragamuwa', '+94117788908'),
+('Kahawatta', 6, 'Kahawatta, Sabaragamuwa', '+94117788909'),
+('Warakapola', 6, 'Warakapola, Sabaragamuwa', '+94117788910');
+
+-- Southern Region
+INSERT INTO depots (depot_name, region_id, address, contact_phone) VALUES
+('Galle', 7, 'Galle Town', '+94118899001'),
+('Udugama', 7, 'Udugama, Southern', '+94118899002'),
+('Ambalangoda', 7, 'Ambalangoda, Southern', '+94118899003'),
+('Elpitiya', 7, 'Elpitiya, Southern', '+94118899004'),
+('Matara', 7, 'Matara Town', '+94118899005'),
+('Akuressa', 7, 'Akuressa, Southern', '+94118899006'),
+('Hakmana', 7, 'Hakmana, Southern', '+94118899007'),
+('Tangalle', 7, 'Tangalle, Southern', '+94118899008'),
+('Ambalantota', 7, 'Ambalantota, Southern', '+94118899009'),
+('Kataragama', 7, 'Kataragama, Southern', '+94118899010'),
+('Koggala', 7, 'Koggala, Southern', '+94118899011');
+
+-- Rajarata Region
+INSERT INTO depots (depot_name, region_id, address, contact_phone) VALUES
+('Anuradhapura', 8, 'Anuradhapura Town', '+94119900112'),
+('Polonnaruwa', 8, 'Polonnaruwa Town', '+94119900113'),
+('Kekirawa', 8, 'Kekirawa, Rajarata', '+94119900114'),
+('Horowpathana', 8, 'Horowpathana, Rajarata', '+94119900115'),
+('Kebithigollewa', 8, 'Kebithigollewa, Rajarata', '+94119900116'),
+('Dambulla', 8, 'Dambulla, Rajarata', '+94119900117'),
+('Diyasenpura', 8, 'Diyasenpura, Rajarata', '+94119900118'),
+('Medawachchiya', 8, 'Medawachchiya, Rajarata', '+94119900119'),
+('Kanthale', 8, 'Kanthale, Rajarata', '+94119900120');
+
+-- Nuwaraeliya Region
+INSERT INTO depots (depot_name, region_id, address, contact_phone) VALUES
+('Gampola', 9, 'Gampola, Nuwaraeliya', '+94110011223'),
+('Nawalapitiya', 9, 'Nawalapitiya, Nuwaraeliya', '+94110011224'),
+('Hatton', 9, 'Hatton, Nuwaraeliya', '+94110011225'),
+('Nuwaraeliya', 9, 'Nuwaraeliya Town', '+94110011226'),
+('Kotmale', 9, 'Kotmale, Nuwaraeliya', '+94110011227'),
+('Hanguranketa', 9, 'Hanguranketa, Nuwaraeliya', '+94110011228'),
+('Walapone', 9, 'Walapone, Nuwaraeliya', '+94110011229'),
+('Kurunduwatta', 9, 'Kurunduwatta, Nuwaraeliya', '+94110011230');
+
+-- New Eastern Region
+INSERT INTO depots (depot_name, region_id, address, contact_phone) VALUES
+('Akkaraipattu', 10, 'Akkaraipattu, New Eastern', '+94111122334'),
+('Amparai', 10, 'Amparai, New Eastern', '+94111122335'),
+('Batticaloa', 10, 'Batticaloa Town', '+94111122336'),
+('Kalmunai', 10, 'Kalmunai, New Eastern', '+94111122337'),
+('Kanthankudy', 10, 'Kanthankudy, New Eastern', '+94111122338'),
+('Muthur', 10, 'Muthur, New Eastern', '+94111122339'),
+('Trincomalee', 10, 'Trincomalee Town', '+94111122340'),
+('Valaichchenai', 10, 'Valaichchenai, New Eastern', '+94111122341'),
+('Kalawanchikudi', 10, 'Kalawanchikudi, New Eastern', '+94111122342'),
+('Eravur', 10, 'Eravur, New Eastern', '+94111122343'),
+('Samanthurai', 10, 'Samanthurai, New Eastern', '+94111122344'),
+('Pottuvil', 10, 'Pottuvil, New Eastern', '+94111122345'),
+('Kinniya', 10, 'Kinniya, New Eastern', '+94111122346'),
+('Vakarai', 10, 'Vakarai, New Eastern', '+94111122347'),
+('Rethithanna', 10, 'Rethithanna, New Eastern', '+94111122348');
+
+-- Northern Region
+INSERT INTO depots (depot_name, region_id, address, contact_phone) VALUES
+('Kilinochchi', 11, 'Kilinochchi Town', '+94112233459'),
+('Mulative', 11, 'Mulative, Northern', '+94112233460'),
+('Jaffna', 11, 'Jaffna Town', '+94112233461'),
+('Point-Pedro', 11, 'Point-Pedro, Northern', '+94112233462'),
+('Karinagar', 11, 'Karinagar, Northern', '+94112233463'),
+('Mannar', 11, 'Mannar Town', '+94112233464'),
+('Vavunia', 11, 'Vavunia Town', '+94112233465');
+
+-- Uva Region
+INSERT INTO depots (depot_name, region_id, address, contact_phone) VALUES
+('Badulla', 12, 'Badulla Town', '+94113344570'),
+('Bandarawela', 12, 'Bandarawela, Uva', '+94113344571'),
+('Keppetipola', 12, 'Keppetipola, Uva', '+94113344572'),
+('Monaragala', 12, 'Monaragala Town', '+94113344573'),
+('Bibila', 12, 'Bibila, Uva', '+94113344574'),
+('Mahiyanganaya', 12, 'Mahiyanganaya, Uva', '+94113344575'),
+('Wellawaya', 12, 'Wellawaya, Uva', '+94113344576'),
+('Dehiattakandiya', 12, 'Dehiattakandiya, Uva', '+94113344577'),
+('Tanamalvila', 12, 'Tanamalvila, Uva', '+94113344578'),
+('Siyabalanduwa', 12, 'Siyabalanduwa, Uva', '+94113344579');
+
+
 -- Role-specific tables with consistent INTEGER primary keys
 CREATE TABLE ceo (
     ceo_id INTEGER PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,

@@ -289,6 +289,7 @@ class User {
     switch (role_name) {
       case 'ceo':
       case 'dgm_technical':
+        
       case 'dgm_operations':
         insertQuery = `INSERT INTO ${tableName} (${role_name}_id, appointment_date) VALUES ($1, $2)`;
         values = [user_id, additional_data.appointment_date || new Date()];

@@ -33,6 +33,8 @@ app.use('/api/driver', driverAuthRoutes);
 
 const passengerRoutes = require('./routes/passengerRoutes');
 const passengerAuthRoutes = require('./routes/passengerAuth');
+const regionDepotRoutes = require('./routes/regionDepotRoutes');
+app.use('/api', regionDepotRoutes);
 
 app.use('/api/passengers', passengerAuthRoutes); // handles /login, /register, etc.
 app.use('/api/passengers', passengerRoutes);     // handles /contacts, /alerts, etc.
