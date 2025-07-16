@@ -33,9 +33,11 @@ app.use('/api/driver', driverAuthRoutes);
 
 const passengerRoutes = require('./routes/passengerRoutes');
 const passengerAuthRoutes = require('./routes/passengerAuth');
+const BusOccupancyRoutes = require('./routes/BusOccupancyRoutes');
 
-app.use('/api/passengers', passengerAuthRoutes); // handles /login, /register, etc.
+app.use('/api/passengers', passengerAuthRoutes);
 app.use('/api/passengers', passengerRoutes);     // handles /contacts, /alerts, etc.
+app.use('/api/bus-occupancy', require('./routes/BusOccupancyRoutes'));
 app.listen(PORT, () => {
   console.log(`🚀 Server is running on http://localhost:${PORT}`);
 });
