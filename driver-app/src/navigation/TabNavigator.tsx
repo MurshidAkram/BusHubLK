@@ -4,26 +4,25 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createStackNavigator } from "@react-navigation/stack";
 import { Ionicons } from "@expo/vector-icons";
 
-// Import your existing screens
+// Import screens
 import HomeScreen from "../screens/HomeScreen";
-import RouteScreen from "../screens/RouteScreen";
 import DashboardScreen from "../screens/DashboardScreen";
 import LostAndFoundScreen from "../screens/LostAndFoundScreen";
 import EmergencyScreen from "../screens/EmergencyScreen";
 import ConditionScreen from "../screens/ConditionScreen";
 import TravelLogScreen from "../screens/TravelLogScreen";
-
-// --- 1. Import your Profile and Settings screens ---
 import ProfileScreen from "../screens/ProfileScreen";
 import SettingsScreen from "../screens/SettingScreen";
+import MapScreen from "../screens/MapScreen";
+import ScheduleScreen from "../screens/ScheduleScreen";
 
 // Create Stack Navigators for each tab
 const HomeStack = createStackNavigator();
-const RouteStack = createStackNavigator();
+const ScheduleStack = createStackNavigator();
 const ProfileStack = createStackNavigator();
 const SettingsStack = createStackNavigator();
 
-// This placeholder is no longer needed for Profile and Settings, but can be kept for future use.
+// Placeholder screen (kept for future use)
 const PlaceholderScreen = ({ title }) => (
   <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
     <Text style={{ fontSize: 18, fontWeight: "bold" }}>{title}</Text>
@@ -31,7 +30,7 @@ const PlaceholderScreen = ({ title }) => (
   </View>
 );
 
-// Home Stack Navigator (no changes needed here)
+// Home Stack Navigator
 const HomeStackNavigator = () => {
   return (
     <HomeStack.Navigator
@@ -46,24 +45,25 @@ const HomeStackNavigator = () => {
       <HomeStack.Screen name="Condition" component={ConditionScreen} />
       <HomeStack.Screen name="TravelLog" component={TravelLogScreen} />
       <HomeStack.Screen name="ProfileModal" component={ProfileScreen} />
+      <HomeStack.Screen name="MapScreen" component={MapScreen} />
     </HomeStack.Navigator>
   );
 };
 
-// Route Stack Navigator (no changes needed here)
-const RouteStackNavigator = () => {
+// Schedule Stack Navigator
+const ScheduleStackNavigator = () => {
   return (
-    <RouteStack.Navigator
+    <ScheduleStack.Navigator
       screenOptions={{
         headerShown: false,
       }}
     >
-      <RouteStack.Screen name="RouteMain" component={RouteScreen} />
-    </RouteStack.Navigator>
+      <ScheduleStack.Screen name="ScheduleMain" component={ScheduleScreen} />
+    </ScheduleStack.Navigator>
   );
 };
 
-// --- 2. Update Profile Stack Navigator ---
+// Profile Stack Navigator
 const ProfileStackNavigator = () => {
   return (
     <ProfileStack.Navigator
@@ -71,13 +71,12 @@ const ProfileStackNavigator = () => {
         headerShown: false,
       }}
     >
-      {/* Replace the placeholder with your actual ProfileScreen component */}
       <ProfileStack.Screen name="ProfileMain" component={ProfileScreen} />
     </ProfileStack.Navigator>
   );
 };
 
-// --- 3. Update Settings Stack Navigator ---
+// Settings Stack Navigator
 const SettingsStackNavigator = () => {
   return (
     <SettingsStack.Navigator
@@ -85,7 +84,6 @@ const SettingsStackNavigator = () => {
         headerShown: false,
       }}
     >
-      {/* Replace the placeholder with your actual SettingsScreen component */}
       <SettingsStack.Screen name="SettingsMain" component={SettingsScreen} />
     </SettingsStack.Navigator>
   );
@@ -93,7 +91,7 @@ const SettingsStackNavigator = () => {
 
 const Tab = createBottomTabNavigator();
 
-// --- Main Tab Navigator (no changes needed in this section) ---
+// Main Tab Navigator
 const TabNavigator = () => {
   return (
     <Tab.Navigator
@@ -104,8 +102,8 @@ const TabNavigator = () => {
 
           if (route.name === "Home") {
             iconName = focused ? "home" : "home-outline";
-          } else if (route.name === "Route") {
-            iconName = focused ? "map" : "map-outline";
+          } else if (route.name === "Schedule") {
+            iconName = focused ? "calendar" : "calendar-outline";
           } else if (route.name === "Profile") {
             iconName = focused ? "person" : "person-outline";
           } else if (route.name === "Settings") {
@@ -133,9 +131,9 @@ const TabNavigator = () => {
         options={{ tabBarLabel: "Home" }}
       />
       <Tab.Screen
-        name="Route"
-        component={RouteStackNavigator}
-        options={{ tabBarLabel: "Route" }}
+        name="Schedule"
+        component={ScheduleStackNavigator}
+        options={{ tabBarLabel: "Schedule" }}
       />
       <Tab.Screen
         name="Profile"

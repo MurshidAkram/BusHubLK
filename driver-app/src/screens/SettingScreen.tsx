@@ -8,14 +8,27 @@ import {
   Switch,
   Alert,
   SafeAreaView,
-  // 1. Add Platform and StatusBar
   Platform,
   StatusBar,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// 2. Define the Header component
+// App Color Palette (matching HomeScreen)
+const AppColors = {
+  background: "#F8F9FA",
+  card: "#FFFFFF",
+  primary: "#0056b3",
+  primaryMuted: "rgba(0, 86, 179, 0.1)",
+  text: "#212529",
+  textSecondary: "#6C757D",
+  border: "#DEE2E6",
+  red: "#dc3545",
+  yellow: "#ffc107",
+  green: "#198754",
+};
+
+// Header component
 const Header = () => (
   <View style={styles.header}>
     <Text style={styles.headerTitle}>Settings</Text>
@@ -26,7 +39,6 @@ const SettingsScreen = ({ navigation }) => {
   const [notifications, setNotifications] = useState(true);
   const [locationTracking, setLocationTracking] = useState(true);
   const [autoSync, setAutoSync] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
 
   const handleLogout = async () => {
     Alert.alert("Logout", "Are you sure you want to logout?", [
@@ -38,7 +50,6 @@ const SettingsScreen = ({ navigation }) => {
           try {
             await AsyncStorage.removeItem("driverToken");
             await AsyncStorage.removeItem("driverData");
-            // Replace with your actual login screen name if different
             navigation.replace("DriverLogin");
           } catch (error) {
             console.error("Logout error:", error);
@@ -77,7 +88,7 @@ const SettingsScreen = ({ navigation }) => {
     <TouchableOpacity style={styles.settingItem} onPress={onPress} disabled={!onPress}>
       <View style={styles.settingLeft}>
         <View style={styles.settingIcon}>
-          <Ionicons name={icon} size={20} color="#dc2626" />
+          <Ionicons name={icon} size={20} color={AppColors.red} />
         </View>
         <View style={styles.settingText}>
           <Text style={styles.settingTitle}>{title}</Text>
@@ -87,16 +98,15 @@ const SettingsScreen = ({ navigation }) => {
       <View style={styles.settingRight}>
         {rightComponent}
         {showArrow && !rightComponent && (
-          <Ionicons name="chevron-forward-outline" size={20} color="#9ca3af" />
+          <Ionicons name="chevron-forward-outline" size={20} color={AppColors.textSecondary} />
         )}
       </View>
     </TouchableOpacity>
   );
 
   return (
-    // 3. Add the Header component here
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#005A9C" />
+      <StatusBar barStyle="light-content" backgroundColor={AppColors.primary} />
       <Header />
       <ScrollView
         style={styles.scrollView}
@@ -113,8 +123,8 @@ const SettingsScreen = ({ navigation }) => {
                 <Switch
                   value={notifications}
                   onValueChange={setNotifications}
-                  trackColor={{ false: "#f1f5f9", true: "#fecaca" }}
-                  thumbColor={notifications ? "#dc2626" : "#9ca3af"}
+                  trackColor={{ false: AppColors.border, true: AppColors.primaryMuted }}
+                  thumbColor={notifications ? AppColors.primary : AppColors.textSecondary}
                 />
               }
               showArrow={false}
@@ -126,21 +136,8 @@ const SettingsScreen = ({ navigation }) => {
                 <Switch
                   value={locationTracking}
                   onValueChange={setLocationTracking}
-                  trackColor={{ false: "#f1f5f9", true: "#fecaca" }}
-                  thumbColor={locationTracking ? "#dc2626" : "#9ca3af"}
-                />
-              }
-              showArrow={false}
-            />
-            <SettingItem
-              icon="moon-outline"
-              title="Dark Mode"
-              rightComponent={
-                <Switch
-                  value={darkMode}
-                  onValueChange={setDarkMode}
-                  trackColor={{ false: "#f1f5f9", true: "#fecaca" }}
-                  thumbColor={darkMode ? "#dc2626" : "#9ca3af"}
+                  trackColor={{ false: AppColors.border, true: AppColors.primaryMuted }}
+                  thumbColor={locationTracking ? AppColors.primary : AppColors.textSecondary}
                 />
               }
               showArrow={false}
@@ -203,7 +200,7 @@ const SettingsScreen = ({ navigation }) => {
         <View style={styles.section}>
           <View style={styles.sectionContent}>
             <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-              <Ionicons name="log-out-outline" size={20} color="#ef4444" />
+              <Ionicons name="log-out-outline" size={20} color={AppColors.red} />
               <Text style={styles.logoutText}>Logout</Text>
             </TouchableOpacity>
           </View>
@@ -213,43 +210,42 @@ const SettingsScreen = ({ navigation }) => {
   );
 };
 
-// 4. Updated Styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#005A9C", // Set status bar area color
+    backgroundColor: AppColors.primary, // Was #005A9C
   },
   header: {
-    backgroundColor: "#005A9C",
+    backgroundColor: AppColors.primary, // Was #005A9C
     paddingTop: Platform.OS === "android" ? StatusBar.currentHeight + 10 : 15,
     paddingBottom: 15,
     alignItems: "center",
   },
   headerTitle: {
-    color: "white",
+    color: "#FFFFFF",
     fontSize: 20,
     fontWeight: "bold",
   },
   scrollView: {
-    backgroundColor: "#f8fafc", // Main screen background
+    backgroundColor: AppColors.background, // Was #f8fafc
   },
   contentContainer: {
     paddingHorizontal: 20,
     paddingVertical: 20,
   },
   section: {
-    marginBottom: 24, // Added more space between sections
+    marginBottom: 24,
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: "bold",
-    color: "#374151",
+    color: AppColors.text, // Was #374151
     marginBottom: 12,
   },
   sectionContent: {
-    backgroundColor: "#ffffff",
+    backgroundColor: AppColors.card, // Was #ffffff
     borderRadius: 12,
-    overflow: 'hidden', // Ensures items inside respect the border radius
+    overflow: "hidden",
     elevation: 2,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
@@ -263,7 +259,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#f1f5f9",
+    borderBottomColor: AppColors.border, // Was #f1f5f9
   },
   settingLeft: {
     flexDirection: "row",
@@ -274,7 +270,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 8,
-    backgroundColor: "#fef2f2",
+    backgroundColor: AppColors.primaryMuted, // Was #fef2f2
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
@@ -285,12 +281,11 @@ const styles = StyleSheet.create({
   settingTitle: {
     fontSize: 15,
     fontWeight: "600",
-    color: "#1f2937",
+    color: AppColors.text, // Was #1f2937
   },
   settingSubtitle: {
     fontSize: 13,
-    color: "#6b7280",
-    marginTop: 2,
+    color: AppColors.textSecondary, // Was #6b7280
   },
   settingRight: {
     flexDirection: "row",
@@ -305,7 +300,7 @@ const styles = StyleSheet.create({
   logoutText: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#ef4444",
+    color: AppColors.red, // Was #ef4444
     marginLeft: 8,
   },
 });

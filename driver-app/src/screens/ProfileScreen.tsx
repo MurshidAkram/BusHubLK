@@ -9,14 +9,27 @@ import {
   TextInput,
   SafeAreaView,
   ActivityIndicator,
-  // 1. Add Platform and StatusBar
   Platform,
   StatusBar,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// 2. Define the Header component
+// App Color Palette (matching HomeScreen)
+const AppColors = {
+  background: "#F8F9FA",
+  card: "#FFFFFF",
+  primary: "#0056b3",
+  primaryMuted: "rgba(0, 86, 179, 0.1)",
+  text: "#212529",
+  textSecondary: "#6C757D",
+  border: "#DEE2E6",
+  red: "#dc3545",
+  yellow: "#ffc107",
+  green: "#198754",
+};
+
+// Header component
 const Header = () => (
   <View style={styles.header}>
     <Text style={styles.headerTitle}>My Profile</Text>
@@ -38,7 +51,6 @@ const ProfileInfoRow = ({ label, value, isEditing, onChangeText, editable = true
     )}
   </View>
 );
-
 
 const ProfileScreen = ({ route }) => {
   const [driverData, setDriverData] = useState(null);
@@ -75,7 +87,6 @@ const ProfileScreen = ({ route }) => {
         };
         setDriverData(fallbackData);
         setEditedData(fallbackData);
-
       } catch (error) {
         console.error("Error loading driver data:", error);
         Alert.alert("Error", "Could not load driver data.");
@@ -110,16 +121,15 @@ const ProfileScreen = ({ route }) => {
   if (!driverData) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#dc2626" />
-        <Text>Loading Profile...</Text>
+        <ActivityIndicator size="large" color={AppColors.red} />
+        <Text style={styles.loadingText}>Loading Profile...</Text>
       </View>
     );
   }
 
   return (
-    // 3. Add Header and StatusBar components
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#005A9C" />
+      <StatusBar barStyle="light-content" backgroundColor={AppColors.primary} />
       <Header />
       <ScrollView
         style={styles.scrollView}
@@ -127,7 +137,7 @@ const ProfileScreen = ({ route }) => {
       >
         {/* Profile Header Card */}
         <View style={styles.profileHeader}>
-          <Ionicons name="person-circle-outline" size={80} color="#dc2626" />
+          <Ionicons name="person-circle-outline" size={80} color={AppColors.red} />
           <Text style={styles.driverName}>
             {driverData.first_name} {driverData.last_name}
           </Text>
@@ -138,11 +148,11 @@ const ProfileScreen = ({ route }) => {
         <View style={styles.infoContainer}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Personal Information</Text>
-            <TouchableOpacity onPress={() => isEditing ? handleCancel() : setIsEditing(true)}>
+            <TouchableOpacity onPress={() => (isEditing ? handleCancel() : setIsEditing(true))}>
               <Ionicons
                 name={isEditing ? "close-circle-outline" : "pencil-outline"}
                 size={24}
-                color="#dc2626"
+                color={AppColors.red}
               />
             </TouchableOpacity>
           </View>
@@ -192,25 +202,24 @@ const ProfileScreen = ({ route }) => {
   );
 };
 
-// 4. Updated Styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#005A9C", // Set status bar area color
+    backgroundColor: AppColors.primary, // Was #005A9C
   },
   header: {
-    backgroundColor: "#005A9C",
+    backgroundColor: AppColors.primary, // Was #005A9C
     paddingTop: Platform.OS === "android" ? StatusBar.currentHeight + 10 : 15,
     paddingBottom: 15,
     alignItems: "center",
   },
   headerTitle: {
-    color: "white",
+    color: "#FFFFFF", // Kept white for contrast on primary background
     fontSize: 20,
     fontWeight: "bold",
   },
   scrollView: {
-    backgroundColor: "#f8fafc", // Main screen background
+    backgroundColor: AppColors.background, // Was #f8fafc
   },
   contentContainer: {
     padding: 20,
@@ -220,11 +229,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     gap: 10,
+    backgroundColor: AppColors.background, // Was #f8fafc
+  },
+  loadingText: {
+    fontSize: 16,
+    color: AppColors.text, // Was #1f2937
   },
   profileHeader: {
     alignItems: "center",
     paddingVertical: 20,
-    backgroundColor: "#ffffff",
+    backgroundColor: AppColors.card, // Was #ffffff
     borderRadius: 16,
     elevation: 4,
     shadowColor: "#000",
@@ -234,15 +248,15 @@ const styles = StyleSheet.create({
   driverName: {
     fontSize: 22,
     fontWeight: "bold",
-    color: "#1f2937",
+    color: AppColors.text, // Was #1f2937
     marginTop: 12,
   },
   driverRole: {
     fontSize: 16,
-    color: "#6b7280",
+    color: AppColors.textSecondary, // Was #6b7280
   },
   infoContainer: {
-    marginTop: 24, // Add space above the info section
+    marginTop: 24,
   },
   sectionHeader: {
     flexDirection: "row",
@@ -253,10 +267,10 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    color: "#1f2937",
+    color: AppColors.text, // Was #1f2937
   },
   infoCard: {
-    backgroundColor: "#ffffff",
+    backgroundColor: AppColors.card, // Was #ffffff
     borderRadius: 16,
     padding: 10,
     elevation: 4,
@@ -271,23 +285,23 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 10,
     borderBottomWidth: 1,
-    borderBottomColor: "#f1f5f9",
+    borderBottomColor: AppColors.border, // Was #f1f5f9
   },
   infoLabel: {
     fontSize: 14,
-    color: "#6b7280",
+    color: AppColors.textSecondary, // Was #6b7280
     fontWeight: "500",
   },
   infoValue: {
     fontSize: 14,
-    color: "#1f2937",
+    color: AppColors.text, // Was #1f2937
     fontWeight: "600",
     textAlign: "right",
     flex: 1,
   },
   infoInput: {
     fontSize: 14,
-    color: "#1f2937",
+    color: AppColors.text, // Was #1f2937
     fontWeight: "600",
     flex: 1,
     textAlign: "right",
@@ -297,13 +311,13 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   saveButton: {
-    backgroundColor: "#dc2626",
+    backgroundColor: AppColors.primary, // Was #dc2626
     paddingVertical: 14,
     borderRadius: 8,
     alignItems: "center",
   },
   saveButtonText: {
-    color: "#ffffff",
+    color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "600",
   },
