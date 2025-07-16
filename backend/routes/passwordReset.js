@@ -31,45 +31,7 @@ router.post('/reset', [
     .withMessage('Password must be at least 6 characters long')
     .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
     .withMessage('Password must contain at least one uppercase letter, one lowercase letter, and one number')
-], async (req, res) => {
-  try {
-    // Handle both JSON and form submissions
-    const result = await resetPassword(req, res);
-    
-    // If it's a form submission (from web), redirect or show success page
-    if (req.get('Content-Type') && req.get('Content-Type').includes('application/x-www-form-urlencoded')) {
-      if (result && result.success) {
-        res.send(`
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <title>Password Reset Success</title>
-            <style>
-              body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-              .success { color: #065f46; background: #d1fae5; padding: 20px; border-radius: 8px; }
-            </style>
-          </head>
-          <body>
-            <div class="success">
-              <h2>✅ Password Reset Successful!</h2>
-              <p>Your password has been reset successfully. You can now login with your new password.</p>
-              <p><a href="bushublk://login">Open BusHubLK App</a></p>
-            </div>
-          </body>
-          </html>
-        `);
-      }
-    }
-  } catch (error) {
-    console.error('Password reset error:', error);
-    if (!res.headersSent) {
-      res.status(500).json({
-        success: false,
-        error: 'Server error. Please try again later.'
-      });
-    }
-  }
-});
+], resetPassword);
 
 // @route   GET /api/password-reset/validate/:token
 // @desc    Validate reset token
@@ -80,9 +42,28 @@ router.get('/validate/:token', [
     .withMessage('Token is required')
 ], validateResetToken);
 
-// @route   GET /api/password-reset/web/:token
-// @desc    Serve web reset password page
+// @route   GET /api/password-reset/universal/:token
+// @desc    Universal reset password handler (detects mobile vs web)
 // @access  Public
+router.get('/universal/:token', (req, res) => {
+  const { token } = req.params;
+  const userAgent = req.get('User-Agent') || '';
+  
+  // Check if request is from mobile app
+  const isMobileApp = userAgent.includes('BusHubLK') || 
+                     userAgent.includes('ReactNative') ||
+                     req.get('X-Requested-With') === 'com.anonymous.bushublkmobile';
+  
+  if (isMobileApp) {
+    // Redirect to mobile deep link
+    res.redirect(`bushublk://reset-password?token=${token}`);
+  } else {
+    // Serve web reset page
+    res.sendFile(path.join(__dirname, '../public/reset-password.html'));
+  }
+});
+
+// Keep the existing web route for backward compatibility
 router.get('/web/:token', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/reset-password.html'));
 });

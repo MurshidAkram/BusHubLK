@@ -6,7 +6,7 @@ const createTransport = () => {
   
   switch (emailService.toLowerCase()) {
     case 'gmail':
-      return nodemailer.createTransport({
+      return nodemailer.createTransport({  // Fixed: removed 'er' from createTransporter
         service: 'gmail',
         auth: {
           user: process.env.EMAIL_USER,
@@ -16,7 +16,7 @@ const createTransport = () => {
       
     case 'outlook':
     case 'hotmail':
-      return nodemailer.createTransport({
+      return nodemailer.createTransport({  // Fixed: removed 'er' from createTransporter
         service: 'hotmail',
         auth: {
           user: process.env.EMAIL_USER,
@@ -25,7 +25,7 @@ const createTransport = () => {
       });
       
     case 'sendgrid':
-      return nodemailer.createTransport({
+      return nodemailer.createTransport({  // Fixed: removed 'er' from createTransporter
         service: 'SendGrid',
         auth: {
           user: 'apikey',
@@ -34,7 +34,7 @@ const createTransport = () => {
       });
       
     case 'smtp':
-      return nodemailer.createTransport({
+      return nodemailer.createTransport({  // Fixed: removed 'er' from createTransporter
         host: process.env.SMTP_HOST,
         port: process.env.SMTP_PORT || 587,
         secure: process.env.SMTP_SECURE === 'true',
@@ -57,12 +57,11 @@ const sendPasswordResetEmail = async (email, firstName, resetToken) => {
     await transporter.verify();
     console.log('Email server connection verified');
     
-    // Use dynamic IP address
+    // Use dynamic IP address - SINGLE UNIVERSAL LINK
     const baseURL = getDynamicBaseURL();
-    const webResetUrl = `${baseURL}/api/password-reset/web/${resetToken}?token=${resetToken}`;
-    const mobileResetUrl = `bushublk://reset-password?token=${resetToken}`;
+    const universalResetUrl = `${baseURL}/api/password-reset/universal/${resetToken}`;
     
-    console.log('Generated reset URLs:', { webResetUrl, mobileResetUrl, baseURL });
+    console.log('Generated universal reset URL:', { universalResetUrl, baseURL });
     
     const mailOptions = {
       from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
@@ -97,18 +96,14 @@ const sendPasswordResetEmail = async (email, firstName, resetToken) => {
                 <strong>⚠️ Security Notice:</strong> If you didn't request this password reset, please ignore this email. Your account is secure.
               </div>
               
-              <p>Choose one of the following options to reset your password:</p>
+              <p>Click the button below to reset your password. This link works on both web and mobile:</p>
               
               <div style="text-align: center; margin: 30px 0;">
-                <a href="${webResetUrl}" class="button">Reset Password (Web)</a>
-                <a href="${mobileResetUrl}" class="button">Open in Mobile App</a>
+                <a href="${universalResetUrl}" class="button">Reset Password</a>
               </div>
               
-              <p><strong>Web Link:</strong><br>
-              <a href="${webResetUrl}">${webResetUrl}</a></p>
-              
-              <p><strong>Mobile Deep Link:</strong><br>
-              <code>${mobileResetUrl}</code></p>
+              <p>Or copy and paste this link into your browser:</p>
+              <p><a href="${universalResetUrl}">${universalResetUrl}</a></p>
               
               <div class="warning">
                 <p><strong>Important:</strong></p>
@@ -116,10 +111,9 @@ const sendPasswordResetEmail = async (email, firstName, resetToken) => {
                   <li>This link will expire in 1 hour</li>
                   <li>You can only use this link once</li>
                   <li>If the link expires, request a new password reset</li>
+                  <li>This link works on both web browsers and mobile app</li>
                 </ul>
               </div>
-              
-              <p>If you're having trouble with the buttons above, copy and paste the web link into your browser.</p>
               
               <p>Best regards,<br>
               The BusHubLK Team</p>

@@ -46,7 +46,12 @@ document.addEventListener('DOMContentLoaded', function() {
         submitBtn.textContent = 'Resetting...';
         
         try {
-            const response = await fetch('/api/password-reset/reset', {
+            // Use the same protocol as the current page
+            const protocol = window.location.protocol;
+            const host = window.location.host;
+            const apiUrl = `${protocol}//${host}/api/password-reset/reset`;
+            
+            const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -63,6 +68,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('message').innerHTML = 
                     '<div class="message success">Password reset successfully! You can now login with your new password.</div>';
                 document.getElementById('resetForm').style.display = 'none';
+                
+                // Optional: Redirect to login page after 3 seconds
+                setTimeout(() => {
+                    window.location.href = '/login';
+                }, 3000);
             } else {
                 document.getElementById('message').innerHTML = 
                     '<div class="message error">' + (data.error || 'Failed to reset password.') + '</div>';
