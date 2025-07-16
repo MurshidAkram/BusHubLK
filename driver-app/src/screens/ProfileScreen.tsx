@@ -2,103 +2,118 @@ import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
-  StyleSheet,
-  ScrollView,
+  TextInput,
   TouchableOpacity,
   Alert,
-  TextInput,
+  StyleSheet,
+  ScrollView,
   SafeAreaView,
-  ActivityIndicator,
-  // 1. Add Platform and StatusBar
-  Platform,
   StatusBar,
+  Platform,
+  ActivityIndicator,
+  Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { storageAPI, driverAPI } from "../services/api";
 
-// 2. Define the Header component
-const Header = () => (
-  <View style={styles.header}>
-    <Text style={styles.headerTitle}>My Profile</Text>
-  </View>
-);
+interface DriverData {
+  user_id?: number;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string;
+  username: string;
+  license_number?: string;
+  experience_years?: number;
+  assigned_bus?: string;
+  depot_name?: string;
+  profile_image?: string;
+}
 
-const ProfileInfoRow = ({ label, value, isEditing, onChangeText, editable = true, keyboardType = "default" }) => (
-  <View style={styles.infoRow}>
-    <Text style={styles.infoLabel}>{label}</Text>
-    {isEditing && editable ? (
-      <TextInput
-        style={styles.infoInput}
-        value={value}
-        onChangeText={onChangeText}
-        keyboardType={keyboardType}
-      />
-    ) : (
-      <Text style={styles.infoValue}>{value || "Not provided"}</Text>
-    )}
-  </View>
-);
-
-
-const ProfileScreen = ({ route }) => {
-  const [driverData, setDriverData] = useState(null);
+export default function ProfileScreen() {
+  const [driverData, setDriverData] = useState<DriverData | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [editedData, setEditedData] = useState({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [editedData, setEditedData] = useState<DriverData | null>(null);
 
   useEffect(() => {
-    const loadDriverData = async () => {
-      try {
-        const driverFromParams = route?.params?.driver;
-        if (driverFromParams) {
-          setDriverData(driverFromParams);
-          setEditedData(driverFromParams);
-          return;
-        }
-
-        const storedDriverData = await AsyncStorage.getItem("driverData");
-        if (storedDriverData) {
-          const driver = JSON.parse(storedDriverData);
-          setDriverData(driver);
-          setEditedData(driver);
-          return;
-        }
-
-        console.log("No real user data found. Using temporary test data.");
-        const fallbackData = {
-          first_name: "John",
-          last_name: "Doe",
-          email: "johndoe@email.com",
-          phone: "0771234567",
-          username: "johndoe99",
-          depot_id: "DPT-01",
-          region_id: "RGN-W",
-        };
-        setDriverData(fallbackData);
-        setEditedData(fallbackData);
-
-      } catch (error) {
-        console.error("Error loading driver data:", error);
-        Alert.alert("Error", "Could not load driver data.");
-      }
-    };
-
     loadDriverData();
-  }, [route?.params?.driver]);
+  }, []);
 
-  const handleInputChange = (key, value) => {
-    setEditedData(prevData => ({ ...prevData, [key]: value }));
+  const loadDriverData = async () => {
+    try {
+      setIsLoading(true);
+      console.log("📱 Loading driver profile data...");
+      
+      // First try to get from local storage
+      const userData = await storageAPI.getUserData();
+      if (userData) {
+        setDriverData(userData);
+        setEditedData(userData);
+        console.log("✅ Driver data loaded from storage");
+      }
+
+      // Then try to fetch fresh data from API
+      try {
+        const response = await driverAPI.getDriverProfile();
+        if (response.success && response.data) {
+          setDriverData(response.data);
+          setEditedData(response.data);
+          // Update local storage with fresh data
+          await storageAPI.storeUserData(response.data);
+          console.log("✅ Driver data refreshed from API");
+        }
+      } catch (apiError) {
+        console.log("⚠️ API fetch failed, using cached data");
+      }
+
+    } catch (error) {
+      console.error("❌ Error loading driver data:", error);
+      Alert.alert("Error", "Failed to load profile data");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleInputChange = (field: keyof DriverData, value: string) => {
+    if (editedData) {
+      setEditedData({
+        ...editedData,
+        [field]: value,
+      });
+    }
   };
 
   const handleSave = async () => {
+    if (!editedData) return;
+
     try {
-      const updatedDriver = { ...driverData, ...editedData };
-      await AsyncStorage.setItem("driverData", JSON.stringify(updatedDriver));
-      setDriverData(updatedDriver);
+      setIsSaving(true);
+      console.log("💾 Saving driver profile...");
+
+      // Save to local storage first
+      await storageAPI.storeUserData(editedData);
+      setDriverData(editedData);
+      
+      // Try to sync with API
+      try {
+        const response = await driverAPI.updateDriverProfile(editedData);
+        if (response.success) {
+          console.log("✅ Profile synced with server");
+        }
+      } catch (apiError) {
+        console.log("⚠️ API sync failed, saved locally");
+      }
+
       setIsEditing(false);
-      Alert.alert("Success", "Profile updated successfully.");
+      Alert.alert("Success", "Profile updated successfully!");
+      
     } catch (error) {
-      console.error("Error updating profile:", error);
-      Alert.alert("Error", "Failed to update profile.");
+      console.error("❌ Error saving driver data:", error);
+      Alert.alert("Error", "Failed to update profile");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -107,101 +122,256 @@ const ProfileScreen = ({ route }) => {
     setIsEditing(false);
   };
 
+  const handleRefresh = () => {
+    loadDriverData();
+  };
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar barStyle="light-content" backgroundColor="#005A9C" />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#005A9C" />
+          <Text style={styles.loadingText}>Loading profile...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   if (!driverData) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#dc2626" />
-        <Text>Loading Profile...</Text>
-      </View>
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar barStyle="light-content" backgroundColor="#005A9C" />
+        <View style={styles.errorContainer}>
+          <Ionicons name="person-circle-outline" size={80} color="#ccc" />
+          <Text style={styles.errorText}>No profile data found</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={handleRefresh}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    // 3. Add Header and StatusBar components
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" backgroundColor="#005A9C" />
-      <Header />
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.contentContainer}
-      >
-        {/* Profile Header Card */}
-        <View style={styles.profileHeader}>
-          <Ionicons name="person-circle-outline" size={80} color="#dc2626" />
+      
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Driver Profile</Text>
+        <TouchableOpacity onPress={handleRefresh} style={styles.refreshButton}>
+          <Ionicons name="refresh" size={24} color="white" />
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        {/* Profile Picture Section */}
+        <View style={styles.profileSection}>
+          <View style={styles.profileImageContainer}>
+            {driverData.profile_image ? (
+              <Image source={{ uri: driverData.profile_image }} style={styles.profileImage} />
+            ) : (
+              <View style={styles.profileImagePlaceholder}>
+                <Ionicons name="person" size={60} color="#005A9C" />
+              </View>
+            )}
+          </View>
           <Text style={styles.driverName}>
             {driverData.first_name} {driverData.last_name}
           </Text>
           <Text style={styles.driverRole}>Bus Driver</Text>
         </View>
 
-        {/* Profile Information Section */}
-        <View style={styles.infoContainer}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Personal Information</Text>
-            <TouchableOpacity onPress={() => isEditing ? handleCancel() : setIsEditing(true)}>
-              <Ionicons
-                name={isEditing ? "close-circle-outline" : "pencil-outline"}
-                size={24}
-                color="#dc2626"
-              />
+        {/* Action Buttons */}
+        <View style={styles.actionButtons}>
+          {!isEditing ? (
+            <TouchableOpacity
+              style={styles.editButton}
+              onPress={() => setIsEditing(true)}
+            >
+              <Ionicons name="create-outline" size={20} color="white" />
+              <Text style={styles.editButtonText}>Edit Profile</Text>
             </TouchableOpacity>
-          </View>
-
-          <View style={styles.infoCard}>
-            <ProfileInfoRow
-              label="First Name"
-              value={editedData.first_name}
-              isEditing={isEditing}
-              onChangeText={text => handleInputChange("first_name", text)}
-            />
-            <ProfileInfoRow
-              label="Last Name"
-              value={editedData.last_name}
-              isEditing={isEditing}
-              onChangeText={text => handleInputChange("last_name", text)}
-            />
-            <ProfileInfoRow
-              label="Email"
-              value={editedData.email}
-              isEditing={isEditing}
-              keyboardType="email-address"
-              onChangeText={text => handleInputChange("email", text)}
-            />
-            <ProfileInfoRow
-              label="Phone"
-              value={editedData.phone}
-              isEditing={isEditing}
-              keyboardType="phone-pad"
-              onChangeText={text => handleInputChange("phone", text)}
-            />
-            <ProfileInfoRow label="Driver ID" value={driverData.username} editable={false} />
-            <ProfileInfoRow label="Depot ID" value={driverData.depot_id} editable={false} />
-            <ProfileInfoRow label="Region ID" value={driverData.region_id} editable={false} />
-          </View>
-
-          {isEditing && (
-            <View style={styles.buttonContainer}>
-              <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-                <Text style={styles.saveButtonText}>Save Changes</Text>
+          ) : (
+            <View style={styles.editActions}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={handleCancel}
+                disabled={isSaving}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
+                onPress={handleSave}
+                disabled={isSaving}
+              >
+                {isSaving ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <>
+                    <Ionicons name="checkmark" size={20} color="white" />
+                    <Text style={styles.saveButtonText}>Save</Text>
+                  </>
+                )}
               </TouchableOpacity>
             </View>
           )}
         </View>
+
+        {/* Profile Information */}
+        <View style={styles.infoSection}>
+          <Text style={styles.sectionTitle}>Personal Information</Text>
+          
+          {/* First Name */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>First Name</Text>
+            {isEditing ? (
+              <TextInput
+                style={styles.textInput}
+                value={editedData?.first_name || ''}
+                onChangeText={(text) => handleInputChange('first_name', text)}
+                placeholder="Enter first name"
+                placeholderTextColor="#999"
+              />
+            ) : (
+              <Text style={styles.inputValue}>{driverData.first_name}</Text>
+            )}
+          </View>
+
+          {/* Last Name */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Last Name</Text>
+            {isEditing ? (
+              <TextInput
+                style={styles.textInput}
+                value={editedData?.last_name || ''}
+                onChangeText={(text) => handleInputChange('last_name', text)}
+                placeholder="Enter last name"
+                placeholderTextColor="#999"
+              />
+            ) : (
+              <Text style={styles.inputValue}>{driverData.last_name}</Text>
+            )}
+          </View>
+
+          {/* Email */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Email</Text>
+            {isEditing ? (
+              <TextInput
+                style={styles.textInput}
+                value={editedData?.email || ''}
+                onChangeText={(text) => handleInputChange('email', text)}
+                placeholder="Enter email"
+                placeholderTextColor="#999"
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            ) : (
+              <Text style={styles.inputValue}>{driverData.email}</Text>
+            )}
+          </View>
+
+          {/* Phone */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Phone Number</Text>
+            {isEditing ? (
+              <TextInput
+                style={styles.textInput}
+                value={editedData?.phone || ''}
+                onChangeText={(text) => handleInputChange('phone', text)}
+                placeholder="Enter phone number"
+                placeholderTextColor="#999"
+                keyboardType="phone-pad"
+              />
+            ) : (
+              <Text style={styles.inputValue}>{driverData.phone || 'Not provided'}</Text>
+            )}
+          </View>
+
+          {/* Username */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Username</Text>
+            <Text style={styles.inputValue}>{driverData.username}</Text>
+            {isEditing && (
+              <Text style={styles.inputNote}>Username cannot be changed</Text>
+            )}
+          </View>
+        </View>
+
+        {/* Professional Information */}
+        <View style={styles.infoSection}>
+          <Text style={styles.sectionTitle}>Professional Information</Text>
+          
+          {/* License Number */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>License Number</Text>
+            {isEditing ? (
+              <TextInput
+                style={styles.textInput}
+                value={editedData?.license_number || ''}
+                onChangeText={(text) => handleInputChange('license_number', text)}
+                placeholder="Enter license number"
+                placeholderTextColor="#999"
+              />
+            ) : (
+              <Text style={styles.inputValue}>{driverData.license_number || 'Not provided'}</Text>
+            )}
+          </View>
+
+          {/* Experience Years */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Years of Experience</Text>
+            {isEditing ? (
+              <TextInput
+                style={styles.textInput}
+                value={editedData?.experience_years?.toString() || ''}
+                onChangeText={(text) => handleInputChange('experience_years', text)}
+                placeholder="Enter years of experience"
+                placeholderTextColor="#999"
+                keyboardType="numeric"
+              />
+            ) : (
+              <Text style={styles.inputValue}>
+                {driverData.experience_years ? `${driverData.experience_years} years` : 'Not provided'}
+              </Text>
+            )}
+          </View>
+
+          {/* Assigned Bus */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Assigned Bus</Text>
+            <Text style={styles.inputValue}>{driverData.assigned_bus || 'Not assigned'}</Text>
+          </View>
+
+          {/* Depot */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Depot</Text>
+            <Text style={styles.inputValue}>{driverData.depot_name || 'Not assigned'}</Text>
+          </View>
+        </View>
+
+        {/* Bottom Spacing */}
+        <View style={styles.bottomSpacing} />
       </ScrollView>
     </SafeAreaView>
   );
-};
+}
 
-// 4. Updated Styles
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
-    backgroundColor: "#005A9C", // Set status bar area color
+    backgroundColor: "#005A9C",
   },
   header: {
     backgroundColor: "#005A9C",
     paddingTop: Platform.OS === "android" ? StatusBar.currentHeight + 10 : 15,
     paddingBottom: 15,
+    paddingHorizontal: 20,
+    flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
   },
   headerTitle: {
@@ -209,104 +379,182 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "bold",
   },
-  scrollView: {
-    backgroundColor: "#f8fafc", // Main screen background
+  refreshButton: {
+    padding: 5,
   },
-  contentContainer: {
-    padding: 20,
+  container: {
+    flex: 1,
+    backgroundColor: "#f5f5f5",
   },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    gap: 10,
+    backgroundColor: "#f5f5f5",
   },
-  profileHeader: {
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: "#666",
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 20,
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
-    elevation: 4,
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
+    backgroundColor: "#f5f5f5",
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 18,
+    color: "#666",
+    marginTop: 16,
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: "#005A9C",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  profileSection: {
+    backgroundColor: "white",
+    alignItems: "center",
+    paddingVertical: 30,
+    marginBottom: 20,
+  },
+  profileImageContainer: {
+    marginBottom: 15,
+  },
+  profileImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+  },
+  profileImagePlaceholder: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: "#f0f0f0",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#005A9C",
   },
   driverName: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: "bold",
-    color: "#1f2937",
-    marginTop: 12,
+    color: "#333",
+    marginBottom: 5,
   },
   driverRole: {
     fontSize: 16,
-    color: "#6b7280",
+    color: "#666",
   },
-  infoContainer: {
-    marginTop: 24, // Add space above the info section
+  actionButtons: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
   },
-  sectionHeader: {
+  editButton: {
+    backgroundColor: "#005A9C",
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 16,
+    justifyContent: "center",
+    paddingVertical: 12,
+    borderRadius: 8,
+    gap: 8,
+  },
+  editButtonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  editActions: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: "#6c757d",
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  cancelButtonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  saveButton: {
+    flex: 1,
+    backgroundColor: "#28a745",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    borderRadius: 8,
+    gap: 8,
+  },
+  saveButtonDisabled: {
+    backgroundColor: "#94d3a2",
+  },
+  saveButtonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  infoSection: {
+    backgroundColor: "white",
+    marginHorizontal: 20,
+    marginBottom: 20,
+    borderRadius: 12,
+    padding: 20,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    color: "#1f2937",
-  },
-  infoCard: {
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
-    padding: 10,
-    elevation: 4,
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-  },
-  infoRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 14,
-    paddingHorizontal: 10,
+    color: "#333",
+    marginBottom: 20,
     borderBottomWidth: 1,
-    borderBottomColor: "#f1f5f9",
+    borderBottomColor: "#e0e0e0",
+    paddingBottom: 10,
   },
-  infoLabel: {
-    fontSize: 14,
-    color: "#6b7280",
-    fontWeight: "500",
+  inputGroup: {
+    marginBottom: 20,
   },
-  infoValue: {
+  inputLabel: {
     fontSize: 14,
-    color: "#1f2937",
     fontWeight: "600",
-    textAlign: "right",
-    flex: 1,
+    color: "#555",
+    marginBottom: 8,
   },
-  infoInput: {
-    fontSize: 14,
-    color: "#1f2937",
-    fontWeight: "600",
-    flex: 1,
-    textAlign: "right",
-    paddingVertical: 2,
-  },
-  buttonContainer: {
-    marginTop: 20,
-  },
-  saveButton: {
-    backgroundColor: "#dc2626",
-    paddingVertical: 14,
+  textInput: {
+    borderWidth: 1,
+    borderColor: "#ddd",
     borderRadius: 8,
-    alignItems: "center",
-  },
-  saveButtonText: {
-    color: "#ffffff",
+    paddingHorizontal: 12,
+    paddingVertical: 12,
     fontSize: 16,
-    fontWeight: "600",
+    backgroundColor: "#fff",
+    color: "#333",
+  },
+  inputValue: {
+    fontSize: 16,
+    color: "#333",
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  inputNote: {
+    fontSize: 12,
+    color: "#666",
+    marginTop: 4,
+    fontStyle: "italic",
+  },
+  bottomSpacing: {
+    height: 20,
   },
 });
-
-export default ProfileScreen;

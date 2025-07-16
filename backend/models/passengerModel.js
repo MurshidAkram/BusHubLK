@@ -53,6 +53,7 @@ const Passenger = {
     const { rows } = await pool.query(query);
     return rows[0];
   },
+
   createAlertForPassenger: async (passengerId, emergencyType, status) => {
     const query = {
       text: 'INSERT INTO alerts(passenger_id, emergency_type, status) VALUES($1, $2, $3) RETURNING *',

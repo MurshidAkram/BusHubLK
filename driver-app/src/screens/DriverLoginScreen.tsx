@@ -15,13 +15,14 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { API_BASE_URL } from "../config/api"; 
+import { useNavigation } from '@react-navigation/native';
+import { CommonActions } from '@react-navigation/native';
+import { driverAPI, storageAPI } from "../services/api";
+
 const { width, height } = Dimensions.get("window");
 
-
-
-export default function DriverLoginScreen({ navigation }: any) {
+export default function DriverLoginScreen() {
+  const navigation = useNavigation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -36,47 +37,28 @@ export default function DriverLoginScreen({ navigation }: any) {
     setIsLoading(true);
 
     try {
-      const apiUrl = `${API_BASE_URL}/driver/login`;
-      console.log("Attempting login to:", apiUrl);
+      console.log("Attempting driver login...");
 
-
-      const response = await fetch(apiUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: email.trim(),
-          password: password.trim(),
-        }),
+      const response = await driverAPI.loginDriver({
+        email: email.trim(),
+        password: password.trim(),
       });
 
-      console.log("Response status:", response.status);
+      console.log("Login response:", response);
 
-      const data = await response.json();
-      console.log("Response data:", data);
-
-      if (response.ok && data.success) {
-        // Store the token for future requests
-        await AsyncStorage.setItem("driverToken", data.token);
-        await AsyncStorage.setItem("driverUser", JSON.stringify(data.user));
+      if (response.success) {
+        // Store the token and user data using storageAPI
+        await storageAPI.storeAuthToken(response.token);
+        await storageAPI.storeUserData(response.user);
 
         setIsLoading(false);
-        Alert.alert("Success", `Welcome ${data.user.first_name}!`, [
-          {
-            text: "OK",
-            onPress: () => {
-              
-              navigation.navigate('Main');
-              console.log("Driver logged in:", data.user);
-            },
-          },
-        ]);
+        
+        Alert.alert("Success", `Welcome ${response.user.first_name}!`);
       } else {
         setIsLoading(false);
         Alert.alert(
           "Error",
-          data.error || "Login failed. Please check your credentials."
+          response.error || "Login failed. Please check your credentials."
         );
       }
     } catch (error) {
@@ -88,6 +70,7 @@ export default function DriverLoginScreen({ navigation }: any) {
       );
     }
   };
+
   return (
     <>
       <StatusBar barStyle="light-content" backgroundColor="#1e3a8a" />
@@ -268,6 +251,8 @@ export default function DriverLoginScreen({ navigation }: any) {
     </>
   );
 }
+
+// ... continuing from where we left off
 
 const styles = StyleSheet.create({
   gradient: {
@@ -483,4 +468,3 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
 });
-

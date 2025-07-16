@@ -62,7 +62,7 @@ const DepotEngineerSidebarContent = () => {
       </NavLink>
 
       <NavLink
-          to="/depot-engineer/escalate"
+          to="/depot-engineer/DepotEscalateissues"
           className={({ isActive }) =>
            `flex items-center px-3 py-2 text-sm font-medium rounded-md ${
            isActive 
@@ -72,7 +72,7 @@ const DepotEngineerSidebarContent = () => {
          }
         >
        <HiArrowUp className="mr-3 flex-shrink-0 h-5 w-5" />
-       Escalate Issue
+       Issue tracker
       </NavLink>
 
 

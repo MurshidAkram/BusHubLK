@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FaSearch, FaEye, FaChevronDown } from 'react-icons/fa';
+import { FaSearch, FaEye, FaChevronDown, FaTimes } from 'react-icons/fa';
 
 interface DepotData {
   depot: string;
@@ -44,6 +44,8 @@ const Regionservicemonitor: React.FC = () => {
   const [data, setData] = useState<DepotData[]>(initialData);
   const [selectedDepot, setSelectedDepot] = useState<string>('All Depots');
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [selectedDetail, setSelectedDetail] = useState<DepotData | null>(null);
+  const [showModal, setShowModal] = useState<boolean>(false);
 
   // Filter data based on search term and selected depot
   const filteredData = data.filter(item => {
@@ -52,8 +54,14 @@ const Regionservicemonitor: React.FC = () => {
     return matchesSearch && matchesDepot;
   });
 
-  const handleDetailsClick = (depot: string) => {
-    alert(`Showing details for ${depot} depot`);
+  const handleDetailsClick = (depot: DepotData) => {
+    setSelectedDetail(depot);
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setSelectedDetail(null);
   };
 
   return (
@@ -146,7 +154,7 @@ const Regionservicemonitor: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <button
-                      onClick={() => handleDetailsClick(item.depot)}
+                      onClick={() => handleDetailsClick(item)}
                       className="inline-flex items-center px-3 py-1 border border-blue-300 text-xs font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                     >
                       <FaEye className="w-3 h-3 mr-1" />
@@ -169,7 +177,6 @@ const Regionservicemonitor: React.FC = () => {
         {/* Summary Footer */}
         <div className="bg-gray-50 px-6 py-4 border-t">
           <div className="flex justify-between items-center text-sm text-gray-600">
-            
             <div className="flex space-x-6">
               <span>
                 Total Working: <span className="font-medium text-green-600">
@@ -190,6 +197,59 @@ const Regionservicemonitor: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Detail Modal */}
+      {showModal && selectedDetail && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div className="flex justify-between items-center p-4 border-b">
+              <h3 className="text-lg font-semibold text-gray-800">
+                {selectedDetail.depot} Depot Details
+              </h3>
+              <button 
+                onClick={closeModal}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <FaTimes className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6">
+              <div className="space-y-4">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Working Vehicles:</span>
+                  <span className="font-medium">{selectedDetail.working}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Under Repair:</span>
+                  <span className="font-medium text-yellow-600">{selectedDetail.underRepair}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Breakdown:</span>
+                  <span className="font-medium text-red-600">{selectedDetail.breakdown}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Last Inspection:</span>
+                  <span className="font-medium">{selectedDetail.lastInspection}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Total Vehicles:</span>
+                  <span className="font-medium text-blue-600">
+                    {selectedDetail.working + selectedDetail.underRepair + selectedDetail.breakdown}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="p-4 border-t flex justify-end">
+              <button
+                onClick={closeModal}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
