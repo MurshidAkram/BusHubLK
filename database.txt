@@ -91,6 +91,148 @@ INSERT INTO depots (depot_name, region_id, address, contact_phone) VALUES
 ('Avissawalla', 1, 'Avissawalla, Colombo', '+94112233456');
 
 
+
+-- Gampaha Region
+INSERT INTO depots (depot_name, region_id, address, contact_phone) VALUES
+('Negombo', 2, 'Negombo, Gampaha', '+94113344556'),
+('Divulapitiya', 2, 'Divulapitiya, Gampaha', '+94113344557'),
+('Nittambuwa', 2, 'Nittambuwa, Gampaha', '+94113344558'),
+('Kirindiwela', 2, 'Kirindiwela, Gampaha', '+94113344559'),
+('Gampaha', 2, 'Gampaha Town', '+94113344560'),
+('Kadawatha', 2, 'Kadawatha, Gampaha', '+94113344561'),
+('Kelaniya', 2, 'Kelaniya, Gampaha', '+94113344562'),
+('Welisara', 2, 'Welisara, Gampaha', '+94113344563'),
+('Ja-Ela', 2, 'Ja-Ela, Gampaha', '+94113344564');
+
+-- Kaluthara Region
+INSERT INTO depots (depot_name, region_id, address, contact_phone) VALUES
+('Panadura', 3, 'Panadura, Kaluthara', '+94114455667'),
+('Kaluthara', 3, 'Kaluthara Town', '+94114455668'),
+('Aluthgama', 3, 'Aluthgama, Kaluthara', '+94114455669'),
+('Mathugama', 3, 'Mathugama, Kaluthara', '+94114455670'),
+('Horana', 3, 'Horana, Kaluthara', '+94114455671');
+
+-- Wayamba Region
+INSERT INTO depots (depot_name, region_id, address, contact_phone) VALUES
+('Kuliyapitiya', 4, 'Kuliyapitiya, Wayamba', '+94115566778'),
+('Kurunegala South', 4, 'Kurunegala South, Wayamba', '+94115566779'),
+('Kurunegala North', 4, 'Kurunegala North, Wayamba', '+94115566780'),
+('Alawwa', 4, 'Alawwa, Wayamba', '+94115566781'),
+('Chilaw', 4, 'Chilaw, Wayamba', '+94115566782'),
+('Puttalam', 4, 'Puttalam, Wayamba', '+94115566783'),
+('Wennappuwa', 4, 'Wennappuwa, Wayamba', '+94115566784'),
+('Giriulla', 4, 'Giriulla, Wayamba', '+94115566785'),
+('Maho', 4, 'Maho, Wayamba', '+94115566786'),
+('Nikaweratiya', 4, 'Nikaweratiya, Wayamba', '+94115566787'),
+('Wariyapola', 4, 'Wariyapola, Wayamba', '+94115566788'),
+('Galgamuwa', 4, 'Galgamuwa, Wayamba', '+94115566789'),
+('Narammala', 4, 'Narammala, Wayamba', '+94115566790'),
+('Redegama', 4, 'Redegama, Wayamba', '+94115566791'),
+('Anamaduwa', 4, 'Anamaduwa, Wayamba', '+94115566792');
+
+-- Mahanuwara Region
+INSERT INTO depots (depot_name, region_id, address, contact_phone) VALUES
+('Kandy North', 5, 'Kandy North, Mahanuwara', '+94116677889'),
+('Kandy South', 5, 'Kandy South, Mahanuwara', '+94116677890'),
+('Matale', 5, 'Matale, Mahanuwara', '+94116677891'),
+('Yatinuwara', 5, 'Yatinuwara, Mahanuwara', '+94116677892'),
+('Wattegama', 5, 'Wattegama, Mahanuwara', '+94116677893'),
+('Teldeniya', 5, 'Teldeniya, Mahanuwara', '+94116677894'),
+('Ududumbara', 5, 'Ududumbara, Mahanuwara', '+94116677895');
+
+-- Sabaragamuwa Region
+INSERT INTO depots (depot_name, region_id, address, contact_phone) VALUES
+('Rathnapura', 6, 'Rathnapura Town', '+94117788900'),
+('Kalawana', 6, 'Kalawana, Sabaragamuwa', '+94117788901'),
+('Balangoda', 6, 'Balangoda, Sabaragamuwa', '+94117788902'),
+('Godakawela', 6, 'Godakawela, Sabaragamuwa', '+94117788903'),
+('Embilipitiya', 6, 'Embilipitiya, Sabaragamuwa', '+94117788904'),
+('Kagalle', 6, 'Kagalle, Sabaragamuwa', '+94117788905'),
+('Mawanella', 6, 'Mawanella, Sabaragamuwa', '+94117788906'),
+('Rambukkana', 6, 'Rambukkana, Sabaragamuwa', '+94117788907'),
+('Deraniyagala', 6, 'Deraniyagala, Sabaragamuwa', '+94117788908'),
+('Kahawatta', 6, 'Kahawatta, Sabaragamuwa', '+94117788909'),
+('Warakapola', 6, 'Warakapola, Sabaragamuwa', '+94117788910');
+
+-- Southern Region
+INSERT INTO depots (depot_name, region_id, address, contact_phone) VALUES
+('Galle', 7, 'Galle Town', '+94118899001'),
+('Udugama', 7, 'Udugama, Southern', '+94118899002'),
+('Ambalangoda', 7, 'Ambalangoda, Southern', '+94118899003'),
+('Elpitiya', 7, 'Elpitiya, Southern', '+94118899004'),
+('Matara', 7, 'Matara Town', '+94118899005'),
+('Akuressa', 7, 'Akuressa, Southern', '+94118899006'),
+('Hakmana', 7, 'Hakmana, Southern', '+94118899007'),
+('Tangalle', 7, 'Tangalle, Southern', '+94118899008'),
+('Ambalantota', 7, 'Ambalantota, Southern', '+94118899009'),
+('Kataragama', 7, 'Kataragama, Southern', '+94118899010'),
+('Koggala', 7, 'Koggala, Southern', '+94118899011');
+
+-- Rajarata Region
+INSERT INTO depots (depot_name, region_id, address, contact_phone) VALUES
+('Anuradhapura', 8, 'Anuradhapura Town', '+94119900112'),
+('Polonnaruwa', 8, 'Polonnaruwa Town', '+94119900113'),
+('Kekirawa', 8, 'Kekirawa, Rajarata', '+94119900114'),
+('Horowpathana', 8, 'Horowpathana, Rajarata', '+94119900115'),
+('Kebithigollewa', 8, 'Kebithigollewa, Rajarata', '+94119900116'),
+('Dambulla', 8, 'Dambulla, Rajarata', '+94119900117'),
+('Diyasenpura', 8, 'Diyasenpura, Rajarata', '+94119900118'),
+('Medawachchiya', 8, 'Medawachchiya, Rajarata', '+94119900119'),
+('Kanthale', 8, 'Kanthale, Rajarata', '+94119900120');
+
+-- Nuwaraeliya Region
+INSERT INTO depots (depot_name, region_id, address, contact_phone) VALUES
+('Gampola', 9, 'Gampola, Nuwaraeliya', '+94110011223'),
+('Nawalapitiya', 9, 'Nawalapitiya, Nuwaraeliya', '+94110011224'),
+('Hatton', 9, 'Hatton, Nuwaraeliya', '+94110011225'),
+('Nuwaraeliya', 9, 'Nuwaraeliya Town', '+94110011226'),
+('Kotmale', 9, 'Kotmale, Nuwaraeliya', '+94110011227'),
+('Hanguranketa', 9, 'Hanguranketa, Nuwaraeliya', '+94110011228'),
+('Walapone', 9, 'Walapone, Nuwaraeliya', '+94110011229'),
+('Kurunduwatta', 9, 'Kurunduwatta, Nuwaraeliya', '+94110011230');
+
+-- New Eastern Region
+INSERT INTO depots (depot_name, region_id, address, contact_phone) VALUES
+('Akkaraipattu', 10, 'Akkaraipattu, New Eastern', '+94111122334'),
+('Amparai', 10, 'Amparai, New Eastern', '+94111122335'),
+('Batticaloa', 10, 'Batticaloa Town', '+94111122336'),
+('Kalmunai', 10, 'Kalmunai, New Eastern', '+94111122337'),
+('Kanthankudy', 10, 'Kanthankudy, New Eastern', '+94111122338'),
+('Muthur', 10, 'Muthur, New Eastern', '+94111122339'),
+('Trincomalee', 10, 'Trincomalee Town', '+94111122340'),
+('Valaichchenai', 10, 'Valaichchenai, New Eastern', '+94111122341'),
+('Kalawanchikudi', 10, 'Kalawanchikudi, New Eastern', '+94111122342'),
+('Eravur', 10, 'Eravur, New Eastern', '+94111122343'),
+('Samanthurai', 10, 'Samanthurai, New Eastern', '+94111122344'),
+('Pottuvil', 10, 'Pottuvil, New Eastern', '+94111122345'),
+('Kinniya', 10, 'Kinniya, New Eastern', '+94111122346'),
+('Vakarai', 10, 'Vakarai, New Eastern', '+94111122347'),
+('Rethithanna', 10, 'Rethithanna, New Eastern', '+94111122348');
+
+-- Northern Region
+INSERT INTO depots (depot_name, region_id, address, contact_phone) VALUES
+('Kilinochchi', 11, 'Kilinochchi Town', '+94112233459'),
+('Mulative', 11, 'Mulative, Northern', '+94112233460'),
+('Jaffna', 11, 'Jaffna Town', '+94112233461'),
+('Point-Pedro', 11, 'Point-Pedro, Northern', '+94112233462'),
+('Karinagar', 11, 'Karinagar, Northern', '+94112233463'),
+('Mannar', 11, 'Mannar Town', '+94112233464'),
+('Vavunia', 11, 'Vavunia Town', '+94112233465');
+
+-- Uva Region
+INSERT INTO depots (depot_name, region_id, address, contact_phone) VALUES
+('Badulla', 12, 'Badulla Town', '+94113344570'),
+('Bandarawela', 12, 'Bandarawela, Uva', '+94113344571'),
+('Keppetipola', 12, 'Keppetipola, Uva', '+94113344572'),
+('Monaragala', 12, 'Monaragala Town', '+94113344573'),
+('Bibila', 12, 'Bibila, Uva', '+94113344574'),
+('Mahiyanganaya', 12, 'Mahiyanganaya, Uva', '+94113344575'),
+('Wellawaya', 12, 'Wellawaya, Uva', '+94113344576'),
+('Dehiattakandiya', 12, 'Dehiattakandiya, Uva', '+94113344577'),
+('Tanamalvila', 12, 'Tanamalvila, Uva', '+94113344578'),
+('Siyabalanduwa', 12, 'Siyabalanduwa, Uva', '+94113344579');
+
+
 -- Role-specific tables with consistent INTEGER primary keys
 CREATE TABLE ceo (
     ceo_id INTEGER PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
@@ -192,3 +334,185 @@ CREATE TABLE emergency_contacts (
     email VARCHAR(100) DEFAULT 'N/A',
     is_primary BOOLEAN DEFAULT FALSE
 );
+
+
+
+CREATE TABLE passengers (
+    passenger_id INTEGER PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+    date_of_birth DATE,
+    gender VARCHAR(10) CHECK (gender IN ('male', 'female', 'other')),
+    address TEXT,
+    emergency_contact_name VARCHAR(100),
+    emergency_contact_phone VARCHAR(20),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create trigger for updated_at
+CREATE TRIGGER update_passengers_updated_at 
+    BEFORE UPDATE ON passengers 
+    FOR EACH ROW 
+    EXECUTE FUNCTION update_updated_at_column();
+
+
+CREATE TABLE buses (
+    bus_id SERIAL PRIMARY KEY,
+    depot_id INTEGER REFERENCES depots(depot_id),
+    status VARCHAR(20) DEFAULT 'Active' CHECK (status IN ('Active', 'In Service', 'Maintenance', 'Out of Service', 'Retired')),
+    purchase_date DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_active BOOLEAN DEFAULT true
+);
+ALTER TABLE buses ADD COLUMN registration_number VARCHAR(10) UNIQUE;
+
+INSERT INTO buses (depot_id, registration_number, status, purchase_date) VALUES 
+(1, 'WP 2734', 'Active', '2020-03-15'),
+(1, 'WP 2856', 'Active', '2019-08-22'),
+(1, 'WP 3142', 'Active', '2021-01-10'),
+(2, 'WP 2967', 'Active', '2020-07-18'),
+(2, 'WP 2823', 'Active', '2019-12-05'),
+(3, 'WP 3201', 'Active', '2021-05-30'),
+(1, 'WP 2654', 'In Service', '2018-11-12'),
+(2, 'WP 2789', 'In Service', '2019-04-25'),
+(3, 'WP 2934', 'In Service', '2020-09-08'),
+(1, 'WP 2456', 'Maintenance', '2017-06-14'),
+(2, 'WP 2587', 'Maintenance', '2018-02-28'),
+(3, 'WP 2812', 'Maintenance', '2019-10-16'),
+(1, 'WP 2234', 'Out of Service', '2016-12-03'),
+(2, 'WP 2378', 'Out of Service', '2017-09-19');
+
+
+
+CREATE TABLE routes (
+    route_id SERIAL PRIMARY KEY,
+    route_number VARCHAR(10) UNIQUE NOT NULL,
+    route_name VARCHAR(200) NOT NULL,
+    start_location VARCHAR(100) NOT NULL,
+    end_location VARCHAR(100) NOT NULL,
+    distance_km DECIMAL(5,2),
+    estimated_duration_minutes INTEGER,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create indexes
+CREATE INDEX idx_routes_number ON routes(route_number);
+CREATE INDEX idx_routes_active ON routes(is_active);
+CREATE INDEX idx_routes_start_location ON routes(start_location);
+CREATE INDEX idx_routes_end_location ON routes(end_location);
+
+-- Create trigger to update updated_at timestamp
+CREATE OR REPLACE FUNCTION update_routes_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_routes_updated_at
+    BEFORE UPDATE ON routes
+    FOR EACH ROW
+    EXECUTE FUNCTION update_routes_updated_at();
+
+INSERT INTO routes (route_number, route_name, start_location, end_location, distance_km, estimated_duration_minutes) VALUES 
+-- Colombo area routes
+('154', 'Kiribathgoda-Angulana', 'Kiribathgoda', 'Angulana', 35.5, 90),
+('138', 'Pettah-Malabe', 'Pettah', 'Malabe', 18.2, 45),
+('177', 'Pettah-Kottawa', 'Pettah', 'Kottawa', 22.8, 60),
+('122', 'Fort-Nugegoda', 'Fort', 'Nugegoda', 12.5, 35),
+('101', 'Fort-Dehiwala', 'Fort', 'Dehiwala', 15.3, 40),
+('155', 'Pettah-Homagama', 'Pettah', 'Homagama', 28.7, 75),
+('176', 'Colombo-Maharagama', 'Colombo', 'Maharagama', 16.8, 45),
+('103', 'Fort-Moratuwa', 'Fort', 'Moratuwa', 25.4, 65),
+
+-- Kandy area routes
+('644', 'Kandy-Peradeniya', 'Kandy', 'Peradeniya', 8.5, 25),
+('652', 'Kandy-Gampola', 'Kandy', 'Gampola', 24.3, 50),
+('699', 'Kandy-Nuwara Eliya', 'Kandy', 'Nuwara Eliya', 78.2, 180),
+('663', 'Kandy-Matale', 'Kandy', 'Matale', 26.8, 55),
+('678', 'Kandy-Dambulla', 'Kandy', 'Dambulla', 72.5, 120),
+
+-- Galle area routes
+('350', 'Galle-Matara', 'Galle', 'Matara', 42.5, 90),
+('325', 'Galle-Hikkaduwa', 'Galle', 'Hikkaduwa', 18.7, 35),
+('385', 'Galle-Tangalle', 'Galle', 'Tangalle', 65.3, 120),
+('307', 'Galle-Unawatuna', 'Galle', 'Unawatuna', 6.2, 15),
+
+-- Kurunegala area routes
+('42', 'Kurunegala-Puttalam', 'Kurunegala', 'Puttalam', 45.2, 85),
+('48', 'Kurunegala-Chilaw', 'Kurunegala', 'Chilaw', 38.9, 70),
+('46', 'Kurunegala-Wariyapola', 'Kurunegala', 'Wariyapola', 22.3, 40),
+
+-- Anuradhapura area routes
+('57', 'Anuradhapura-Polonnaruwa', 'Anuradhapura', 'Polonnaruwa', 52.8, 95),
+('49', 'Anuradhapura-Vavuniya', 'Anuradhapura', 'Vavuniya', 68.4, 110),
+('51', 'Anuradhapura-Mihintale', 'Anuradhapura', 'Mihintale', 13.2, 25),
+
+-- Ratnapura area routes
+('123', 'Ratnapura-Embilipitiya', 'Ratnapura', 'Embilipitiya', 35.6, 65),
+('130', 'Ratnapura-Balangoda', 'Ratnapura', 'Balangoda', 28.3, 50),
+('127', 'Ratnapura-Pelmadulla', 'Ratnapura', 'Pelmadulla', 18.7, 35),
+
+-- Badulla area routes
+('99', 'Badulla-Bandarawela', 'Badulla', 'Bandarawela', 15.2, 30),
+('94', 'Badulla-Ella', 'Badulla', 'Ella', 22.8, 45),
+('96', 'Badulla-Passara', 'Badulla', 'Passara', 28.5, 55),
+
+-- Batticaloa area routes
+('87', 'Batticaloa-Kalmunai', 'Batticaloa', 'Kalmunai', 38.7, 70),
+('92', 'Batticaloa-Ampara', 'Batticaloa', 'Ampara', 42.3, 80),
+('89', 'Batticaloa-Valaichchenai', 'Batticaloa', 'Valaichchenai', 25.4, 45),
+
+-- Jaffna area routes
+('758', 'Jaffna-Point Pedro', 'Jaffna', 'Point Pedro', 23.8, 40),
+('756', 'Jaffna-Chavakachcheri', 'Jaffna', 'Chavakachcheri', 18.5, 35),
+
+-- Inter-city routes
+('1', 'Colombo-Kandy', 'Colombo', 'Kandy', 115.8, 180),
+('2', 'Colombo-Galle', 'Colombo', 'Galle', 119.2, 150),
+('4', 'Colombo-Matara', 'Colombo', 'Matara', 161.7, 210),
+('15', 'Colombo-Kurunegala', 'Colombo', 'Kurunegala', 94.3, 135),
+('18', 'Colombo-Anuradhapura', 'Colombo', 'Anuradhapura', 205.6, 240),
+('20', 'Colombo-Badulla', 'Colombo', 'Badulla', 230.4, 300),
+('5', 'Colombo-Ratnapura', 'Colombo', 'Ratnapura', 101.2, 150),
+('9', 'Colombo-Batticaloa', 'Colombo', 'Batticaloa', 314.5, 420),
+('12', 'Kandy-Jaffna', 'Kandy', 'Jaffna', 285.7, 360);
+
+
+
+CREATE TABLE route_stops (
+    stop_id SERIAL PRIMARY KEY,
+    route_id INTEGER REFERENCES routes(route_id) ON DELETE CASCADE,
+    stop_name VARCHAR(100) NOT NULL,
+    stop_order INTEGER NOT NULL,
+    distance_from_start DECIMAL(5,2),
+    fare_from_start DECIMAL(6,2),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_route_stops_route_id ON route_stops(route_id);
+CREATE INDEX idx_route_stops_order ON route_stops(route_id, stop_order);
+
+-- Sample stops for route 154 (Kiribathgoda-Angulana)
+INSERT INTO route_stops (route_id, stop_name, stop_order, distance_from_start, fare_from_start) VALUES 
+(1, 'Kiribathgoda', 1, 0.0, 0.00),
+(1, 'Kelaniya', 2, 3.2, 8.00),
+(1, 'Peliyagoda', 3, 6.8, 12.00),
+(1, 'Colombo', 4, 12.5, 18.00),
+(1, 'Wellawatte', 5, 18.3, 25.00),
+(1, 'Dehiwala', 6, 22.1, 30.00),
+(1, 'Mount Lavinia', 7, 25.7, 35.00),
+(1, 'Moratuwa', 8, 30.2, 40.00),
+(1, 'Angulana', 9, 35.5, 45.00);
+
+CREATE TABLE alerts (
+    id SERIAL PRIMARY KEY,
+    passenger_id INTEGER NOT NULL,
+    emergency_type VARCHAR(255) NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+

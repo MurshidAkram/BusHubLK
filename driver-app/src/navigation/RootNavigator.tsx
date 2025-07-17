@@ -1,15 +1,19 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
 import DriverLoginScreen from "../screens/DriverLoginScreen";
+import ForgotPasswordScreen from "../screens/ForgotPasswordScreen";
+import ResetPasswordScreen from "../screens/ResetPasswordScreen";
 import TabNavigator from "./TabNavigator";
 import { storageAPI } from "../services/api";
+import { deepLinkService } from "../services/deepLinkHandler";
 
 const Stack = createStackNavigator();
 
 export default function RootNavigator() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const navigationRef = useRef(null);
 
   const initializeApp = useCallback(async () => {
     try {
@@ -71,6 +75,15 @@ export default function RootNavigator() {
     return () => clearInterval(interval);
   }, [checkAuthStatus, isInitialized]);
 
+  // Setup deep link handling
+  useEffect(() => {
+    if (navigationRef.current) {
+      deepLinkService.setNavigation(navigationRef.current);
+      const cleanup = deepLinkService.setupDeepLinkListener();
+      return cleanup;
+    }
+  }, [navigationRef.current]);
+
   // Show nothing until app is initialized
   if (!isInitialized) {
     console.log("⏳ Driver app not initialized yet...");
@@ -80,7 +93,7 @@ export default function RootNavigator() {
   console.log("🎨 Driver app rendering with isAuthenticated:", isAuthenticated);
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {isAuthenticated ? (
           <Stack.Screen
@@ -89,11 +102,23 @@ export default function RootNavigator() {
             key="main-screen"
           />
         ) : (
-          <Stack.Screen
-            name="Login"
-            component={DriverLoginScreen}
-            key="login-screen"
-          />
+          <>
+            <Stack.Screen
+              name="Login"
+              component={DriverLoginScreen}
+              key="login-screen"
+            />
+            <Stack.Screen
+              name="ForgotPassword"
+              component={ForgotPasswordScreen}
+              key="forgot-password-screen"
+            />
+            <Stack.Screen
+              name="ResetPassword"
+              component={ResetPasswordScreen}
+              key="reset-password-screen"
+            />
+          </>
         )}
       </Stack.Navigator>
     </NavigationContainer>
