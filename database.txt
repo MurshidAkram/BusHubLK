@@ -334,6 +334,180 @@ CREATE TABLE emergency_contacts (
     email VARCHAR(100) DEFAULT 'N/A',
     is_primary BOOLEAN DEFAULT FALSE
 );
+
+
+
+CREATE TABLE passengers (
+    passenger_id INTEGER PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+    date_of_birth DATE,
+    gender VARCHAR(10) CHECK (gender IN ('male', 'female', 'other')),
+    address TEXT,
+    emergency_contact_name VARCHAR(100),
+    emergency_contact_phone VARCHAR(20),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create trigger for updated_at
+CREATE TRIGGER update_passengers_updated_at 
+    BEFORE UPDATE ON passengers 
+    FOR EACH ROW 
+    EXECUTE FUNCTION update_updated_at_column();
+
+
+CREATE TABLE buses (
+    bus_id SERIAL PRIMARY KEY,
+    depot_id INTEGER REFERENCES depots(depot_id),
+    status VARCHAR(20) DEFAULT 'Active' CHECK (status IN ('Active', 'In Service', 'Maintenance', 'Out of Service', 'Retired')),
+    purchase_date DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_active BOOLEAN DEFAULT true
+);
+ALTER TABLE buses ADD COLUMN registration_number VARCHAR(10) UNIQUE;
+
+INSERT INTO buses (depot_id, registration_number, status, purchase_date) VALUES 
+(1, 'WP 2734', 'Active', '2020-03-15'),
+(1, 'WP 2856', 'Active', '2019-08-22'),
+(1, 'WP 3142', 'Active', '2021-01-10'),
+(2, 'WP 2967', 'Active', '2020-07-18'),
+(2, 'WP 2823', 'Active', '2019-12-05'),
+(3, 'WP 3201', 'Active', '2021-05-30'),
+(1, 'WP 2654', 'In Service', '2018-11-12'),
+(2, 'WP 2789', 'In Service', '2019-04-25'),
+(3, 'WP 2934', 'In Service', '2020-09-08'),
+(1, 'WP 2456', 'Maintenance', '2017-06-14'),
+(2, 'WP 2587', 'Maintenance', '2018-02-28'),
+(3, 'WP 2812', 'Maintenance', '2019-10-16'),
+(1, 'WP 2234', 'Out of Service', '2016-12-03'),
+(2, 'WP 2378', 'Out of Service', '2017-09-19');
+
+
+
+CREATE TABLE routes (
+    route_id SERIAL PRIMARY KEY,
+    route_number VARCHAR(10) UNIQUE NOT NULL,
+    route_name VARCHAR(200) NOT NULL,
+    start_location VARCHAR(100) NOT NULL,
+    end_location VARCHAR(100) NOT NULL,
+    distance_km DECIMAL(5,2),
+    estimated_duration_minutes INTEGER,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create indexes
+CREATE INDEX idx_routes_number ON routes(route_number);
+CREATE INDEX idx_routes_active ON routes(is_active);
+CREATE INDEX idx_routes_start_location ON routes(start_location);
+CREATE INDEX idx_routes_end_location ON routes(end_location);
+
+-- Create trigger to update updated_at timestamp
+CREATE OR REPLACE FUNCTION update_routes_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_routes_updated_at
+    BEFORE UPDATE ON routes
+    FOR EACH ROW
+    EXECUTE FUNCTION update_routes_updated_at();
+
+INSERT INTO routes (route_number, route_name, start_location, end_location, distance_km, estimated_duration_minutes) VALUES 
+-- Colombo area routes
+('154', 'Kiribathgoda-Angulana', 'Kiribathgoda', 'Angulana', 35.5, 90),
+('138', 'Pettah-Malabe', 'Pettah', 'Malabe', 18.2, 45),
+('177', 'Pettah-Kottawa', 'Pettah', 'Kottawa', 22.8, 60),
+('122', 'Fort-Nugegoda', 'Fort', 'Nugegoda', 12.5, 35),
+('101', 'Fort-Dehiwala', 'Fort', 'Dehiwala', 15.3, 40),
+('155', 'Pettah-Homagama', 'Pettah', 'Homagama', 28.7, 75),
+('176', 'Colombo-Maharagama', 'Colombo', 'Maharagama', 16.8, 45),
+('103', 'Fort-Moratuwa', 'Fort', 'Moratuwa', 25.4, 65),
+
+-- Kandy area routes
+('644', 'Kandy-Peradeniya', 'Kandy', 'Peradeniya', 8.5, 25),
+('652', 'Kandy-Gampola', 'Kandy', 'Gampola', 24.3, 50),
+('699', 'Kandy-Nuwara Eliya', 'Kandy', 'Nuwara Eliya', 78.2, 180),
+('663', 'Kandy-Matale', 'Kandy', 'Matale', 26.8, 55),
+('678', 'Kandy-Dambulla', 'Kandy', 'Dambulla', 72.5, 120),
+
+-- Galle area routes
+('350', 'Galle-Matara', 'Galle', 'Matara', 42.5, 90),
+('325', 'Galle-Hikkaduwa', 'Galle', 'Hikkaduwa', 18.7, 35),
+('385', 'Galle-Tangalle', 'Galle', 'Tangalle', 65.3, 120),
+('307', 'Galle-Unawatuna', 'Galle', 'Unawatuna', 6.2, 15),
+
+-- Kurunegala area routes
+('42', 'Kurunegala-Puttalam', 'Kurunegala', 'Puttalam', 45.2, 85),
+('48', 'Kurunegala-Chilaw', 'Kurunegala', 'Chilaw', 38.9, 70),
+('46', 'Kurunegala-Wariyapola', 'Kurunegala', 'Wariyapola', 22.3, 40),
+
+-- Anuradhapura area routes
+('57', 'Anuradhapura-Polonnaruwa', 'Anuradhapura', 'Polonnaruwa', 52.8, 95),
+('49', 'Anuradhapura-Vavuniya', 'Anuradhapura', 'Vavuniya', 68.4, 110),
+('51', 'Anuradhapura-Mihintale', 'Anuradhapura', 'Mihintale', 13.2, 25),
+
+-- Ratnapura area routes
+('123', 'Ratnapura-Embilipitiya', 'Ratnapura', 'Embilipitiya', 35.6, 65),
+('130', 'Ratnapura-Balangoda', 'Ratnapura', 'Balangoda', 28.3, 50),
+('127', 'Ratnapura-Pelmadulla', 'Ratnapura', 'Pelmadulla', 18.7, 35),
+
+-- Badulla area routes
+('99', 'Badulla-Bandarawela', 'Badulla', 'Bandarawela', 15.2, 30),
+('94', 'Badulla-Ella', 'Badulla', 'Ella', 22.8, 45),
+('96', 'Badulla-Passara', 'Badulla', 'Passara', 28.5, 55),
+
+-- Batticaloa area routes
+('87', 'Batticaloa-Kalmunai', 'Batticaloa', 'Kalmunai', 38.7, 70),
+('92', 'Batticaloa-Ampara', 'Batticaloa', 'Ampara', 42.3, 80),
+('89', 'Batticaloa-Valaichchenai', 'Batticaloa', 'Valaichchenai', 25.4, 45),
+
+-- Jaffna area routes
+('758', 'Jaffna-Point Pedro', 'Jaffna', 'Point Pedro', 23.8, 40),
+('756', 'Jaffna-Chavakachcheri', 'Jaffna', 'Chavakachcheri', 18.5, 35),
+
+-- Inter-city routes
+('1', 'Colombo-Kandy', 'Colombo', 'Kandy', 115.8, 180),
+('2', 'Colombo-Galle', 'Colombo', 'Galle', 119.2, 150),
+('4', 'Colombo-Matara', 'Colombo', 'Matara', 161.7, 210),
+('15', 'Colombo-Kurunegala', 'Colombo', 'Kurunegala', 94.3, 135),
+('18', 'Colombo-Anuradhapura', 'Colombo', 'Anuradhapura', 205.6, 240),
+('20', 'Colombo-Badulla', 'Colombo', 'Badulla', 230.4, 300),
+('5', 'Colombo-Ratnapura', 'Colombo', 'Ratnapura', 101.2, 150),
+('9', 'Colombo-Batticaloa', 'Colombo', 'Batticaloa', 314.5, 420),
+('12', 'Kandy-Jaffna', 'Kandy', 'Jaffna', 285.7, 360);
+
+
+
+CREATE TABLE route_stops (
+    stop_id SERIAL PRIMARY KEY,
+    route_id INTEGER REFERENCES routes(route_id) ON DELETE CASCADE,
+    stop_name VARCHAR(100) NOT NULL,
+    stop_order INTEGER NOT NULL,
+    distance_from_start DECIMAL(5,2),
+    fare_from_start DECIMAL(6,2),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_route_stops_route_id ON route_stops(route_id);
+CREATE INDEX idx_route_stops_order ON route_stops(route_id, stop_order);
+
+-- Sample stops for route 154 (Kiribathgoda-Angulana)
+INSERT INTO route_stops (route_id, stop_name, stop_order, distance_from_start, fare_from_start) VALUES 
+(1, 'Kiribathgoda', 1, 0.0, 0.00),
+(1, 'Kelaniya', 2, 3.2, 8.00),
+(1, 'Peliyagoda', 3, 6.8, 12.00),
+(1, 'Colombo', 4, 12.5, 18.00),
+(1, 'Wellawatte', 5, 18.3, 25.00),
+(1, 'Dehiwala', 6, 22.1, 30.00),
+(1, 'Mount Lavinia', 7, 25.7, 35.00),
+(1, 'Moratuwa', 8, 30.2, 40.00),
+(1, 'Angulana', 9, 35.5, 45.00);
+
 CREATE TABLE alerts (
     id SERIAL PRIMARY KEY,
     passenger_id INTEGER NOT NULL,
@@ -341,3 +515,4 @@ CREATE TABLE alerts (
     status VARCHAR(50) NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
