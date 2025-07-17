@@ -13,16 +13,16 @@ class User {
     return result.rows[0];
   }
 
-  static async findByEmail(email) {
-    const result = await db.query(
-      `SELECT u.*, r.role_name, r.role_description 
-       FROM users u 
-       JOIN roles r ON u.role_id = r.role_id 
-       WHERE u.email = $1`,
-      [email]
-    );
-    return result.rows[0];
-  }
+static async findByEmail(email) {
+  const result = await db.query(
+    `SELECT u.*, r.role_name, r.role_description 
+     FROM users u 
+     JOIN roles r ON u.role_id = r.role_id 
+     WHERE u.email = $1`,
+    [email]
+  );
+  return result.rows[0];
+}
 
   static async findByUsername(username) {
     const result = await db.query(
@@ -152,17 +152,33 @@ class User {
   }
 
   static async updatePassword(userId, hashedPassword) {
-  try {
-    const result = await db.query(
-      'UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE user_id = $2 RETURNING user_id',
-      [hashedPassword, userId]
-    );
-    return result.rows[0];
-  } catch (error) {
-    console.error('Error updating password:', error);
-    throw error;
+    try {
+      console.log('Updating password for user ID:', userId);
+      
+      const query = `
+        UPDATE users 
+        SET password_hash = $2, updated_at = NOW() 
+        WHERE user_id = $1
+        RETURNING user_id, email, updated_at
+      `;
+      
+      const result = await db.query(query, [userId, hashedPassword]);
+      console.log('Password update result:', result);
+      
+      if (result.rowCount === 0) {
+        throw new Error('User not found or password not updated');
+      }
+      
+      return {
+        affectedRows: result.rowCount,
+        updatedUser: result.rows[0]
+      };
+    } catch (error) {
+      console.error('Error updating password:', error);
+      throw error;
+    }
   }
-}
+
 
   static async getUsersByRole(role_name) {
     const result = await db.query(

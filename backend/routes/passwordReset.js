@@ -43,29 +43,52 @@ router.get('/validate/:token', [
 ], validateResetToken);
 
 // @route   GET /api/password-reset/universal/:token
-// @desc    Universal reset password handler (detects mobile vs web)
+// @desc    Universal handler for both web and mobile
 // @access  Public
 router.get('/universal/:token', (req, res) => {
   const { token } = req.params;
   const userAgent = req.get('User-Agent') || '';
   
-  // Check if request is from mobile app
-  const isMobileApp = userAgent.includes('BusHubLK') || 
-                     userAgent.includes('ReactNative') ||
-                     req.get('X-Requested-With') === 'com.anonymous.bushublkmobile';
+  console.log('Universal reset link accessed:', {
+    token,
+    userAgent,
+    headers: req.headers
+  });
   
-  if (isMobileApp) {
+  // Check if request is from mobile app
+  if (userAgent.includes('BusHubLK') || userAgent.includes('Mobile') || req.headers['x-mobile-app']) {
     // Redirect to mobile deep link
-    res.redirect(`bushublk://reset-password?token=${token}`);
-  } else {
-    // Serve web reset page
-    res.sendFile(path.join(__dirname, '../public/reset-password.html'));
+    return res.redirect(`bushublk://reset-password?token=${token}`);
   }
+  
+  // For web browsers, serve the HTML page with token in URL
+  res.redirect(`/api/password-reset/web/${token}?token=${token}`);
 });
 
-// Keep the existing web route for backward compatibility
+// @route   GET /api/password-reset/web/:token
+// @desc    Serve web reset password page
+// @access  Public
 router.get('/web/:token', (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/reset-password.html'));
+  const { token } = req.params;
+  
+  // Read the HTML file and inject the token
+  const fs = require('fs');
+  const htmlPath = path.join(__dirname, '../public/reset-password.html');
+  
+  try {
+    let html = fs.readFileSync(htmlPath, 'utf8');
+    
+    // Inject token into the HTML
+    html = html.replace(
+      '<input type="hidden" id="tokenInput" name="token" value="">',
+      `<input type="hidden" id="tokenInput" name="token" value="${token}">`
+    );
+    
+    res.send(html);
+  } catch (error) {
+    console.error('Error serving reset page:', error);
+    res.status(500).send('Error loading reset page');
+  }
 });
 
 module.exports = router;

@@ -14,76 +14,79 @@ import {
 import { driverAPI } from "../services/api";
 
 interface ResetPasswordScreenProps {
-  route: {
-    params: {
-      token: string;
-    };
-  };
   navigation: any;
+  route: any;
 }
 
 const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
-  route,
   navigation,
+  route,
 }) => {
-  const { token } = route.params;
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [validatingToken, setValidatingToken] = useState(true);
   const [tokenValid, setTokenValid] = useState(false);
+  const [email, setEmail] = useState("");
+
+  const token = route.params?.token;
 
   useEffect(() => {
-    validateToken();
-  }, []);
+    if (token) {
+      validateToken();
+    } else {
+      Alert.alert("Error", "Invalid reset link.", [
+        { text: "OK", onPress: () => navigation.goBack() },
+      ]);
+    }
+  }, [token]);
 
   const validateToken = async () => {
     try {
+      setValidatingToken(true);
       const response = await driverAPI.validateResetToken(token);
+
       if (response.success) {
         setTokenValid(true);
+        setEmail(response.email || "");
       } else {
         Alert.alert(
-          "Invalid Link",
-          "This password reset link is invalid or has expired."
+          "Error",
+          response.error || "Invalid or expired reset token.",
+          [{ text: "OK", onPress: () => navigation.goBack() }]
         );
-        navigation.goBack();
       }
     } catch (error) {
-      Alert.alert("Error", "Failed to validate reset link.");
-      navigation.goBack();
+      Alert.alert("Error", "Failed to validate reset token.", [
+        { text: "OK", onPress: () => navigation.goBack() },
+      ]);
     } finally {
       setValidatingToken(false);
     }
   };
 
-  const validatePassword = (password: string): boolean => {
+  const validatePassword = (password: string): string | null => {
     if (password.length < 6) {
-      Alert.alert(
-        "Invalid Password",
-        "Password must be at least 6 characters long."
-      );
-      return false;
+      return "Password must be at least 6 characters long.";
     }
 
     if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(password)) {
-      Alert.alert(
-        "Invalid Password",
-        "Password must contain at least one uppercase letter, one lowercase letter, and one number."
-      );
-      return false;
+      return "Password must contain at least one uppercase letter, one lowercase letter, and one number.";
     }
 
-    return true;
+    return null;
   };
 
   const handleResetPassword = async () => {
-    if (!validatePassword(newPassword)) {
+    // Validate passwords
+    const passwordError = validatePassword(newPassword);
+    if (passwordError) {
+      Alert.alert("Invalid Password", passwordError);
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      Alert.alert("Password Mismatch", "Passwords do not match.");
+      Alert.alert("Error", "Passwords do not match.");
       return;
     }
 
@@ -94,7 +97,7 @@ const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
       if (response.success) {
         Alert.alert(
           "Success",
-          "Password reset successfully! You can now login with your new password.",
+          "Password has been reset successfully. You can now login with your new password.",
           [
             {
               text: "OK",
@@ -122,7 +125,17 @@ const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
   }
 
   if (!tokenValid) {
-    return null; // Will navigate back
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>Invalid or expired reset link</Text>
+        <TouchableOpacity
+          style={styles.button}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.buttonText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
   }
 
   return (
@@ -133,7 +146,8 @@ const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.header}>
           <Text style={styles.title}>🚌 BusHubLK</Text>
-          <Text style={styles.subtitle}>Reset Your Password</Text>
+          <Text style={styles.subtitle}>Reset Password</Text>
+          {email && <Text style={styles.emailText}>for {email}</Text>}
         </View>
 
         <View style={styles.requirementsBox}>
@@ -152,9 +166,10 @@ const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
             style={styles.input}
             value={newPassword}
             onChangeText={setNewPassword}
-            secureTextEntry
             placeholder="Enter new password"
+            secureTextEntry
             autoCapitalize="none"
+            autoCorrect={false}
           />
         </View>
 
@@ -164,9 +179,10 @@ const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
             style={styles.input}
             value={confirmPassword}
             onChangeText={setConfirmPassword}
-            secureTextEntry
             placeholder="Confirm new password"
+            secureTextEntry
             autoCapitalize="none"
+            autoCorrect={false}
           />
         </View>
 
@@ -212,7 +228,20 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     fontSize: 16,
-    color: "#6b7280",
+    color: "#374151",
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f8fafc",
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 18,
+    color: "#dc2626",
+    textAlign: "center",
+    marginBottom: 20,
   },
   header: {
     alignItems: "center",
@@ -229,22 +258,29 @@ const styles = StyleSheet.create({
     color: "#374151",
     fontWeight: "600",
   },
+  emailText: {
+    fontSize: 14,
+    color: "#6b7280",
+    marginTop: 5,
+  },
   requirementsBox: {
     backgroundColor: "#f3f4f6",
     padding: 15,
     borderRadius: 8,
     marginBottom: 20,
+    borderLeftWidth: 4,
+    borderLeftColor: "#3b82f6",
   },
   requirementsTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
+    fontSize: 14,
+    fontWeight: "600",
     color: "#374151",
     marginBottom: 8,
   },
   requirementItem: {
-    fontSize: 14,
+    fontSize: 12,
     color: "#6b7280",
-    marginBottom: 4,
+    marginBottom: 2,
   },
   inputContainer: {
     marginBottom: 20,

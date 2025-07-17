@@ -18,28 +18,55 @@ const driverLogin = async (req, res) => {
     // Find user by email
     const user = await User.findByEmail(email);
     if (!user) {
+      console.log('User not found for email:', email);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
+
+    console.log('User found:', {
+      userId: user.user_id,
+      email: user.email,
+      hasPasswordHash: !!user.password_hash,
+      passwordHashLength: user.password_hash?.length
+    });
 
     // Check if user is active
     if (!user.is_active) {
+      console.log('User account is inactive:', user.user_id);
       return res.status(401).json({ error: 'Account is deactivated. Please contact administrator.' });
     }
 
-    // Verify password
+    // Verify password with detailed logging
+    console.log('Attempting password verification...');
+    console.log('Input password length:', password.length);
+    console.log('Stored hash length:', user.password_hash?.length);
+    
     const isMatch = await bcrypt.compare(password, user.password_hash);
+    console.log('Password match result:', isMatch);
+    
     if (!isMatch) {
+      console.log('Password verification failed for user:', user.user_id);
+      
+      // Additional debugging: try to hash the input password and compare lengths
+      const testHash = await bcrypt.hash(password, 10);
+      console.log('Test hash of input password:', testHash.length, 'chars');
+      console.log('Stored hash:', user.password_hash?.substring(0, 20) + '...');
+      console.log('Test hash:', testHash.substring(0, 20) + '...');
+      
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    console.log('Password verification successful for user:', user.user_id);
+
     // Check if user has driver role
     if (user.role_name !== 'driver') {
+      console.log('User does not have driver role:', user.role_name);
       return res.status(403).json({ error: 'Access denied. Driver account required.' });
     }
 
     // Get driver-specific information
     const driver = await Driver.findByUserId(user.user_id);
     if (!driver) {
+      console.log('Driver profile not found for user:', user.user_id);
       return res.status(404).json({ error: 'Driver profile not found. Please contact administrator.' });
     }
 
@@ -63,6 +90,8 @@ const driverLogin = async (req, res) => {
           console.error('JWT signing error:', err);
           return res.status(500).json({ error: 'Token generation failed' });
         }
+        
+        console.log('Login successful for user:', user.user_id);
         
         res.json({
           success: true,

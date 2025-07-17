@@ -34,12 +34,13 @@ const getDynamicBaseURL = () => {
   const ip = getLocalIPAddress();
   const port = process.env.PORT || 5000;
   
-  // If we're in production, use the production URL
+  // Always use HTTP for development to avoid SSL issues
+  // In production, you should use HTTPS
   if (process.env.NODE_ENV === 'production') {
-    return process.env.BACKEND_URL || `http://${ip}:${port}`;
+    return process.env.BACKEND_URL || `https://${ip}:${port}`;
   }
   
-  // For development, use dynamic IP
+  // For development, always use HTTP
   return `http://${ip}:${port}`;
 };
 
