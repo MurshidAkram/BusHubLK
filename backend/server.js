@@ -100,6 +100,9 @@ try {
   console.log('❌ passwordReset error:', error.message);
 }
 
+const regionDepotRoutes = require('./routes/regionDepotRoutes');
+app.use('/api', regionDepotRoutes);
+
 // Static file routes
 app.get('/resetPassword.js', (req, res) => {
   res.setHeader('Content-Type', 'application/javascript');
@@ -127,6 +130,7 @@ app.use((req, res) => {
     error: 'Route not found'
   });
 });
+
 
 app.get('/favicon.ico', (req, res) => {
   res.status(204).end();
