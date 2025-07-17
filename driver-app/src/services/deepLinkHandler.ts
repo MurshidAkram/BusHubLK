@@ -1,4 +1,4 @@
-import { Linking } from "react-native";
+import { Linking, Alert } from "react-native";
 import { NavigationContainerRef } from "@react-navigation/native";
 
 export interface DeepLinkHandler {
@@ -24,10 +24,22 @@ class DeepLinkService implements DeepLinkHandler {
         console.log("🔑 Reset password token found:", token);
 
         if (token && this.navigation) {
+          // Show a brief success message that the link was opened
+          Alert.alert(
+            "Link Opened",
+            "Password reset link opened successfully!",
+            [{ text: "Continue", style: "default" }]
+          );
+
           // Navigate to password reset screen with token
           this.navigation.navigate("ResetPassword", { token });
         } else {
           console.error("❌ No token found in reset password link");
+          Alert.alert(
+            "Error",
+            "Invalid reset link. Please request a new password reset.",
+            [{ text: "OK", style: "default" }]
+          );
         }
       } else if (url.includes("login")) {
         console.log("🔐 Login deep link detected");
@@ -48,7 +60,20 @@ class DeepLinkService implements DeepLinkHandler {
             "🔧 Fallback token extraction successful:",
             tokenMatch[1]
           );
+
+          Alert.alert(
+            "Link Opened",
+            "Password reset link opened successfully!",
+            [{ text: "Continue", style: "default" }]
+          );
+
           this.navigation.navigate("ResetPassword", { token: tokenMatch[1] });
+        } else {
+          Alert.alert(
+            "Error",
+            "Could not process the reset link. Please try again.",
+            [{ text: "OK", style: "default" }]
+          );
         }
       }
     }
@@ -59,7 +84,10 @@ class DeepLinkService implements DeepLinkHandler {
     Linking.getInitialURL().then((url) => {
       if (url) {
         console.log("🚀 App launched with deep link:", url);
-        this.handleDeepLink(url);
+        // Add a small delay to ensure navigation is ready
+        setTimeout(() => {
+          this.handleDeepLink(url);
+        }, 1000);
       }
     });
 

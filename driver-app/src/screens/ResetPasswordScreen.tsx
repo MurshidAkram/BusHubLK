@@ -24,22 +24,26 @@ const ResetPasswordScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
 
+  // Add this to the beginning of your ResetPasswordScreen component
   useEffect(() => {
-    // Get token from route params (from deep link)
+    // Show a brief loading message when the screen first loads
     const tokenFromParams = route.params?.token;
 
-    console.log("🔑 ResetPasswordScreen received token:", tokenFromParams);
-
     if (tokenFromParams) {
+      console.log("🔑 ResetPasswordScreen received token:", tokenFromParams);
       setToken(tokenFromParams);
-      validateToken(tokenFromParams);
+
+      // Add a small delay to make the transition smoother
+      setTimeout(() => {
+        validateToken(tokenFromParams);
+      }, 500);
     } else {
       console.error("❌ No token provided to ResetPasswordScreen");
       Alert.alert(
         "Error",
-        "Invalid reset link. Please request a new password reset."
+        "Invalid reset link. Please request a new password reset.",
+        [{ text: "OK", onPress: () => navigation.navigate("Login") }]
       );
-      navigation.navigate("Login");
     }
   }, [route.params]);
 
