@@ -11,6 +11,7 @@ import LostAndFoundScreen from "../screens/LostAndFoundScreen";
 import EmergencyScreen from "../screens/EmergencyScreen";
 import ConditionScreen from "../screens/ConditionScreen";
 import TravelLogScreen from "../screens/TravelLogScreen";
+
 import ProfileScreen from "../screens/ProfileScreen";
 import SettingsScreen from "../screens/SettingScreen";
 import MapScreen from "../screens/MapScreen";
@@ -30,6 +31,7 @@ const PlaceholderScreen = ({ title }) => (
   </View>
 );
 
+
 // Home Stack Navigator
 const HomeStackNavigator = () => {
   return (
@@ -46,12 +48,15 @@ const HomeStackNavigator = () => {
       <HomeStack.Screen name="TravelLog" component={TravelLogScreen} />
       <HomeStack.Screen name="ProfileModal" component={ProfileScreen} />
       <HomeStack.Screen name="MapScreen" component={MapScreen} />
+
     </HomeStack.Navigator>
   );
 };
 
+
 // Schedule Stack Navigator
 const ScheduleStackNavigator = () => {
+
   return (
     <ScheduleStack.Navigator
       screenOptions={{
@@ -84,7 +89,9 @@ const SettingsStackNavigator = () => {
         headerShown: false,
       }}
     >
+
       <SettingsStack.Screen name="SettingsMain" component={SettingsScreen} />
+
     </SettingsStack.Navigator>
   );
 };

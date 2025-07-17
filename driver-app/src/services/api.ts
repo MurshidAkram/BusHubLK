@@ -1,14 +1,14 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { API_BASE_URL } from '../config/api';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { API_BASE_URL } from "../config/api";
 
 // Driver-specific API functions
 export const driverAPI = {
   // Driver login
   loginDriver: async (credentials: { email: string; password: string }) => {
     const response = await fetch(`${API_BASE_URL}/driver/login`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify(credentials),
     });
@@ -19,10 +19,10 @@ export const driverAPI = {
   getDriverProfile: async () => {
     const token = await storageAPI.getAuthToken();
     const response = await fetch(`${API_BASE_URL}/driver/profile`, {
-      method: 'GET',
+      method: "GET",
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
       },
     });
     return response.json();
@@ -32,13 +32,50 @@ export const driverAPI = {
   updateDriverProfile: async (profileData: any) => {
     const token = await storageAPI.getAuthToken();
     const response = await fetch(`${API_BASE_URL}/driver/profile`, {
-      method: 'PUT',
+      method: "PUT",
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify(profileData),
     });
+    return response.json();
+  },
+
+  requestPasswordReset: async (email: string) => {
+    const response = await fetch(`${API_BASE_URL}/password-reset/request`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email }),
+    });
+    return response.json();
+  },
+
+  // Reset password with token
+  resetPassword: async (token: string, newPassword: string) => {
+    const response = await fetch(`${API_BASE_URL}/password-reset/reset`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ token, newPassword }),
+    });
+    return response.json();
+  },
+
+  // Validate reset token
+  validateResetToken: async (token: string) => {
+    const response = await fetch(
+      `${API_BASE_URL}/password-reset/validate/${token}`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
     return response.json();
   },
 
@@ -48,8 +85,8 @@ export const driverAPI = {
       await storageAPI.clearStorage();
       return { success: true };
     } catch (error) {
-      console.error('Logout error:', error);
-      return { success: false, error: 'Failed to logout' };
+      console.error("Logout error:", error);
+      return { success: false, error: "Failed to logout" };
     }
   },
 };
@@ -59,18 +96,18 @@ export const storageAPI = {
   // Store auth token
   storeAuthToken: async (token: string) => {
     try {
-      await AsyncStorage.setItem('driverToken', token);
+      await AsyncStorage.setItem("driverToken", token);
     } catch (error) {
-      console.error('Error storing auth token:', error);
+      console.error("Error storing auth token:", error);
     }
   },
 
   // Get auth token
   getAuthToken: async (): Promise<string | null> => {
     try {
-      return await AsyncStorage.getItem('driverToken');
+      return await AsyncStorage.getItem("driverToken");
     } catch (error) {
-      console.error('Error getting auth token:', error);
+      console.error("Error getting auth token:", error);
       return null;
     }
   },
@@ -78,11 +115,11 @@ export const storageAPI = {
   // Check if authenticated
   isAuthenticated: async (): Promise<boolean> => {
     try {
-      const token = await AsyncStorage.getItem('driverToken');
-      const userData = await AsyncStorage.getItem('driverUser');
+      const token = await AsyncStorage.getItem("driverToken");
+      const userData = await AsyncStorage.getItem("driverUser");
       return !!(token && userData);
     } catch (error) {
-      console.error('Error checking authentication:', error);
+      console.error("Error checking authentication:", error);
       return false;
     }
   },
@@ -90,19 +127,19 @@ export const storageAPI = {
   // Store user data
   storeUserData: async (userData: any) => {
     try {
-      await AsyncStorage.setItem('driverUser', JSON.stringify(userData));
+      await AsyncStorage.setItem("driverUser", JSON.stringify(userData));
     } catch (error) {
-      console.error('Error storing user data:', error);
+      console.error("Error storing user data:", error);
     }
   },
 
   // Get user data
   getUserData: async (): Promise<any | null> => {
     try {
-      const userData = await AsyncStorage.getItem('driverUser');
+      const userData = await AsyncStorage.getItem("driverUser");
       return userData ? JSON.parse(userData) : null;
     } catch (error) {
-      console.error('Error getting user data:', error);
+      console.error("Error getting user data:", error);
       return null;
     }
   },
@@ -110,19 +147,19 @@ export const storageAPI = {
   // Store settings
   saveSettings: async (settings: any) => {
     try {
-      await AsyncStorage.setItem('driverSettings', JSON.stringify(settings));
+      await AsyncStorage.setItem("driverSettings", JSON.stringify(settings));
     } catch (error) {
-      console.error('Error saving settings:', error);
+      console.error("Error saving settings:", error);
     }
   },
 
   // Get settings
   getSettings: async (): Promise<any | null> => {
     try {
-      const settings = await AsyncStorage.getItem('driverSettings');
+      const settings = await AsyncStorage.getItem("driverSettings");
       return settings ? JSON.parse(settings) : null;
     } catch (error) {
-      console.error('Error getting settings:', error);
+      console.error("Error getting settings:", error);
       return null;
     }
   },
@@ -130,10 +167,10 @@ export const storageAPI = {
   // Clear cache (keep auth data)
   clearCache: async () => {
     try {
-      const keysToRemove = ['driverCache', 'tempData', 'routeCache'];
+      const keysToRemove = ["driverCache", "tempData", "routeCache"];
       await AsyncStorage.multiRemove(keysToRemove);
     } catch (error) {
-      console.error('Error clearing cache:', error);
+      console.error("Error clearing cache:", error);
     }
   },
 
@@ -141,15 +178,15 @@ export const storageAPI = {
   clearStorage: async () => {
     try {
       await AsyncStorage.multiRemove([
-        'driverToken', 
-        'driverUser', 
-        'driverSettings',
-        'driverCache',
-        'tempData',
-        'routeCache'
+        "driverToken",
+        "driverUser",
+        "driverSettings",
+        "driverCache",
+        "tempData",
+        "routeCache",
       ]);
     } catch (error) {
-      console.error('Error clearing storage:', error);
+      console.error("Error clearing storage:", error);
     }
   },
 };
@@ -158,10 +195,10 @@ export const storageAPI = {
 export const submitLostAndFoundReport = async (reportData: any) => {
   const token = await storageAPI.getAuthToken();
   const response = await fetch(`${API_BASE_URL}/lost-and-found`, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(reportData),
   });
@@ -171,10 +208,10 @@ export const submitLostAndFoundReport = async (reportData: any) => {
 export const submitEmergencyReport = async (reportData: any) => {
   const token = await storageAPI.getAuthToken();
   const response = await fetch(`${API_BASE_URL}/emergency-report`, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(reportData),
   });
@@ -184,10 +221,10 @@ export const submitEmergencyReport = async (reportData: any) => {
 export const submitConditionReport = async (reportData: any) => {
   const token = await storageAPI.getAuthToken();
   const response = await fetch(`${API_BASE_URL}/condition-report`, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(reportData),
   });
@@ -197,10 +234,10 @@ export const submitConditionReport = async (reportData: any) => {
 export const submitTravelLog = async (logData: any) => {
   const token = await storageAPI.getAuthToken();
   const response = await fetch(`${API_BASE_URL}/travel-log`, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(logData),
   });

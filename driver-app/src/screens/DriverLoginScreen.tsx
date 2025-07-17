@@ -94,7 +94,6 @@ export default function DriverLoginScreen() {
                 style={styles.logo}
                 resizeMode="contain"
               />
-              <Text style={styles.appName}>BusHubLK</Text>
               <Text style={styles.tagline}>Driver Portal</Text>
               <Text style={styles.subtitle}>
                 Manage Your Routes Efficiently
@@ -109,9 +108,8 @@ export default function DriverLoginScreen() {
                   <Text style={styles.welcomeText}>Driver Login</Text>
                 </View>
                 <Text style={styles.loginSubtitle}>
-                  Enter your credentials to access the driver portal
+                  Enter your credentials to access the portal
                 </Text>
-
                 {/* Email Input */}
                 <View style={styles.inputContainer}>
                   <View style={styles.inputWrapper}>
@@ -133,7 +131,6 @@ export default function DriverLoginScreen() {
                     />
                   </View>
                 </View>
-
                 {/* Password Input */}
                 <View style={styles.inputContainer}>
                   <View style={styles.inputWrapper}>
@@ -164,7 +161,6 @@ export default function DriverLoginScreen() {
                     </TouchableOpacity>
                   </View>
                 </View>
-
                 {/* Login Button */}
                 <TouchableOpacity
                   style={[
@@ -191,57 +187,17 @@ export default function DriverLoginScreen() {
                     </View>
                   </LinearGradient>
                 </TouchableOpacity>
-
+                {/* Forgot Password */}
+                // Update the forgot password TouchableOpacity in your existing
+                DriverLoginScreen.tsx
                 {/* Forgot Password */}
                 <TouchableOpacity
-                  onPress={() =>
-                    Alert.alert(
-                      "Contact Admin",
-                      "Please contact your administrator to reset your password."
-                    )
-                  }
+                  onPress={() => navigation.navigate("ForgotPassword")}
                   style={styles.forgotPasswordContainer}
                 >
                   <Text style={styles.forgotPasswordText}>
                     Forgot Password?
                   </Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Help Section */}
-              <View style={styles.helpContainer}>
-                <View style={styles.helpCard}>
-                  <Ionicons
-                    name="help-circle-outline"
-                    size={24}
-                    color="rgba(255, 255, 255, 0.8)"
-                  />
-                  <Text style={styles.helpText}>
-                    Need help? Contact support
-                  </Text>
-                  <TouchableOpacity style={styles.helpButton}>
-                    <Text style={styles.helpButtonText}>Get Help</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* Divider */}
-              <View style={styles.dividerContainer}>
-                <View style={styles.divider} />
-                <Text style={styles.dividerText}>or</Text>
-                <View style={styles.divider} />
-              </View>
-
-              {/* Social Login Buttons */}
-              <View style={styles.socialContainer}>
-                <TouchableOpacity style={styles.socialButton}>
-                  <Ionicons name="logo-google" size={20} color="#ea4335" />
-                  <Text style={styles.socialButtonText}>Google</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.socialButton}>
-                  <Ionicons name="logo-facebook" size={20} color="#1877f2" />
-                  <Text style={styles.socialButtonText}>Facebook</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -269,32 +225,25 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     alignItems: "center",
-    marginBottom: 5,
+    marginBottom: 35,
   },
   logo: {
     width: 180,
     height: 180,
-    marginBottom: 1,
-    marginTop: 40,
+    marginBottom: -8,
+    marginTop: 20,
   },
-  appName: {
-    fontSize: 32,
-    fontWeight: "bold",
-    color: "#ffffff",
-    marginBottom: 8,
-    textShadowColor: "rgba(0, 0, 0, 0.3)",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
-  },
+
   tagline: {
-    fontSize: 16,
+    fontSize: 25,
     color: "rgba(255, 255, 255, 0.8)",
     textAlign: "center",
-    fontWeight: "600",
+    fontWeight: "800",
     marginBottom: 4,
+    marginTop: -8,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 19,
     color: "rgba(255, 255, 255, 0.7)",
     textAlign: "center",
   },
@@ -401,35 +350,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-  helpContainer: {
-    marginTop: 16,
-  },
-  helpCard: {
-    backgroundColor: "rgba(255, 255, 255, 0.15)",
-    borderRadius: 16,
-    padding: 20,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.2)",
-  },
-  helpText: {
-    color: "rgba(255, 255, 255, 0.8)",
-    fontSize: 16,
-    marginVertical: 8,
-    textAlign: "center",
-  },
-  helpButton: {
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 12,
-    marginTop: 8,
-  },
-  helpButtonText: {
-    color: "#ffffff",
-    fontSize: 14,
-    fontWeight: "600",
-  },
+  
   dividerContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -445,11 +366,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginHorizontal: 16,
   },
-  socialContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 12,
-  },
+  
   socialButton: {
     flex: 1,
     flexDirection: "row",
