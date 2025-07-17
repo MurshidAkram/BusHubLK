@@ -6,98 +6,107 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
-  ActivityIndicator,
+  ScrollView,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
 } from "react-native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import { driverAPI } from "../services/api";
 
-interface ResetPasswordScreenProps {
-  navigation: any;
-  route: any;
-}
-
-const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
-  navigation,
-  route,
-}) => {
+const ResetPasswordScreen = () => {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [validatingToken, setValidatingToken] = useState(true);
+  const [token, setToken] = useState("");
   const [tokenValid, setTokenValid] = useState(false);
-  const [email, setEmail] = useState("");
+  const [validatingToken, setValidatingToken] = useState(true);
 
-  const token = route.params?.token;
+  const navigation = useNavigation();
+  const route = useRoute();
 
   useEffect(() => {
-    if (token) {
-      validateToken();
-    } else {
-      Alert.alert("Error", "Invalid reset link.", [
-        { text: "OK", onPress: () => navigation.goBack() },
-      ]);
-    }
-  }, [token]);
+    // Get token from route params (from deep link)
+    const tokenFromParams = route.params?.token;
 
-  const validateToken = async () => {
+    console.log("🔑 ResetPasswordScreen received token:", tokenFromParams);
+
+    if (tokenFromParams) {
+      setToken(tokenFromParams);
+      validateToken(tokenFromParams);
+    } else {
+      console.error("❌ No token provided to ResetPasswordScreen");
+      Alert.alert(
+        "Error",
+        "Invalid reset link. Please request a new password reset."
+      );
+      navigation.navigate("Login");
+    }
+  }, [route.params]);
+
+  const validateToken = async (resetToken) => {
     try {
       setValidatingToken(true);
-      const response = await driverAPI.validateResetToken(token);
+      console.log("🔍 Validating token:", resetToken);
+
+      const response = await driverAPI.validateResetToken(resetToken);
+      console.log("✅ Token validation response:", response);
 
       if (response.success) {
         setTokenValid(true);
-        setEmail(response.email || "");
       } else {
+        setTokenValid(false);
         Alert.alert(
           "Error",
-          response.error || "Invalid or expired reset token.",
-          [{ text: "OK", onPress: () => navigation.goBack() }]
+          response.error || "Invalid or expired reset link."
         );
+        navigation.navigate("Login");
       }
     } catch (error) {
-      Alert.alert("Error", "Failed to validate reset token.", [
-        { text: "OK", onPress: () => navigation.goBack() },
-      ]);
+      console.error("❌ Token validation error:", error);
+      setTokenValid(false);
+      Alert.alert("Error", "Failed to validate reset link. Please try again.");
+      navigation.navigate("Login");
     } finally {
       setValidatingToken(false);
     }
   };
 
-  const validatePassword = (password: string): string | null => {
-    if (password.length < 6) {
-      return "Password must be at least 6 characters long.";
+  const validatePassword = () => {
+    if (newPassword.length < 6) {
+      Alert.alert("Error", "Password must be at least 6 characters long.");
+      return false;
     }
 
-    if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(password)) {
-      return "Password must contain at least one uppercase letter, one lowercase letter, and one number.";
-    }
-
-    return null;
-  };
-
-  const handleResetPassword = async () => {
-    // Validate passwords
-    const passwordError = validatePassword(newPassword);
-    if (passwordError) {
-      Alert.alert("Invalid Password", passwordError);
-      return;
+    if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(newPassword)) {
+      Alert.alert(
+        "Error",
+        "Password must contain at least one uppercase letter, one lowercase letter, and one number."
+      );
+      return false;
     }
 
     if (newPassword !== confirmPassword) {
       Alert.alert("Error", "Passwords do not match.");
-      return;
+      return false;
     }
 
-    setLoading(true);
+    return true;
+  };
+
+  const handleResetPassword = async () => {
+    if (!validatePassword()) return;
+
     try {
+      setLoading(true);
+      console.log("🔄 Resetting password with token:", token);
+
       const response = await driverAPI.resetPassword(token, newPassword);
+      console.log("✅ Password reset response:", response);
 
       if (response.success) {
         Alert.alert(
           "Success",
-          "Password has been reset successfully. You can now login with your new password.",
+          "Password reset successfully! You can now login with your new password.",
           [
             {
               text: "OK",
@@ -109,6 +118,7 @@ const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
         Alert.alert("Error", response.error || "Failed to reset password.");
       }
     } catch (error) {
+      console.error("❌ Password reset error:", error);
       Alert.alert("Error", "Network error. Please try again.");
     } finally {
       setLoading(false);
@@ -117,23 +127,28 @@ const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
 
   if (validatingToken) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3b82f6" />
-        <Text style={styles.loadingText}>Validating reset link...</Text>
+      <View style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.title}>🚌 BusHubLK</Text>
+          <Text style={styles.loadingText}>Validating reset link...</Text>
+        </View>
       </View>
     );
   }
 
   if (!tokenValid) {
     return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Invalid or expired reset link</Text>
-        <TouchableOpacity
-          style={styles.button}
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={styles.buttonText}>Go Back</Text>
-        </TouchableOpacity>
+      <View style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.title}>🚌 BusHubLK</Text>
+          <Text style={styles.errorText}>Invalid or expired reset link</Text>
+          <TouchableOpacity
+            style={styles.button}
+            onPress={() => navigation.navigate("Login")}
+          >
+            <Text style={styles.buttonText}>Back to Login</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
@@ -144,66 +159,61 @@ const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <View style={styles.header}>
+        <View style={styles.formContainer}>
           <Text style={styles.title}>🚌 BusHubLK</Text>
-          <Text style={styles.subtitle}>Reset Password</Text>
-          {email && <Text style={styles.emailText}>for {email}</Text>}
+          <Text style={styles.subtitle}>Reset Your Password</Text>
+
+          <View style={styles.requirementsContainer}>
+            <Text style={styles.requirementsTitle}>Password Requirements:</Text>
+            <Text style={styles.requirementText}>
+              • At least 6 characters long
+            </Text>
+            <Text style={styles.requirementText}>• One uppercase letter</Text>
+            <Text style={styles.requirementText}>• One lowercase letter</Text>
+            <Text style={styles.requirementText}>• One number</Text>
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>New Password</Text>
+            <TextInput
+              style={styles.input}
+              value={newPassword}
+              onChangeText={setNewPassword}
+              secureTextEntry
+              placeholder="Enter new password"
+              autoCapitalize="none"
+            />
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Confirm Password</Text>
+            <TextInput
+              style={styles.input}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              secureTextEntry
+              placeholder="Confirm new password"
+              autoCapitalize="none"
+            />
+          </View>
+
+          <TouchableOpacity
+            style={[styles.button, loading && styles.buttonDisabled]}
+            onPress={handleResetPassword}
+            disabled={loading}
+          >
+            <Text style={styles.buttonText}>
+              {loading ? "Resetting..." : "Reset Password"}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.navigate("Login")}
+          >
+            <Text style={styles.backButtonText}>Back to Login</Text>
+          </TouchableOpacity>
         </View>
-
-        <View style={styles.requirementsBox}>
-          <Text style={styles.requirementsTitle}>Password Requirements:</Text>
-          <Text style={styles.requirementItem}>
-            • At least 6 characters long
-          </Text>
-          <Text style={styles.requirementItem}>• One uppercase letter</Text>
-          <Text style={styles.requirementItem}>• One lowercase letter</Text>
-          <Text style={styles.requirementItem}>• One number</Text>
-        </View>
-
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>New Password:</Text>
-          <TextInput
-            style={styles.input}
-            value={newPassword}
-            onChangeText={setNewPassword}
-            placeholder="Enter new password"
-            secureTextEntry
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-        </View>
-
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Confirm Password:</Text>
-          <TextInput
-            style={styles.input}
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            placeholder="Confirm new password"
-            secureTextEntry
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-        </View>
-
-        <TouchableOpacity
-          style={[styles.button, loading && styles.buttonDisabled]}
-          onPress={handleResetPassword}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <Text style={styles.buttonText}>Reset Password</Text>
-          )}
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={styles.backButtonText}>Back to Login</Text>
-        </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -212,72 +222,65 @@ const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#f5f5f5",
   },
   scrollContainer: {
     flexGrow: 1,
     justifyContent: "center",
     padding: 20,
   },
+  formContainer: {
+    backgroundColor: "white",
+    padding: 30,
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#f8fafc",
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: "#374151",
+    padding: 30,
   },
   errorContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#f8fafc",
-    padding: 20,
-  },
-  errorText: {
-    fontSize: 18,
-    color: "#dc2626",
-    textAlign: "center",
-    marginBottom: 20,
-  },
-  header: {
-    alignItems: "center",
-    marginBottom: 30,
+    padding: 30,
   },
   title: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: "bold",
-    color: "#1e3a8a",
+    textAlign: "center",
     marginBottom: 10,
+    color: "#1e3a8a",
   },
   subtitle: {
     fontSize: 20,
-    color: "#374151",
     fontWeight: "600",
+    textAlign: "center",
+    marginBottom: 30,
+    color: "#374151",
   },
-  emailText: {
-    fontSize: 14,
-    color: "#6b7280",
-    marginTop: 5,
-  },
-  requirementsBox: {
+  requirementsContainer: {
     backgroundColor: "#f3f4f6",
     padding: 15,
     borderRadius: 8,
     marginBottom: 20,
-    borderLeftWidth: 4,
-    borderLeftColor: "#3b82f6",
   },
   requirementsTitle: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#374151",
     marginBottom: 8,
+    color: "#374151",
   },
-  requirementItem: {
+  requirementText: {
     fontSize: 12,
     color: "#6b7280",
     marginBottom: 2,
@@ -288,17 +291,16 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#374151",
     marginBottom: 8,
+    color: "#374151",
   },
   input: {
-    backgroundColor: "white",
     borderWidth: 1,
     borderColor: "#d1d5db",
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    color: "#374151",
+    backgroundColor: "#fff",
   },
   button: {
     backgroundColor: "#3b82f6",
@@ -321,8 +323,20 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     color: "#3b82f6",
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "500",
+  },
+  loadingText: {
+    fontSize: 16,
+    color: "#6b7280",
+    textAlign: "center",
+    marginTop: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: "#dc2626",
+    textAlign: "center",
+    marginBottom: 20,
   },
 });
 

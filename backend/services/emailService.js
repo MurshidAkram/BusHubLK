@@ -6,7 +6,7 @@ const createTransport = () => {
   
   switch (emailService.toLowerCase()) {
     case 'gmail':
-      return nodemailer.createTransport({  // Fixed: removed 'er' from createTransporter
+      return nodemailer.createTransporter({
         service: 'gmail',
         auth: {
           user: process.env.EMAIL_USER,
@@ -16,7 +16,7 @@ const createTransport = () => {
       
     case 'outlook':
     case 'hotmail':
-      return nodemailer.createTransport({  // Fixed: removed 'er' from createTransporter
+      return nodemailer.createTransporter({
         service: 'hotmail',
         auth: {
           user: process.env.EMAIL_USER,
@@ -25,7 +25,7 @@ const createTransport = () => {
       });
       
     case 'sendgrid':
-      return nodemailer.createTransport({  // Fixed: removed 'er' from createTransporter
+      return nodemailer.createTransporter({
         service: 'SendGrid',
         auth: {
           user: 'apikey',
@@ -34,7 +34,7 @@ const createTransport = () => {
       });
       
     case 'smtp':
-      return nodemailer.createTransport({  // Fixed: removed 'er' from createTransporter
+      return nodemailer.createTransporter({
         host: process.env.SMTP_HOST,
         port: process.env.SMTP_PORT || 587,
         secure: process.env.SMTP_SECURE === 'true',
@@ -57,8 +57,10 @@ const sendPasswordResetEmail = async (email, firstName, resetToken) => {
     await transporter.verify();
     console.log('Email server connection verified');
     
-    // Use dynamic IP address - SINGLE UNIVERSAL LINK
+    // Use dynamic IP address
     const baseURL = getDynamicBaseURL();
+    
+    // Create a universal reset URL that works for both web and mobile
     const universalResetUrl = `${baseURL}/api/password-reset/universal/${resetToken}`;
     
     console.log('Generated universal reset URL:', { universalResetUrl, baseURL });
@@ -80,6 +82,7 @@ const sendPasswordResetEmail = async (email, firstName, resetToken) => {
             .button:hover { background: #2563eb; }
             .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
             .warning { background: #fef3cd; border: 1px solid #fecaca; padding: 15px; border-radius: 6px; margin: 20px 0; }
+            .mobile-note { background: #e0f2fe; border: 1px solid #0288d1; padding: 15px; border-radius: 6px; margin: 20px 0; }
           </style>
         </head>
         <body>
@@ -96,13 +99,17 @@ const sendPasswordResetEmail = async (email, firstName, resetToken) => {
                 <strong>⚠️ Security Notice:</strong> If you didn't request this password reset, please ignore this email. Your account is secure.
               </div>
               
-              <p>Click the button below to reset your password. This link works on both web and mobile:</p>
+              <p>Click the button below to reset your password:</p>
               
               <div style="text-align: center; margin: 30px 0;">
                 <a href="${universalResetUrl}" class="button">Reset Password</a>
               </div>
               
-              <p>Or copy and paste this link into your browser:</p>
+              <div class="mobile-note">
+                <strong>📱 Mobile Users:</strong> This link will automatically detect your device and either open the BusHubLK app or redirect you to a mobile-friendly web page.
+              </div>
+              
+              <p>If the button doesn't work, copy and paste this link into your browser:</p>
               <p><a href="${universalResetUrl}">${universalResetUrl}</a></p>
               
               <div class="warning">
@@ -111,7 +118,6 @@ const sendPasswordResetEmail = async (email, firstName, resetToken) => {
                   <li>This link will expire in 1 hour</li>
                   <li>You can only use this link once</li>
                   <li>If the link expires, request a new password reset</li>
-                  <li>This link works on both web browsers and mobile app</li>
                 </ul>
               </div>
               

@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
-import { Linking } from "react-native";
 import DriverLoginScreen from "../screens/DriverLoginScreen";
 import ForgotPasswordScreen from "../screens/ForgotPasswordScreen";
 import ResetPasswordScreen from "../screens/ResetPasswordScreen";
@@ -14,7 +13,7 @@ const Stack = createStackNavigator();
 export default function RootNavigator() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
-  const navigationRef = useRef<any>();
+  const navigationRef = useRef(null);
 
   const initializeApp = useCallback(async () => {
     try {
@@ -65,21 +64,6 @@ export default function RootNavigator() {
     }
   }, [isAuthenticated, isInitialized]);
 
-  // Handle deep links
-  const handleDeepLink = useCallback((url: string) => {
-    console.log("🔗 Handling deep link:", url);
-
-    if (url.includes("reset-password")) {
-      const urlObj = new URL(url);
-      const token = urlObj.searchParams.get("token");
-
-      if (token && navigationRef.current) {
-        // Navigate to password reset screen with token
-        navigationRef.current.navigate("ResetPassword", { token });
-      }
-    }
-  }, []);
-
   useEffect(() => {
     initializeApp();
   }, [initializeApp]);
@@ -93,22 +77,12 @@ export default function RootNavigator() {
 
   // Setup deep link handling
   useEffect(() => {
-    // Handle app launch from deep link
-    Linking.getInitialURL().then((url) => {
-      if (url) {
-        console.log("🚀 App launched with deep link:", url);
-        handleDeepLink(url);
-      }
-    });
-
-    // Handle deep links when app is already running
-    const subscription = Linking.addEventListener("url", ({ url }) => {
-      console.log("📱 Deep link received while app running:", url);
-      handleDeepLink(url);
-    });
-
-    return () => subscription?.remove();
-  }, [handleDeepLink]);
+    if (navigationRef.current) {
+      deepLinkService.setNavigation(navigationRef.current);
+      const cleanup = deepLinkService.setupDeepLinkListener();
+      return cleanup;
+    }
+  }, [navigationRef.current]);
 
   // Show nothing until app is initialized
   if (!isInitialized) {

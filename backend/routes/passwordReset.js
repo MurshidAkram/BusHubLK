@@ -31,7 +31,45 @@ router.post('/reset', [
     .withMessage('Password must be at least 6 characters long')
     .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
     .withMessage('Password must contain at least one uppercase letter, one lowercase letter, and one number')
-], resetPassword);
+], async (req, res) => {
+  try {
+    // Handle both JSON and form submissions
+    const result = await resetPassword(req, res);
+    
+    // If it's a form submission (from web), redirect or show success page
+    if (req.get('Content-Type') && req.get('Content-Type').includes('application/x-www-form-urlencoded')) {
+      if (result && result.success) {
+        res.send(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Password Reset Success</title>
+            <style>
+              body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+              .success { color: #065f46; background: #d1fae5; padding: 20px; border-radius: 8px; }
+            </style>
+          </head>
+          <body>
+            <div class="success">
+              <h2>✅ Password Reset Successful!</h2>
+              <p>Your password has been reset successfully. You can now login with your new password.</p>
+              <p><a href="bushublk://login">Open BusHubLK App</a></p>
+            </div>
+          </body>
+          </html>
+        `);
+      }
+    }
+  } catch (error) {
+    console.error('Password reset error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({
+        success: false,
+        error: 'Server error. Please try again later.'
+      });
+    }
+  }
+});
 
 // @route   GET /api/password-reset/validate/:token
 // @desc    Validate reset token
@@ -43,7 +81,7 @@ router.get('/validate/:token', [
 ], validateResetToken);
 
 // @route   GET /api/password-reset/universal/:token
-// @desc    Universal handler for both web and mobile
+// @desc    Universal reset link that detects device and redirects appropriately
 // @access  Public
 router.get('/universal/:token', (req, res) => {
   const { token } = req.params;
@@ -55,40 +93,99 @@ router.get('/universal/:token', (req, res) => {
     headers: req.headers
   });
   
-  // Check if request is from mobile app
-  if (userAgent.includes('BusHubLK') || userAgent.includes('Mobile') || req.headers['x-mobile-app']) {
-    // Redirect to mobile deep link
-    return res.redirect(`bushublk://reset-password?token=${token}`);
-  }
+  // Check if it's a mobile device
+  const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
   
-  // For web browsers, serve the HTML page with token in URL
-  res.redirect(`/api/password-reset/web/${token}?token=${token}`);
+  if (isMobile) {
+    // Try to open the mobile app first, then fallback to web
+    const deepLink = `bushublk://reset-password?token=${token}`;
+    const webFallback = `/api/password-reset/web/${token}?token=${token}`;
+    
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Opening BusHubLK...</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body { 
+            font-family: Arial, sans-serif; 
+            text-align: center; 
+            padding: 50px 20px;
+            background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+          }
+          .container {
+            background: white;
+            color: #333;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            max-width: 400px;
+            width: 100%;
+          }
+          .button {
+            display: inline-block;
+            background: #3b82f6;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 6px;
+            margin: 10px;
+          }
+          .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+          }
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>🚌 BusHubLK</h1>
+          <div class="spinner"></div>
+          <p>Opening the BusHubLK app...</p>
+          <p>If the app doesn't open automatically:</p>
+          <a href="${deepLink}" class="button">Open App</a>
+          <a href="${webFallback}" class="button">Use Web Version</a>
+        </div>
+        
+        <script>
+          // Try to open the app immediately
+          window.location.href = '${deepLink}';
+          
+          // Fallback to web version after 3 seconds
+          setTimeout(function() {
+            window.location.href = '${webFallback}';
+          }, 3000);
+        </script>
+      </body>
+      </html>
+    `);
+  } else {
+    // Desktop/web browser - redirect to web version
+    res.redirect(`/api/password-reset/web/${token}?token=${token}`);
+  }
 });
 
 // @route   GET /api/password-reset/web/:token
 // @desc    Serve web reset password page
 // @access  Public
 router.get('/web/:token', (req, res) => {
-  const { token } = req.params;
-  
-  // Read the HTML file and inject the token
-  const fs = require('fs');
-  const htmlPath = path.join(__dirname, '../public/reset-password.html');
-  
-  try {
-    let html = fs.readFileSync(htmlPath, 'utf8');
-    
-    // Inject token into the HTML
-    html = html.replace(
-      '<input type="hidden" id="tokenInput" name="token" value="">',
-      `<input type="hidden" id="tokenInput" name="token" value="${token}">`
-    );
-    
-    res.send(html);
-  } catch (error) {
-    console.error('Error serving reset page:', error);
-    res.status(500).send('Error loading reset page');
-  }
+  res.sendFile(path.join(__dirname, '../public/reset-password.html'));
 });
 
 module.exports = router;
