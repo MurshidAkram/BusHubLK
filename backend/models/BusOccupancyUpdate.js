@@ -1,11 +1,11 @@
-const db = require('../config/db');
+const pool = require('../config/db');
 
 class BusOccupancy {
   static async create(occupancyData) {
     try {
       const { busId, occupancyLevel, latitude, longitude, updatedAt, confidence } = occupancyData;
       
-      const result = await db.query(
+      const result = await pool.query(
         `INSERT INTO bus_occupancy (bus_id, occupancy_level, latitude, longitude, updated_at, confidence)
          VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING *`,
@@ -20,7 +20,7 @@ class BusOccupancy {
 
   static async findByBusId(busId) {
     try {
-      const result = await db.query(
+      const result = await pool.query(
         `SELECT bo.*, b.registration_number
          FROM bus_occupancy bo
          JOIN buses b ON bo.bus_id = b.bus_id
@@ -37,7 +37,7 @@ class BusOccupancy {
 
   static async findById(occupancyId) {
     try {
-      const result = await db.query(
+      const result = await pool.query(
         `SELECT bo.*, b.registration_number
          FROM bus_occupancy bo
          JOIN buses b ON bo.bus_id = b.bus_id
@@ -55,7 +55,7 @@ class BusOccupancy {
     try {
       const { occupancyLevel, latitude, longitude, confidence } = updateData;
       
-      const result = await db.query(
+      const result = await pool.query(
         `UPDATE bus_occupancy
          SET occupancy_level = COALESCE($3, occupancy_level),
              latitude = COALESCE($4, latitude),
@@ -75,7 +75,7 @@ class BusOccupancy {
 
   static async findOneAndDelete(occupancyId, busId) {
     try {
-      const result = await db.query(
+      const result = await pool.query(
         `DELETE FROM bus_occupancy
          WHERE occupancy_id = $1 AND bus_id = $2
          RETURNING *`,
@@ -90,7 +90,7 @@ class BusOccupancy {
 
   static async getAllOccupancies() {
     try {
-      const result = await db.query(
+      const result = await pool.query(
         `SELECT bo.*, b.registration_number
          FROM bus_occupancy bo
          JOIN buses b ON bo.bus_id = b.bus_id

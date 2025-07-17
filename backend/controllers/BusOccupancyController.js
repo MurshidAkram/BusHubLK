@@ -1,3 +1,4 @@
+// controllers/BusOccupancyController.js
 const BusOccupancy = require('../models/BusOccupancyUpdate');
 
 const createBusOccupancy = async (req, res) => {
@@ -23,10 +24,22 @@ const createBusOccupancy = async (req, res) => {
   }
 };
 
+const getAllBusOccupancies = async (req, res) => {
+  try {
+    const occupancies = await BusOccupancy.getAllOccupancies();
+    if (!occupancies.length) {
+      return res.status(200).json([]); // Return empty array if no records
+    }
+    res.status(200).json(occupancies);
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error', error: error.message });
+  }
+};
+
 const getBusOccupancy = async (req, res) => {
   try {
     const { busId } = req.params;
-    const occupancies = await BusOccupancy.find({ busId });
+    const occupancies = await BusOccupancy.findByBusId(busId);
     
     if (!occupancies.length) {
       return res.status(404).json({ message: 'No occupancy records found for this bus.' });
@@ -48,9 +61,8 @@ const updateBusOccupancy = async (req, res) => {
     }
 
     const updatedOccupancy = await BusOccupancy.findOneAndUpdate(
-      { _id: occupancyId, busId },
-      { ...updates, updatedAt: new Date().toISOString() },
-      { new: true }
+      occupancyId, busId, // Match model signature
+      { ...updates, updatedAt: new Date().toISOString() }
     );
 
     if (!updatedOccupancy) {
@@ -67,7 +79,7 @@ const deleteBusOccupancy = async (req, res) => {
   try {
     const { busId, occupancyId } = req.params;
 
-    const deletedOccupancy = await BusOccupancy.findOneAndDelete({ _id: occupancyId, busId });
+    const deletedOccupancy = await BusOccupancy.findOneAndDelete(occupancyId, busId);
 
     if (!deletedOccupancy) {
       return res.status(404).json({ message: 'Occupancy record not found or does not belong to this bus.' });
@@ -81,6 +93,7 @@ const deleteBusOccupancy = async (req, res) => {
 
 module.exports = {
   createBusOccupancy,
+  getAllBusOccupancies,
   getBusOccupancy,
   updateBusOccupancy,
   deleteBusOccupancy,

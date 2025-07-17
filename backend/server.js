@@ -109,9 +109,11 @@ app.get('/resetPassword.js', (req, res) => {
   res.sendFile(path.join(__dirname, 'public/resetPassword.js'));
 });
 
+
 app.get('/reset-password.html', (req, res) => {
   res.setHeader('Content-Type', 'text/html');
   res.sendFile(path.join(__dirname, 'public/reset-password.html'));
+
 });
 
 // Error handling
