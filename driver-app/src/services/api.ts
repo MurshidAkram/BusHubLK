@@ -218,9 +218,29 @@ export const submitEmergencyReport = async (reportData: any) => {
   return response.json();
 };
 
+
+// Update the fetchBuses function
+export const fetchBuses = async () => {
+  const token = await storageAPI.getAuthToken();
+  const response = await fetch(`${API_BASE_URL}/buses`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+  
+  return response.json();
+};
+
+// Update the submitConditionReport function
 export const submitConditionReport = async (reportData: any) => {
   const token = await storageAPI.getAuthToken();
-  const response = await fetch(`${API_BASE_URL}/condition-report`, {
+  const response = await fetch(`${API_BASE_URL}/bus-condition-reports`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -228,18 +248,10 @@ export const submitConditionReport = async (reportData: any) => {
     },
     body: JSON.stringify(reportData),
   });
-  return response.json();
-};
-
-export const submitTravelLog = async (logData: any) => {
-  const token = await storageAPI.getAuthToken();
-  const response = await fetch(`${API_BASE_URL}/travel-log`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(logData),
-  });
+  
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+  
   return response.json();
 };

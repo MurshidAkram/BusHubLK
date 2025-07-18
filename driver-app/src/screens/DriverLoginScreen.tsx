@@ -188,9 +188,6 @@ export default function DriverLoginScreen() {
                   </LinearGradient>
                 </TouchableOpacity>
                 {/* Forgot Password */}
-                // Update the forgot password TouchableOpacity in your existing
-                DriverLoginScreen.tsx
-                {/* Forgot Password */}
                 <TouchableOpacity
                   onPress={() => navigation.navigate("ForgotPassword")}
                   style={styles.forgotPasswordContainer}
