@@ -6,7 +6,9 @@ import {
   HiCog,
   HiCalendar,
   HiChartBar,
-  HiArrowUp
+  HiArrowUp,
+  HiArrowRight,
+  HiArrowCircleRight
 } from 'react-icons/hi';
 
 const DepotEngineerSidebarContent = () => {
@@ -68,7 +70,7 @@ const DepotEngineerSidebarContent = () => {
             : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`
         }
       >
-        <HiCalendar className="mr-3 flex-shrink-0 h-5 w-5" />
+        <HiArrowCircleRight className="mr-3 flex-shrink-0 h-5 w-5" />
         Autoforwarded Busstatuses
       </NavLink>
 

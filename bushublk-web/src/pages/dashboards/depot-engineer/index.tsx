@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   HiCog, 
   HiExclamationCircle, 
@@ -14,14 +15,15 @@ const DepotEngineerDashboard = () => {
     totalBuses: 42,
     activeBuses: 24,
     underMaintenance: 5,
-    awaitingApproval: 3,
+    awaitingReview: 3,
     criticalIssues: 2,
     busesOverdueService: 4,
-    busesDueToday: 7,
+   
     busesOperational: 18,
     busesInGarage: 6,
     complianceRate: 92
   };
+  const navigate = useNavigate();
 
   const pendingApprovals = [
     { id: 1, bus: 'Bus #12', lastTrip: 'Route 42', condition: 'Minor tire wear', status: 'Pending Review' },
@@ -64,11 +66,11 @@ const DepotEngineerDashboard = () => {
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Depot Operations Dashboard</h1>
-            <p className="text-gray-500">Manage bus fleet status and maintenance</p>
+           
+            <p className="text-gray-700">Manage bus fleet status and maintenance</p>
           </div>
           <div className="flex gap-3">
-            <button className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+            <button className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors" onClick={() => navigate('/depot-engineer/Busavailability')}>
               <HiCog className="w-4 h-4" />
               Update Fleet Status
             </button>
@@ -118,9 +120,9 @@ const DepotEngineerDashboard = () => {
           <div className="bg-white rounded-xl p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-500 text-sm mb-1">Awaiting Approval</p>
-                <p className="text-4xl font-bold text-gray-900">{stats.awaitingApproval}</p>
-                <p className="text-sm text-blue-600">{stats.busesDueToday} due today</p>
+                <p className="text-gray-500 text-sm mb-1">Awaiting review</p>
+                <p className="text-4xl font-bold text-gray-900">{stats.awaitingReview}</p>
+               
               </div>
               <div className="p-3 bg-purple-50 rounded-lg">
                 <HiClock className="w-8 h-8 text-purple-600" />
@@ -154,7 +156,7 @@ const DepotEngineerDashboard = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{approval.lastTrip}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{approval.condition}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <button className="text-blue-600 hover:text-blue-900 text-sm font-medium">
+                        <button className="text-blue-600 hover:text-blue-900 text-sm font-medium" onClick={() => navigate('/depot-engineer/Autoforwardbusstatus')}>
                           Review <HiEye className="inline ml-1 w-4 h-4" />
                         </button>
                       </td>
@@ -220,11 +222,9 @@ const DepotEngineerDashboard = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <button className="text-blue-600 hover:text-blue-900 text-sm font-medium mr-3">
-                        <HiEye className="inline mr-1 w-4 h-4" /> View
+                        <HiEye className="inline mr-1 w-4 h-4" onClick={() => navigate('/depot-engineer/Busmanagement')} /> View
                       </button>
-                      <button className="text-gray-600 hover:text-gray-900 text-sm font-medium">
-                        <HiCog className="inline mr-1 w-4 h-4" /> Manage
-                      </button>
+                      
                     </td>
                   </tr>
                 ))}
