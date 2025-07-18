@@ -26,7 +26,7 @@ const DepotEngineerSidebarContent = () => {
       </NavLink>
 
       <NavLink
-        to="/depot-engineer/assigned-buses"
+        to="/depot-engineer/Busmanagement"
         className={({ isActive }) =>
           `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
             ? 'bg-green-700 text-white' 
@@ -34,11 +34,11 @@ const DepotEngineerSidebarContent = () => {
         }
       >
         <HiTruck className="mr-3 flex-shrink-0 h-5 w-5" />
-        Assigned Buses
+        Busmanagement
       </NavLink>
 
       <NavLink
-        to="/depot-engineer/repairs"
+        to="/depot-engineer/Busavailability"
         className={({ isActive }) =>
           `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
             ? 'bg-green-700 text-white' 
@@ -46,7 +46,7 @@ const DepotEngineerSidebarContent = () => {
         }
       >
         <HiCog className="mr-3 flex-shrink-0 h-5 w-5" />
-        Repairs
+        Busavailability
       </NavLink>
 
       <NavLink
@@ -59,6 +59,17 @@ const DepotEngineerSidebarContent = () => {
       >
         <HiCalendar className="mr-3 flex-shrink-0 h-5 w-5" />
         Schedule
+      </NavLink>
+      <NavLink
+        to="/depot-engineer/Autoforwardbusstatus"
+        className={({ isActive }) =>
+          `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
+            ? 'bg-green-700 text-white' 
+            : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`
+        }
+      >
+        <HiCalendar className="mr-3 flex-shrink-0 h-5 w-5" />
+        Autoforwarded Busstatuses
       </NavLink>
 
       <NavLink
@@ -77,7 +88,7 @@ const DepotEngineerSidebarContent = () => {
 
 
       <NavLink
-        to="/depot-engineer/performance"
+        to="/depot-engineer/Spareparts"
         className={({ isActive }) =>
           `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
             ? 'bg-green-700 text-white' 
@@ -85,7 +96,7 @@ const DepotEngineerSidebarContent = () => {
         }
       >
         <HiChartBar className="mr-3 flex-shrink-0 h-5 w-5" />
-        Performance
+        Spareparts
       </NavLink>
     </div>
   );
