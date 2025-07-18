@@ -103,6 +103,21 @@ try {
 const regionDepotRoutes = require('./routes/regionDepotRoutes');
 app.use('/api', regionDepotRoutes);
 
+try {
+  const busConditionReportRoutes = require('./routes/busConditionReportRoutes');
+  app.use('/api/bus-condition-reports', busConditionReportRoutes);
+  console.log('✅ busConditionReportRoutes loaded');
+} catch (error) {
+  console.log('❌ busConditionReportRoutes error:', error.message);
+}
+
+try {
+  const busRoutes = require('./routes/busRoutes');
+  app.use('/api/buses', busRoutes);
+  console.log('✅ busRoutes loaded');
+} catch (error) {
+  console.log('❌ busRoutes error:', error.message);
+}
 // Static file routes
 app.get('/resetPassword.js', (req, res) => {
   res.setHeader('Content-Type', 'application/javascript');
