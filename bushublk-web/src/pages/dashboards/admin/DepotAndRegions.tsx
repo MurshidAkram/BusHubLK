@@ -1,4 +1,3 @@
-// pages/dashboards/admin/DepotAndRegions.tsx
 import React, { useState, useEffect, useContext } from 'react';
 import { AppContext } from '../../../context/AppContext';
 import { 
@@ -10,7 +9,9 @@ import {
   HiOutlineX,
   HiOutlineCheck,
   HiOutlineLocationMarker,
-  HiOutlineOfficeBuilding
+  HiOutlineOfficeBuilding,
+  HiOutlineChevronLeft,
+  HiOutlineChevronRight
 } from 'react-icons/hi';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -44,6 +45,9 @@ const DepotAndRegions = () => {
   const [showForm, setShowForm] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [currentItem, setCurrentItem] = useState<Depot | Region | null>(null);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
   const context = useContext(AppContext);
 
   // Form states
@@ -66,8 +70,13 @@ const DepotAndRegions = () => {
           'Authorization': `Bearer ${context?.token}`
         }
       });
+      
+      if (!regionsResponse.ok) {
+        throw new Error('Failed to fetch regions');
+      }
+      
       const regionsData = await regionsResponse.json();
-      setRegions(regionsData);
+      setRegions(regionsData.regions);
 
       // Fetch depots
       const depotsResponse = await fetch('http://localhost:5000/api/depots', {
@@ -75,8 +84,14 @@ const DepotAndRegions = () => {
           'Authorization': `Bearer ${context?.token}`
         }
       });
+      
+      if (!depotsResponse.ok) {
+        throw new Error('Failed to fetch depots');
+      }
+      
       const depotsData = await depotsResponse.json();
-      setDepots(depotsData);
+      setDepots(depotsData.depots);
+      
     } catch (error: any) {
       toast.error(error.message || 'Error fetching data');
     } finally {
@@ -94,10 +109,15 @@ const DepotAndRegions = () => {
         depot.depot_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         depot.region_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         depot.address.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    : regions.filter(region => 
+    ) : regions.filter(region => 
         region.region_name.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+    );
+  // Pagination
+  const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
+  const currentItems = filteredItems.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   // Reset form
   const resetForm = () => {
@@ -111,17 +131,69 @@ const DepotAndRegions = () => {
     });
     setCurrentItem(null);
     setEditMode(false);
+    setFormErrors({});
   };
 
   // Handle form input changes
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    
+    // Clear error when user starts typing
+    if (formErrors[name]) {
+      setFormErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
+  };
+
+  // Validate form
+  const validateForm = () => {
+    const errors: Record<string, string> = {};
+    
+    if (!formData.name.trim()) {
+      errors.name = 'Name is required';
+    } else if (formData.name.length > 100) {
+      errors.name = 'Name must be less than 100 characters';
+    }
+    
+    if (activeTab === 'depots') {
+      if (!formData.region_id) {
+        errors.region_id = 'Region is required';
+      }
+      if (!formData.address.trim()) {
+        errors.address = 'Address is required';
+      }
+      if (!formData.contact_phone.trim()) {
+        errors.contact_phone = 'Contact phone is required';
+      } else if (!/^\+?[1-9]\d{1,14}$/.test(formData.contact_phone)) {
+        errors.contact_phone = 'Invalid phone number format';
+      }
+      if (!formData.latitude) {
+        errors.latitude = 'Latitude is required';
+      } else if (isNaN(Number(formData.latitude))) {
+        errors.latitude = 'Latitude must be a number';
+      }
+      if (!formData.longitude) {
+        errors.longitude = 'Longitude is required';
+      } else if (isNaN(Number(formData.longitude))) {
+        errors.longitude = 'Longitude must be a number';
+      }
+    }
+    
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   // Submit form (create or update)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
     
     try {
       let response;
@@ -157,7 +229,8 @@ const DepotAndRegions = () => {
       });
 
       if (!response.ok) {
-        throw new Error(editMode ? 'Failed to update' : 'Failed to create');
+        const errorData = await response.json();
+        throw new Error(errorData.error || (editMode ? 'Failed to update' : 'Failed to create'));
       }
 
       const data = await response.json();
@@ -167,18 +240,18 @@ const DepotAndRegions = () => {
       if (activeTab === 'depots') {
         if (editMode) {
           setDepots(depots.map(d => 
-            d.depot_id === currentItem?.depot_id ? data : d
+            d.depot_id === currentItem?.depot_id ? data.depot : d
           ));
         } else {
-          setDepots([...depots, data]);
+          setDepots([...depots, data.depot]);
         }
       } else {
         if (editMode) {
           setRegions(regions.map(r => 
-            r.region_id === currentItem?.region_id ? data : r
+            r.region_id === currentItem?.region_id ? data.region : r
           ));
         } else {
-          setRegions([...regions, data]);
+          setRegions([...regions, data.region]);
         }
       }
 
@@ -246,6 +319,7 @@ const DepotAndRegions = () => {
       }
 
       toast.success('Deleted successfully');
+      setCurrentPage(1); // Reset to first page after deletion
     } catch (error: any) {
       toast.error(error.message || 'Error deleting');
     }
@@ -256,6 +330,37 @@ const DepotAndRegions = () => {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
     return date.toLocaleDateString();
+  };
+
+  // Pagination controls
+  const renderPagination = () => {
+    if (totalPages <= 1) return null;
+
+    return (
+      <div className="flex justify-between items-center mt-4">
+        <button
+          onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+          disabled={currentPage === 1}
+          className="flex items-center px-3 py-1 rounded-md bg-white border border-gray-300 text-gray-700 disabled:opacity-50"
+        >
+          <HiOutlineChevronLeft className="mr-1" />
+          Previous
+        </button>
+        
+        <span className="text-sm text-gray-700">
+          Page {currentPage} of {totalPages}
+        </span>
+        
+        <button
+          onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+          disabled={currentPage === totalPages}
+          className="flex items-center px-3 py-1 rounded-md bg-white border border-gray-300 text-gray-700 disabled:opacity-50"
+        >
+          Next
+          <HiOutlineChevronRight className="ml-1" />
+        </button>
+      </div>
+    );
   };
 
   return (
@@ -270,6 +375,7 @@ const DepotAndRegions = () => {
               onClick={() => {
                 setActiveTab('depots');
                 resetForm();
+                setCurrentPage(1);
               }}
               className={`px-4 py-2 rounded-md ${activeTab === 'depots' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
             >
@@ -279,6 +385,7 @@ const DepotAndRegions = () => {
               onClick={() => {
                 setActiveTab('regions');
                 resetForm();
+                setCurrentPage(1);
               }}
               className={`px-4 py-2 rounded-md ${activeTab === 'regions' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
             >
@@ -298,13 +405,19 @@ const DepotAndRegions = () => {
               className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 pr-12 py-2 border border-gray-300 rounded-md"
               placeholder={`Search ${activeTab}...`}
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
             />
           </div>
 
           <div className="flex space-x-2">
             <button
-              onClick={fetchData}
+              onClick={() => {
+                fetchData();
+                setCurrentPage(1);
+              }}
               className="flex items-center justify-center px-4 py-2 bg-white border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50"
             >
               <HiOutlineRefresh className="mr-2" />
@@ -352,9 +465,12 @@ const DepotAndRegions = () => {
                     name="name"
                     value={formData.name}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    className={`w-full px-3 py-2 border ${formErrors.name ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
                     required
                   />
+                  {formErrors.name && (
+                    <p className="mt-1 text-sm text-red-600">{formErrors.name}</p>
+                  )}
                 </div>
 
                 {activeTab === 'depots' && (
@@ -367,7 +483,7 @@ const DepotAndRegions = () => {
                         name="region_id"
                         value={formData.region_id}
                         onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        className={`w-full px-3 py-2 border ${formErrors.region_id ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
                         required
                       >
                         <option value="">Select Region</option>
@@ -377,6 +493,9 @@ const DepotAndRegions = () => {
                           </option>
                         ))}
                       </select>
+                      {formErrors.region_id && (
+                        <p className="mt-1 text-sm text-red-600">{formErrors.region_id}</p>
+                      )}
                     </div>
 
                     <div>
@@ -388,9 +507,12 @@ const DepotAndRegions = () => {
                         name="address"
                         value={formData.address}
                         onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        className={`w-full px-3 py-2 border ${formErrors.address ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
                         required
                       />
+                      {formErrors.address && (
+                        <p className="mt-1 text-sm text-red-600">{formErrors.address}</p>
+                      )}
                     </div>
 
                     <div>
@@ -402,9 +524,12 @@ const DepotAndRegions = () => {
                         name="contact_phone"
                         value={formData.contact_phone}
                         onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        className={`w-full px-3 py-2 border ${formErrors.contact_phone ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
                         required
                       />
+                      {formErrors.contact_phone && (
+                        <p className="mt-1 text-sm text-red-600">{formErrors.contact_phone}</p>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
@@ -418,9 +543,12 @@ const DepotAndRegions = () => {
                           value={formData.latitude}
                           onChange={handleInputChange}
                           step="any"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                          className={`w-full px-3 py-2 border ${formErrors.latitude ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
                           required
                         />
+                        {formErrors.latitude && (
+                          <p className="mt-1 text-sm text-red-600">{formErrors.latitude}</p>
+                        )}
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -432,9 +560,12 @@ const DepotAndRegions = () => {
                           value={formData.longitude}
                           onChange={handleInputChange}
                           step="any"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                          className={`w-full px-3 py-2 border ${formErrors.longitude ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
                           required
                         />
+                        {formErrors.longitude && (
+                          <p className="mt-1 text-sm text-red-600">{formErrors.longitude}</p>
+                        )}
                       </div>
                     </div>
                   </>
@@ -488,9 +619,6 @@ const DepotAndRegions = () => {
                         Contact
                       </th>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Location
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Updated
                       </th>
                       <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -499,14 +627,14 @@ const DepotAndRegions = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredItems.length === 0 ? (
+                    {currentItems.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
+                        <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
                           No depots found
                         </td>
                       </tr>
                     ) : (
-                      filteredItems.map((depot) => (
+                      currentItems.map((depot) => (
                         <tr key={depot.depot_id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
@@ -534,9 +662,6 @@ const DepotAndRegions = () => {
                             {depot.contact_phone}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {depot.latitude}, {depot.longitude}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {formatDate(depot.updated_at)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -562,6 +687,7 @@ const DepotAndRegions = () => {
                     )}
                   </tbody>
                 </table>
+                {renderPagination()}
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -586,14 +712,14 @@ const DepotAndRegions = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredItems.length === 0 ? (
+                    {currentItems.length === 0 ? (
                       <tr>
                         <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
                           No regions found
                         </td>
                       </tr>
                     ) : (
-                      filteredItems.map((region) => (
+                      currentItems.map((region) => (
                         <tr key={region.region_id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
@@ -644,6 +770,7 @@ const DepotAndRegions = () => {
                     )}
                   </tbody>
                 </table>
+                {renderPagination()}
               </div>
             )}
           </div>
@@ -653,4 +780,4 @@ const DepotAndRegions = () => {
   );
 };
 
-export default DepotAndRegions
+export default DepotAndRegions;

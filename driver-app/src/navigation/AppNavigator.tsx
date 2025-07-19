@@ -18,6 +18,7 @@ const AppNavigator: React.FC = () => {
         component={TabNavigator}
         options={{ headerShown: false }}
       />
+      {/* Removed ForgotPassword and ResetPassword screens since they're now in RootNavigator */}
     </Stack.Navigator>
   );
 };

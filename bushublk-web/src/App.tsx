@@ -17,6 +17,7 @@ import CreateAccount from './pages/dashboards/admin/CreateAccount'
 import AdminDashboard from './pages/dashboards/admin'
 import ManageRoles from './pages/dashboards/admin/DepotAndRegions'
 import Employees from './pages/dashboards/admin/Employees'
+import BusManaging from './pages/dashboards/admin/BusManaging'
 
 // Depot Manager Components
 import DepotManagerSidebarContent from './components/depot-manager/DepotManagerSidebarContent'
@@ -46,10 +47,11 @@ import OperationsSettings from './pages/dashboards/depot-ops/OperationsSettings'
 // Depot Engineer Components  
 import DepotEngineerSidebarContent from './components/depot-engineer/DepotEngineerSidebarContent'
 import DepotEngineerDashboard from './pages/dashboards/depot-engineer/index'
-import Assignedbuses from './pages/dashboards/depot-engineer/Assignedbuses'
-import Repairs from './pages/dashboards/depot-engineer/Repairs'
+import Busmanagement from './pages/dashboards/depot-engineer/Busmanagement'
+import Busavailability from './pages/dashboards/depot-engineer/Busavailability'
 import Scheduling from './pages/dashboards/depot-engineer/Scheduling'
-import Performance from './pages/dashboards/depot-engineer/Performance'
+import Spareparts from './pages/dashboards/depot-engineer/Spareparts'
+import Autoforwardbusstatus from './pages/dashboards/depot-engineer/Autoforwardbusstatus'
 import DepotEscalateissues from './pages/dashboards/depot-engineer/DepotEscalateissues'
 
 
@@ -97,6 +99,7 @@ import Dgmtechnicalissue from './pages/dashboards/dgm-tech/Dgmtechnicalissue'
 import CEOSidebarContent from './components/ceo/CEOSidebarContent'
 import CEODashboard from './pages/dashboards/ceo/index'
 import DepotAndRegions from './pages/dashboards/admin/DepotAndRegions'
+import BusManagement from './pages/dashboards/admin/BusManaging'
 //import Dgmtechnicalissue from './pages/dashboards/dgm-tech/Dgmtechnicalissue'
 //import Rtoissuetracker from './pages/dashboards/regional-tech/Rtoissuetracker'
 //import DepotEscalateissues from './pages/dashboards/depot-engineer/DepotEscalateissues'
@@ -145,6 +148,8 @@ const App = () => {
     <Route path="create-account" element={<CreateAccount />} />
     <Route path="depot-and-regions" element={<DepotAndRegions />} />
     <Route path="employees" element={<Employees />} />
+    <Route path="buses" element={<BusManaging />} />
+    {/* Add more admin routes as needed */}
   </Route>
 </Route>
 
@@ -184,11 +189,13 @@ const App = () => {
         <Route element={<ProtectedRoute requiredRole="depot_engineer" />}>
         <Route path="/depot-engineer" element={<DashboardLayout role="depot_engineer" sidebarContent={<DepotEngineerSidebarContent />} />}>
           <Route index element={<DepotEngineerDashboard />} />
-          <Route path="Repairs" element={<Repairs />} />
-          <Route path="assigned-buses" element={<Assignedbuses />} />
+          <Route path="Busmanagement" element={<Busmanagement />} />
+          <Route path="Busavailability" element={<Busavailability />} />
           <Route path="scheduling" element={<Scheduling />} />
-          <Route path="Performance" element={<Performance />} />
+          <Route path="Spareparts" element={<Spareparts />} />
+          <Route path="Autoforwardbusstatus" element={<Autoforwardbusstatus />} />
           <Route path="DepotEscalateissues" element={<DepotEscalateissues />} />
+          
           {/* Add individual pages later */}
         </Route>
         </Route>
