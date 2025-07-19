@@ -70,20 +70,10 @@ const RegionalOperationsOfficerSidebarContent = () => {
         Schedule Oversight
       </NavLink>
 
-      <NavLink
-        to="/regional-operations-officer/route-management"
-        className={({ isActive }) =>
-          `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
-            ? 'bg-indigo-700 text-white' 
-            : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`
-        }
-      >
-        <HiLocationMarker className="mr-3 flex-shrink-0 h-5 w-5" />
-        Route Management
-      </NavLink>
+    
 
       <NavLink
-        to="/regional-operations-officer/crew-oversight"
+        to="/regional-operations-officer/crew-overview"
         className={({ isActive }) =>
           `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
             ? 'bg-indigo-700 text-white' 
@@ -95,19 +85,7 @@ const RegionalOperationsOfficerSidebarContent = () => {
       </NavLink>
 
       <NavLink
-        to="/regional-operations-officer/performance-monitoring"
-        className={({ isActive }) =>
-          `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
-            ? 'bg-indigo-700 text-white' 
-            : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`
-        }
-      >
-        <HiChartBar className="mr-3 flex-shrink-0 h-5 w-5" />
-        Performance Monitoring
-      </NavLink>
-
-      <NavLink
-        to="/regional-operations-officer/resource-allocation"
+        to="/regional-operations-officer/asset-distribution"
         className={({ isActive }) =>
           `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
             ? 'bg-indigo-700 text-white' 
@@ -118,20 +96,9 @@ const RegionalOperationsOfficerSidebarContent = () => {
         Resource Allocation
       </NavLink>
 
-      <NavLink
-        to="/regional-operations-officer/operational-planning"
-        className={({ isActive }) =>
-          `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
-            ? 'bg-indigo-700 text-white' 
-            : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`
-        }
-      >
-        <HiCalendar className="mr-3 flex-shrink-0 h-5 w-5" />
-        Operational Planning
-      </NavLink>
 
       <NavLink
-        to="/regional-operations-officer/incident-coordination"
+        to="/regional-operations-officer/incident-tracking"
         className={({ isActive }) =>
           `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
             ? 'bg-indigo-700 text-white' 
@@ -143,7 +110,7 @@ const RegionalOperationsOfficerSidebarContent = () => {
       </NavLink>
 
       <NavLink
-        to="/regional-operations-officer/communication-hub"
+        to="/regional-operations-officer/comm-center"
         className={({ isActive }) =>
           `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
             ? 'bg-indigo-700 text-white' 
@@ -155,31 +122,7 @@ const RegionalOperationsOfficerSidebarContent = () => {
       </NavLink>
 
       <NavLink
-        to="/regional-operations-officer/compliance-monitoring"
-        className={({ isActive }) =>
-          `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
-            ? 'bg-indigo-700 text-white' 
-            : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`
-        }
-      >
-        <HiFlag className="mr-3 flex-shrink-0 h-5 w-5" />
-        Compliance Monitoring
-      </NavLink>
-
-      <NavLink
-        to="/regional-operations-officer/strategic-analytics"
-        className={({ isActive }) =>
-          `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
-            ? 'bg-indigo-700 text-white' 
-            : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`
-        }
-      >
-        <HiTrendingUp className="mr-3 flex-shrink-0 h-5 w-5" />
-        Strategic Analytics
-      </NavLink>
-
-      <NavLink
-        to="/regional-operations-officer/operations-reports"
+        to="/regional-operations-officer/ops-reports"
         className={({ isActive }) =>
           `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
             ? 'bg-indigo-700 text-white' 
@@ -191,7 +134,7 @@ const RegionalOperationsOfficerSidebarContent = () => {
       </NavLink>
 
       <NavLink
-        to="/regional-operations-officer/settings"
+        to="/regional-operations-officer/ops-settings"
         className={({ isActive }) =>
           `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
             ? 'bg-indigo-700 text-white' 
