@@ -111,6 +111,11 @@ try {
 const regionDepotRoutes = require('./routes/regionDepotRoutes');
 app.use('/api', regionDepotRoutes);
 
+
+const BusTrackingRoutes = require('./routes/BusTrackingRoutes');
+  app.use('/api/bus-tracking', BusTrackingRoutes); 
+
+
 try {
   const busConditionReportRoutes = require('./routes/busConditionReportRoutes');
   app.use('/api/bus-condition-reports', busConditionReportRoutes);
@@ -126,6 +131,7 @@ try {
 } catch (error) {
   console.log('❌ busRoutes error:', error.message);
 }
+
 // Static file routes
 app.get('/resetPassword.js', (req, res) => {
   res.setHeader('Content-Type', 'application/javascript');
