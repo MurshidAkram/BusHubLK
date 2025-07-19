@@ -15,7 +15,6 @@ import { useNavigation } from "@react-navigation/native";
 import {
   Ionicons,
   MaterialCommunityIcons,
-  FontAwesome5,
 } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -42,34 +41,32 @@ const AppColors = {
 const GOOGLE_MAPS_API_KEY = "AIzaSyAeXR9ct7HrHMCQXSWLrWQl5OlRYjNhbxo";
 
 // TopHeader component with logo in square box
-const TopHeader = () => (
-  <View style={styles.header}>
-    <View style={styles.headerLeftContainer}>
-      <View style={styles.logoWrapper}>
-        <Image
-          source={require("../../assets/logoblue.png")}
-          style={styles.headerLogo}
-          resizeMode="contain"
-        />
-      </View>
-      <Text style={styles.headerTitle}>
-        BusHub<Text style={styles.superscript}>LK</Text> Driver
-      </Text>
-    </View>
-    <View style={styles.headerIconContainer}>
-      <TouchableOpacity style={styles.headerIcon} onPress={() => {}}>
-        <Ionicons name="notifications-outline" size={28} color="#FFFFFF" />
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.headerIcon}>
+const TopHeader = () => {
+  const navigation = useNavigation();
+  return (
+    <View style={styles.header}>
+      <View style={styles.headerLeftContainer}>
         <View style={styles.logoWrapper}>
-          <FontAwesome5 name="user-circle" size={28} color={AppColors.primary} />
+          <Image
+            source={require("../../assets/logowithoutbg_white.png")}
+            style={styles.headerLogo}
+            resizeMode="contain"
+          />
         </View>
-      </TouchableOpacity>
+        <Text style={styles.headerTitle}>
+          BusHub<Text style={styles.superscript}>LK</Text> Driver
+        </Text>
+      </View>
+      <View style={styles.headerIconContainer}>
+        <TouchableOpacity style={styles.headerIcon} onPress={() => navigation.navigate("Notifications")}>
+          <Ionicons name="notifications-outline" size={28} color="#FFFFFF" />
+        </TouchableOpacity>
+      </View>
     </View>
-  </View>
-);
+  );
+};
 
-// WelcomeBanner component (unchanged)
+// WelcomeBanner component
 const WelcomeBanner = () => (
   <LinearGradient
     colors={["#0056b3", "#0076e3"]}
@@ -90,7 +87,7 @@ const WelcomeBanner = () => (
   </LinearGradient>
 );
 
-// QuickActionButton component (unchanged)
+// QuickActionButton component
 const QuickActionButton = ({ icon, text, onPress }) => (
   <TouchableOpacity style={styles.quickActionCard} onPress={onPress} activeOpacity={0.8}>
     <View style={styles.quickActionIconContainer}>
@@ -100,7 +97,7 @@ const QuickActionButton = ({ icon, text, onPress }) => (
   </TouchableOpacity>
 );
 
-// Main HomeScreen Component (unchanged)
+// Main HomeScreen Component
 export default function HomeScreen() {
   const navigation = useNavigation();
   const [from, setFrom] = useState("");
@@ -373,18 +370,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   logoWrapper: {
-    width: 35,
-    height: 35,
-    borderRadius: 8, // Square with rounded corners
-    backgroundColor: "#FFFFFF",
+    width: 45,
+    height: 45,
+    borderRadius: 8,
     justifyContent: "center",
     alignItems: "center",
     overflow: "hidden",
     marginRight: 10,
   },
   headerLogo: {
-    width: 30,
-    height: 30,
+    width: 50,
+    height: 50,
   },
   headerTitle: {
     color: "#FFFFFF",

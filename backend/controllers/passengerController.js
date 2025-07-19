@@ -4,6 +4,7 @@ sendgrid.setApiKey(process.env.SENDGRID_API_KEY);
 
 const Passenger = require('../models/passengerModel');
 
+// === Emergency Contact Controllers ===
 const addEmergencyContact = async (req, res) => {
   try {
     const { id } = req.params; // This is passengerId
@@ -16,6 +17,7 @@ const addEmergencyContact = async (req, res) => {
     const newContact = await Passenger.addEmergencyContact(id, name, phone, relationship, email, isPrimary);
     res.status(201).json(newContact);
   } catch (error) {
+    console.error('Error in addEmergencyContact (controller):', error);
     res.status(500).json({ message: 'Server Error', error: error.message });
   }
 };
@@ -26,6 +28,7 @@ const getEmergencyContacts = async (req, res) => {
     const contacts = await Passenger.getEmergencyContacts(id);
     res.status(200).json(contacts);
   } catch (error) {
+    console.error('Error in getEmergencyContacts (controller):', error);
     res.status(500).json({ message: 'Server Error', error: error.message });
   }
 };
@@ -41,6 +44,7 @@ const updateEmergencyContact = async (req, res) => {
     }
     res.json(updated);
   } catch (error) {
+    console.error('Error in updateEmergencyContact (controller):', error);
     res.status(500).json({ message: 'Server Error', error: error.message });
   }
 };
@@ -50,49 +54,67 @@ const deleteEmergencyContact = async (req, res) => {
     const { id, contactId } = req.params;
     const deleted = await Passenger.deleteEmergencyContact(id, contactId);
 
-
     if (!deleted) {
       return res.status(404).json({ message: 'Contact not found or does not belong to this passenger.' });
     }
     res.json({ success: true, message: 'Contact deleted successfully.' });
   } catch (error) {
+    console.error('Error in deleteEmergencyContact (controller):', error);
     res.status(500).json({ message: 'Server Error', error: error.message });
   }
 };
 
-// --- NEW FUNCTION TO SEND NOTIFICATIONS ---
+// === Notification Controller ===
 const notifyEmergencyContacts = async (req, res) => {
-  const { emergencyType, contacts } = req.body;
+  const { emergencyType, contacts, latitude, longitude } = req.body;
 
   if (!emergencyType || !contacts || !Array.isArray(contacts)) {
     return res.status(400).json({ message: 'Invalid request: Missing emergencyType or contacts.' });
   }
 
-  console.log(`Notification request received for: ${emergencyType}.`);
+  let locationInfo = '';
+  let depotName = 'N/A';
 
-  // Create a flat array of all notification promises
+  if (latitude !== null && longitude !== null) {
+      locationInfo = `Passenger Location: Lat ${latitude.toFixed(4)}, Lon ${longitude.toFixed(4)}.`;
+      try {
+          const nearestDepot = await Passenger.getNearestDepotLocation(latitude, longitude);
+          if (nearestDepot) {
+              depotName = nearestDepot.depot_name;
+              locationInfo += ` Nearest Depot: ${depotName}.`;
+          }
+      } catch (depotErr) {
+          console.warn('Could not resolve depot for notification:', depotErr.message);
+      }
+  }
+
+  console.log(`Notification request received for: ${emergencyType}. ${locationInfo}`);
+
   const notificationPromises = contacts.flatMap(contact => {
     const promises = [];
 
-    // Add SMS promise if a phone number exists
+    const smsBody = `Emergency Alert: ${emergencyType}. ${locationInfo} This is an automated message. Please contact the passenger immediately.`;
+    const emailSubject = `Emergency Alert: ${emergencyType}`;
+    const emailText = `Hello ${contact.name},\n\nAn automated emergency alert has been triggered for a passenger. The emergency type is: ${emergencyType}.\n${locationInfo}\n\nPlease attempt to contact them immediately.`;
+    const emailHtml = `<strong>Hello ${contact.name},</strong><br><br>An automated emergency alert has been triggered for a passenger. The emergency type is: <strong>${emergencyType}</strong>.<br>${locationInfo.replace(/\n/g, '<br>')}<br><br>Please attempt to contact them immediately.`;
+
     if (contact.phone) {
       promises.push(
         twilio.messages.create({
-          body: `Emergency Alert: ${emergencyType}. This is an automated message. Please contact the passenger immediately.`,
+          body: smsBody,
           from: process.env.TWILIO_PHONE_NUMBER,
           to: contact.phone
         }).catch(err => console.error(`SMS to ${contact.phone} failed: ${err.message}`))
       );
     }
 
-    // Add Email promise if an email exists
     if (contact.email) {
       const emailMessage = {
         to: contact.email,
         from: process.env.SENDER_EMAIL,
-        subject: `Emergency Alert: ${emergencyType}`,
-        text: `Hello ${contact.name},\n\nAn automated emergency alert has been triggered for a passenger. The emergency type is: ${emergencyType}.\n\nPlease attempt to contact them immediately.`,
-        html: `<strong>Hello ${contact.name},</strong><br><br>An automated emergency alert has been triggered for a passenger. The emergency type is: <strong>${emergencyType}</strong>.<br><br>Please attempt to contact them immediately.`,
+        subject: emailSubject,
+        text: emailText,
+        html: emailHtml,
       };
       promises.push(
         sendgrid.send(emailMessage).catch(err => console.error(`Email to ${contact.email} failed: ${err.message}`))
@@ -102,29 +124,44 @@ const notifyEmergencyContacts = async (req, res) => {
   });
 
   try {
-    // Wait for all notifications to be sent
     await Promise.all(notificationPromises);
     res.status(200).json({ message: 'Notifications initiated successfully.' });
-  } catch (error) {
+  }
+  catch (error) {
     console.error('A critical error occurred during notification processing:', error);
     res.status(500).json({ message: 'An error occurred while processing notifications.' });
   }
 };
 
-// === NEW ALERT CONTROLLERS ===
+// === Alert Controllers ===
 const createAlert = async (req, res) => {
   const { id } = req.params; // passengerId from the URL
-  const { emergencyType, status } = req.body;
+  const { emergencyType, passenger_latitude, passenger_longitude } = req.body;
 
-  if (!emergencyType || !status) {
-    return res.status(400).json({ message: 'emergencyType and status are required fields.' });
+  if (!emergencyType) {
+    return res.status(400).json({ message: 'emergencyType is required.' });
+  }
+
+  let depotId = null;
+  let depotName = null;
+
+  if (passenger_latitude !== null && passenger_longitude !== null) {
+      try {
+          const nearestDepot = await Passenger.getNearestDepotLocation(passenger_latitude, passenger_longitude);
+          if (nearestDepot) {
+              depotId = nearestDepot.depot_id;
+              depotName = nearestDepot.depot_name;
+          }
+      } catch (depotError) {
+          console.error('Error resolving nearest depot (controller):', depotError);
+      }
   }
 
   try {
-    const newAlert = await Passenger.createAlertForPassenger(id, emergencyType, status);
-    res.status(201).json(newAlert);
+    const newAlert = await Passenger.createAlertForPassenger(id, emergencyType, passenger_latitude, passenger_longitude, depotId);
+    res.status(201).json({ ...newAlert, depot_name: depotName });
   } catch (error) {
-    console.error('Error creating alert:', error);
+    console.error('Error creating alert (controller):', error);
     res.status(500).json({ message: 'Server Error', error: error.message });
   }
 };
@@ -136,17 +173,18 @@ const getAlertsByPassenger = async (req, res) => {
     const alerts = await Passenger.getAlertsForPassenger(id);
     res.status(200).json(alerts);
   } catch (error) {
-    console.error('Error fetching alerts:', error);
+    console.error('Error fetching alerts (controller):', error);
     res.status(500).json({ message: 'Server Error', error: error.message });
   }
 };
 
+// Export only the relevant functions
 module.exports = {
   addEmergencyContact,
   getEmergencyContacts,
   updateEmergencyContact,
   deleteEmergencyContact,
-  notifyEmergencyContacts, // Add the new function here
-  createAlert, // Add new function
-  getAlertsByPassenger, // Add new function
+  notifyEmergencyContacts,
+  createAlert,
+  getAlertsByPassenger,
 };

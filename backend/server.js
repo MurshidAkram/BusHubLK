@@ -76,6 +76,7 @@ try {
   console.log('❌ passengerAuth error:', error.message);
 }
 
+// This is the main app.use for passenger routes now
 try {
   const passengerRoutes = require('./routes/passengerRoutes');
   app.use('/api/passengers', passengerRoutes);
@@ -111,13 +112,9 @@ try {
   console.log('❌ busConditionReportRoutes error:', error.message);
 }
 
-try {
-  const busRoutes = require('./routes/busRoutes');
-  app.use('/api/buses', busRoutes);
-  console.log('✅ busRoutes loaded');
-} catch (error) {
-  console.log('❌ busRoutes error:', error.message);
-}
+// Ensure busRoutes and locationRoutes are NOT loaded separately
+// Their logic and routes are now consolidated into passengerModel/Controller/Routes
+
 // Static file routes
 app.get('/resetPassword.js', (req, res) => {
   res.setHeader('Content-Type', 'application/javascript');
@@ -164,7 +161,7 @@ app.listen(PORT, '0.0.0.0', () => {
   try {
     const { getDynamicBaseURL } = require('./utils/networkUtils');
     const baseURL = getDynamicBaseURL();
-    
+
     console.log(`🚀 Server is running on ${baseURL}`);
     console.log(`📧 Email service configured: ${process.env.EMAIL_SERVICE || 'gmail'}`);
     console.log(`🌐 Base URL: ${baseURL}`);
