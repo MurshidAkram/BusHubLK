@@ -7,6 +7,7 @@ import ResetPasswordScreen from "../screens/ResetPasswordScreen";
 import TabNavigator from "./TabNavigator";
 import { storageAPI } from "../services/api";
 import { deepLinkService } from "../services/deepLinkHandler";
+import { locationService } from "../services/locationService";
 
 const Stack = createStackNavigator();
 
@@ -19,21 +20,21 @@ export default function RootNavigator() {
     try {
       console.log("🚀 Initializing driver app...");
 
-      // Force clear all storage on app start to always show login screen
-      await storageAPI.clearStorage();
-      console.log("✅ Driver storage cleared");
+      // Removed clearing storage to enable persistent login
+      // await storageAPI.clearStorage();
+      // console.log("✅ Driver storage cleared");
 
-      // Verify storage is empty
+      // Verify stored token and user data
       const token = await storageAPI.getAuthToken();
       const userData = await storageAPI.getUserData();
 
-      console.log("Driver token after clear:", token);
-      console.log("Driver userData after clear:", userData);
+      console.log("Driver token on init:", token);
+      console.log("Driver userData on init:", userData);
 
-      setIsAuthenticated(false);
+      setIsAuthenticated(!!(token && userData));
       setIsInitialized(true);
 
-      console.log("🎯 Driver app initialized - showing login screen");
+      console.log("🎯 Driver app initialized - auth state:", !!(token && userData));
     } catch (error) {
       console.error("Error initializing driver app:", error);
       setIsAuthenticated(false);
@@ -74,6 +75,25 @@ export default function RootNavigator() {
     const interval = setInterval(checkAuthStatus, 1000);
     return () => clearInterval(interval);
   }, [checkAuthStatus, isInitialized]);
+
+  // Start/stop location tracking based on auth state
+  useEffect(() => {
+    async function manageLocationTracking() {
+      if (isAuthenticated) {
+        const userData = await storageAPI.getUserData();
+        if (userData && userData.busId && userData.routeId) {
+          console.log("🚍 Starting location tracking for bus:", userData.busId, "route:", userData.routeId);
+          locationService.startLocationTracking(userData.busId, userData.routeId);
+        } else {
+          console.warn("Bus ID or Route ID missing in user data, cannot start location tracking");
+        }
+      } else {
+        console.log("🛑 Stopping location tracking due to logout");
+        locationService.stopLocationTracking();
+      }
+    }
+    manageLocationTracking();
+  }, [isAuthenticated]);
 
   // Setup deep link handling
   useEffect(() => {

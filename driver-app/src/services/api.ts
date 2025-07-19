@@ -28,6 +28,26 @@ export const driverAPI = {
     return response.json();
   },
 
+  // Verify token validity
+  verifyToken: async () => {
+    const token = await storageAPI.getAuthToken();
+    if (!token) return { success: false, error: "No token found" };
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/driver/verify-token`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      return response.json();
+    } catch (error) {
+      console.error("Token verification error:", error);
+      return { success: false, error: "Token verification failed" };
+    }
+  },
+
   // Update driver profile
   updateDriverProfile: async (profileData: any) => {
     const token = await storageAPI.getAuthToken();
@@ -97,17 +117,23 @@ export const storageAPI = {
   storeAuthToken: async (token: string) => {
     try {
       await AsyncStorage.setItem("driverToken", token);
+      console.log("✅ Auth token stored successfully");
     } catch (error) {
-      console.error("Error storing auth token:", error);
+      console.error("❌ Error storing auth token:", error);
     }
   },
 
   // Get auth token
   getAuthToken: async (): Promise<string | null> => {
     try {
-      return await AsyncStorage.getItem("driverToken");
+      const token = await AsyncStorage.getItem("driverToken");
+      console.log(
+        "🔑 Retrieved token:",
+        token ? "Token exists" : "No token found"
+      );
+      return token;
     } catch (error) {
-      console.error("Error getting auth token:", error);
+      console.error("❌ Error getting auth token:", error);
       return null;
     }
   },
@@ -117,9 +143,14 @@ export const storageAPI = {
     try {
       const token = await AsyncStorage.getItem("driverToken");
       const userData = await AsyncStorage.getItem("driverUser");
-      return !!(token && userData);
+      const isAuth = !!(token && userData);
+      console.log(
+        "🔐 Authentication check:",
+        isAuth ? "Authenticated" : "Not authenticated"
+      );
+      return isAuth;
     } catch (error) {
-      console.error("Error checking authentication:", error);
+      console.error("❌ Error checking authentication:", error);
       return false;
     }
   },
@@ -128,8 +159,9 @@ export const storageAPI = {
   storeUserData: async (userData: any) => {
     try {
       await AsyncStorage.setItem("driverUser", JSON.stringify(userData));
+      console.log("✅ User data stored successfully");
     } catch (error) {
-      console.error("Error storing user data:", error);
+      console.error("❌ Error storing user data:", error);
     }
   },
 
@@ -137,9 +169,35 @@ export const storageAPI = {
   getUserData: async (): Promise<any | null> => {
     try {
       const userData = await AsyncStorage.getItem("driverUser");
-      return userData ? JSON.parse(userData) : null;
+      const parsedData = userData ? JSON.parse(userData) : null;
+      console.log(
+        "👤 Retrieved user data:",
+        parsedData ? "User data exists" : "No user data"
+      );
+      return parsedData;
     } catch (error) {
-      console.error("Error getting user data:", error);
+      console.error("❌ Error getting user data:", error);
+      return null;
+    }
+  },
+
+  // Store login timestamp for session management
+  storeLoginTimestamp: async () => {
+    try {
+      const timestamp = new Date().toISOString();
+      await AsyncStorage.setItem("driverLoginTimestamp", timestamp);
+      console.log("⏰ Login timestamp stored:", timestamp);
+    } catch (error) {
+      console.error("❌ Error storing login timestamp:", error);
+    }
+  },
+
+  // Get login timestamp
+  getLoginTimestamp: async (): Promise<string | null> => {
+    try {
+      return await AsyncStorage.getItem("driverLoginTimestamp");
+    } catch (error) {
+      console.error("❌ Error getting login timestamp:", error);
       return null;
     }
   },
@@ -180,13 +238,15 @@ export const storageAPI = {
       await AsyncStorage.multiRemove([
         "driverToken",
         "driverUser",
+        "driverLoginTimestamp",
         "driverSettings",
         "driverCache",
         "tempData",
         "routeCache",
       ]);
+      console.log("🗑️ All storage cleared");
     } catch (error) {
-      console.error("Error clearing storage:", error);
+      console.error("❌ Error clearing storage:", error);
     }
   },
 };
@@ -218,7 +278,6 @@ export const submitEmergencyReport = async (reportData: any) => {
   return response.json();
 };
 
-
 // Update the fetchBuses function
 export const fetchBuses = async () => {
   const token = await storageAPI.getAuthToken();
@@ -229,11 +288,11 @@ export const fetchBuses = async () => {
       Authorization: `Bearer ${token}`,
     },
   });
-  
+
   if (!response.ok) {
     throw new Error(`HTTP error! status: ${response.status}`);
   }
-  
+
   return response.json();
 };
 
@@ -248,10 +307,10 @@ export const submitConditionReport = async (reportData: any) => {
     },
     body: JSON.stringify(reportData),
   });
-  
+
   if (!response.ok) {
     throw new Error(`HTTP error! status: ${response.status}`);
   }
-  
+
   return response.json();
 };

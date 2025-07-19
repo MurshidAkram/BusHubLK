@@ -18,6 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from '@react-navigation/native';
 import { CommonActions } from '@react-navigation/native';
 import { driverAPI, storageAPI } from "../services/api";
+import { locationService } from "../services/locationService";
 
 const { width, height } = Dimensions.get("window");
 
@@ -49,11 +50,30 @@ export default function DriverLoginScreen() {
       if (response.success) {
         // Store the token and user data using storageAPI
         await storageAPI.storeAuthToken(response.token);
-        await storageAPI.storeUserData(response.user);
+
+        // Fetch assigned bus and route info from backend if not included in login response
+        let userData = response.user;
+        if (!userData.busId || !userData.routeId) {
+          try {
+            const profile = await driverAPI.getDriverProfile();
+            userData = { ...userData, busId: profile.assignedBusId, routeId: profile.assignedRouteId };
+          } catch (error) {
+            console.error("Failed to fetch driver profile for bus/route info:", error);
+          }
+        }
+
+        await storageAPI.storeUserData(userData);
+
+        // Start location tracking after storing user data
+        if (userData.busId && userData.routeId) {
+          locationService.startLocationTracking(userData.busId, userData.routeId);
+        } else {
+          console.warn("Bus ID or Route ID missing in user data, cannot start location tracking");
+        }
 
         setIsLoading(false);
         
-        Alert.alert("Success", `Welcome ${response.user.first_name}!`);
+        Alert.alert("Success", `Welcome ${userData.first_name}!`);
       } else {
         setIsLoading(false);
         Alert.alert(
