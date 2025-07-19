@@ -86,6 +86,7 @@ import DepotAndRegions from './pages/dashboards/admin/DepotAndRegions'
 import RegionalOverviewPage from './pages/dashboards/ceo/RegionalOverview';
 import WorkforceAnalyticsPage from './pages/dashboards/ceo/Workforce';
 import DepotOverviewPage from './pages/dashboards/ceo/DepotOverview';
+import SafetyCompliancePage from './pages/dashboards/ceo/SafetyCompliance';
 //import Dgmtechnicalissue from './pages/dashboards/dgm-tech/Dgmtechnicalissue'
 //import Rtoissuetracker from './pages/dashboards/regional-tech/Rtoissuetracker'
 //import DepotEscalateissues from './pages/dashboards/depot-engineer/DepotEscalateissues'
@@ -228,6 +229,7 @@ const App = () => {
           <Route path="regional-overview" element={<RegionalOverviewPage />} />
           <Route path="workforce-analytics" element={<WorkforceAnalyticsPage />} />
           <Route path="depot-overview" element={<DepotOverviewPage />} />
+          <Route path="safety-compliance" element={<SafetyCompliancePage />} />
         </Route>
         </Route>
 
