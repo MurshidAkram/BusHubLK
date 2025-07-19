@@ -1,118 +1,172 @@
 import { useState } from 'react';
-import { FaEye, FaComment, FaCheck, FaArrowUp, FaInfoCircle, FaCalendarAlt, FaClock, FaWarehouse, FaPaperclip } from 'react-icons/fa';
+import { 
+  FaEye, FaComment, FaCheck, FaArrowUp, FaInfoCircle, FaCalendarAlt, 
+  FaClock, FaWarehouse, FaSearch, FaBus, FaMapPin, FaChartLine
+} from 'react-icons/fa';
 
+// Type definition for an Issue
 type Issue = {
   id: string;
   title: string;
   status: 'new' | 'in-review' | 'pending-info' | 'resolved' | 'escalated';
   depot: string;
+  busId: string;
+  route: string;
+  location: string;
   date: string;
   lastUpdated: string;
   priority: 'high' | 'medium' | 'low';
   category: string;
   description: string;
   attachments: { url: string; alt: string }[];
-  history: { action: string; date: string; details: string }[];
+  history: { action: string; date: string; details: string; user: string }[];
   chat: { sender: string; message: string; date: string }[];
   raisedBy: string;
+  raisedByRole: 'depot-engineer' | 'rto' | 'dgm-technical';
+  escalationLevel: 'none' | 'depot' | 'dgm-technical';
+  resolution?: string;
+  partsUsed?: string[];
+  repairDuration?: string;
+  estimatedCost?: string;
+  infoRequest?: string;
 };
 
-const Rtoissuetracker = () => {
+const RtoIssueTracker = () => {
   const [activeTab, setActiveTab] = useState<'pending' | 'escalated' | 'resolved'>('pending');
   const [showIssueModal, setShowIssueModal] = useState(false);
   const [expandedChat, setExpandedChat] = useState<string | null>(null);
   const [newMessage, setNewMessage] = useState('');
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [filterPriority, setFilterPriority] = useState('all');
+  const [filterCategory, setFilterCategory] = useState('all');
+  const [filterDepot, setFilterDepot] = useState('all');
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
 
   const [issues, setIssues] = useState<Issue[]>([
     {
-      id: 'IS-2023-045',
-      title: 'Power Supply Failure',
+      id: 'IS-2025-045',
+      title: 'Engine Overheating Issue',
       status: 'pending-info',
       depot: 'Depot 5',
-      date: '2 days ago',
+      busId: 'NC-2847',
+      route: 'Colombo-Kandy',
+      location: 'En route near Kadugannawa',
+      date: '2025-07-15',
       lastUpdated: '1 hour ago',
       priority: 'high',
-      category: 'Electrical',
-      description: 'The main power supply unit in Depot 5 has failed, causing complete shutdown of operations.',
+      category: 'Engine',
+      description: 'Bus NC-2847 reported engine overheating during trip. Temperature gauge showed critical levels, and driver stopped the bus to prevent damage.',
       attachments: [
-        { url: 'https://via.placeholder.com/150', alt: 'Power supply error' }
+        { url: 'https://placehold.co/150x100/ADD8E6/000000?text=Engine+Gauge', alt: 'Engine temperature gauge' }
       ],
       history: [
-        { action: 'Raised by Depot Engineer', date: '2 days ago', details: 'Issue initially reported' },
-        { action: 'Assigned to RTO', date: '1 day ago', details: 'RTO began investigation' }
+        { action: 'Issue Reported', date: '2025-07-15', details: 'Driver reported engine overheating', user: 'Driver' },
+        { action: 'Escalated to RTO', date: '2025-07-15', details: 'Requires technical assessment beyond depot capabilities', user: 'Depot Engineer' }
       ],
       chat: [
-        { sender: 'Depot Engineer', message: 'The main power supply failed this morning around 9:15 AM.', date: '2 days ago' },
-        { sender: 'RTO', message: 'Please provide the exact model number of the power supply unit.', date: '1 hour ago' }
+        { sender: 'Driver', message: 'Engine temp hit 110°C around 9:15 AM.', date: '2025-07-15' },
+        { sender: 'RTO', message: 'Please provide coolant levels and radiator condition details.', date: '2025-07-15' }
       ],
-      raisedBy: 'Depot 5 Engineer'
+      raisedBy: 'Sunil Perera',
+      raisedByRole: 'depot-engineer',
+      escalationLevel: 'depot',
+      infoRequest: 'Need coolant system details and radiator inspection photos'
     },
     {
-      id: 'IS-2023-047',
-      title: 'Conveyor Belt Malfunction',
+      id: 'IS-2025-047',
+      title: 'Brake System Malfunction',
       status: 'in-review',
       depot: 'Depot 2',
-      date: '3 hours ago',
+      busId: 'WP-5621',
+      route: 'Colombo-Negombo',
+      location: 'Depot Workshop',
+      date: '2025-07-14',
       lastUpdated: '3 hours ago',
       priority: 'medium',
-      category: 'Mechanical',
-      description: 'Conveyor belt in loading area stops intermittently. Motor overheating observed.',
+      category: 'Brakes',
+      description: 'Brake system on bus WP-5621 shows delayed response. Driver reported spongy brake pedal during routine checks.',
       attachments: [],
       history: [
-        { action: 'Raised by Depot Engineer', date: '3 hours ago', details: 'Issue initially reported' }
+        { action: 'Issue Reported', date: '2025-07-14', details: 'Depot engineer identified brake system issue during inspection', user: 'Depot Engineer' },
+        { action: 'Escalated to RTO', date: '2025-07-14', details: 'Requires specialized brake system diagnostics', user: 'Depot Manager' }
       ],
       chat: [
-        { sender: 'Depot Engineer', message: 'Conveyor stops every 10-15 minutes.', date: '3 hours ago' }
+        { sender: 'Depot Engineer', message: 'Brake pedal feels soft, possible air in the lines.', date: '2025-07-14' }
       ],
-      raisedBy: 'Depot 2 Engineer'
+      raisedBy: 'Kamal Silva',
+      raisedByRole: 'depot-engineer',
+      escalationLevel: 'depot'
     },
     {
-      id: 'IS-2023-042',
-      title: 'Network Connectivity Issues',
+      id: 'IS-2025-042',
+      title: 'Electrical Fault in Lighting System',
       status: 'escalated',
       depot: 'Depot 3',
-      date: '5 days ago',
+      busId: 'CP-3456',
+      route: 'Kandy-Nuwara Eliya',
+      location: 'Depot Yard',
+      date: '2025-07-12',
       lastUpdated: '1 day ago',
       priority: 'medium',
-      category: 'Network',
-      description: 'Intermittent network connectivity issues in the eastern wing of Depot 3.',
+      category: 'Electrical',
+      description: 'Headlights and interior lights on bus CP-3456 flicker intermittently. Issue persists after initial depot checks.',
       attachments: [],
       history: [
-        { action: 'Raised by Depot Engineer', date: '5 days ago', details: 'Issue initially reported' },
-        { action: 'Assigned to RTO', date: '4 days ago', details: 'RTO began investigation' },
-        { action: 'Escalated to DGM', date: '1 day ago', details: 'Requires infrastructure upgrades' }
+        { action: 'Issue Reported', date: '2025-07-12', details: 'Driver reported flickering lights', user: 'Driver' },
+        { action: 'Escalated to RTO', date: '2025-07-12', details: 'Initial wiring check inconclusive', user: 'Depot Engineer' },
+        { action: 'Escalated to DGM', date: '2025-07-14', details: 'Requires advanced electrical diagnostics', user: 'RTO' }
       ],
       chat: [
-        { sender: 'Depot Engineer', message: 'Network drops 3-4 times per hour.', date: '5 days ago' },
-        { sender: 'RTO', message: 'Local switches checked - no issues found.', date: '1 day ago' }
+        { sender: 'Driver', message: 'Headlights flicker during night operation.', date: '2025-07-12' },
+        { sender: 'RTO', message: 'Wiring harness checked, no faults found. Need DGM input.', date: '2025-07-14' }
       ],
-      raisedBy: 'Depot 3 Engineer'
+      raisedBy: 'Nimal Fernando',
+      raisedByRole: 'depot-engineer',
+      escalationLevel: 'dgm-technical'
     },
     {
-      id: 'IS-2023-038',
-      title: 'Faulty HVAC Unit',
+      id: 'IS-2025-038',
+      title: 'Transmission Gear Slippage',
       status: 'resolved',
       depot: 'Depot 1',
-      date: '1 week ago',
+      busId: 'SG-7890',
+      route: 'Colombo-Matara',
+      location: 'Depot Workshop',
+      date: '2025-07-08',
       lastUpdated: '2 days ago',
       priority: 'low',
-      category: 'HVAC',
-      description: 'HVAC unit in control room not maintaining temperature.',
+      category: 'Transmission',
+      description: 'Bus SG-7890 experienced gear slippage during shifts. Issue resolved after replacing transmission fluid and clutch plate.',
       attachments: [],
       history: [
-        { action: 'Raised by Depot Engineer', date: '1 week ago', details: 'Issue initially reported' },
-        { action: 'Assigned to RTO', date: '6 days ago', details: 'RTO began investigation' },
-        { action: 'Resolved', date: '2 days ago', details: 'Thermostat replaced' }
+        { action: 'Issue Reported', date: '2025-07-08', details: 'Driver reported gear slippage', user: 'Driver' },
+        { action: 'Escalated to RTO', date: '2025-07-09', details: 'Depot assessment completed', user: 'Depot Engineer' },
+        { action: 'Resolved', date: '2025-07-13', details: 'Transmission fluid and clutch plate replaced', user: 'RTO' }
       ],
       chat: [
-        { sender: 'Depot Engineer', message: 'Temperature fluctuates between 60°F and 80°F.', date: '1 week ago' },
-        { sender: 'RTO', message: 'Technician dispatched to inspect.', date: '6 days ago' },
-        { sender: 'RTO', message: 'Issue resolved - faulty thermostat replaced.', date: '2 days ago' }
+        { sender: 'Driver', message: 'Bus struggles to shift gears smoothly.', date: '2025-07-08' },
+        { sender: 'RTO', message: 'Technician dispatched to inspect transmission.', date: '2025-07-09' },
+        { sender: 'RTO', message: 'Issue resolved after fluid and clutch replacement.', date: '2025-07-13' }
       ],
-      raisedBy: 'Depot 1 Engineer'
+      raisedBy: 'Ajith Kumara',
+      raisedByRole: 'depot-engineer',
+      escalationLevel: 'depot',
+      resolution: 'Replaced transmission fluid and clutch plate. Bus tested and functioning normally.',
+      partsUsed: ['Transmission Fluid', 'Clutch Plate'],
+      repairDuration: '3 hours',
+      estimatedCost: 'Rs. 18,500'
     }
   ]);
+
+  const categories = [
+    'Engine', 'Brakes', 'Electrical', 'Transmission', 'Suspension',
+    'Cooling', 'Hydraulics', 'Tires', 'Fuel System', 'Other'
+  ];
+
+  const uniqueDepots = Array.from(new Set(issues.map(issue => issue.depot)));
 
   const getStatusBadge = (status: Issue['status']) => {
     const baseClasses = "text-xs font-medium me-2 px-2.5 py-0.5 rounded";
@@ -136,6 +190,59 @@ const Rtoissuetracker = () => {
     }
   };
 
+  const filterIssues = (issues: Issue[], tab: string) => {
+    let filtered = issues;
+    
+    // Filter by tab
+    switch(tab) {
+      case 'pending':
+        filtered = filtered.filter(issue => ['in-review', 'pending-info'].includes(issue.status));
+        break;
+      case 'escalated':
+        filtered = filtered.filter(issue => issue.status === 'escalated');
+        break;
+      case 'resolved':
+        filtered = filtered.filter(issue => issue.status === 'resolved');
+        break;
+    }
+    
+    // Apply search term filter
+    if (searchTerm) {
+      filtered = filtered.filter(issue => 
+        issue.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        issue.busId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        issue.description.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+    
+    // Apply other dropdown filters
+    if (filterStatus !== 'all') {
+      filtered = filtered.filter(issue => issue.status === filterStatus);
+    }
+    
+    if (filterPriority !== 'all') {
+      filtered = filtered.filter(issue => issue.priority === filterPriority);
+    }
+    
+    if (filterCategory !== 'all') {
+      filtered = filtered.filter(issue => issue.category === filterCategory);
+    }
+
+    if (filterDepot !== 'all') {
+      filtered = filtered.filter(issue => issue.depot === filterDepot);
+    }
+
+    // Apply date range filter
+    if (filterDateFrom) {
+      filtered = filtered.filter(issue => new Date(issue.date) >= new Date(filterDateFrom));
+    }
+    if (filterDateTo) {
+      filtered = filtered.filter(issue => new Date(issue.date) <= new Date(filterDateTo));
+    }
+    
+    return filtered;
+  };
+
   const viewIssueDetails = (issue: Issue) => {
     setSelectedIssue(issue);
     setShowIssueModal(true);
@@ -155,6 +262,11 @@ const Rtoissuetracker = () => {
           chat: [
             ...issue.chat,
             { sender: 'RTO', message: newMessage, date: 'Just now' }
+          ],
+          lastUpdated: 'Just now',
+          history: [
+            ...issue.history,
+            { action: 'Comment Added', date: 'Just now', details: `New message added by RTO`, user: 'RTO' }
           ]
         };
       }
@@ -167,441 +279,535 @@ const Rtoissuetracker = () => {
       chat: [
         ...selectedIssue.chat,
         { sender: 'RTO', message: newMessage, date: 'Just now' }
-      ]
+      ],
+      lastUpdated: 'Just now'
     });
     setNewMessage('');
   };
 
   const resolveIssue = (issueId: string) => {
-    setIssues(issues.map(issue => 
-      issue.id === issueId ? { ...issue, status: 'resolved' } : issue
-    ));
+    setIssues(issues.map(issue => {
+      if (issue.id === issueId) {
+        return {
+          ...issue,
+          status: 'resolved',
+          lastUpdated: 'Just now',
+          history: [
+            ...issue.history,
+            { action: 'Issue Resolved', date: 'Just now', details: 'Issue marked as resolved by RTO', user: 'RTO' }
+          ]
+        };
+      }
+      return issue;
+    }));
+    setShowIssueModal(false);
   };
 
   const escalateToDGM = (issueId: string) => {
-    setIssues(issues.map(issue => 
-      issue.id === issueId ? { ...issue, status: 'escalated' } : issue
-    ));
+    setIssues(issues.map(issue => {
+      if (issue.id === issueId) {
+        return {
+          ...issue,
+          status: 'escalated',
+          escalationLevel: 'dgm-technical',
+          lastUpdated: 'Just now',
+          history: [
+            ...issue.history,
+            { action: 'Escalated to DGM', date: 'Just now', details: 'Issue escalated to DGM Technical by RTO', user: 'RTO' }
+          ]
+        };
+      }
+      return issue;
+    }));
+    setShowIssueModal(false);
   };
 
   const requestMoreInfo = (issueId: string) => {
-    setIssues(issues.map(issue => 
-      issue.id === issueId ? { ...issue, status: 'pending-info' } : issue
-    ));
+    setIssues(issues.map(issue => {
+      if (issue.id === issueId) {
+        return {
+          ...issue,
+          status: 'pending-info',
+          lastUpdated: 'Just now',
+          history: [
+            ...issue.history,
+            { action: 'Info Requested', date: 'Just now', details: 'Additional information requested from depot', user: 'RTO' }
+          ]
+        };
+      }
+      return issue;
+    }));
+    setShowIssueModal(false);
+  };
+
+  const getTabCount = (tab: string) => {
+    return filterIssues(issues, tab).length;
   };
 
   return (
-    <div className="container-fluid mx-auto px-4">
-      
-      
-      {/* Tabs */}
-      <div className="mb-4 border-b border-gray-200">
-        <ul className="flex flex-wrap -mb-px">
-          <li className="mr-2">
-            <button
-              className={`inline-block p-4 border-b-2 rounded-t-lg ${activeTab === 'pending' ? 'text-blue-600 border-blue-600' : 'hover:text-gray-600 hover:border-gray-300'}`}
-              onClick={() => setActiveTab('pending')}
-            >
-              Pending Issues ({issues.filter(i => i.status === 'in-review' || i.status === 'pending-info').length})
-            </button>
-          </li>
-          <li className="mr-2">
-            <button
-              className={`inline-block p-4 border-b-2 rounded-t-lg ${activeTab === 'escalated' ? 'text-blue-600 border-blue-600' : 'hover:text-gray-600 hover:border-gray-300'}`}
-              onClick={() => setActiveTab('escalated')}
-            >
-              My Escalated ({issues.filter(i => i.status === 'escalated').length})
-            </button>
-          </li>
-          <li className="mr-2">
-            <button
-              className={`inline-block p-4 border-b-2 rounded-t-lg ${activeTab === 'resolved' ? 'text-blue-600 border-blue-600' : 'hover:text-gray-600 hover:border-gray-300'}`}
-              onClick={() => setActiveTab('resolved')}
-            >
-              Resolved ({issues.filter(i => i.status === 'resolved').length})
-            </button>
-          </li>
-        </ul>
-      </div>
-      
-      {/* Tab Content */}
-      {activeTab === 'pending' && (
-        <div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            <div className="col-span-1 md:col-span-2">
-              <input
-                type="text"
-                placeholder="Search issues..."
-                className="w-full p-2 border border-gray-300 rounded"
-              />
-            </div>
-            <div className="col-span-1">
-              <select className="w-full p-2 border border-gray-300 rounded">
-                <option>All Priority</option>
-                <option>High</option>
-                <option>Medium</option>
-                <option>Low</option>
-              </select>
-            </div>
-            <div className="col-span-1">
-              <select className="w-full p-2 border border-gray-300 rounded">
-                <option>All Depots</option>
-                <option>Depot 1</option>
-                <option>Depot 2</option>
-                <option>Depot 3</option>
-                <option>Depot 4</option>
-                <option>Depot 5</option>
-              </select>
+    <div className="min-h-screen bg-gray-100 font-sans antialiased">
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+          font-family: 'Inter', sans-serif;
+        }
+      `}</style>
+      <div className="container mx-auto px-4 py-8">
+        {/* Main Content Area */}
+        <div className="bg-white p-6 rounded-xl shadow-md">
+          <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6">
+            <h2 className="text-2xl font-bold text-gray-800 mb-4 md:mb-0">RTO Issue Tracker</h2>
+            {/* Quick Actions Panel */}
+            <div className="flex flex-wrap gap-3">
+              <button className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg flex items-center justify-center text-sm">
+                <FaChartLine className="mr-2" />Generate Reports
+              </button>
             </div>
           </div>
           
-          {issues.filter(i => i.status === 'in-review' || i.status === 'pending-info').map(issue => (
-            <div 
-              key={issue.id} 
-              className={`bg-white p-4 mb-4 rounded-lg shadow ${issue.priority === 'high' ? 'border-l-4 border-red-500' : issue.priority === 'medium' ? 'border-l-4 border-yellow-500' : 'border-l-4 border-green-500'}`}
-            >
-              <div className="flex justify-between items-start">
-                <h5 className="font-bold">{issue.id} - {issue.title}</h5>
-                <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">Level 1 (RTO)</span>
+          {/* Search and Filters */}
+          <div className="bg-gray-50 p-5 rounded-lg shadow-inner mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div className="relative">
+                <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search by ID, Title, Bus ID, Description..."
+                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
               </div>
-              <div className="flex items-center my-2">
-                {getStatusBadge(issue.status)}
-                <small className="text-gray-500 mr-3 flex items-center"><FaWarehouse className="mr-1" />{issue.depot}</small>
-                <small className="text-gray-500 mr-3 flex items-center"><FaCalendarAlt className="mr-1" />{issue.date}</small>
-                <small className="text-gray-500 flex items-center"><FaClock className="mr-1" />{issue.lastUpdated}</small>
+              <select 
+                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+              >
+                <option value="all">All Statuses</option>
+                <option value="new">New</option>
+                <option value="in-review">In Review</option>
+                <option value="pending-info">Pending Info</option>
+                <option value="resolved">Resolved</option>
+                <option value="escalated">Escalated</option>
+              </select>
+              <select 
+                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                value={filterPriority}
+                onChange={(e) => setFilterPriority(e.target.value)}
+              >
+                <option value="all">All Priority</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </select>
+              <select 
+                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                value={filterCategory}
+                onChange={(e) => setFilterCategory(e.target.value)}
+              >
+                <option value="all">All Categories</option>
+                {categories.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+              <select 
+                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                value={filterDepot}
+                onChange={(e) => setFilterDepot(e.target.value)}
+              >
+                <option value="all">All Depots</option>
+                {uniqueDepots.map(depot => (
+                  <option key={depot} value={depot}>{depot}</option>
+                ))}
+              </select>
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  id="dateFrom"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                  value={filterDateFrom}
+                  onChange={(e) => setFilterDateFrom(e.target.value)}
+                />
+                <span className="text-gray-500">-</span>
+                <input
+                  type="date"
+                  id="dateTo"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                  value={filterDateTo}
+                  onChange={(e) => setFilterDateTo(e.target.value)}
+                />
               </div>
-              <p className="mb-3">{issue.description}</p>
-              <div className="flex justify-between items-center">
-                <div>
-                  {getPriorityBadge(issue.priority)}
-                  <span className="bg-gray-100 text-gray-800 text-xs px-2.5 py-0.5 rounded">{issue.category}</span>
-                </div>
-                <div>
-                  <button 
-                    className="text-blue-600 hover:text-blue-800 mr-2 p-2 rounded hover:bg-blue-50"
-                    onClick={() => viewIssueDetails(issue)}
-                  >
-                    <FaEye className="inline mr-1" />View
-                  </button>
-                  <button 
-                    className="text-gray-600 hover:text-gray-800 mr-2 p-2 rounded hover:bg-gray-50"
-                    onClick={() => toggleChat(issue.id)}
-                  >
-                    <FaComment className="inline mr-1" />Chat
-                  </button>
-                  <button 
-                    className="text-green-600 hover:text-green-800 mr-2 p-2 rounded hover:bg-green-50"
-                    onClick={() => resolveIssue(issue.id)}
-                  >
-                    <FaCheck className="inline mr-1" />Resolve
-                  </button>
-                  <button 
-                    className="text-yellow-600 hover:text-yellow-800 p-2 rounded hover:bg-yellow-50"
-                    onClick={() => escalateToDGM(issue.id)}
-                  >
-                    <FaArrowUp className="inline mr-1" />Escalate
-                  </button>
-                </div>
-              </div>
-              
-              {/* Expandable Chat Box */}
-              {expandedChat === issue.id && (
-                <div className="mt-4 pt-4 border-t">
-                  <h6 className="font-semibold mb-3">Conversation</h6>
-                  <div className="mb-3 max-h-48 overflow-y-auto">
-                    {issue.chat.map((msg, index) => (
-                      <div 
-                        key={index} 
-                        className={`flex mb-3 ${msg.sender === 'RTO' ? 'justify-end' : ''}`}
-                      >
-                        {msg.sender !== 'RTO' && (
-                          <img src="https://via.placeholder.com/40" className="w-10 h-10 rounded-full mr-2" alt="User" />
-                        )}
-                        <div className={`${msg.sender === 'RTO' ? 'text-right' : ''}`}>
-                          <div className={`p-3 rounded-lg ${msg.sender === 'RTO' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100'}`}>
-                            <strong>{msg.sender}:</strong> {msg.message}
-                          </div>
-                          <small className="text-gray-500 text-xs">{msg.date}</small>
-                        </div>
-                        {msg.sender === 'RTO' && (
-                          <img src="https://via.placeholder.com/40" className="w-10 h-10 rounded-full ml-2" alt="User" />
-                        )}
+            </div>
+          </div>
+          
+          {/* Tabs */}
+          <div className="mb-6 border-b border-gray-200">
+            <ul className="flex flex-wrap -mb-px text-sm font-medium text-center" role="tablist">
+              <li className="mr-2" role="presentation">
+                <button
+                  className={`inline-block p-4 border-b-2 rounded-t-lg transition duration-200 ease-in-out ${activeTab === 'pending' ? 'text-blue-600 border-blue-600 active' : 'text-gray-500 hover:text-gray-600 hover:border-gray-300'}`}
+                  onClick={() => setActiveTab('pending')}
+                  role="tab"
+                  aria-selected={activeTab === 'pending'}
+                >
+                  Pending Issues ({getTabCount('pending')})
+                </button>
+              </li>
+              <li className="mr-2" role="presentation">
+                <button
+                  className={`inline-block p-4 border-b-2 rounded-t-lg transition duration-200 ease-in-out ${activeTab === 'escalated' ? 'text-blue-600 border-blue-600 active' : 'text-gray-500 hover:text-gray-600 hover:border-gray-300'}`}
+                  onClick={() => setActiveTab('escalated')}
+                  role="tab"
+                  aria-selected={activeTab === 'escalated'}
+                >
+                  Escalated Issues ({getTabCount('escalated')})
+                </button>
+              </li>
+              <li className="mr-2" role="presentation">
+                <button
+                  className={`inline-block p-4 border-b-2 rounded-t-lg transition duration-200 ease-in-out ${activeTab === 'resolved' ? 'text-blue-600 border-blue-600 active' : 'text-gray-500 hover:text-gray-600 hover:border-gray-300'}`}
+                  onClick={() => setActiveTab('resolved')}
+                  role="tab"
+                  aria-selected={activeTab === 'resolved'}
+                >
+                  Resolved Issues ({getTabCount('resolved')})
+                </button>
+              </li>
+            </ul>
+          </div>
+          
+          {/* Issues List */}
+          <div>
+            {filterIssues(issues, activeTab).length === 0 ? (
+              <p className="text-center text-gray-600 text-lg py-10">No issues found for this view or filters.</p>
+            ) : (
+              filterIssues(issues, activeTab).map(issue => (
+                <div 
+                  key={issue.id} 
+                  className={`bg-white p-6 mb-4 rounded-xl shadow-md transition-all duration-300 ease-in-out ${
+                    issue.priority === 'high' ? 'border-l-4 border-red-500' : 
+                    issue.priority === 'medium' ? 'border-l-4 border-yellow-500' : 
+                    'border-l-4 border-green-500'
+                  } hover:shadow-lg`}
+                >
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3">
+                    <div className="flex-1 mb-2 sm:mb-0">
+                      <h5 className="font-bold text-xl text-gray-800">{issue.id} - {issue.title}</h5>
+                      <div className="flex flex-wrap items-center mt-1 text-sm text-gray-600 gap-x-3 gap-y-1">
+                        <span className="flex items-center"><FaWarehouse className="mr-1 text-blue-500" />{issue.depot}</span>
+                        <span className="flex items-center"><FaBus className="mr-1 text-purple-500" />{issue.busId}</span>
+                        <span className="flex items-center"><FaMapPin className="mr-1 text-green-500" />{issue.route}</span>
                       </div>
-                    ))}
+                    </div>
+                    <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2">
+                      {getPriorityBadge(issue.priority)}
+                    </div>
                   </div>
-                  <div className="flex">
-                    <input
-                      type="text"
-                      placeholder="Type your message..."
-                      className="flex-grow p-2 border border-gray-300 rounded-l"
-                      value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
-                    />
-                    <button 
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 rounded-r"
-                      onClick={sendMessage}
-                    >
-                      Send
-                    </button>
+                  
+                  <div className="flex flex-wrap items-center mb-3 gap-x-3 gap-y-1">
+                    {getStatusBadge(issue.status)}
+                    <span className="bg-gray-100 text-gray-800 text-xs px-3 py-1 rounded-full font-medium">{issue.category}</span>
+                    <small className="text-gray-500 flex items-center"><FaCalendarAlt className="mr-1" />Reported: {issue.date}</small>
+                    <small className="text-gray-500 flex items-center"><FaClock className="mr-1" />Updated: {issue.lastUpdated}</small>
                   </div>
+                  
+                  <p className="mb-4 text-gray-700 line-clamp-2">{issue.description}</p>
+                  
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <div className="flex flex-wrap gap-2">
+                      <button 
+                        className="text-blue-600 hover:text-blue-800 p-2 rounded-full hover:bg-blue-50 transition duration-200 ease-in-out flex items-center text-sm font-medium"
+                        onClick={() => viewIssueDetails(issue)}
+                      >
+                        <FaEye className="mr-1" />View Details
+                      </button>
+                      <button 
+                        className="text-green-600 hover:text-green-800 p-2 rounded-full hover:bg-green-50 transition duration-200 ease-in-out flex items-center text-sm font-medium"
+                        onClick={() => toggleChat(issue.id)}
+                      >
+                        <FaComment className="mr-1" />Chat ({issue.chat.length})
+                      </button>
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-2">
+                      {issue.status === 'in-review' && (
+                        <button 
+                          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-sm transition duration-200 ease-in-out"
+                          onClick={() => resolveIssue(issue.id)}
+                        >
+                          Resolve
+                        </button>
+                      )}
+                      {issue.status === 'pending-info' && (
+                        <button 
+                          className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-sm transition duration-200 ease-in-out"
+                          onClick={() => requestMoreInfo(issue.id)}
+                        >
+                          Request Info
+                        </button>
+                      )}
+                      {!['escalated', 'resolved'].includes(issue.status) && (
+                        <button 
+                          className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-sm transition duration-200 ease-in-out flex items-center"
+                          onClick={() => escalateToDGM(issue.id)}
+                        >
+                          <FaArrowUp className="mr-1" />Escalate to DGM
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Expandable Chat Box */}
+                  {expandedChat === issue.id && (
+                    <div className="mt-6 pt-4 border-t border-gray-200">
+                      <h6 className="font-semibold text-lg text-gray-800 mb-4">Communication Log</h6>
+                      <div className="mb-4 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+                        {issue.chat.map((msg, index) => (
+                          <div 
+                            key={index} 
+                            className={`flex mb-3 ${msg.sender === 'RTO' ? 'justify-end' : 'justify-start'}`}
+                          >
+                            <div className={`max-w-[80%] px-4 py-2 rounded-lg shadow-sm ${msg.sender === 'RTO' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'}`}>
+                              <div className="font-semibold text-sm mb-1">{msg.sender}</div>
+                              <div className="text-sm">{msg.message}</div>
+                              <div className="text-xs mt-1 opacity-80">{msg.date}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex">
+                        <input
+                          type="text"
+                          placeholder="Type your message..."
+                          className="flex-1 border border-gray-300 rounded-l-lg px-4 py-2 focus:ring-blue-500 focus:border-blue-500"
+                          value={newMessage}
+                          onChange={(e) => setNewMessage(e.target.value)}
+                          onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                        />
+                        <button 
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-r-lg font-semibold transition duration-200 ease-in-out" 
+                          onClick={sendMessage} 
+                        >
+                          Send
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          ))}
+              ))
+            )}
+          </div>
         </div>
-      )}
-      
-      {activeTab === 'escalated' && (
-        <div>
-          {issues.filter(i => i.status === 'escalated').map(issue => (
-            <div key={issue.id} className="bg-white p-4 mb-4 rounded-lg shadow border-l-4 border-red-500">
-              <div className="flex justify-between items-start">
-                <h5 className="font-bold">{issue.id} - {issue.title}</h5>
-                <span className="bg-red-100 text-red-800 text-xs px-2 py-1 rounded">Escalated to DGM</span>
-              </div>
-              <div className="flex items-center my-2">
-                {getStatusBadge(issue.status)}
-                <small className="text-gray-500 mr-3 flex items-center"><FaWarehouse className="mr-1" />{issue.depot}</small>
-                <small className="text-gray-500 mr-3 flex items-center"><FaCalendarAlt className="mr-1" />{issue.date}</small>
-                <small className="text-gray-500 flex items-center"><FaClock className="mr-1" />{issue.lastUpdated}</small>
-              </div>
-              <p className="mb-3">{issue.description}</p>
-              <div className="flex justify-between items-center">
-                <div>
-                  {getPriorityBadge(issue.priority)}
-                  <span className="bg-gray-100 text-gray-800 text-xs px-2.5 py-0.5 rounded">{issue.category}</span>
-                </div>
-                <div>
-                  <button 
-                    className="text-blue-600 hover:text-blue-800 mr-2 p-2 rounded hover:bg-blue-50"
-                    onClick={() => viewIssueDetails(issue)}
-                  >
-                    <FaEye className="inline mr-1" />View
-                  </button>
-                  <button 
-                    className="text-gray-600 hover:text-gray-800 p-2 rounded hover:bg-gray-50"
-                    onClick={() => toggleChat(issue.id)}
-                  >
-                    <FaComment className="inline mr-1" />Chat
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-      
-      {activeTab === 'resolved' && (
-        <div>
-          {issues.filter(i => i.status === 'resolved').map(issue => (
-            <div key={issue.id} className="bg-white p-4 mb-4 rounded-lg shadow border-l-4 border-green-500">
-              <div className="flex justify-between items-start">
-                <h5 className="font-bold">{issue.id} - {issue.title}</h5>
-                <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">Resolved</span>
-              </div>
-              <div className="flex items-center my-2">
-                {getStatusBadge(issue.status)}
-                <small className="text-gray-500 mr-3 flex items-center"><FaWarehouse className="mr-1" />{issue.depot}</small>
-                <small className="text-gray-500 mr-3 flex items-center"><FaCalendarAlt className="mr-1" />{issue.date}</small>
-                <small className="text-gray-500 flex items-center"><FaClock className="mr-1" />Resolved: {issue.lastUpdated}</small>
-              </div>
-              <p className="mb-3">{issue.description}</p>
-              <div className="flex justify-between items-center">
-                <div>
-                  {getPriorityBadge(issue.priority)}
-                  <span className="bg-gray-100 text-gray-800 text-xs px-2.5 py-0.5 rounded">{issue.category}</span>
-                </div>
-                <div>
-                  <button 
-                    className="text-blue-600 hover:text-blue-800 p-2 rounded hover:bg-blue-50"
-                    onClick={() => viewIssueDetails(issue)}
-                  >
-                    <FaEye className="inline mr-1" />View
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-      
+      </div>
+
       {/* Issue Detail Modal */}
       {showIssueModal && selectedIssue && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
-            <div className="p-4 border-b flex justify-between items-center">
-              <h3 className="text-xl font-bold">Issue Details</h3>
-              <button 
-                className="text-gray-500 hover:text-gray-700"
-                onClick={() => setShowIssueModal(false)}
-              >
-                ✕
-              </button>
-            </div>
-            <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="col-span-2">
-                <h4 className="text-lg font-bold">#{selectedIssue.id} - {selectedIssue.title}</h4>
-                <div className="flex items-center my-2">
-                  {getStatusBadge(selectedIssue.status)}
-                  <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded mr-2">Level 1 (RTO)</span>
-                  <small className="text-gray-500 mr-3 flex items-center"><FaWarehouse className="mr-1" />{selectedIssue.depot}</small>
-                  <small className="text-gray-500 flex items-center"><FaCalendarAlt className="mr-1" />{selectedIssue.date}</small>
-                </div>
-                <div className="my-3">
-                  {getPriorityBadge(selectedIssue.priority)}
-                  <span className="bg-gray-100 text-gray-800 text-xs px-2.5 py-0.5 rounded">{selectedIssue.category}</span>
-                </div>
-                <p className="mb-3">{selectedIssue.description}</p>
-                
-                <h6 className="font-semibold mb-2">Attachments</h6>
-                <div className="flex flex-wrap mb-4">
-                  {selectedIssue.attachments.map((att, index) => (
-                    <img key={index} src={att.url} className="w-24 h-24 object-cover rounded mr-2 mb-2 border" alt={att.alt} />
-                  ))}
-                </div>
-                
-                <h6 className="font-semibold mb-2">Escalation History</h6>
-                <div className="mb-4">
-                  {selectedIssue.history.map((item, index) => (
-                    <div key={index} className="flex mb-3">
-                      <div className="flex flex-col items-center mr-3">
-                        <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                        {index < selectedIssue.history.length - 1 && (
-                          <div className="w-px h-8 bg-gray-300"></div>
-                        )}
-                      </div>
-                      <div className="flex-grow">
-                        <div className="flex justify-between">
-                          <strong>{item.action}</strong>
-                          <small className="text-gray-500">{item.date}</small>
-                        </div>
-                        <p className="text-sm">{item.details}</p>
-                      </div>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto transform transition-all scale-100 opacity-100">
+            <div className="p-6">
+              <div className="flex justify-between items-start mb-6 border-b pb-4">
+                <h3 className="text-2xl font-bold text-gray-800 flex items-center">
+                  {selectedIssue.id} - {selectedIssue.title}
+                  <span className="ml-4">{getStatusBadge(selectedIssue.status)}</span>
+                </h3>
+                <button 
+                  className="text-gray-500 hover:text-gray-700 p-2 rounded-full hover:bg-gray-100 transition duration-200"
+                  onClick={() => setShowIssueModal(false)}
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                  </svg>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                {/* Basic Information */}
+                <div className="lg:col-span-1 bg-gray-50 p-4 rounded-lg shadow-inner">
+                  <h4 className="font-semibold text-lg text-gray-800 mb-3 border-b pb-2">Basic Information</h4>
+                  <div className="space-y-2 text-gray-700 text-sm">
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">Category:</span>
+                      <span>{selectedIssue.category}</span>
                     </div>
-                  ))}
-                </div>
-                
-                <h6 className="font-semibold mb-2">Conversation</h6>
-                <div className="mb-3 max-h-64 overflow-y-auto">
-                  {selectedIssue.chat.map((msg, index) => (
-                    <div 
-                      key={index} 
-                      className={`flex mb-3 ${msg.sender === 'RTO' ? 'justify-end' : ''}`}
-                    >
-                      {msg.sender !== 'RTO' && (
-                        <img src="https://via.placeholder.com/40" className="w-10 h-10 rounded-full mr-2" alt="User" />
-                      )}
-                      <div className={`${msg.sender === 'RTO' ? 'text-right' : ''}`}>
-                        <div className={`p-3 rounded-lg ${msg.sender === 'RTO' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100'}`}>
-                          <strong>{msg.sender}:</strong> {msg.message}
-                        </div>
-                        <small className="text-gray-500 text-xs">{msg.date}</small>
-                      </div>
-                      {msg.sender === 'RTO' && (
-                        <img src="https://via.placeholder.com/40" className="w-10 h-10 rounded-full ml-2" alt="User" />
-                      )}
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">Priority:</span>
+                      <span>{getPriorityBadge(selectedIssue.priority)}</span>
                     </div>
-                  ))}
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">Reported Date:</span>
+                      <span>{selectedIssue.date}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">Last Updated:</span>
+                      <span>{selectedIssue.lastUpdated}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">Escalation Level:</span>
+                      <span className="capitalize">{selectedIssue.escalationLevel.replace('-', ' ')}</span>
+                    </div>
+                  </div>
                 </div>
-                
-                <div className="mb-3">
-                  <textarea
-                    className="w-full p-2 border border-gray-300 rounded"
-                    rows={3}
-                    placeholder="Add your comment..."
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                  />
-                  <div className="flex justify-between mt-2">
-                    <button className="text-gray-500 hover:text-gray-700 p-2 rounded hover:bg-gray-100">
-                      <FaPaperclip />
-                    </button>
-                    <button 
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
-                      onClick={sendMessage}
-                    >
-                      Send
-                    </button>
+
+                {/* Depot Information */}
+                <div className="lg:col-span-1 bg-gray-50 p-4 rounded-lg shadow-inner">
+                  <h4 className="font-semibold text-lg text-gray-800 mb-3 border-b pb-2">Depot Information</h4>
+                  <div className="space-y-2 text-gray-700 text-sm">
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">Depot:</span>
+                      <span>{selectedIssue.depot}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">Bus ID:</span>
+                      <span>{selectedIssue.busId}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">Route:</span>
+                      <span>{selectedIssue.route}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">Location:</span>
+                      <span>{selectedIssue.location}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Reporter Details */}
+                <div className="lg:col-span-1 bg-gray-50 p-4 rounded-lg shadow-inner">
+                  <h4 className="font-semibold text-lg text-gray-800 mb-3 border-b pb-2">Reporter Details</h4>
+                  <div className="space-y-2 text-gray-700 text-sm">
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">Name:</span>
+                      <span>{selectedIssue.raisedBy}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">Role:</span>
+                      <span className="capitalize">{selectedIssue.raisedByRole.replace('-', ' ')}</span>
+                    </div>
                   </div>
                 </div>
               </div>
-              
-              <div className="col-span-1">
-                <div className="bg-white rounded-lg shadow mb-4">
-                  <div className="p-3 border-b">
-                    <h6 className="font-semibold">Issue Actions</h6>
+
+              {/* Description */}
+              <div className="mb-6 p-4 bg-gray-50 rounded-lg shadow-inner">
+                <h4 className="font-semibold text-lg text-gray-800 mb-3 border-b pb-2">Description</h4>
+                <p className="text-gray-700 text-base">{selectedIssue.description}</p>
+              </div>
+
+              {/* Attachments */}
+              {selectedIssue.attachments.length > 0 && (
+                <div className="mb-6 p-4 bg-gray-50 rounded-lg shadow-inner">
+                  <h4 className="font-semibold text-lg text-gray-800 mb-3 border-b pb-2">Attachments</h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                    {selectedIssue.attachments.map((attach, index) => (
+                      <div key={index} className="border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+                        <img 
+                          src={attach.url} 
+                          alt={attach.alt} 
+                          className="w-full h-32 object-cover"
+                          onError={(e) => { e.currentTarget.src = `https://placehold.co/150x100/CCCCCC/333333?text=Image+Error`; e.currentTarget.alt = "Image failed to load"; }}
+                        />
+                        <p className="text-xs text-gray-600 p-2 truncate">{attach.alt}</p>
+                      </div>
+                    ))}
                   </div>
-                  <div className="p-3 grid gap-2">
+                </div>
+              )}
+
+              {/* Resolution & Cost Tracking */}
+              {selectedIssue.status === 'resolved' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                  <div className="bg-gray-50 p-4 rounded-lg shadow-inner">
+                    <h4 className="font-semibold text-lg text-gray-800 mb-3 border-b pb-2">Resolution Details</h4>
+                    <div className="space-y-2 text-gray-700 text-sm">
+                      {selectedIssue.resolution && (
+                        <div>
+                          <span className="font-medium">Resolution:</span>
+                          <p className="mt-1 text-gray-700">{selectedIssue.resolution}</p>
+                        </div>
+                      )}
+                      {selectedIssue.partsUsed && selectedIssue.partsUsed.length > 0 && (
+                        <div>
+                          <span className="font-medium">Parts Used:</span>
+                          <ul className="list-disc list-inside ml-2">
+                            {selectedIssue.partsUsed.map((part, index) => (
+                              <li key={index}>{part}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {selectedIssue.repairDuration && (
+                        <div className="flex justify-between items-center">
+                          <span className="font-medium">Repair Duration:</span>
+                          <span>{selectedIssue.repairDuration}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 p-4 rounded-lg shadow-inner">
+                    <h4 className="font-semibold text-lg text-gray-800 mb-3 border-b pb-2">Cost Tracking</h4>
+                    <div className="space-y-2 text-gray-700 text-sm">
+                      {selectedIssue.estimatedCost && (
+                        <div className="flex justify-between items-center">
+                          <span className="font-medium">Estimated Cost:</span>
+                          <span>{selectedIssue.estimatedCost}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* History Log */}
+              <div className="p-4 bg-gray-50 rounded-lg shadow-inner">
+                <h4 className="font-semibold text-lg text-gray-800 mb-3 border-b pb-2">History Log</h4>
+                <div className="max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                  {selectedIssue.history.map((entry, index) => (
+                    <div key={index} className="mb-2 text-sm text-gray-700">
+                      <span className="font-medium">{entry.date}:</span> {entry.action} by {entry.user} - <span className="text-gray-600">{entry.details}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Action Buttons in Modal */}
+              <div className="mt-6 pt-4 border-t border-gray-200 flex justify-end gap-3">
+                {!['escalated', 'resolved'].includes(selectedIssue.status) && (
+                  <>           
+                  {selectedIssue.status === 'in-review' && (
                     <button 
-                      className="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded flex items-center justify-center"
+                      className="bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-lg text-sm font-semibold shadow-sm transition duration-200 ease-in-out"
                       onClick={() => {
                         resolveIssue(selectedIssue.id);
                         setShowIssueModal(false);
                       }}
                     >
-                      <FaCheck className="mr-2" />Resolve Issue
+                      <FaCheck className="inline mr-1" /> Mark as Resolved
                     </button>
+                  )}
+                  {selectedIssue.status === 'pending-info' && (
                     <button 
-                      className="w-full bg-yellow-500 hover:bg-yellow-600 text-white py-2 px-4 rounded flex items-center justify-center"
-                      onClick={() => {
-                        escalateToDGM(selectedIssue.id);
-                        setShowIssueModal(false);
-                      }}
-                    >
-                      <FaArrowUp className="mr-2" />Escalate to DGM
-                    </button>
-                    <button 
-                      className="w-full bg-cyan-500 hover:bg-cyan-600 text-white py-2 px-4 rounded flex items-center justify-center"
+                      className="bg-cyan-600 hover:bg-cyan-700 text-white px-5 py-2 rounded-lg text-sm font-semibold shadow-sm transition duration-200 ease-in-out"
                       onClick={() => {
                         requestMoreInfo(selectedIssue.id);
                         setShowIssueModal(false);
                       }}
                     >
-                      <FaInfoCircle className="mr-2" />Request More Info
+                      <FaInfoCircle className="inline mr-1" /> Request More Info
                     </button>
-                  </div>
-                </div>
-                
-                <div className="bg-white rounded-lg shadow">
-                  <div className="p-3 border-b">
-                    <h6 className="font-semibold">Issue Details</h6>
-                  </div>
-                  <div className="p-3">
-                    <table className="w-full text-sm">
-                      <tbody>
-                        <tr className="border-b">
-                          <td className="py-2 font-medium">Raised By</td>
-                          <td className="py-2">{selectedIssue.raisedBy}</td>
-                        </tr>
-                        <tr className="border-b">
-                          <td className="py-2 font-medium">Current Owner</td>
-                          <td className="py-2">RTO</td>
-                        </tr>
-                        <tr className="border-b">
-                          <td className="py-2 font-medium">Created</td>
-                          <td className="py-2">{selectedIssue.date}</td>
-                        </tr>
-                        <tr className="border-b">
-                          <td className="py-2 font-medium">Last Updated</td>
-                          <td className="py-2">{selectedIssue.lastUpdated}</td>
-                        </tr>
-                        <tr className="border-b">
-                          <td className="py-2 font-medium">Estimated Impact</td>
-                          <td className="py-2">
-                            {selectedIssue.priority === 'high' ? 'High - Full Depot Operations' : 
-                             selectedIssue.priority === 'medium' ? 'Medium - Partial Operations Impact' : 
-                             'Low - Minimal Impact'}
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="p-4 border-t flex justify-end">
+                  )}
+                  <button 
+                    className="bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded-lg text-sm font-semibold shadow-sm transition duration-200 ease-in-out flex items-center"
+                    onClick={() => {
+                      escalateToDGM(selectedIssue.id);
+                      setShowIssueModal(false);
+                    }}
+                  >
+                    <FaArrowUp className="mr-1" /> Escalate to DGM
+                  </button>
+                </>
+              )}
               <button 
-                className="bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 px-4 rounded"
+                className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-5 py-2 rounded-lg text-sm font-semibold shadow-sm transition duration-200 ease-in-out"
                 onClick={() => setShowIssueModal(false)}
               >
                 Close
@@ -609,9 +815,10 @@ const Rtoissuetracker = () => {
             </div>
           </div>
         </div>
-      )}
-    </div>
-  );
+      </div>
+    )}
+  </div>
+);
 };
 
-export default Rtoissuetracker;
+export default RtoIssueTracker;
