@@ -9,13 +9,20 @@ import {
   FaCalendarAlt, 
   FaClock, 
   FaWarehouse,
-  FaPaperclip
+  FaPaperclip,
+  FaTools,
+  FaBolt,
+  FaCarCrash,
+  FaBus,
+  FaOilCan,
+  FaBatteryFull
 } from 'react-icons/fa';
 
 type Issue = {
   id: string;
   title: string;
   status: 'new' | 'in-review' | 'pending-info' | 'resolved' | 'escalated';
+  region: string;
   depot: string;
   date: string;
   lastUpdated: string;
@@ -27,6 +34,7 @@ type Issue = {
   chat: { sender: string; message: string; date: string }[];
   raisedBy: string;
   escalatedBy?: string;
+  busesAffected?: string[];
 };
 
 const Dgmtechnicalissues = () => {
@@ -38,75 +46,112 @@ const Dgmtechnicalissues = () => {
 
   const [issues, setIssues] = useState<Issue[]>([
     {
-      id: 'IS-2023-042',
-      title: 'Network Infrastructure Upgrade',
+      id: 'BUS-2023-078',
+      title: 'Engine Failure in Multiple Buses',
       status: 'in-review',
-      depot: 'Depot 3',
+      region: 'Northern Region',
+      depot: 'ND-04 (Delhi)',
+      date: '1 day ago',
+      lastUpdated: '12 hours ago',
+      priority: 'high',
+      category: 'Mechanical',
+      description: 'Multiple buses (DL1PB 4321, DL1PB 4325, DL1PB 4328) experiencing complete engine failure. Initial diagnosis points to contaminated fuel batch.',
+      attachments: [
+        { url: 'https://via.placeholder.com/150/FF0000/FFFFFF?text=Engine', alt: 'Failed engine photo' }
+      ],
+      history: [
+        { action: 'Raised by Depot Engineer', date: '1 day ago', details: 'Three buses broke down with similar symptoms' },
+        { action: 'Escalated by RTO', date: '18 hours ago', details: 'Confirmed fuel contamination affecting multiple vehicles' }
+      ],
+      chat: [
+        { sender: 'Depot Engineer (ND-04)', message: 'Bus DL1PB 4321 engine seized during morning route. Two more buses showing same symptoms.', date: '1 day ago' },
+        { sender: 'RTO (Northern)', message: 'Fuel samples sent to lab. Suspect contaminated diesel from recent supply.', date: '18 hours ago' }
+      ],
+      raisedBy: 'Engineer Rajesh Kumar (ND-04)',
+      escalatedBy: 'RTO Northern (Vikram Singh)',
+      busesAffected: ['DL1PB 4321', 'DL1PB 4325', 'DL1PB 4328']
+    },
+    {
+      id: 'BUS-2023-079',
+      title: 'Brake System Recall',
+      status: 'in-review',
+      region: 'Western Region',
+      depot: 'WD-02 (Mumbai)',
       date: '2 days ago',
       lastUpdated: '1 day ago',
       priority: 'high',
-      category: 'Network',
-      description: 'Complete network infrastructure upgrade required for eastern wing of Depot 3.',
-      attachments: [],
-      history: [
-        { action: 'Raised by Depot Engineer', date: '5 days ago', details: 'Intermittent connectivity issues' },
-        { action: 'Escalated by RTO', date: '2 days ago', details: 'Requires infrastructure upgrade' }
-      ],
-      chat: [
-        { sender: 'Depot Engineer', message: 'Network drops 3-4 times per hour.', date: '5 days ago' },
-        { sender: 'RTO', message: 'Local switches checked - requires major upgrade.', date: '2 days ago' }
-      ],
-      raisedBy: 'Depot 3 Engineer',
-      escalatedBy: 'RTO (John Smith)'
-    },
-    {
-      id: 'IS-2023-041',
-      title: 'Structural Crack Assessment',
-      status: 'escalated',
-      depot: 'Depot 4',
-      date: '1 week ago',
-      lastUpdated: '3 days ago',
-      priority: 'high',
-      category: 'Structural',
-      description: 'Assessment needed for structural crack in western wall of Depot 4.',
+      category: 'Safety',
+      description: 'Manufacturer recall notice for brake booster assemblies in Volvo 9400 buses (Registration series MH02CN 4000-4200). 15 buses affected in our depot.',
       attachments: [
-        { url: 'https://via.placeholder.com/150', alt: 'Crack photo' }
+        { url: 'https://via.placeholder.com/150/0000FF/FFFFFF?text=Recall', alt: 'Recall notice' },
+        { url: 'https://via.placeholder.com/150/000000/FFFFFF?text=Brake', alt: 'Brake assembly diagram' }
       ],
       history: [
-        { action: 'Raised by Depot Engineer', date: '1 week ago', details: 'Crack discovered during inspection' },
-        { action: 'Escalated by RTO', date: '5 days ago', details: 'Structural engineer assessment needed' },
-        { action: 'Escalated to CEO', date: '3 days ago', details: 'Requires executive approval for repairs' }
+        { action: 'Raised by Depot Engineer', date: '2 days ago', details: 'Received manufacturer recall notice' },
+        { action: 'Escalated by RTO', date: '1 day ago', details: 'Need approval for replacement parts order' }
       ],
       chat: [
-        { sender: 'Depot Engineer', message: 'Crack approximately 2cm wide, 1m long.', date: '1 week ago' },
-        { sender: 'RTO', message: 'Structural engineer report attached.', date: '5 days ago' }
+        { sender: 'Depot Engineer (WD-02)', message: 'Volvo issued recall for brake boosters in 9400 model buses. Our depot has 15 affected vehicles.', date: '2 days ago' },
+        { sender: 'RTO (Western)', message: 'Need DGM approval for ₹12 lakhs parts order and workshop scheduling.', date: '1 day ago' }
       ],
-      raisedBy: 'Depot 4 Engineer',
-      escalatedBy: 'RTO (Sarah Johnson)'
+      raisedBy: 'Engineer Priya Sharma (WD-02)',
+      escalatedBy: 'RTO Western (Amit Patel)',
+      busesAffected: ['MH02CN 4001', 'MH02CN 4005', 'MH02CN 4010', 'MH02CN 4015', 'MH02CN 4020']
     },
     {
-      id: 'IS-2023-036',
-      title: 'Software License Renewal',
-      status: 'resolved',
-      depot: 'All Depots',
-      date: '3 weeks ago',
-      lastUpdated: '1 week ago',
-      priority: 'medium',
-      category: 'Software',
-      description: 'Renewal of depot management software licenses.',
-      attachments: [],
+      id: 'BUS-2023-080',
+      title: 'AC System Failure Fleet-wide',
+      status: 'escalated',
+      region: 'Southern Region',
+      depot: 'SD-03 (Chennai)',
+      date: '3 days ago',
+      lastUpdated: '1 day ago',
+      priority: 'high',
+      category: 'HVAC',
+      description: 'Complete failure of AC systems in 22 Tata Starbus Ultra buses. Outside temperature reaching 42°C making buses unusable.',
+      attachments: [
+        { url: 'https://via.placeholder.com/150/00FF00/FFFFFF?text=AC', alt: 'AC compressor failure' }
+      ],
       history: [
-        { action: 'Raised by Depot Engineer', date: '3 weeks ago', details: 'Licenses expiring soon' },
-        { action: 'Escalated by RTO', date: '2 weeks ago', details: 'Bulk license purchase needed' },
-        { action: 'Resolved', date: '1 week ago', details: 'Licenses renewed and deployed' }
+        { action: 'Raised by Depot Engineer', date: '3 days ago', details: 'Multiple AC failures reported' },
+        { action: 'Escalated by RTO', date: '2 days ago', details: 'Tata technicians unable to identify root cause' },
+        { action: 'Escalated to CEO', date: '1 day ago', details: 'Requires manufacturer intervention and possible fleet replacement' }
       ],
       chat: [
-        { sender: 'Depot Engineer', message: 'Software shows license expiration warnings.', date: '3 weeks ago' },
-        { sender: 'RTO', message: 'Contacted vendor for bulk pricing.', date: '2 weeks ago' },
-        { sender: 'DGM Technical', message: 'Licenses purchased and deployed.', date: '1 week ago' }
+        { sender: 'Depot Engineer (SD-03)', message: 'Passengers complaining of AC failure in hot weather. Multiple buses affected.', date: '3 days ago' },
+        { sender: 'RTO (Southern)', message: 'Tata service center says this is a known design flaw in this batch.', date: '2 days ago' },
+        { sender: 'DGM Technical', message: 'Escalating to CEO for manufacturer negotiations. This affects our service quality.', date: '1 day ago' }
       ],
-      raisedBy: 'Depot 1 Engineer',
-      escalatedBy: 'RTO (Mike Brown)'
+      raisedBy: 'Engineer Arun Nair (SD-03)',
+      escalatedBy: 'RTO Southern (Deepak Reddy)',
+      busesAffected: ['TN09AB 1234', 'TN09AB 1235', 'TN09AB 1236', 'TN09AB 1237']
+    },
+    {
+      id: 'BUS-2023-075',
+      title: 'Battery Management System Update',
+      status: 'resolved',
+      region: 'Eastern Region',
+      depot: 'ED-01 (Kolkata)',
+      date: '2 weeks ago',
+      lastUpdated: '3 days ago',
+      priority: 'medium',
+      category: 'Electrical',
+      description: 'Mandatory software update required for battery management systems in all electric buses (Model: Olectra eBuzz) to prevent overheating issues.',
+      attachments: [],
+      history: [
+        { action: 'Raised by Depot Engineer', date: '2 weeks ago', details: 'Manufacturer advisory received' },
+        { action: 'Escalated by RTO', date: '10 days ago', details: 'Approved for depot-wide update' },
+        { action: 'Resolved', date: '3 days ago', details: 'All 28 buses updated successfully' }
+      ],
+      chat: [
+        { sender: 'Depot Engineer (ED-01)', message: 'Olectra issued critical update for BMS software after overheating incidents in other cities.', date: '2 weeks ago' },
+        { sender: 'RTO (Eastern)', message: 'Approved update process. Need DGM to authorize downtime schedule.', date: '10 days ago' },
+        { sender: 'DGM Technical', message: 'Authorized night shifts for updates to minimize service disruption.', date: '7 days ago' },
+        { sender: 'Depot Engineer (ED-01)', message: 'All electric buses updated successfully. No issues reported.', date: '3 days ago' }
+      ],
+      raisedBy: 'Engineer Sanjay Gupta (ED-01)',
+      escalatedBy: 'RTO Eastern (Rahul Banerjee)',
+      busesAffected: ['WB05EF 1001-1028']
     }
   ]);
 
@@ -132,6 +177,17 @@ const Dgmtechnicalissues = () => {
     }
   };
 
+  const getCategoryIcon = (category: string) => {
+    switch(category.toLowerCase()) {
+      case 'electrical': return <FaBolt className="inline mr-1" />;
+      case 'mechanical': return <FaTools className="inline mr-1" />;
+      case 'safety': return <FaCarCrash className="inline mr-1" />;
+      case 'hvac': return <FaBus className="inline mr-1" />;
+      case 'battery': return <FaBatteryFull className="inline mr-1" />;
+      default: return <FaTools className="inline mr-1" />;
+    }
+  };
+
   const viewIssueDetails = (issue: Issue) => {
     setSelectedIssue(issue);
     setShowIssueModal(true);
@@ -151,7 +207,8 @@ const Dgmtechnicalissues = () => {
           chat: [
             ...issue.chat,
             { sender: 'DGM Technical', message: newMessage, date: 'Just now' }
-          ]
+          ],
+          lastUpdated: 'Just now'
         };
       }
       return issue;
@@ -163,32 +220,36 @@ const Dgmtechnicalissues = () => {
       chat: [
         ...selectedIssue.chat,
         { sender: 'DGM Technical', message: newMessage, date: 'Just now' }
-      ]
+      ],
+      lastUpdated: 'Just now'
     });
     setNewMessage('');
   };
 
   const resolveIssue = (issueId: string) => {
     setIssues(issues.map(issue => 
-      issue.id === issueId ? { ...issue, status: 'resolved' } : issue
+      issue.id === issueId ? { ...issue, status: 'resolved', lastUpdated: 'Just now' } : issue
     ));
   };
 
   const escalateToCEO = (issueId: string) => {
     setIssues(issues.map(issue => 
-      issue.id === issueId ? { ...issue, status: 'escalated' } : issue
+      issue.id === issueId ? { ...issue, status: 'escalated', lastUpdated: 'Just now' } : issue
     ));
   };
 
   const sendBackToRTO = (issueId: string) => {
     setIssues(issues.map(issue => 
-      issue.id === issueId ? { ...issue, status: 'in-review' } : issue
+      issue.id === issueId ? { ...issue, status: 'in-review', lastUpdated: 'Just now' } : issue
     ));
   };
 
   return (
     <div className="container-fluid mx-auto px-4">
-     
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold">DGM Technical - Bus Fleet Issues</h2>
+        <p className="text-gray-600">Bus technical issues escalated from Regional Technical Officers</p>
+      </div>
       
       {/* Tabs */}
       <div className="mb-4 border-b border-gray-200">
@@ -227,7 +288,7 @@ const Dgmtechnicalissues = () => {
             <div className="col-span-1 md:col-span-2">
               <input
                 type="text"
-                placeholder="Search issues..."
+                placeholder="Search bus issues..."
                 className="w-full p-2 border border-gray-300 rounded"
               />
             </div>
@@ -241,12 +302,11 @@ const Dgmtechnicalissues = () => {
             </div>
             <div className="col-span-1">
               <select className="w-full p-2 border border-gray-300 rounded">
-                <option>All Depots</option>
-                <option>Depot 1</option>
-                <option>Depot 2</option>
-                <option>Depot 3</option>
-                <option>Depot 4</option>
-                <option>Depot 5</option>
+                <option>All Regions</option>
+                <option>Northern</option>
+                <option>Western</option>
+                <option>Southern</option>
+                <option>Eastern</option>
               </select>
             </div>
           </div>
@@ -262,18 +322,27 @@ const Dgmtechnicalissues = () => {
               </div>
               <div className="flex items-center my-2">
                 {getStatusBadge(issue.status)}
-                <small className="text-gray-500 mr-3 flex items-center"><FaWarehouse className="mr-1" />{issue.depot}</small>
+                <small className="text-gray-500 mr-3 flex items-center"><FaWarehouse className="mr-1" />{issue.region} - {issue.depot}</small>
                 <small className="text-gray-500 mr-3 flex items-center"><FaCalendarAlt className="mr-1" />{issue.date}</small>
                 <small className="text-gray-500 flex items-center"><FaClock className="mr-1" />{issue.lastUpdated}</small>
               </div>
               <p className="mb-3">{issue.description}</p>
+              {issue.busesAffected && (
+                <p className="text-sm text-gray-600 mb-3">
+                  Buses Affected: {issue.busesAffected.length > 3 ? 
+                    `${issue.busesAffected.slice(0, 3).join(', ')} + ${issue.busesAffected.length - 3} more` : 
+                    issue.busesAffected.join(', ')}
+                </p>
+              )}
               {issue.escalatedBy && (
                 <p className="text-sm text-gray-600 mb-3">Escalated by: {issue.escalatedBy}</p>
               )}
               <div className="flex justify-between items-center">
                 <div>
                   {getPriorityBadge(issue.priority)}
-                  <span className="bg-gray-100 text-gray-800 text-xs px-2.5 py-0.5 rounded">{issue.category}</span>
+                  <span className="bg-gray-100 text-gray-800 text-xs px-2.5 py-0.5 rounded">
+                    {getCategoryIcon(issue.category)}{issue.category}
+                  </span>
                 </div>
                 <div>
                   <button 
@@ -366,18 +435,27 @@ const Dgmtechnicalissues = () => {
               </div>
               <div className="flex items-center my-2">
                 {getStatusBadge(issue.status)}
-                <small className="text-gray-500 mr-3 flex items-center"><FaWarehouse className="mr-1" />{issue.depot}</small>
+                <small className="text-gray-500 mr-3 flex items-center"><FaWarehouse className="mr-1" />{issue.region} - {issue.depot}</small>
                 <small className="text-gray-500 mr-3 flex items-center"><FaCalendarAlt className="mr-1" />{issue.date}</small>
                 <small className="text-gray-500 flex items-center"><FaClock className="mr-1" />{issue.lastUpdated}</small>
               </div>
               <p className="mb-3">{issue.description}</p>
+              {issue.busesAffected && (
+                <p className="text-sm text-gray-600 mb-3">
+                  Buses Affected: {issue.busesAffected.length > 3 ? 
+                    `${issue.busesAffected.slice(0, 3).join(', ')} + ${issue.busesAffected.length - 3} more` : 
+                    issue.busesAffected.join(', ')}
+                </p>
+              )}
               {issue.escalatedBy && (
                 <p className="text-sm text-gray-600 mb-3">Escalated by: {issue.escalatedBy}</p>
               )}
               <div className="flex justify-between items-center">
                 <div>
                   {getPriorityBadge(issue.priority)}
-                  <span className="bg-gray-100 text-gray-800 text-xs px-2.5 py-0.5 rounded">{issue.category}</span>
+                  <span className="bg-gray-100 text-gray-800 text-xs px-2.5 py-0.5 rounded">
+                    {getCategoryIcon(issue.category)}{issue.category}
+                  </span>
                 </div>
                 <div>
                   <button 
@@ -409,18 +487,27 @@ const Dgmtechnicalissues = () => {
               </div>
               <div className="flex items-center my-2">
                 {getStatusBadge(issue.status)}
-                <small className="text-gray-500 mr-3 flex items-center"><FaWarehouse className="mr-1" />{issue.depot}</small>
+                <small className="text-gray-500 mr-3 flex items-center"><FaWarehouse className="mr-1" />{issue.region} - {issue.depot}</small>
                 <small className="text-gray-500 mr-3 flex items-center"><FaCalendarAlt className="mr-1" />{issue.date}</small>
                 <small className="text-gray-500 flex items-center"><FaClock className="mr-1" />Resolved: {issue.lastUpdated}</small>
               </div>
               <p className="mb-3">{issue.description}</p>
+              {issue.busesAffected && (
+                <p className="text-sm text-gray-600 mb-3">
+                  Buses Affected: {issue.busesAffected.length > 3 ? 
+                    `${issue.busesAffected.slice(0, 3).join(', ')} + ${issue.busesAffected.length - 3} more` : 
+                    issue.busesAffected.join(', ')}
+                </p>
+              )}
               {issue.escalatedBy && (
                 <p className="text-sm text-gray-600 mb-3">Originally escalated by: {issue.escalatedBy}</p>
               )}
               <div className="flex justify-between items-center">
                 <div>
                   {getPriorityBadge(issue.priority)}
-                  <span className="bg-gray-100 text-gray-800 text-xs px-2.5 py-0.5 rounded">{issue.category}</span>
+                  <span className="bg-gray-100 text-gray-800 text-xs px-2.5 py-0.5 rounded">
+                    {getCategoryIcon(issue.category)}{issue.category}
+                  </span>
                 </div>
                 <div>
                   <button 
@@ -441,7 +528,7 @@ const Dgmtechnicalissues = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
             <div className="p-4 border-b flex justify-between items-center">
-              <h3 className="text-xl font-bold">Issue Details</h3>
+              <h3 className="text-xl font-bold">Bus Technical Issue Details</h3>
               <button 
                 className="text-gray-500 hover:text-gray-700"
                 onClick={() => setShowIssueModal(false)}
@@ -455,14 +542,30 @@ const Dgmtechnicalissues = () => {
                 <div className="flex items-center my-2">
                   {getStatusBadge(selectedIssue.status)}
                   <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded mr-2">Level 2 (DGM)</span>
-                  <small className="text-gray-500 mr-3 flex items-center"><FaWarehouse className="mr-1" />{selectedIssue.depot}</small>
+                  <small className="text-gray-500 mr-3 flex items-center"><FaWarehouse className="mr-1" />{selectedIssue.region} - {selectedIssue.depot}</small>
                   <small className="text-gray-500 flex items-center"><FaCalendarAlt className="mr-1" />{selectedIssue.date}</small>
                 </div>
                 <div className="my-3">
                   {getPriorityBadge(selectedIssue.priority)}
-                  <span className="bg-gray-100 text-gray-800 text-xs px-2.5 py-0.5 rounded">{selectedIssue.category}</span>
+                  <span className="bg-gray-100 text-gray-800 text-xs px-2.5 py-0.5 rounded">
+                    {getCategoryIcon(selectedIssue.category)}{selectedIssue.category}
+                  </span>
                 </div>
                 <p className="mb-3">{selectedIssue.description}</p>
+                
+                {selectedIssue.busesAffected && (
+                  <div className="mb-3">
+                    <h6 className="font-semibold mb-1">Buses Affected</h6>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedIssue.busesAffected.map((bus, index) => (
+                        <span key={index} className="bg-gray-100 text-gray-800 text-xs px-2.5 py-0.5 rounded">
+                          {bus}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
                 {selectedIssue.escalatedBy && (
                   <p className="text-sm text-gray-600 mb-3">Escalated by: {selectedIssue.escalatedBy}</p>
                 )}
@@ -598,6 +701,10 @@ const Dgmtechnicalissues = () => {
                           <td className="py-2">DGM Technical</td>
                         </tr>
                         <tr className="border-b">
+                          <td className="py-2 font-medium">Region/Depot</td>
+                          <td className="py-2">{selectedIssue.region} - {selectedIssue.depot}</td>
+                        </tr>
+                        <tr className="border-b">
                           <td className="py-2 font-medium">Created</td>
                           <td className="py-2">{selectedIssue.date}</td>
                         </tr>
@@ -608,11 +715,17 @@ const Dgmtechnicalissues = () => {
                         <tr className="border-b">
                           <td className="py-2 font-medium">Estimated Impact</td>
                           <td className="py-2">
-                            {selectedIssue.priority === 'high' ? 'High - Full Depot Operations' : 
-                             selectedIssue.priority === 'medium' ? 'Medium - Partial Operations Impact' : 
-                             'Low - Minimal Impact'}
+                            {selectedIssue.priority === 'high' ? 'High - Service Disruption' : 
+                             selectedIssue.priority === 'medium' ? 'Medium - Limited Service Impact' : 
+                             'Low - Minimal Service Impact'}
                           </td>
                         </tr>
+                        {selectedIssue.busesAffected && (
+                          <tr className="border-b">
+                            <td className="py-2 font-medium">Buses Affected</td>
+                            <td className="py-2">{selectedIssue.busesAffected.length}</td>
+                          </tr>
+                        )}
                       </tbody>
                     </table>
                   </div>

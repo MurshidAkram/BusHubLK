@@ -46,10 +46,11 @@ import OperationsSettings from './pages/dashboards/depot-ops/OperationsSettings'
 // Depot Engineer Components  
 import DepotEngineerSidebarContent from './components/depot-engineer/DepotEngineerSidebarContent'
 import DepotEngineerDashboard from './pages/dashboards/depot-engineer/index'
-import Assignedbuses from './pages/dashboards/depot-engineer/Assignedbuses'
-import Repairs from './pages/dashboards/depot-engineer/Repairs'
+import Busmanagement from './pages/dashboards/depot-engineer/Busmanagement'
+import Busavailability from './pages/dashboards/depot-engineer/Busavailability'
 import Scheduling from './pages/dashboards/depot-engineer/Scheduling'
-import Performance from './pages/dashboards/depot-engineer/Performance'
+import Spareparts from './pages/dashboards/depot-engineer/Spareparts'
+import Autoforwardbusstatus from './pages/dashboards/depot-engineer/Autoforwardbusstatus'
 import DepotEscalateissues from './pages/dashboards/depot-engineer/DepotEscalateissues'
 
 
@@ -173,11 +174,13 @@ const App = () => {
         <Route element={<ProtectedRoute requiredRole="depot_engineer" />}>
         <Route path="/depot-engineer" element={<DashboardLayout role="depot_engineer" sidebarContent={<DepotEngineerSidebarContent />} />}>
           <Route index element={<DepotEngineerDashboard />} />
-          <Route path="Repairs" element={<Repairs />} />
-          <Route path="assigned-buses" element={<Assignedbuses />} />
+          <Route path="Busmanagement" element={<Busmanagement />} />
+          <Route path="Busavailability" element={<Busavailability />} />
           <Route path="scheduling" element={<Scheduling />} />
-          <Route path="Performance" element={<Performance />} />
+          <Route path="Spareparts" element={<Spareparts />} />
+          <Route path="Autoforwardbusstatus" element={<Autoforwardbusstatus />} />
           <Route path="DepotEscalateissues" element={<DepotEscalateissues />} />
+          
           {/* Add individual pages later */}
         </Route>
         </Route>

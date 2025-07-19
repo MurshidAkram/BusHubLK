@@ -41,13 +41,13 @@ const AppColors = {
 
 const GOOGLE_MAPS_API_KEY = "AIzaSyAeXR9ct7HrHMCQXSWLrWQl5OlRYjNhbxo";
 
-// TopHeader component with logo in square box
+// TopHeader component with improved visibility
 const TopHeader = () => (
   <View style={styles.header}>
     <View style={styles.headerLeftContainer}>
       <View style={styles.logoWrapper}>
         <Image
-          source={require("../../assets/logoblue.png")}
+          source={require("../../assets/logowithoutbg_white.png")}
           style={styles.headerLogo}
           resizeMode="contain"
         />
@@ -59,11 +59,6 @@ const TopHeader = () => (
     <View style={styles.headerIconContainer}>
       <TouchableOpacity style={styles.headerIcon} onPress={() => {}}>
         <Ionicons name="notifications-outline" size={28} color="#FFFFFF" />
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.headerIcon}>
-        <View style={styles.logoWrapper}>
-          <FontAwesome5 name="user-circle" size={28} color={AppColors.primary} />
-        </View>
       </TouchableOpacity>
     </View>
   </View>
@@ -322,6 +317,11 @@ export default function HomeScreen() {
               text="Lost & Found"
               onPress={() => navigation.navigate("LostAndFound")}
             />
+            <QuickActionButton
+              icon="map-marker-radius"
+              text="Tracking Data"
+              onPress={() => navigation.navigate("Tracking")}
+            />
           </View>
         </View>
       </ScrollView>
@@ -376,15 +376,15 @@ const styles = StyleSheet.create({
     width: 35,
     height: 35,
     borderRadius: 8, // Square with rounded corners
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "none",
     justifyContent: "center",
     alignItems: "center",
     overflow: "hidden",
     marginRight: 10,
   },
   headerLogo: {
-    width: 30,
-    height: 30,
+    width: 70,
+    height: 40,
   },
   headerTitle: {
     color: "#FFFFFF",
@@ -581,13 +581,13 @@ const styles = StyleSheet.create({
   },
   quickActionCard: {
     width: "48%",
-    height: Platform.OS === "ios" ? 100 : 95,
+    height: Platform.OS === "ios" ? 85 : 80,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: AppColors.card,
     borderRadius: 18,
     paddingHorizontal: 5,
-    paddingVertical: 10,
+    paddingVertical: 8,
     borderWidth: 1,
     borderColor: AppColors.border,
     marginBottom: 12,
