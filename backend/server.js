@@ -61,6 +61,14 @@ try {
 }
 
 try {
+  const routeRoutes = require('./routes/routeRoutes');
+  app.use('/api/routes', routeRoutes);
+  console.log('✅ routeRoutes loaded');
+} catch (error) {
+  console.log('❌ routeRoutes error:', error.message);
+}
+
+try {
   const driverAuthRoutes = require('./routes/driverAuth');
   app.use('/api/driver', driverAuthRoutes);
   console.log('✅ driverAuth loaded');
