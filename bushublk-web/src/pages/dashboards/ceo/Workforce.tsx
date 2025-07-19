@@ -34,6 +34,14 @@ const headcountByRegion = [
   { region: 'Northern', count: 700 },
 ];
 
+const headcountByDistrict = [
+  { region: 'Colombo', count: 320 },
+  { region: 'Gampaha', count: 210 },
+  { region: 'Kaluthara', count: 180 },
+  { region: 'Galle', count: 90 },
+  { region: 'Kandy', count: 70 },
+];
+
 const departmentDistribution = [
   { name: 'Operations', value: 45 },
   { name: 'Maintenance', value: 25 },
@@ -42,27 +50,18 @@ const departmentDistribution = [
   { name: 'IT',         value: 5  },
 ];
 
-const satisfactionTrend = [
-  { month: 'Jan', score: 75 },
-  { month: 'Feb', score: 78 },
-  { month: 'Mar', score: 80 },
-  { month: 'Apr', score: 77 },
-  { month: 'May', score: 82 },
-  { month: 'Jun', score: 85 },
-];
-
 const genderDistribution = [
   { name: 'Male',   value: 60 },
   { name: 'Female', value: 40 },
 ];
 
-const trainingHoursTrend = [
-  { month: 'Jan', hours: 1200 },
-  { month: 'Feb', hours: 1400 },
-  { month: 'Mar', hours: 1300 },
-  { month: 'Apr', hours: 1500 },
-  { month: 'May', hours: 1600 },
-  { month: 'Jun', hours: 1700 },
+const numberOfEmployees = [
+  { month: 'Jan', count: 40 },
+  { month: 'Feb', count: 29 },
+  { month: 'Mar', count: 41 },
+  { month: 'Apr', count: 32 },
+  { month: 'May', count: 20},
+  { month: 'Jun', count: 14 },
 ];
 
 const ageDistribution = [
@@ -162,6 +161,20 @@ const WorkforceAnalyticsPage: React.FC = () => (
         </div>
       </div>
 
+      <div className="bg-white rounded-xl shadow p-6">
+        <h3 className="text-lg font-medium mb-4">Headcount by District</h3>
+        <div className="h-48">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={headcountByDistrict}>
+              <XAxis dataKey="region" />
+              <YAxis />
+              <Tooltip />
+              <Bar dataKey="count" fill="#15e453ff" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
       {/* Gender Distribution */}
       <div className="bg-white rounded-xl shadow p-6">
         <h3 className="text-lg font-medium mb-4">Gender Distribution</h3>
@@ -182,21 +195,6 @@ const WorkforceAnalyticsPage: React.FC = () => (
               </Pie>
               <Legend verticalAlign="bottom" />
             </PieChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* Satisfaction Trend */}
-      <div className="bg-white rounded-xl shadow p-6">
-        <h3 className="text-lg font-medium mb-4">Satisfaction Trend</h3>
-        <div className="h-48">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={satisfactionTrend}>
-              <XAxis dataKey="month" />
-              <YAxis domain={[60, 100]} />
-              <Tooltip />
-              <Line type="monotone" dataKey="score" stroke="#10B981" strokeWidth={2} />
-            </LineChart>
           </ResponsiveContainer>
         </div>
       </div>
@@ -227,14 +225,14 @@ const WorkforceAnalyticsPage: React.FC = () => (
 
       {/* Training Hours Trend */}
       <div className="bg-white rounded-xl shadow p-6">
-        <h3 className="text-lg font-medium mb-4">Training Hours Trend</h3>
+        <h3 className="text-lg font-medium mb-4">New Employees</h3>
         <div className="h-48">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={trainingHoursTrend}>
+            <LineChart data={numberOfEmployees}>
               <XAxis dataKey="month" />
               <YAxis />
               <Tooltip />
-              <Line type="monotone" dataKey="hours" stroke="#6366F1" strokeWidth={2} />
+              <Line type="monotone" dataKey="count" stroke="#6366F1" strokeWidth={2} />
             </LineChart>
           </ResponsiveContainer>
         </div>
