@@ -118,6 +118,14 @@ try {
 } catch (error) {
   console.log('❌ busRoutes error:', error.message);
 }
+
+try {
+  const lostFoundRoutes = require('./routes/lostFoundRoutes');
+  app.use('/api/lost-found', lostFoundRoutes);
+  console.log('✅ lostFoundRoutes loaded');
+} catch (error) {
+  console.log('❌ lostFoundRoutes error:', error.message);
+}
 // Static file routes
 app.get('/resetPassword.js', (req, res) => {
   res.setHeader('Content-Type', 'application/javascript');
