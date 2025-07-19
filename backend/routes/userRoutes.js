@@ -71,13 +71,6 @@ router.put('/:id',
   authorizeAdmin,
   [
     param('id').isInt().withMessage('User ID must be an integer'),
-    body('username')
-      .optional()
-      .isLength({ min: 3, max: 50 })
-      .withMessage('Username must be between 3 and 50 characters')
-      .matches(/^[a-zA-Z0-9_]+$/)
-      .withMessage('Username can only contain letters, numbers, and underscores'),
-    body('email').optional().isEmail().withMessage('Valid email required'),
     body('first_name')
       .optional()
       .isLength({ min: 1, max: 50 })
@@ -88,16 +81,32 @@ router.put('/:id',
       .withMessage('Last name must be less than 50 characters'),
     body('phone')
       .optional()
-      .matches(/^\+?[1-9]\d{1,14}$/)
-      .withMessage('Valid phone number required'),
-    body('role_id')
+      .matches(/^[\+]?[(]?[\d\s\-\(\)]{10,15}$/)
+      .withMessage('Phone number must be 10-15 digits and can include +, (), -, and spaces'),
+    body('role_name')
+      .optional()
+      .isIn([
+        'ceo', 'dgm_technical', 'dgm_operations', 'regional_tech', 
+        'regional_operations', 'depot_manager', 'depot_operations', 
+        'depot_engineer', 'driver', 'conductor', 'passenger', 'admin'
+      ])
+      .withMessage('Invalid role'),
+    body('role_data')
+      .optional()
+      .isObject()
+      .withMessage('Role data must be an object'),
+    body('role_data.region_id')
       .optional()
       .isInt()
-      .withMessage('Role ID must be an integer'),
-    body('is_active')
+      .withMessage('Region ID must be an integer'),
+    body('role_data.depot_id')
       .optional()
-      .isBoolean()
-      .withMessage('is_active must be a boolean')
+      .isInt()
+      .withMessage('Depot ID must be an integer'),
+    body('role_data.appointment_date')
+      .optional()
+      .isISO8601()
+      .withMessage('Invalid date format')
   ],
   updateUser
 );
