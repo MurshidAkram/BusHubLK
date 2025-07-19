@@ -23,6 +23,7 @@ import BusManaging from './pages/dashboards/admin/BusManaging'
 import DepotManagerSidebarContent from './components/depot-manager/DepotManagerSidebarContent'
 import DepotManagerDashboard from './pages/dashboards/depot-manager'
 import FleetManagement from './pages/dashboards/depot-manager/FleetManagement'
+import ChecklistVerification from './pages/dashboards/depot-manager/ChecklistVerification'
 import DriverManagement from './pages/dashboards/depot-manager/DriverManagement'
 import Schedules from './pages/dashboards/depot-manager/Schedules'
 import Assignments from './pages/dashboards/depot-manager/Assignments'
@@ -63,14 +64,27 @@ import Regionservicemonitor from './pages/dashboards/regional-tech/Regionservice
 import Inspectionschedular from './pages/dashboards/regional-tech/Inspectionschedular'
 import Rtoissuetracker from './pages/dashboards/regional-tech/Rtoissuetracker'
 
-
 // Regional Operations Officer Components
 import RegionalOperationsOfficerSidebarContent from './components/regional-ops/RegionalOperationsOfficerSidebarContent'
 import RegionalOperationsOfficerDashboard from './pages/dashboards/regional-ops/index'
+import DepotManagement from './pages/dashboards/regional-ops/DepotManagement'
+import FleetCoordination from './pages/dashboards/regional-ops/FleetCoordination'
+import ScheduleOversight from './pages/dashboards/regional-ops/ScheduleOversight'
+import CrewOverview from './pages/dashboards/regional-ops/CrewOverview'
+import IncidentTracking from './pages/dashboards/regional-ops/IncidentTracking'
+import AssetDistribution from './pages/dashboards/regional-ops/AssetDistribution'
+import CommCenter from './pages/dashboards/regional-ops/CommCenter'
+import OpsReports from './pages/dashboards/regional-ops/OpsReports'
+import OpsSettings from './pages/dashboards/regional-ops/OpsSettings'
 
 // DGM Operations Components
 import DGMOperationsSidebarContent from './components/dgm-ops/DGMOperationsSidebarContent'
 import DGMOperationsDashboard from './pages/dashboards/dgm-ops/index'
+import NationalOverview from './pages/dashboards/dgm-ops/NationalOverview'
+import CommunicationCenter from './pages/dashboards/dgm-ops/CommunicationCenter'
+import Feedback from './pages/dashboards/dgm-ops/Feedback'
+import ExecutiveSettings from './pages/dashboards/dgm-ops/ExecutiveSettings'
+
 
 // DGM Technical Components
 import DGMTechnicalSidebarContent from './components/dgm-tech/DGMTechnicalSidebarContent'
@@ -152,6 +166,7 @@ const App = () => {
         <Route path="/depot-manager" element={<DashboardLayout role="Depot Manager" sidebarContent={<DepotManagerSidebarContent />} />}>
           <Route index element={<DepotManagerDashboard />} />
           <Route path="fleet-management" element={<FleetManagement />} />
+          <Route path="checklist-verification" element={<ChecklistVerification />} />
           <Route path="driver-management" element={<DriverManagement />} /> 
           <Route path="schedules" element={<Schedules />} />
           <Route path="assignments" element={<Assignments />} />
@@ -209,6 +224,16 @@ const App = () => {
         <Route element={<ProtectedRoute requiredRole="regional_operations" />}>
           <Route path="/regional-operations-officer" element={<DashboardLayout role="Regional Operations Officer" sidebarContent={<RegionalOperationsOfficerSidebarContent />} />}>
             <Route index element={<RegionalOperationsOfficerDashboard />} />
+            <Route path="depot-management" element={<DepotManagement />} />
+    <Route path="fleet-coordination" element={<FleetCoordination />} />
+    <Route path="schedule-oversight" element={<ScheduleOversight />} />
+    <Route path="crew-overview" element={<CrewOverview />} />
+    <Route path="incident-tracking" element={<IncidentTracking />} />
+    <Route path="asset-distribution" element={<AssetDistribution />} />
+    <Route path="comm-center" element={<CommCenter />} />
+    <Route path="ops-reports" element={<OpsReports />} />
+    <Route path="ops-settings" element={<OpsSettings />} />
+
             {/* Add individual pages later */}
           </Route>
         </Route>
@@ -217,6 +242,11 @@ const App = () => {
         <Route element={<ProtectedRoute requiredRole="dgm_operations" />}>
   <Route path="/dgm-operations" element={<DashboardLayout role="DGM Operations" sidebarContent={<DGMOperationsSidebarContent />} />}>
     <Route index element={<DGMOperationsDashboard />} />
+    <Route path="national-overview" element={<NationalOverview />} />
+    <Route path="communication-center" element={<CommunicationCenter />} />
+    <Route path="feedback" element={<Feedback />} />
+    <Route path="executive-settings" element={<ExecutiveSettings />} />
+    {/* Add individual pages later */}
   </Route>
 </Route>
 
