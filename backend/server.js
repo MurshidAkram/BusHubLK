@@ -35,6 +35,14 @@ app.get('/', (req, res) => {
   res.send('🚍 BusHubLK API is running');
 });
 
+try {
+  const BusTrackingRoutes = require('./routes/BusTrackingRoutes');
+  app.use('/api/bus-tracking', BusTrackingRoutes);
+  console.log('✅ BusTrackingRoutes loaded');
+} catch (error) {
+  console.log('❌ BusTrackingRoutes error:', error.message);
+}
+
 // Load routes with error handling
 try {
   const dbTestRoute = require('./routes/dbTestRoute');
@@ -102,6 +110,9 @@ try {
 
 const regionDepotRoutes = require('./routes/regionDepotRoutes');
 app.use('/api', regionDepotRoutes);
+
+const BusTrackingRoutes = require('./routes/BusTrackingRoutes');
+  app.use('/api/bus-tracking', BusTrackingRoutes); 
 
 // Static file routes
 app.get('/resetPassword.js', (req, res) => {
