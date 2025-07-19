@@ -38,9 +38,10 @@ const upload = multer({
   }
 });
 
+const { v4: uuidv4 } = require('uuid');
 // Submit a lost or found item report
 const submitReport = async (req, res) => {
-  const client = await db.getClient();
+  const client = await db.connect();
   
   try {
     await client.query('BEGIN');
@@ -61,12 +62,25 @@ const submitReport = async (req, res) => {
 
     console.log('Received report data:', req.body); // Debug log
 
-    // Validate required fields
-    if (!passenger_id || !report_type || !item_category || !item_description || 
-        !incident_date || !incident_time || !contact_phone) {
+    // Validate required fields and types
+    const errors = [];
+    if (!passenger_id) errors.push('passenger_id is required');
+    if (!report_type || !['lost', 'found'].includes(report_type)) errors.push('report_type must be "lost" or "found"');
+    if (!item_category) errors.push('item_category is required');
+    if (!item_description) errors.push('item_description is required');
+    if (!incident_date || !/^\d{4}-\d{2}-\d{2}$/.test(incident_date)) errors.push('incident_date is required in YYYY-MM-DD format');
+    if (!incident_time || !/^\d{2}:\d{2}:\d{2}$/.test(incident_time)) errors.push('incident_time is required in HH:MM:SS format');
+    if (!contact_phone) errors.push('contact_phone is required');
+    if (region_id !== null && region_id !== undefined && isNaN(Number(region_id))) errors.push('region_id must be a number');
+    if (reward_offered !== undefined && reward_offered !== null && isNaN(Number(reward_offered))) errors.push('reward_offered must be a number');
+    // Optional: validate email format
+    if (contact_email && !/^\S+@\S+\.\S+$/.test(contact_email)) errors.push('contact_email is invalid');
+
+    if (errors.length > 0) {
       return res.status(400).json({
         success: false,
-        message: 'Missing required fields',
+        message: 'Validation error',
+        errors,
         received: req.body
       });
     }
@@ -78,20 +92,34 @@ const submitReport = async (req, res) => {
       item_photo_url = `/uploads/lost-found/${req.file.filename}`;
     }
 
-    // Insert the report (let DB trigger generate report_reference)
+
+    // Generate a unique report_reference
+    const report_reference = uuidv4();
+
+    // Insert the report with report_reference
     const insertQuery = `
       INSERT INTO lost_found_reports (
         passenger_id, report_type, item_category, item_description,
         route_number, region_id, incident_date, incident_time,
-        contact_email, contact_phone, reward_offered, item_photo_url
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        contact_email, contact_phone, reward_offered, item_photo_url, report_reference
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       RETURNING report_id, report_reference
     `;
 
     const values = [
-      passenger_id, report_type, item_category, item_description,
-      route_number, region_id, incident_date, incident_time,
-      contact_email, contact_phone, reward_offered, item_photo_url
+      Number(passenger_id),
+      report_type,
+      item_category,
+      item_description,
+      route_number || null,
+      region_id !== undefined && region_id !== null && region_id !== '' ? Number(region_id) : null,
+      incident_date,
+      incident_time,
+      contact_email || null,
+      contact_phone,
+      reward_offered !== undefined && reward_offered !== null && reward_offered !== '' ? Number(reward_offered) : 0,
+      item_photo_url,
+      report_reference
     ];
 
     console.log('Executing query with values:', values); // Debug log
@@ -423,13 +451,14 @@ const getRoutes = async (req, res) => {
 const getRegions = async (req, res) => {
   try {
     const query = `
-      SELECT region_id, region_name
+      SELECT region_name
       FROM regions 
       ORDER BY region_name
     `;
 
     const result = await db.query(query);
 
+    // Return as array of { region_name }
     res.json({
       success: true,
       data: result.rows

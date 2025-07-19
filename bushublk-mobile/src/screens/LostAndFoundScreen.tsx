@@ -111,14 +111,13 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
     itemType: null as string | null,
     description: '',
     routeNumber: '',
-    busNumber: '',
     date: '',
     time: '',
-    region: '',
-    photo: null,
+    region: '', // region name
+    regionId: null as number | null, // region_id for backend
+    photo: null as any, // for photo upload
     email: '',
     phone: '',
-    additionalNotes: '',
     rewardOffered: '',
   });
   
@@ -256,44 +255,50 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
   const validateAndProceed = () => {
     const newErrors: {[key: string]: string} = {};
     let isValid = true;
-    if (reportStep === 1) { 
-      if (!formData.itemType) { 
-        newErrors.itemType = 'Please select an item type.'; 
-        isValid = false; 
-      } 
-    }
-    else if (reportStep === 2) { 
-      if (!formData.description.trim()) { 
-        newErrors.description = 'Item description cannot be empty.'; 
-        isValid = false; 
-      } 
-      if (!formData.date.trim()) { 
-        newErrors.date = 'Date is required.'; 
-        isValid = false; 
-      } else if (!/^\d{2}\/\d{2}\/\d{4}$/.test(formData.date)) { 
-        newErrors.date = 'Please use DD/MM/YYYY format.'; 
-        isValid = false; 
-      } 
-      if (!formData.time.trim()) { 
-        newErrors.time = 'Time is required.'; 
-        isValid = false; 
-      } else if (!/^\d{2}:\d{2}$/.test(formData.time)) { 
-        newErrors.time = 'Please use 24-hour HH:MM format.'; 
-        isValid = false; 
-      } 
-    }
-    else if (reportStep === 3) { 
-      if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) { 
-        newErrors.email = 'Please enter a valid email address.'; 
-        isValid = false; 
-      } 
-      if (!formData.phone.trim()) { 
-        newErrors.phone = 'Phone number is required.'; 
-        isValid = false; 
-      } else if (formData.phone.length < 9) { 
-        newErrors.phone = 'Please enter a valid phone number.'; 
-        isValid = false; 
-      } 
+    if (reportStep === 1) {
+      if (!formData.itemType) {
+        newErrors.itemType = 'Please select an item type.';
+        isValid = false;
+      }
+    } else if (reportStep === 2) {
+      if (!formData.description.trim()) {
+        newErrors.description = 'Item description cannot be empty.';
+        isValid = false;
+      }
+      if (!formData.date.trim()) {
+        newErrors.date = 'Date is required.';
+        isValid = false;
+      } else if (!/^\d{2}\/\d{2}\/\d{4}$/.test(formData.date)) {
+        newErrors.date = 'Please use DD/MM/YYYY format.';
+        isValid = false;
+      }
+      if (!formData.time.trim()) {
+        newErrors.time = 'Time is required.';
+        isValid = false;
+      } else if (!/^\d{2}:\d{2}$/.test(formData.time)) {
+        newErrors.time = 'Please use 24-hour HH:MM format.';
+        isValid = false;
+      }
+      if (!formData.region) {
+        newErrors.region = 'Please select a region.';
+        isValid = false;
+      }
+    } else if (reportStep === 3) {
+      if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) {
+        newErrors.email = 'Please enter a valid email address.';
+        isValid = false;
+      }
+      if (!formData.phone.trim()) {
+        newErrors.phone = 'Phone number is required.';
+        isValid = false;
+      } else if (formData.phone.length < 9) {
+        newErrors.phone = 'Please enter a valid phone number.';
+        isValid = false;
+      }
+      if (formData.rewardOffered && isNaN(Number(formData.rewardOffered))) {
+        newErrors.rewardOffered = 'Reward must be a number.';
+        isValid = false;
+      }
     }
     setErrors(newErrors);
     if (isValid) {
@@ -308,11 +313,14 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
   const submitReport = async () => {
     try {
       setSubmitting(true);
-      
-      // Get user data for passenger_id
+      // Get user data and token for passenger_id
       const user = await storageAPI.getUserData();
-      if (!user?.user_id) {
-        Alert.alert('Error', 'Please login to submit a report');
+      const token = await storageAPI.getAuthToken();
+      console.log('[LostAndFoundScreen] user:', user);
+      console.log('[LostAndFoundScreen] token:', token);
+      if (!user || !user.id || !token) {
+        Alert.alert('Error', 'Please login to submit the report');
+        setSubmitting(false);
         return;
       }
 
@@ -322,51 +330,75 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
 
       // Find region_id from region name
       const selectedRegion = regions.find(r => r.region_name === formData.region);
-      
-      const reportData = {
-        passenger_id: user.user_id,
-        report_type: formData.reportType,
-        item_category: formData.itemType?.toLowerCase(),
-        item_description: formData.description,
-        route_number: formData.routeNumber || null,
-        region_id: selectedRegion?.region_id || null,
-        incident_date: formattedDate,
-        incident_time: formData.time + ':00', // Add seconds
-        contact_email: formData.email || null,
-        contact_phone: formData.phone,
-        reward_offered: parseFloat(formData.rewardOffered) || 0
-      };
+      const region_id = selectedRegion?.region_id || null;
 
-      console.log('Submitting report:', reportData);
+      // Prepare form data for file upload if photo exists
+      let body;
+      let headers;
+      if (formData.photo) {
+        body = new FormData();
+        body.append('passenger_id', String(user.id));
+        body.append('report_type', String(formData.reportType));
+        body.append('item_category', formData.itemType ? formData.itemType.toLowerCase() : '');
+        body.append('item_description', formData.description);
+        body.append('route_number', formData.routeNumber || '');
+        body.append('region_id', region_id ? String(region_id) : '');
+        body.append('incident_date', formattedDate);
+        body.append('incident_time', formData.time + ':00');
+        body.append('contact_email', formData.email || '');
+        body.append('contact_phone', formData.phone);
+        body.append('reward_offered', formData.rewardOffered ? String(formData.rewardOffered) : '0');
+        // React Native FormData photo object
+        body.append('photo', {
+          uri: formData.photo.uri,
+          name: formData.photo.fileName || 'photo.jpg',
+          type: formData.photo.type || 'image/jpeg',
+        } as any);
+        headers = {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+        };
+      } else {
+        body = JSON.stringify({
+          passenger_id: user.id,
+          report_type: formData.reportType,
+          item_category: formData.itemType?.toLowerCase(),
+          item_description: formData.description,
+          route_number: formData.routeNumber || null,
+          region_id: region_id,
+          incident_date: formattedDate,
+          incident_time: formData.time + ':00',
+          contact_email: formData.email || null,
+          contact_phone: formData.phone,
+          reward_offered: formData.rewardOffered ? parseFloat(formData.rewardOffered) : 0,
+        });
+        headers = {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        };
+      }
 
       const response = await fetch(`${API_BASE_URL}/api/lost-found/reports`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${user.token}` // If you have auth token
-        },
-        body: JSON.stringify(reportData)
+        headers,
+        body,
       });
 
       const result = await response.json();
-      console.log('Submit response:', result);
-
       if (result.success) {
         setReportStep(4); // Go to success screen
-        // Reset form
         setFormData({
           reportType: 'lost',
           itemType: null,
           description: '',
           routeNumber: '',
-          busNumber: '',
           date: '',
           time: '',
           region: '',
+          regionId: null,
           photo: null,
           email: '',
           phone: '',
-          additionalNotes: '',
           rewardOffered: '',
         });
       } else {
@@ -811,6 +843,35 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
             </View>
           </View>
 
+          {/* Region Dropdown */}
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionTitle}>Select Region *</Text>
+            <View style={styles.modernInputContainer}>
+              <Icon name="location-outline" size={20} color={AppColors.textSecondary} style={styles.modernInputIcon} />
+              <Dropdown
+                style={styles.dropdown}
+                placeholderStyle={styles.placeholderStyle}
+                selectedTextStyle={styles.selectedTextStyle}
+                inputSearchStyle={styles.inputSearchStyle}
+                iconStyle={styles.iconStyle}
+                data={regions.length > 0 ? regions.map(r => ({ label: r.region_name, value: r.region_name })) : [{ label: 'No regions available', value: '' }]}
+                maxHeight={300}
+                labelField="label"
+                valueField="value"
+                placeholder={regions.length > 0 ? 'Select Region' : 'No regions available'}
+                value={formData.region}
+                onChange={item => {
+                  if (item.value) updateFormData('region', item.value);
+                }}
+                disable={regions.length === 0}
+              />
+              {regions.length === 0 && (
+                <Text style={{ color: AppColors.error, marginTop: 8 }}>No regions available. Please try again later.</Text>
+              )}
+            </View>
+            {errors.region && <Text style={styles.modernErrorText}>{errors.region}</Text>}
+          </View>
+
           {/* Date & Time Section */}
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>When did this happen? *</Text>
@@ -878,13 +939,37 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
           {/* Photo Upload Section */}
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>Photo (Optional)</Text>
-            <TouchableOpacity style={styles.modernPhotoUpload} activeOpacity={0.8}>
+            <TouchableOpacity
+              style={styles.modernPhotoUpload}
+              activeOpacity={0.8}
+              onPress={async () => {
+                const result = await launchImageLibrary({
+                  mediaType: 'photo',
+                  includeBase64: false,
+                  quality: 0.7,
+                });
+                if (!result.didCancel && result.assets && result.assets.length > 0) {
+                  const asset = result.assets[0];
+                  updateFormData('photo', {
+                    uri: asset.uri,
+                    fileName: asset.fileName || (asset.uri ? asset.uri.split('/').pop() : 'photo.jpg') || 'photo.jpg',
+                    type: asset.type || 'image/jpeg',
+                  });
+                }
+              }}
+            >
               <View style={styles.photoUploadIcon}>
                 <Icon name="camera-outline" size={32} color={AppColors.primary} />
               </View>
               <Text style={styles.photoUploadTitle}>Add a photo</Text>
               <Text style={styles.photoUploadSubtitle}>Help others identify the item</Text>
             </TouchableOpacity>
+            {formData.photo && (
+              <>
+                <Text style={{ color: AppColors.success, marginTop: 8 }}>Photo selected: {formData.photo.fileName || 'photo.jpg'}</Text>
+                <Image source={{ uri: formData.photo.uri }} style={{ width: 120, height: 120, marginTop: 8, borderRadius: 8 }} />
+              </>
+            )}
           </View>
 
           {/* Contact Section */}
@@ -903,6 +988,40 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
               />
             </View>
             {errors.email && <Text style={styles.modernErrorText}>{errors.email}</Text>}
+
+            <View style={styles.modernInputContainer}>
+              <Icon name="call-outline" size={20} color={AppColors.textSecondary} style={styles.modernInputIcon} />
+              <TextInput
+                placeholder="Your phone number"
+                placeholderTextColor={AppColors.textSecondary}
+                style={styles.modernTextInput}
+                value={formData.phone}
+                onChangeText={(v: string) => updateFormData('phone', v)}
+                keyboardType="phone-pad"
+                autoCapitalize="none"
+                maxLength={20}
+              />
+            </View>
+            {errors.phone && <Text style={styles.modernErrorText}>{errors.phone}</Text>}
+          </View>
+
+          {/* Reward Section */}
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionTitle}>Reward Offered (Optional)</Text>
+            <View style={styles.modernInputContainer}>
+              <Icon name="gift-outline" size={20} color={AppColors.textSecondary} style={styles.modernInputIcon} />
+              <TextInput
+                placeholder="Enter reward amount (Rs.)"
+                placeholderTextColor={AppColors.textSecondary}
+                style={styles.modernTextInput}
+                value={formData.rewardOffered}
+                onChangeText={(v: string) => updateFormData('rewardOffered', v.replace(/[^0-9.]/g, ''))}
+                keyboardType="numeric"
+                autoCapitalize="none"
+                maxLength={10}
+              />
+            </View>
+            {errors.rewardOffered && <Text style={styles.modernErrorText}>{errors.rewardOffered}</Text>}
           </View>
 
           {/* Privacy Notice */}
@@ -1618,12 +1737,22 @@ const styles = StyleSheet.create({
   },
   // Dropdown styles
   dropdown: {
-    height: 50,
-    borderColor: 'gray',
-    borderWidth: 0.5,
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    marginBottom: 10,
+    width: '100%',
+    minWidth: 250,
+    maxWidth: 400,
+    alignSelf: 'center',
+    height: 54,
+    borderColor: AppColors.primary,
+    borderWidth: 2,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    marginBottom: 16,
+    backgroundColor: AppColors.card,
+    elevation: 3,
+    shadowColor: AppColors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   icon: {
     marginRight: 5,
