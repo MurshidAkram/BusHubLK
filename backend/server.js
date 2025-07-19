@@ -99,6 +99,14 @@ try {
 } catch (error) {
   console.log('❌ passengerRoutes error:', error.message);
 }
+try {
+  const dailyAssignmentRoutes = require('./routes/dailyAssignmentRoutes');
+  app.use('/api/dailyassignment', dailyAssignmentRoutes);
+  console.log('✅ dailyAssignmentRoutes loaded');
+} catch (error) {
+  console.log('❌ dailyAssignmentRoutes error:', error.message);
+}
+
 
 try {
   const BusOccupancyRoutes = require('./routes/BusOccupancyRoutes');

@@ -3,70 +3,55 @@ const db = require('../config/db');
 class Route {
   static async getAll() {
     const result = await db.query(
-      `SELECT * FROM routes ORDER BY route_id`
+      `SELECT r.*, d.depot_name
+       FROM routes r
+       LEFT JOIN depots d ON r.depot_id = d.depot_id
+       WHERE r.is_active = TRUE
+       ORDER BY r.route_id`
     );
     return result.rows;
   }
 
-  static async getById(id) {
-    const result = await db.query(
-      `SELECT * FROM routes WHERE route_id = $1`,
-      [id]
-    );
-    return result.rows[0];
-  }
-
-  static async create(data) {
-    const {
-      route_number,
-      route_name,
-      start_location,
-      end_location,
-      distance_km,
-      estimated_duration_minutes,
-      is_active = true
-    } = data;
+  static async create({ route_number, route_name, depot_id, start_location, end_location, distance_km, estimated_duration_minutes }) {
     const result = await db.query(
       `INSERT INTO routes 
-        (route_number, route_name, start_location, end_location, distance_km, estimated_duration_minutes, is_active, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
-       RETURNING *`,
-      [route_number, route_name, start_location, end_location, distance_km, estimated_duration_minutes, is_active]
+        (route_number, route_name, depot_id, start_location, end_location, distance_km, estimated_duration_minutes, is_active, created_at, updated_at)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,TRUE,NOW(),NOW())
+        RETURNING *`,
+      [route_number, route_name, depot_id, start_location, end_location, distance_km, estimated_duration_minutes]
     );
     return result.rows[0];
   }
 
-  static async update(id, data) {
-    const {
-      route_number,
-      route_name,
-      start_location,
-      end_location,
-      distance_km,
-      estimated_duration_minutes,
-      is_active
-    } = data;
+  static async update(route_id, updates) {
+    const allowedFields = ['route_number', 'route_name', 'depot_id', 'start_location', 'end_location', 'distance_km', 'estimated_duration_minutes', 'is_active'];
+    const updateFields = [];
+    const values = [];
+    let paramCount = 1;
+
+    for (const [key, value] of Object.entries(updates)) {
+      if (allowedFields.includes(key) && value !== undefined) {
+        updateFields.push(`${key} = $${paramCount}`);
+        values.push(value);
+        paramCount++;
+      }
+    }
+    updateFields.push(`updated_at = NOW()`);
+    values.push(route_id);
+
     const result = await db.query(
-      `UPDATE routes SET
-        route_number = $1,
-        route_name = $2,
-        start_location = $3,
-        end_location = $4,
-        distance_km = $5,
-        estimated_duration_minutes = $6,
-        is_active = $7,
-        updated_at = NOW()
-       WHERE route_id = $8
+      `UPDATE routes SET ${updateFields.join(', ')}
+       WHERE route_id = $${paramCount}
        RETURNING *`,
-      [route_number, route_name, start_location, end_location, distance_km, estimated_duration_minutes, is_active, id]
+      values
     );
     return result.rows[0];
   }
 
-  static async delete(id) {
+  static async deactivate(route_id) {
     const result = await db.query(
-      `DELETE FROM routes WHERE route_id = $1 RETURNING route_id`,
-      [id]
+      `UPDATE routes SET is_active = FALSE, updated_at = NOW() WHERE route_id = $1 RETURNING *`,
+      [route_id]
     );
     return result.rows[0];
   }
