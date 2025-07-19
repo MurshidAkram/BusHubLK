@@ -6,9 +6,9 @@ interface SparePart {
   name: string;
   inventoryId: string;
   currentStock: number;
-  minStockLevel: number;
   lastRestocked: string;
   unit: string;
+  busId?: string; // Added busId field
 }
 
 const SparePartsInventory: React.FC = () => {
@@ -19,18 +19,18 @@ const SparePartsInventory: React.FC = () => {
       name: 'Brake Pad Set',
       inventoryId: 'INV-2025-001',
       currentStock: 24,
-      minStockLevel: 10,
       lastRestocked: '2025-07-18',
-      unit: 'set'
+      unit: 'set',
+      busId: 'BUS-001'
     },
     {
       id: 'SP-1002',
       name: 'Engine Oil 5W-30',
       inventoryId: 'INV-2025-002',
       currentStock: 56,
-      minStockLevel: 20,
       lastRestocked: '2025-07-17',
-      unit: 'liter'
+      unit: 'liter',
+      busId: 'BUS-002'
     }
   ];
 
@@ -40,6 +40,7 @@ const SparePartsInventory: React.FC = () => {
   const [lowStockOnly, setLowStockOnly] = useState<boolean>(false);
   const [selectedPart, setSelectedPart] = useState<SparePart | null>(null);
   const [quantity, setQuantity] = useState<number>(1);
+  const [busId, setBusId] = useState<string>(''); // Added busId state for Use Part modal
   const [showUseModal, setShowUseModal] = useState<boolean>(false);
   const [showRestockModal, setShowRestockModal] = useState<boolean>(false);
   const [restockQuantity, setRestockQuantity] = useState<number>(0);
@@ -48,30 +49,28 @@ const SparePartsInventory: React.FC = () => {
     name: '',
     inventoryId: '',
     currentStock: 0,
-    minStockLevel: 0,
-    unit: ''
+    unit: '',
+    busId: '' // Added busId to newPart
   });
 
   // Filter parts based on search and low stock filter
   const filteredParts = parts.filter(part => {
     const matchesSearch = 
       part.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      part.inventoryId.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesLowStock = !lowStockOnly || part.currentStock <= part.minStockLevel;
-    
-    return matchesSearch && matchesLowStock;
+      part.inventoryId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (part.busId?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false);
+    return matchesSearch;
   });
 
   // Get stock status color
   const getStockStatus = (part: SparePart) => {
     if (part.currentStock === 0) return 'bg-red-100 text-red-800';
-    if (part.currentStock <= part.minStockLevel) return 'bg-yellow-100 text-yellow-800';
     return 'bg-green-100 text-green-800';
   };
 
   // Handle using a part
   const handleUsePart = () => {
-    if (!selectedPart || quantity <= 0) return;
+    if (!selectedPart || quantity <= 0 || !busId.trim()) return;
     
     const updatedParts = parts.map(part => 
       part.id === selectedPart.id 
@@ -83,6 +82,7 @@ const SparePartsInventory: React.FC = () => {
     setShowUseModal(false);
     setSelectedPart(null);
     setQuantity(1);
+    setBusId(''); // Reset busId
   };
 
   // Handle restocking a part
@@ -121,8 +121,8 @@ const SparePartsInventory: React.FC = () => {
       name: '',
       inventoryId: '',
       currentStock: 0,
-      minStockLevel: 0,
-      unit: ''
+      unit: '',
+      busId: ''
     });
   };
 
@@ -188,7 +188,7 @@ const SparePartsInventory: React.FC = () => {
           <div className="bg-white p-4 rounded-lg shadow border-l-4 border-yellow-500">
             <h3 className="text-gray-500 text-sm font-medium">Low Stock</h3>
             <p className="text-2xl font-bold">
-              {parts.filter(p => p.currentStock > 0 && p.currentStock <= p.minStockLevel).length}
+              {parts.filter(p => p.currentStock > 0).length}
             </p>
           </div>
           <div className="bg-white p-4 rounded-lg shadow border-l-4 border-red-500">
@@ -207,6 +207,7 @@ const SparePartsInventory: React.FC = () => {
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Part</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock ID</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bus ID</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
@@ -220,9 +221,12 @@ const SparePartsInventory: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {part.inventoryId}
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {part.busId || 'N/A'}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStockStatus(part)}`}>
-                        {part.currentStock} {part.unit} (min: {part.minStockLevel})
+                        {part.currentStock} {part.unit}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -265,6 +269,19 @@ const SparePartsInventory: React.FC = () => {
                 
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Bus ID
+                  </label>
+                  <input
+                    type="text"
+                    value={busId}
+                    onChange={(e) => setBusId(e.target.value)}
+                    placeholder="Enter Bus ID"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Quantity to Use (Available: {selectedPart.currentStock} {selectedPart.unit})
                   </label>
                   <input
@@ -282,6 +299,7 @@ const SparePartsInventory: React.FC = () => {
                     onClick={() => {
                       setShowUseModal(false);
                       setSelectedPart(null);
+                      setBusId('');
                     }}
                     className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
                   >
@@ -289,8 +307,8 @@ const SparePartsInventory: React.FC = () => {
                   </button>
                   <button
                     onClick={handleUsePart}
-                    disabled={quantity <= 0 || quantity > selectedPart.currentStock}
-                    className={`px-4 py-2 rounded-md text-sm font-medium text-white ${quantity <= 0 || quantity > selectedPart.currentStock ? 'bg-blue-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
+                    disabled={quantity <= 0 || quantity > selectedPart.currentStock || !busId.trim()}
+                    className={`px-4 py-2 rounded-md text-sm font-medium text-white ${quantity <= 0 || quantity > selectedPart.currentStock || !busId.trim() ? 'bg-blue-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
                   >
                     Confirm Usage
                   </button>
@@ -313,9 +331,6 @@ const SparePartsInventory: React.FC = () => {
                 <div className="mb-4">
                   <p className="text-sm text-gray-500 mb-2">
                     Current Stock: {selectedPart.currentStock} {selectedPart.unit}
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    Minimum Required: {selectedPart.minStockLevel} {selectedPart.unit}
                   </p>
                 </div>
                 
@@ -390,6 +405,17 @@ const SparePartsInventory: React.FC = () => {
                   </div>
                   
                   <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Bus ID</label>
+                    <input
+                      type="text"
+                      value={newPart.busId || ''}
+                      onChange={(e) => setNewPart({ ...newPart, busId: e.target.value })}
+                      placeholder="Enter bus ID"
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+                    />
+                  </div>
+                  
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Current Stock</label>
                     <input
                       type="number"
@@ -397,18 +423,6 @@ const SparePartsInventory: React.FC = () => {
                       value={newPart.currentStock}
                       onChange={(e) => setNewPart({ ...newPart, currentStock: Number(e.target.value) })}
                       placeholder="Enter current stock"
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-purple-500 focus:border-purple-500"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Minimum Stock Level</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={newPart.minStockLevel}
-                      onChange={(e) => setNewPart({ ...newPart, minStockLevel: Number(e.target.value) })}
-                      placeholder="Enter minimum stock level"
                       className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-purple-500 focus:border-purple-500"
                     />
                   </div>
@@ -433,8 +447,8 @@ const SparePartsInventory: React.FC = () => {
                         name: '',
                         inventoryId: '',
                         currentStock: 0,
-                        minStockLevel: 0,
-                        unit: ''
+                        unit: '',
+                        busId: ''
                       });
                     }}
                     className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
@@ -450,7 +464,7 @@ const SparePartsInventory: React.FC = () => {
                   </button>
                 </div>
               </div>
-            </div>
+            </ div>
           </div>
         )}
       </div>

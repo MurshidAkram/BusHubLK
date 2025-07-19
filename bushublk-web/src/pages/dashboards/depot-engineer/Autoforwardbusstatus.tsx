@@ -33,7 +33,7 @@ const Autoforwardbusstatus = () => {
     {
       id: 1,
       busId: 'BUS-001',
-      driverName: 'John Smith',
+      driverName: 'Nimal',
       priority: 'Medium',
       busStatus: 'Minor Issue',
       issueDescription: 'Engine making unusual noise during acceleration',
@@ -43,7 +43,7 @@ const Autoforwardbusstatus = () => {
     {
       id: 2,
       busId: 'BUS-012',
-      driverName: 'Sarah Johnson',
+      driverName: 'Venukaran',
       priority: 'High',
       busStatus: 'Major Issue',
       issueDescription: 'Brake pedal feels soft, might need fluid check',
@@ -53,7 +53,7 @@ const Autoforwardbusstatus = () => {
     {
       id: 3,
       busId: 'BUS-025',
-      driverName: 'David Brown',
+      driverName: 'Loganathan',
       priority: 'Low',
       busStatus: 'Good',
       issueDescription: 'Air conditioning not working properly',
@@ -63,10 +63,10 @@ const Autoforwardbusstatus = () => {
     {
       id: 4,
       busId: 'BUS-008',
-      driverName: 'Emma Wilson',
+      driverName: 'Sankar',
       priority: 'High',
       busStatus: 'Out of Service',
-      issueDescription: 'Dashboard warning light intermittently flashing',
+      issueDescription: 'head lights did not working',
       reviewed: false,
       reportedAt: '2023-06-15T11:20:00'
     }
