@@ -5,7 +5,6 @@ import ConditionReportForm from '../components/ConditionReportForm';
 const ConditionScreen = () => {
     return (
         <View style={styles.container}>
-            <Text style={styles.title}>Report Bus Condition</Text>
             <ConditionReportForm />
         </View>
     );

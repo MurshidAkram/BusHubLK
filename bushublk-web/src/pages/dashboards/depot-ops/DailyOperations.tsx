@@ -37,7 +37,7 @@ const DailyOperations: React.FC = () => {
     },
   ]);
 
-  const [buses, setBuses] = useState<Bus[]>([
+  const [buses] = useState<Bus[]>([
     { id: 1, name: 'NP1234', status: 'Active' },
     { id: 2, name: 'NP4567', status: 'Active' },
     { id: 3, name: 'NP8910', status: 'Under Service' },
@@ -79,32 +79,6 @@ const DailyOperations: React.FC = () => {
   });
 
   const [editId, setEditId] = useState<number | null>(null);
-  const [newBus, setNewBus] = useState('');
-  const [newBusStatus, setNewBusStatus] = useState<'Active' | 'Under Service'>('Active');
-  const [editingBusId, setEditingBusId] = useState<number | null>(null);
-
-  const handleAddOrUpdateBus = () => {
-    if (!newBus.trim()) return;
-
-    if (editingBusId !== null) {
-      setBuses(prev => prev.map(b => b.id === editingBusId ? { ...b, name: newBus, status: newBusStatus } : b));
-      setEditingBusId(null);
-    } else {
-      setBuses([...buses, { id: Date.now(), name: newBus.trim(), status: newBusStatus }]);
-    }
-    setNewBus('');
-    setNewBusStatus('Active');
-  };
-
-  const handleEditBus = (bus: Bus) => {
-    setNewBus(bus.name);
-    setNewBusStatus(bus.status);
-    setEditingBusId(bus.id);
-  };
-
-  const handleDeleteBus = (id: number) => {
-    setBuses(buses.filter((b) => b.id !== id));
-  };
 
   const handleAddRouteStop = () => {
     if (selectedStop && !routeStops.includes(selectedStop)) {
@@ -180,67 +154,11 @@ const DailyOperations: React.FC = () => {
     setAssignments(assignments.filter((a) => a.id !== id));
   };
 
-  const [selectedHistoryDate, setSelectedHistoryDate] = useState<string>(() => {
-    const today = new Date().toISOString().split("T")[0];
-    return today;
-  });
-
-  const [historyAssignments] = useState<Record<string, Assignment[]>>({
-    '2025-07-07': [
-      { id: 1, bus: 'NP1234', route: '404: Pettah → Fort → Galle Face', driver: 'Nimal Perera', conductor: 'Ranjith Bandara' },
-      { id: 2, bus: 'NP4567', route: '406: Kandy → Peradeniya → Mawanella', driver: 'Sunil Fernando', conductor: 'Suresh Liyanage' },
-    ],
-    '2025-07-08': [
-      { id: 3, bus: 'NP1234', route: '407: Colombo → Wellawatte → Dehiwala', driver: 'Ajith Kumara', conductor: 'Pubudu Kumara' },
-    ],
-    '2025-07-09': [
-      { id: 4, bus: 'NP8910', route: '408: Panadura → Mount Lavinia → Bambalapitiya', driver: 'Sarath Silva', conductor: 'Mahinda Rajakaruna' },
-    ],
-  });
-
   return (
     <div className="space-y-6 ">
-        <div className="bg-white rounded-lg shadow-sm p-6">
+      <div className="bg-white rounded-lg shadow-sm p-6">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Daily Operations</h1>
         <p className="text-gray-600">Manage daily bus operations and schedules.</p>
-      </div>
-      {/* Bus Section */}
-      <div className="bg-white p-4 rounded shadow">
-        <h2 className="text-lg font-semibold mb-2">{editingBusId ? 'Edit Bus' : 'Add Bus'}</h2>
-        <div className="flex flex-col gap-2">
-          <input
-            value={newBus}
-            onChange={(e) => setNewBus(e.target.value)}
-            placeholder="e.g., NP1234"
-            className="border p-2 rounded w-full"
-          />
-          <select
-            value={newBusStatus}
-            onChange={(e) => setNewBusStatus(e.target.value as 'Active' | 'Under Service')}
-            className="border p-2 rounded w-full"
-          >
-            <option value="Active">Active</option>
-            <option value="Under Service">Under Service</option>
-          </select>
-          <button onClick={handleAddOrUpdateBus} className="bg-blue-600 text-white px-4 py-2 rounded w-25">
-            {editingBusId ? 'Update Bus' : 'Add Bus'}
-          </button>
-        </div>
-
-        <div className="mt-4 space-y-2 max-h-32 overflow-y-auto">
-          {buses.map((bus) => (
-            <div
-              key={bus.id}
-              className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-md px-3 py-2 shadow-sm"
-            >
-              <span className="text-blue-600 font-medium">{bus.name} - <span className="text-sm text-gray-600">({bus.status})</span></span>
-              <div className="space-x-2">
-                <button onClick={() => handleEditBus(bus)} className="text-blue-600 text-sm">Edit</button>
-                <button onClick={() => handleDeleteBus(bus.id)} className="text-red-600 text-sm">Delete</button>
-              </div>
-            </div>
-          ))}
-        </div>
       </div>
 
       {/* Route Section */}
@@ -352,48 +270,6 @@ const DailyOperations: React.FC = () => {
           </div>
         )}
       </div>
-      {/* Assignment History Section */}
-<div className="bg-white rounded-lg shadow-sm p-6 mt-6">
-  <h2 className="text-xl font-semibold mb-4">Assignment History</h2>
-
-  <div className="mb-4">
-    <label className="block mb-1 font-medium">Select Date:</label>
-    <input
-      type="date"
-      value={selectedHistoryDate}
-      onChange={(e) => setSelectedHistoryDate(e.target.value)}
-      className="border p-2 rounded"
-    />
-  </div>
-
-  {historyAssignments[selectedHistoryDate] && historyAssignments[selectedHistoryDate].length > 0 ? (
-    <div className="overflow-x-auto">
-      <table className="min-w-full border text-sm">
-        <thead className="bg-gray-100">
-          <tr>
-            <th className="px-4 py-2 border">Bus</th>
-            <th className="px-4 py-2 border">Route</th>
-            <th className="px-4 py-2 border">Driver</th>
-            <th className="px-4 py-2 border">Conductor</th>
-          </tr>
-        </thead>
-        <tbody>
-          {historyAssignments[selectedHistoryDate].map((a, index) => (
-            <tr key={index}>
-              <td className="px-4 py-2 border">{a.bus}</td>
-              <td className="px-4 py-2 border">{a.route}</td>
-              <td className="px-4 py-2 border">{a.driver}</td>
-              <td className="px-4 py-2 border">{a.conductor}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  ) : (
-    <p className="text-gray-500">No assignment history found for this date.</p>
-  )}
-</div>
-
     </div>
   );
 };
