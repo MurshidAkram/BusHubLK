@@ -373,6 +373,77 @@ static async findByEmail(email) {
     const result = await db.query(insertQuery, values);
     return result.rows[0];
   }
+
+  // In userModel.js, add these methods:
+
+// Delete role-specific entry
+static async deleteRoleSpecificEntry(user_id, role_name) {
+  const roleTableMap = {
+    'ceo': 'ceo',
+    'dgm_technical': 'dgm_technical',
+    'dgm_operations': 'dgm_operations',
+    'regional_tech': 'regional_technical_officers',
+    'regional_operations': 'regional_operations_officers',
+    'depot_manager': 'depot_managers',
+    'depot_operations': 'depot_operation_managers',
+    'depot_engineer': 'depot_engineers',
+    'driver': 'drivers',
+    'conductor': 'conductors',
+    'passenger': 'passengers',
+    'admin': 'admins'
+  };
+
+  const tableName = roleTableMap[role_name];
+  if (!tableName) {
+    throw new Error(`Invalid role: ${role_name}`);
+  }
+
+  const query = `DELETE FROM ${tableName} WHERE ${role_name}_id = $1`;
+  await db.query(query, [user_id]);
+}
+
+// Update role-specific entry
+static async updateRoleSpecificEntry(user_id, role_name, updateData) {
+  const roleTableMap = {
+    'ceo': 'ceo',
+    'dgm_technical': 'dgm_technical',
+    'dgm_operations': 'dgm_operations',
+    'regional_tech': 'regional_technical_officers',
+    'regional_operations': 'regional_operations_officers',
+    'depot_manager': 'depot_managers',
+    'depot_operations': 'depot_operation_managers',
+    'depot_engineer': 'depot_engineers',
+    'driver': 'drivers',
+    'conductor': 'conductors'
+  };
+
+  const tableName = roleTableMap[role_name];
+  if (!tableName) {
+    throw new Error(`Invalid role: ${role_name}`);
+  }
+
+  const allowedFields = ['region_id', 'depot_id', 'appointment_date'];
+  const updateFields = [];
+  const values = [];
+  let paramCount = 1;
+
+  for (const [key, value] of Object.entries(updateData)) {
+    if (allowedFields.includes(key) && value !== undefined) {
+      updateFields.push(`${key} = $${paramCount}`);
+      values.push(value);
+      paramCount++;
+    }
+  }
+
+  if (updateFields.length === 0) {
+    return; // No valid fields to update
+  }
+
+  values.push(user_id);
+
+  const query = `UPDATE ${tableName} SET ${updateFields.join(', ')} WHERE ${role_name}_id = $${paramCount}`;
+  await db.query(query, values);
+}
 }
 
 module.exports = User;

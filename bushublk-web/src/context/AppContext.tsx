@@ -18,6 +18,7 @@ interface AppContextType {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
+  isLoading: boolean;
   login: (userData: User, token: string) => void;
   logout: () => void;
   updateUser: (userData: Partial<User>) => void;
@@ -28,6 +29,7 @@ export const AppContext = createContext<AppContextType | undefined>(undefined);
 const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Load authentication state from localStorage on app start
   useEffect(() => {
@@ -46,6 +48,7 @@ const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         localStorage.removeItem('bushublk_user');
       }
     }
+    setIsLoading(false);
   }, []);
 
   const login = (userData: User, authToken: string) => {
@@ -74,6 +77,7 @@ const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     user,
     token,
     isAuthenticated: !!token && !!user,
+    isLoading,
     login,
     logout,
     updateUser,
