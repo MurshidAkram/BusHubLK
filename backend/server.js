@@ -109,6 +109,12 @@ app.get('/resetPassword.js', (req, res) => {
   res.sendFile(path.join(__dirname, 'public/resetPassword.js'));
 });
 
+// Add this near your other route imports
+const busRoutes = require('./routes/busRoutes');
+
+// And this with your other app.use() calls
+app.use('/api/buses', busRoutes);
+
 
 app.get('/reset-password.html', (req, res) => {
   res.setHeader('Content-Type', 'text/html');
