@@ -98,6 +98,7 @@ const submitReport = async (req, res) => {
       item_description,
       route_number,
       region_id,
+      approximate_location,
       incident_date,
       incident_time,
       contact_email,
@@ -183,6 +184,7 @@ const submitReport = async (req, res) => {
       item_photo_url,
       route_number: route_number || null,
       region_id: region_id !== undefined && region_id !== null && region_id !== '' ? Number(region_id) : null,
+      approximate_location: approximate_location || null,
       incident_date,
       incident_time,
       contact_email: contact_email || null,
@@ -493,14 +495,14 @@ const getRoutes = async (req, res) => {
 const getRegions = async (req, res) => {
   try {
     const query = `
-      SELECT region_name
+      SELECT region_id, region_name
       FROM regions 
       ORDER BY region_name
     `;
 
     const result = await db.query(query);
 
-    // Return as array of { region_name }
+    // Return as array of { region_id, region_name }
     res.json({
       success: true,
       data: result.rows
