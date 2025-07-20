@@ -19,7 +19,6 @@ import {
     KeyboardAvoidingView,
 } from 'react-native';
 
-// Import Location
 import * as Location from 'expo-location';
 
 import { API_BASE_URL } from '../config/api';
@@ -39,10 +38,19 @@ const AppColors = {
 };
 
 type Contact = { id: number; name: string; relationship: string; phone: string; email: string; isPrimary: boolean; };
-// MODIFIED AlertType: Removed passengerLatitude and passengerLongitude
-type AlertType = { id: number; type: string; timestamp: string; depotName?: string; };
+type AlertType = { id: number; type: string; timestamp: string; passengerLatitude?: number; passengerLongitude?: number; depotName?: string; };
 type ScreenType = 'emergency' | 'contacts' | 'history';
 type Status = 'idle' | 'loading' | 'succeeded' | 'failed';
+
+// Define a type for the notification summary we expect from the backend
+type NotificationSummary = {
+    smsSentToContacts: number;
+    emailsSentToContacts: number;
+    smsSentToDepot: boolean;
+    depotName: string;
+    overallSuccess: boolean;
+    detailedMessage: string[];
+};
 
 const ContactCard = ({ contact, onEdit, onDelete, onSetPrimary, onCall }) => (
 <View style={styles.contactCard}>
@@ -83,7 +91,6 @@ const ContactCard = ({ contact, onEdit, onDelete, onSetPrimary, onCall }) => (
 </View>
 );
 
-// MODIFIED AlertCard: Removed passengerLatitude and passengerLongitude display
 const AlertCard = ({ alert }) => (
 <View style={styles.alertCard}>
     <View style={styles.alertHeader}>
@@ -91,6 +98,14 @@ const AlertCard = ({ alert }) => (
             <Text style={styles.alertType}>{alert.type}</Text>
             <Text style={styles.alertId}>Alert ID: {alert.id}</Text>
             <Text style={styles.alertTimestamp}>{new Date(alert.timestamp).toLocaleString()}</Text>
+            {/* The alert object from the backend no longer includes passengerLatitude/Longitude,
+                but the frontend type still has it. You might want to update the AlertType if
+                you completely remove these from the backend response. For now, keeping the check
+                to prevent errors if they are undefined. */}
+            {alert.passengerLatitude !== undefined && alert.passengerLatitude !== null &&
+             alert.passengerLongitude !== undefined && alert.passengerLongitude !== null && (
+                 <Text style={styles.alertDetail}>Passenger Loc: {alert.passengerLatitude.toFixed(4)}, {alert.passengerLongitude.toFixed(4)}</Text>
+            )}
             {alert.depotName && <Text style={styles.alertDetail}>Nearest Depot: {alert.depotName}</Text>}
         </View>
     </View>
@@ -107,11 +122,11 @@ const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
     const [passengerId, setPassengerId] = useState<number | null>(null);
     const [currentLatitude, setCurrentLatitude] = useState<number | null>(null);
     const [currentLongitude, setCurrentLongitude] = useState<number | null>(null);
-    const [isEmergencyActive, setIsEmergencyActive] = useState(false);
+    const [depotPhoneNumber, setDepotPhoneNumber] = useState<string | null>(null); // New state for depot phone
+    // Police emergency number (common for many regions, adjust if needed for specific country)
+    const POLICE_PHONE_NUMBER = '911'; // Example for USA/Canada. Use '119' for Sri Lanka or relevant number.
     const [editContact, setEditContact] = useState<Contact | null>(null);
     const [deletingId, setDeletingId] = useState<number | null>(null);
-    const [countdown, setCountdown] = useState(5);
-    const [countdownTimer, setCountdownTimer] = useState<NodeJS.Timeout | null>(null);
     const [contacts, setContacts] = useState<Contact[]>([]);
     const [alerts, setAlerts] = useState<AlertType[]>([]);
     const [status, setStatus] = useState<Status>('idle');
@@ -124,42 +139,114 @@ const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
     const [newEmail, setNewEmail] = useState('');
     const [newIsPrimary, setNewIsPrimary] = useState(false);
     const [isHistoryFetched, setIsHistoryFetched] = useState(false);
+    const [contactsLoading, setContactsLoading] = useState(true);
 
     useEffect(() => {
-        const loadData = async () => {
+        const loadUserData = async () => {
             const userData = await storageAPI.getUserData();
             if (userData && userData.id) setPassengerId(userData.id);
         };
-        loadData();
+        loadUserData();
     }, []);
 
     const fetchDeviceLocation = useCallback(async () => {
-        let { status: locationStatus } = await Location.requestForegroundPermissionsAsync();
-        if (locationStatus !== 'granted') {
-            Alert.alert('Permission Denied', 'Permission to access location was denied. Please enable it in settings.');
+        setError(null); // Clear previous errors
+
+        let { status: locationPermissionStatus } = await Location.requestForegroundPermissionsAsync();
+        console.log("Location Permission Status:", locationPermissionStatus);
+
+        if (locationPermissionStatus !== 'granted') {
+            Alert.alert(
+                'Location Permission Required',
+                'Permission to access your location is essential for emergency alerts. Please enable it in your device settings.',
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Open Settings', onPress: () => Linking.openSettings() } // Direct user to settings
+                ]
+            );
             setError('Location permission not granted.');
+            setCurrentLatitude(null); // Ensure no old location is used
+            setCurrentLongitude(null);
+            setDepotPhoneNumber(null); // Clear depot phone if location fails
             return;
         }
 
         try {
-            let location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-            setCurrentLatitude(location.coords.latitude);
-            setCurrentLongitude(location.coords.longitude);
-            setError(null);
-        } catch (err) {
+            console.log("Attempting to get current position...");
+            // Use Location.Accuracy.Highest for best accuracy, but note it consumes more battery
+            // If Highest still fails, try High or Balanced
+            let location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Highest, timeout: 15000 }); // Added timeout
+            
+            if (location && location.coords) {
+                setCurrentLatitude(location.coords.latitude);
+                setCurrentLongitude(location.coords.longitude);
+                console.log("Successfully got location. Latitude:", location.coords.latitude, "Longitude:", location.coords.longitude);
+                setError(null); // Clear error if location is successful
+
+                // --- Existing backend call for nearest depot (keep this) ---
+                if (passengerId) {
+                    const depotFetchUrl = `${API_BASE_URL}/passengers/${passengerId}/nearest-depot?latitude=${location.coords.latitude}&longitude=${location.coords.longitude}`;
+                    console.log("Frontend - Fetching nearest depot from URL:", depotFetchUrl);
+                    try {
+                        const response = await fetch(depotFetchUrl);
+                        if (response.ok) {
+                            const data = await response.json();
+                            console.log("Frontend - Nearest Depot Response:", data);
+                            if (data && data.contact_phone) {
+                                setDepotPhoneNumber(data.contact_phone);
+                            } else {
+                                setDepotPhoneNumber(null);
+                                console.warn('Nearest depot found but no phone number available or data is incomplete.');
+                            }
+                        } else {
+                            console.error('Failed to fetch nearest depot:', response.status, await response.text());
+                            setDepotPhoneNumber(null);
+                        }
+                    } catch (err) {
+                        console.error('Error fetching nearest depot:', err);
+                        setDepotPhoneNumber(null);
+                    }
+                }
+                // --- End existing backend call ---
+
+            } else {
+                console.warn("Location data is null or missing coords.");
+                setError('Failed to get current location: No coordinates received.');
+                setCurrentLatitude(null);
+                setCurrentLongitude(null);
+                setDepotPhoneNumber(null);
+                Alert.alert('Location Error', 'Could not retrieve precise current location. Please check device settings.');
+            }
+        } catch (err: any) { // Use 'any' to safely access 'code' property
             console.error('Error getting location:', err);
-            setError('Failed to get current location.');
-            Alert.alert('Location Error', 'Could not retrieve your current location.');
+            let errorMessage = 'Failed to get current location.';
+
+            if (err.code === 'E_LOCATION_SETTINGS_UNSATISFIED') {
+                errorMessage = 'Location services are disabled on your device. Please enable them.';
+                Alert.alert('Location Services Off', errorMessage, [
+                    { text: 'OK' },
+                    { text: 'Open Settings', onPress: () => Linking.openSettings() }
+                ]);
+            } else if (err.message.includes('timeout')) {
+                 errorMessage = 'Location request timed out. Trying again might help.';
+                 Alert.alert('Location Timeout', errorMessage);
+            }
+            else {
+                Alert.alert('Location Error', errorMessage + ` (${err.message || 'Unknown error'})`);
+            }
+            setError(errorMessage);
+            setCurrentLatitude(null);
+            setCurrentLongitude(null);
+            setDepotPhoneNumber(null);
         }
-    }, []);
-
-    useEffect(() => {
-        fetchDeviceLocation();
-    }, [fetchDeviceLocation]);
-
+    }, [passengerId]); // Make sure passengerId is in dependencies
+    
     const fetchContacts = useCallback(async () => {
-        if (!passengerId) return;
-        if (activeScreen === 'contacts') setStatus('loading');
+        if (!passengerId) {
+            setContactsLoading(false);
+            return;
+        }
+        setContactsLoading(true);
         setError(null);
         try {
             const response = await fetch(`${API_BASE_URL}/passengers/${passengerId}/contacts`);
@@ -168,15 +255,16 @@ const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
                 id: item.id, name: item.emergency_contact_name, phone: item.emergency_contact_phone,
                 relationship: item.relationship, email: item.email, isPrimary: item.is_primary,
             })));
-            if (activeScreen === 'contacts') setStatus('succeeded');
+            setStatus('succeeded');
         } catch (err) {
             console.error('Error fetching contacts:', err);
             setError((err as Error).message);
-            if (activeScreen === 'contacts') setStatus('failed');
+            setStatus('failed');
+        } finally {
+            setContactsLoading(false);
         }
-    }, [passengerId, activeScreen]);
+    }, [passengerId]);
 
-    // *** MODIFIED fetchAlertHistory: No longer expects passenger_latitude/longitude from backend response ***
     const fetchAlertHistory = useCallback(async () => {
         if (!passengerId) return;
         setStatus('loading');
@@ -188,12 +276,17 @@ const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
                 throw new Error(errorData.message || 'Failed to fetch alert history.');
             }
             const data = await response.json();
-            // CORRECTED MAPPING: map fields as they are returned from the backend (no lat/lon)
             setAlerts(data.map((alert: any) => ({
                 id: alert.id,
                 type: alert.emergency_type,
                 timestamp: alert.created_at,
-                depotName: alert.depot_name, // Map depot_name from backend join
+                // These are now handled by the backend's `notify-contacts` response,
+                // and the `getAlertsForPassenger` in the model no longer selects them directly.
+                // If you want to display them in history, you'll need to update the model.
+                // For now, removing them here to reflect current backend model output.
+                // passengerLatitude: alert.passenger_latitude,
+                // passengerLongitude: alert.passenger_longitude,
+                depotName: alert.depot_name,
             })));
             setStatus('succeeded');
             setIsHistoryFetched(true);
@@ -207,15 +300,16 @@ const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
 
     useEffect(() => {
         if (passengerId) {
+            fetchDeviceLocation();
             fetchContacts();
-            if (activeScreen === 'history' && !isHistoryFetched) {
-                fetchAlertHistory();
-            }
         }
-    }, [passengerId, activeScreen, fetchContacts, fetchAlertHistory, isHistoryFetched]);
+    }, [passengerId, fetchDeviceLocation, fetchContacts]);
 
-
-    useEffect(() => () => { if (countdownTimer) clearInterval(countdownTimer); }, [countdownTimer]);
+    useEffect(() => {
+        if (passengerId && activeScreen === 'history' && !isHistoryFetched) {
+            fetchAlertHistory();
+        }
+    }, [passengerId, activeScreen, fetchAlertHistory, isHistoryFetched]);
 
     const handleAddContact = async () => {
         if (!passengerId || !newName.trim() || !newPhone.trim()) {
@@ -305,62 +399,96 @@ const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
     };
 
     const handleCall = async (phone: string) => {
-        if (!await requestCallPermission()) return Alert.alert('Permission Required', 'Call permission is required.');
+        if (!phone) {
+            Alert.alert('Call Error', 'Phone number is missing.');
+            return;
+        }
+        if (!await requestCallPermission()) {
+            return Alert.alert('Permission Required', 'Call permission is required.');
+        }
         try {
             const phoneUrl = `tel:${phone}`;
             if (await Linking.canOpenURL(phoneUrl)) {
                 await Linking.openURL(phoneUrl);
-            } else { throw new Error("Device cannot make phone calls."); }
-        } catch (error) { Alert.alert('Call Error', (error as Error).message); }
+            } else { throw new Error("Device cannot make phone calls or URL scheme not supported."); }
+        } catch (error) { Alert.alert('Call Error', `Failed to make call: ${(error as Error).message}`); }
     };
 
-    const handleEmergencyAction = async (type: string) => {
+    // This function initiates the emergency sequence, without a countdown
+    const handleEmergencyAction = async () => {
+        // Validation checks before starting the process
+        if (contactsLoading) {
+            Alert.alert('Loading Contacts', 'Please wait while your contacts are being loaded.');
+            return;
+        }
         if (contacts.length === 0 || !contacts.find(c => c.isPrimary)) {
             return Alert.alert('Setup Required', 'Please add at least one primary emergency contact first.', [{ text: 'OK', onPress: () => setActiveScreen('contacts') }]);
         }
-
         if (currentLatitude === null || currentLongitude === null) {
             Alert.alert('Location Missing', 'Could not get current location. Please ensure location services are enabled and try again.');
-            await fetchDeviceLocation();
+            await fetchDeviceLocation(); // Attempt to re-fetch location
             return;
         }
         
-        if (countdownTimer) clearInterval(countdownTimer);
-        setIsEmergencyActive(true);
-        setCountdown(5);
-        const timer = setInterval(() => {
-            setCountdown(prev => {
-                if (prev <= 1) {
-                    clearInterval(timer);
-                    setIsEmergencyActive(false);
-                    setActiveScreen('history');
-                    executeEmergencySequence(type, currentLatitude, currentLongitude);
-                    return 0;
-                }
-                return prev - 1;
-            });
-        }, 1000);
-        setCountdownTimer(timer);
+        // Show an immediate "Sending Alert..." pop-up
+        Alert.alert(
+            'Sending Emergency',
+            'Your emergency alert is being sent. Please wait...',
+            [{ text: 'OK', onPress: () => {} }], // Allow user to dismiss or wait
+            { cancelable: false } // Prevent tapping outside from dismissing
+        );
+
+        // Directly execute the sequence
+        executeEmergencySequence('Panic Alert', currentLatitude, currentLongitude);
+        setActiveScreen('history'); // Navigate to history immediately after initiating send
     };
 
+    // This function executes the actual API calls for emergency notification and alert creation
     const executeEmergencySequence = async (type: string, latitude: number, longitude: number) => {
         const primaryContact = contacts.find(c => c.isPrimary);
         if (primaryContact) handleCall(primaryContact.phone);
 
-        // Notify contacts with only location/depot info
-        fetch(`${API_BASE_URL}/passengers/notify-contacts`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                emergencyType: type,
-                contacts,
-                latitude, // passenger's latitude
-                longitude, // passenger's longitude
-            }),
-        }).catch(e => console.error('Notify Error:', e));
+        let notificationSummary: NotificationSummary = { // Initialize with defaults
+            smsSentToContacts: 0,
+            emailsSentToContacts: 0,
+            smsSentToDepot: false,
+            depotName: 'N/A',
+            overallSuccess: false, // Assume failure until proven otherwise
+            detailedMessage: [],
+        };
 
         try {
-            // Create the alert with passenger's location only
-            const response = await fetch(`${API_BASE_URL}/passengers/${passengerId}/alerts`, {
+            // First, call the notify-contacts API to send SMS/Emails
+            const notifyResponse = await fetch(`${API_BASE_URL}/passengers/notify-contacts`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    emergencyType: type,
+                    contacts,
+                    latitude,
+                    longitude,
+                }),
+            });
+
+            if (notifyResponse.ok) {
+                const data = await notifyResponse.json();
+                if (data.summary) {
+                    notificationSummary = data.summary; // Get actual summary from backend
+                }
+            } else {
+                const errorData = await notifyResponse.json();
+                notificationSummary.overallSuccess = false; // Mark as false if notify API itself failed
+                notificationSummary.detailedMessage.push(`Notification API Error: ${errorData.message || 'Unknown error.'}`);
+                console.error('Notify API failed:', notificationSummary.detailedMessage);
+            }
+        } catch (e) {
+            notificationSummary.overallSuccess = false; // Mark as false for network errors
+            notificationSummary.detailedMessage.push(`Network Error (Notifications): ${(e as Error).message || 'Unknown network issue.'}`);
+            console.error('Network error during notify:', e);
+        }
+
+        try {
+            // Second, create the alert record in the database
+            const alertResponse = await fetch(`${API_BASE_URL}/passengers/${passengerId}/alerts`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -370,22 +498,41 @@ const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
                 }),
             });
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Failed to create alert.');
+            if (!alertResponse.ok) {
+                const errorData = await alertResponse.json();
+                throw new Error(errorData.message || 'Failed to create alert record.');
             }
             
-            fetchAlertHistory();
-            Alert.alert('Request Sent', 'Your emergency alert has been created and contacts notified.');
-        } catch (err) {
-            console.error('Error creating alert on backend:', err);
-            Alert.alert('App Error', `Could not save alert: ${(err as Error).message}`);
-        }
-    };
+            fetchAlertHistory(); // Refresh history tab with new alert
 
-    const handleCancelEmergency = () => {
-        setIsEmergencyActive(false);
-        if (countdownTimer) clearInterval(countdownTimer);
+            // Construct detailed success message for final pop-up
+            let successMessage = `Emergency Alert Sent!\n\n`;
+            successMessage += `Contacts Notified:\n`;
+            successMessage += `  - SMS: ${notificationSummary.smsSentToContacts} successful\n`;
+            successMessage += `  - Email: ${notificationSummary.emailsSentToContacts} successful\n`;
+            if (notificationSummary.depotName !== 'N/A') {
+                if (notificationSummary.smsSentToDepot) {
+                    successMessage += `Nearest Depot (${notificationSummary.depotName}) notified via SMS.\n`;
+                } else {
+                    successMessage += `Nearest Depot (${notificationSummary.depotName}) not notified via SMS.\n`;
+                }
+            } else {
+                successMessage += `Nearest Depot not identified for notification.\n`;
+            }
+            if (notificationSummary.detailedMessage.length > 0) {
+                successMessage += `\nDetails:\n${notificationSummary.detailedMessage.join('\n')}`;
+            }
+
+            Alert.alert('Alert Sent!', successMessage, [{ text: 'OK' }]);
+
+        } catch (err) {
+            console.error('Error creating alert record or displaying final alert:', err);
+            let errorMessage = `Could not finalize alert record: ${(err as Error).message || 'Unknown error.'}`;
+            if (notificationSummary.detailedMessage.length > 0) {
+                errorMessage += `\n\nNotification Details:\n${notificationSummary.detailedMessage.join('\n')}`;
+            }
+            Alert.alert('Alert Failed', errorMessage, [{ text: 'OK' }]);
+        }
     };
 
     const handleClearHistory = () => {
@@ -410,24 +557,66 @@ const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
                 <View style={styles.emergencyIcon}><Text style={styles.emergencyIconText}>⚠️</Text></View>
                 <Text style={styles.emergencyTitle}>Report Emergency</Text>
                 <View style={styles.emergencyDivider} />
-                <Text style={styles.emergencySubtitle}>Select the type of emergency to alert your contacts.</Text>
+                <Text style={styles.emergencySubtitle}>Press the button below to send an immediate alert.</Text>
                 
+                {contactsLoading && (
+                    <View style={styles.loadingMessageContainer}>
+                        <ActivityIndicator size="small" color={AppColors.primary} />
+                        <Text style={styles.loadingMessageText}>Loading contacts...</Text>
+                    </View>
+                )}
+
                 <View style={styles.emergencyButtonsArea}>
                     <TouchableOpacity
-                        style={[styles.emergencyButton, styles.panicButton]}
-                        onPress={() => handleEmergencyAction('Panic Alert')}
-                        disabled={currentLatitude === null || currentLongitude === null}
+                        style={[
+                            styles.emergencyButton,
+                            styles.panicButton,
+                            // Increased size for the main button
+                            { height: 85, borderRadius: 42, justifyContent: 'center', alignItems: 'center' },
+                            (contactsLoading || contacts.length === 0 || !contacts.find(c => c.isPrimary) || currentLatitude === null || currentLongitude === null) && { opacity: 0.5 }
+                        ]}
+                        disabled={contactsLoading || contacts.length === 0 || !contacts.find(c => c.isPrimary) || currentLatitude === null || currentLongitude === null}
+                        onPress={handleEmergencyAction}
                     >
-                        <Text style={styles.emergencyButtonText}>Panic Alert</Text>
+                        <Text style={[styles.emergencyButtonText, { fontSize: 24 }]}>EMERGENCY ALERT</Text>
                     </TouchableOpacity>
+
+                    {/* New button for Police Call */}
                     <TouchableOpacity
-                        style={[styles.emergencyButton, styles.medicalButton]}
-                        onPress={() => handleEmergencyAction('Security/Medical')}
-                        disabled={currentLatitude === null || currentLongitude === null}
+                        style={[styles.emergencyButton, styles.policeCallButton]}
+                        onPress={() => handleCall(POLICE_PHONE_NUMBER)}
                     >
-                        <Text style={styles.emergencyButtonText}>Security/Medical</Text>
+                        <Text style={styles.emergencyButtonText}>Call Police ({POLICE_PHONE_NUMBER})</Text>
                     </TouchableOpacity>
+
+                    {/* New button for Depot Call (conditionally rendered if phone number is available) */}
+                    {depotPhoneNumber && (
+                        <TouchableOpacity
+                            style={[styles.emergencyButton, styles.depotCallButton]}
+                            onPress={() => handleCall(depotPhoneNumber)}
+                        >
+                            <Text style={styles.emergencyButtonText}>Call Nearest Depot</Text>
+                        </TouchableOpacity>
+                    )}
+                    {!depotPhoneNumber && currentLatitude !== null && currentLongitude !== null && (
+                        <Text style={styles.noPrimaryContactText}>
+                            Nearest depot phone number not available.
+                        </Text>
+                    )}
+
                 </View>
+
+                {!contactsLoading && (contacts.length === 0 || !contacts.find(c => c.isPrimary)) && (
+                    <Text style={styles.noPrimaryContactText}>
+                        Please add at least one primary emergency contact on the "Contacts" tab to enable alerts.
+                    </Text>
+                )}
+
+                {!contactsLoading && (currentLatitude === null || currentLongitude === null) && (
+                    <Text style={styles.noPrimaryContactText}>
+                        Location is required to send an alert. Please enable location services.
+                    </Text>
+                )}
             </View>
         </View>
     </LinearGradient>
@@ -577,16 +766,7 @@ const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
             ))}
         </View>
         <View style={styles.content}>
-            {isEmergencyActive ? (
-                <View style={styles.emergencyOverlay}>
-                    <View style={styles.emergencyModal}>
-                        <View style={styles.emergencyModalIcon}><Text style={styles.emergencyModalIconText}>⚠️</Text></View>
-                        <Text style={styles.emergencyModalTitle}>Emergency Activated</Text>
-                        <Text style={styles.emergencyModalText}>Notifying contacts in {countdown} second{countdown !== 1 ? 's' : ''}...</Text>
-                        <TouchableOpacity style={styles.emergencyCancelButton} onPress={handleCancelEmergency}><Text style={styles.emergencyCancelButtonText}>Cancel</Text></TouchableOpacity>
-                    </View>
-                </View>
-            ) : renderContent()}
+            {renderContent()}
         </View>
         {renderAddContactModal()}
         {renderEditContactModal()}
@@ -618,6 +798,9 @@ const styles = StyleSheet.create({
     refreshButtonText: { color: AppColors.card, fontSize: 14, fontWeight: 'bold' },
     scrollableList: { flex: 1 },
     errorText: { color: AppColors.textSecondary, textAlign: 'center', marginTop: 40, fontSize: 16 },
+    loadingMessageContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 20 },
+    loadingMessageText: { fontSize: 16, color: AppColors.textSecondary, marginLeft: 10 },
+    noPrimaryContactText: { fontSize: 15, color: AppColors.textSecondary, textAlign: 'center', marginTop: 20, paddingHorizontal: 10, lineHeight: 22 },
     contactCard: { backgroundColor: AppColors.card, borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: AppColors.border },
     contactCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
     contactName: { fontSize: 18, fontWeight: 'bold', color: AppColors.text },
@@ -661,6 +844,9 @@ const styles = StyleSheet.create({
     emergencyButton: { paddingVertical: 18, borderRadius: 12, alignItems: 'center', width: '100%' },
     panicButton: { backgroundColor: AppColors.red },
     medicalButton: { backgroundColor: AppColors.orange },
+    // New styles for police and depot call buttons
+    policeCallButton: { backgroundColor: '#3366ff' }, // A blue shade
+    depotCallButton: { backgroundColor: '#00BFFF' }, // Another blue shade
     emergencyButtonText: { color: '#fff', fontSize: 17, fontWeight: '700' },
     emergencyOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(15, 23, 42, 0.85)', zIndex: 1000, justifyContent: 'center', alignItems: 'center', padding: 16 },
     emergencyModal: { backgroundColor: '#fff', padding: 36, borderRadius: 32, alignItems: 'center', width: '90%', maxWidth: 340 },

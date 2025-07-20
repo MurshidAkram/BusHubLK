@@ -93,8 +93,7 @@ const Passenger = {
     }
   },
 
-  // === Depot Location Functions ===
-  getNearestDepotLocation: async (latitude, longitude) => {
+   getNearestDepotLocation: async (latitude, longitude) => {
     const query = {
       text: `
         SELECT
@@ -102,6 +101,7 @@ const Passenger = {
             dl.latitude,
             dl.longitude,
             d.depot_name, -- Get depot_name from the main depots table
+            d.contact_phone, -- <--- ADD THIS LINE
             (
                 6371 * acos(
                     cos(radians($1)) * cos(radians(dl.latitude)) *
@@ -117,11 +117,11 @@ const Passenger = {
       values: [latitude, longitude],
     };
     try {
-        const { rows } = await pool.query(query);
-        return rows[0];
+      const { rows } = await pool.query(query);
+      return rows[0];
     } catch (err) {
-        console.error('Error in Passenger.getNearestDepotLocation (model):', err.message);
-        throw err;
+      console.error('Error in Passenger.getNearestDepotLocation (model):', err.message);
+      throw err;
     }
   },
   
