@@ -192,8 +192,17 @@ const RoutesMngmnt: React.FC = () => {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Route Management</h1>
-      <div className="flex justify-end">
-        {!showForm && (
+
+      {/* ✅ Only one search + button row */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <input
+          type="text"
+          placeholder="Search by depot name"
+          className="w-full md:w-1/2 border border-gray-300 rounded-md px-4 py-2"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+        <div className="flex gap-2">
           <button
             onClick={() => {
               setShowForm(true);
@@ -208,12 +217,19 @@ const RoutesMngmnt: React.FC = () => {
                 estimated_duration_minutes: '',
               });
             }}
-            className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
           >
             Add Route
           </button>
-        )}
+          <button
+            onClick={fetchRoutes}
+            className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700"
+          >
+            Refresh
+          </button>
+        </div>
       </div>
+
       {showForm && (
         <form
           className="bg-white rounded-lg shadow-sm p-6 grid grid-cols-1 md:grid-cols-2 gap-4"
@@ -324,16 +340,7 @@ const RoutesMngmnt: React.FC = () => {
           </div>
         </form>
       )}
-      <div className="flex flex-col md:flex-row gap-4 items-center">
-        <input
-          type="text"
-          placeholder="Search by route number, name, location, depot..."
-          className="w-full md:w-1/2 border border-gray-300 rounded-md px-4 py-2"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-        <span className="text-gray-500">{filteredRoutes.length} routes</span>
-      </div>
+   
       <div className="bg-white rounded-lg shadow-sm p-6 overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50">
