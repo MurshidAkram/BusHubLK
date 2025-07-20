@@ -287,14 +287,19 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
 
   const loadRegions = async () => {
     try {
+      console.log('[LostAndFoundScreen] 🌍 Loading regions...');
       const response = await fetch(`${API_BASE_URL}/lost-found/regions`);
       const data = await response.json();
       
       if (data.success) {
+        console.log('[LostAndFoundScreen] ✅ Regions loaded:', data.data.length, 'regions');
+        console.log('[LostAndFoundScreen] 📋 First few regions:', data.data.slice(0, 3));
         setRegions(data.data);
+      } else {
+        console.error('[LostAndFoundScreen] ❌ Error loading regions:', data.message);
       }
     } catch (error) {
-      console.error('Error loading regions:', error);
+      console.error('[LostAndFoundScreen] ❌ Error loading regions:', error);
     }
   };
 
@@ -505,6 +510,28 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
       // Find region_id from region name
       const selectedRegion = regions.find(r => r.region_name === formData.region);
       const region_id = selectedRegion?.region_id || null;
+      
+      // Create approximate location string
+      let approximate_location = '';
+      if (formData.region) {
+        approximate_location = formData.region;
+        if (formData.routeNumber) {
+          approximate_location += ` - Route ${formData.routeNumber}`;
+        }
+      } else if (formData.routeNumber) {
+        approximate_location = `Route ${formData.routeNumber}`;
+      }
+
+      console.log('[LostAndFoundScreen] Location details:', {
+        region: formData.region,
+        regionId: region_id,
+        routeNumber: formData.routeNumber,
+        approximate_location,
+        regionsLength: regions.length,
+        selectedRegion: selectedRegion
+      });
+      
+      console.log('[LostAndFoundScreen] All form data before submission:', formData);
 
       // Prepare form data for file upload if photo exists
       let body;
@@ -516,7 +543,11 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
         body.append('item_category', formData.itemType ? formData.itemType.toLowerCase() : '');
         body.append('item_description', formData.description);
         body.append('route_number', formData.routeNumber || '');
-        body.append('region_id', region_id ? String(region_id) : '');
+        // Only append region_id if it's a valid number
+        if (region_id !== null && !isNaN(region_id)) {
+          body.append('region_id', String(region_id));
+        }
+        body.append('approximate_location', approximate_location);
         body.append('incident_date', formattedDate);
         body.append('incident_time', formData.time + ':00');
         body.append('contact_email', formData.email || '');
@@ -548,6 +579,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
           item_description: formData.description,
           route_number: formData.routeNumber || null,
           region_id: region_id,
+          approximate_location: approximate_location,
           incident_date: formattedDate,
           incident_time: formData.time + ':00',
           contact_email: formData.email || null,
@@ -1419,19 +1451,22 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
                 selectedTextStyle={styles.selectedTextStyle}
                 inputSearchStyle={styles.inputSearchStyle}
                 iconStyle={styles.iconStyle}
-                data={regions.length > 0 ? regions.map(r => ({ label: r.region_name, value: r.region_name })) : [{ label: 'No regions available', value: '' }]}
+                data={regions.length > 0 ? regions.map(r => ({ label: r.region_name, value: r.region_name })) : [{ label: 'Loading regions...', value: '' }]}
                 maxHeight={300}
                 labelField="label"
                 valueField="value"
-                placeholder={regions.length > 0 ? 'Select Region' : 'No regions available'}
+                placeholder={regions.length > 0 ? 'Select Region' : 'Loading regions...'}
                 value={formData.region}
                 onChange={item => {
-                  if (item.value) updateFormData('region', item.value);
+                  if (item.value) {
+                    console.log('[LostAndFoundScreen] 🎯 Region selected:', item.value);
+                    updateFormData('region', item.value);
+                  }
                 }}
                 disable={regions.length === 0}
               />
               {regions.length === 0 && (
-                <Text style={{ color: AppColors.error, marginTop: 8 }}>No regions available. Please try again later.</Text>
+                <Text style={{ color: AppColors.error, marginTop: 8 }}>Regions are loading... If this persists, please check your connection.</Text>
               )}
             </View>
             {errors.region && <Text style={styles.modernErrorText}>{errors.region}</Text>}
