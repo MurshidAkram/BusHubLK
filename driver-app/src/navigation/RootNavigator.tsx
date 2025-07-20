@@ -28,13 +28,8 @@ export default function RootNavigator() {
       const token = await storageAPI.getAuthToken();
       const userData = await storageAPI.getUserData();
 
-      console.log("Driver token on init:", token);
-      console.log("Driver userData on init:", userData);
-
       setIsAuthenticated(!!(token && userData));
       setIsInitialized(true);
-
-      console.log("🎯 Driver app initialized - auth state:", !!(token && userData));
     } catch (error) {
       console.error("Error initializing driver app:", error);
       setIsAuthenticated(false);
@@ -109,8 +104,6 @@ export default function RootNavigator() {
     console.log("⏳ Driver app not initialized yet...");
     return null;
   }
-
-  console.log("🎨 Driver app rendering with isAuthenticated:", isAuthenticated);
 
   return (
     <NavigationContainer ref={navigationRef}>

@@ -201,10 +201,6 @@ export const storageAPI = {
   getAuthToken: async (): Promise<string | null> => {
     try {
       const token = await AsyncStorage.getItem("driverToken");
-      console.log(
-        "🔑 Retrieved token:",
-        token ? "Token exists" : "No token found"
-      );
       return token;
     } catch (error) {
       console.error("❌ Error getting auth token:", error);
@@ -218,10 +214,6 @@ export const storageAPI = {
       const token = await AsyncStorage.getItem("driverToken");
       const userData = await AsyncStorage.getItem("driverUser");
       const isAuth = !!(token && userData);
-      console.log(
-        "🔐 Authentication check:",
-        isAuth ? "Authenticated" : "Not authenticated"
-      );
       return isAuth;
     } catch (error) {
       console.error("❌ Error checking authentication:", error);
@@ -244,10 +236,6 @@ export const storageAPI = {
     try {
       const userData = await AsyncStorage.getItem("driverUser");
       const parsedData = userData ? JSON.parse(userData) : null;
-      console.log(
-        "👤 Retrieved user data:",
-        parsedData ? "User data exists" : "No user data"
-      );
       return parsedData;
     } catch (error) {
       console.error("❌ Error getting user data:", error);
