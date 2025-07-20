@@ -43,6 +43,49 @@ const upload = multer({
 
 const { v4: uuidv4 } = require('uuid');
 
+// Test endpoint for image upload
+const testImageUpload = async (req, res) => {
+  try {
+    console.log('🧪 Testing image upload...');
+    console.log('📎 File received:', !!req.file);
+    
+    if (req.file) {
+      console.log('📷 File details:', {
+        filename: req.file.filename,
+        originalname: req.file.originalname,
+        size: req.file.size,
+        mimetype: req.file.mimetype,
+        path: req.file.path
+      });
+      
+      res.json({
+        success: true,
+        message: 'Image upload test successful',
+        file: {
+          filename: req.file.filename,
+          originalname: req.file.originalname,
+          size: req.file.size,
+          mimetype: req.file.mimetype,
+          url: `/uploads/lost-found/${req.file.filename}`
+        }
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        message: 'No file uploaded',
+        body: req.body
+      });
+    }
+  } catch (error) {
+    console.error('❌ Image upload test error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Image upload test failed',
+      error: error.message
+    });
+  }
+};
+
 // Submit a lost or found item report
 const submitReport = async (req, res) => {
   try {
@@ -64,6 +107,16 @@ const submitReport = async (req, res) => {
 
     console.log('📋 Received report data:', req.body);
     console.log('📎 File upload present:', !!req.file);
+    if (req.file) {
+      console.log('📷 File details:', {
+        filename: req.file.filename,
+        originalname: req.file.originalname,
+        size: req.file.size,
+        mimetype: req.file.mimetype,
+        path: req.file.path,
+        destination: req.file.destination
+      });
+    }
 
     // Validate required fields and types
     const errors = [];
@@ -695,5 +748,6 @@ module.exports = {
   getRegions,
   getBusesForRoute,
   getStatistics,
-  testInsert
+  testInsert,
+  testImageUpload
 };

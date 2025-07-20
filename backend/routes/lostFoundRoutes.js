@@ -14,6 +14,9 @@ router.get('/statistics', lostFoundController.getStatistics);
 // Submit a new lost/found report (public route)
 router.post('/reports', lostFoundController.uploadMiddleware, lostFoundController.submitReport);
 
+// Test image upload endpoint
+router.post('/test-upload', lostFoundController.uploadMiddleware, lostFoundController.testImageUpload);
+
 // Test endpoint for database insertion
 router.post('/test-insert', lostFoundController.testInsert);
 
