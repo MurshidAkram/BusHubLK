@@ -24,6 +24,56 @@ static async findByEmail(email) {
   return result.rows[0];
 }
 
+
+/**
+ * Finds role-specific details for a user, such as depot or region ID.
+ * @param {number} user_id The user's ID.
+ * @param {string} role_name The user's role name.
+ * @returns {Promise<object|null>} An object with role-specific data or null.
+ */
+
+static async getRoleSpecificDetails(user_id, role_name) {
+  const roleToTableMap = {
+    depot_manager: {
+      tableName: 'depot_managers',
+      idColumn: 'depot_manager_id',
+      fields: ['depot_id', 'region_id']
+    },
+    depot_operations: {
+      tableName: 'depot_operation_managers',
+      idColumn: 'depot_op_manager_id',
+      fields: ['depot_id', 'region_id']
+    },
+    depot_engineer: {
+      tableName: 'depot_engineers',
+      idColumn: 'depot_engineer_id',
+      fields: ['depot_id', 'region_id']
+    },
+    driver: {
+      tableName: 'drivers',
+      idColumn: 'driver_id',
+      fields: ['depot_id', 'region_id']
+    },
+    conductor: {
+        tableName: 'conductors',
+        idColumn: 'conductor_id',
+        fields: ['depot_id', 'region_id']
+    }
+    // Add other roles that have specific tables, e.g., regional officers
+  };
+
+  const mapping = roleToTableMap[role_name];
+  if (!mapping) {
+    return null; // Not a role with specific data we need at login
+  }
+
+  const query = `SELECT ${mapping.fields.join(', ')} FROM ${mapping.tableName} WHERE ${mapping.idColumn} = $1`;
+  const result = await db.query(query, [user_id]);
+  
+  return result.rows[0] || null;
+}
+
+
   static async findByUsername(username) {
     const result = await db.query(
       `SELECT u.*, r.role_name, r.role_description 

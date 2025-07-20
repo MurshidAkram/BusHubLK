@@ -35,6 +35,15 @@ app.get('/', (req, res) => {
   res.send('🚍 BusHubLK API is running');
 });
 
+// Test endpoint
+app.get('/api/test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'API is working',
+    timestamp: new Date().toISOString()
+  });
+});
+
 try {
   const BusTrackingRoutes = require('./routes/BusTrackingRoutes');
   app.use('/api/bus-tracking', BusTrackingRoutes);
@@ -131,6 +140,11 @@ app.use('/api', regionDepotRoutes);
 const BusTrackingRoutes = require('./routes/BusTrackingRoutes');
   app.use('/api/bus-tracking', BusTrackingRoutes); 
 
+const fareRoutes = require('./routes/fareRoutes');
+app.use('/api/fares', fareRoutes);
+
+const routeRoutes = require('./routes/routeRoutes');
+app.use('/api/routes', routeRoutes);
 
 try {
   const busConditionReportRoutes = require('./routes/busConditionReportRoutes');
