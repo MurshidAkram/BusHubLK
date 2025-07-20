@@ -14,6 +14,8 @@ import {
   Keyboard,
   Dimensions,
   Animated,
+  findNodeHandle,
+  UIManager,
 } from "react-native";
 import Icon from "react-native-vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -150,16 +152,29 @@ export default function HomeScreen() {
   // Plan Your Journey state
   const [from, setFrom] = useState<string>("");
   const [to, setTo] = useState<string>("");
-  const [fromPlace, setFromPlace] = useState<GooglePlacePrediction | null>(null);
+  const [fromPlace, setFromPlace] = useState<GooglePlacePrediction | null>(
+    null
+  );
   const [toPlace, setToPlace] = useState<GooglePlacePrediction | null>(null);
-  const [fromSuggestions, setFromSuggestions] = useState<GooglePlacePrediction[]>([]);
-  const [toSuggestions, setToSuggestions] = useState<GooglePlacePrediction[]>([]);
-  const [showFromSuggestions, setShowFromSuggestions] = useState<boolean>(false);
+  const [fromSuggestions, setFromSuggestions] = useState<
+    GooglePlacePrediction[]
+  >([]);
+  const [toSuggestions, setToSuggestions] = useState<GooglePlacePrediction[]>(
+    []
+  );
+  const [showFromSuggestions, setShowFromSuggestions] =
+    useState<boolean>(false);
   const [showToSuggestions, setShowToSuggestions] = useState<boolean>(false);
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
 
   // For local bus search (not Google)
   const [filteredBuses, setFilteredBuses] = useState<BusData[]>([]);
+
+  // For dynamic suggestion list positioning
+  const fromInputRef = useRef<TextInput>(null);
+  const toInputRef = useRef<TextInput>(null);
+  const [fromInputY, setFromInputY] = useState<number | null>(null);
+  const [toInputY, setToInputY] = useState<number | null>(null);
 
   // Load user data on component mount
   useEffect(() => {
@@ -227,8 +242,10 @@ export default function HomeScreen() {
 
   // Google Places Autocomplete logic
   const fetchPlaceSuggestions = async (
-    input: string, 
-    setSuggestions: React.Dispatch<React.SetStateAction<GooglePlacePrediction[]>>
+    input: string,
+    setSuggestions: React.Dispatch<
+      React.SetStateAction<GooglePlacePrediction[]>
+    >
   ) => {
     if (input.length < 1) {
       setSuggestions([]);
@@ -251,8 +268,10 @@ export default function HomeScreen() {
   };
 
   const debounceFetchSuggestions = (
-    input: string, 
-    setSuggestions: React.Dispatch<React.SetStateAction<GooglePlacePrediction[]>>
+    input: string,
+    setSuggestions: React.Dispatch<
+      React.SetStateAction<GooglePlacePrediction[]>
+    >
   ) => {
     if (debounceTimeout.current) {
       clearTimeout(debounceTimeout.current);
@@ -300,6 +319,89 @@ export default function HomeScreen() {
         bus.to.toLowerCase().includes(toLower)
     );
     setFilteredBuses(results);
+  };
+
+  // --- Dynamic suggestion list positioning ---
+  const measureInput = (
+    ref: React.RefObject<TextInput>,
+    setY: (y: number) => void
+  ) => {
+    if (ref.current) {
+      const handle = findNodeHandle(ref.current);
+      if (handle) {
+        UIManager.measure(handle, (_x, _y, _w, _h, _px, py) => {
+          setY(py);
+        });
+      }
+    }
+  };
+
+  // When showing suggestions, measure input position
+  useEffect(() => {
+    if (showFromSuggestions) {
+      setTimeout(() => measureInput(fromInputRef, setFromInputY), 50);
+    }
+  }, [showFromSuggestions]);
+
+  useEffect(() => {
+    if (showToSuggestions) {
+      setTimeout(() => measureInput(toInputRef, setToInputY), 50);
+    }
+  }, [showToSuggestions]);
+
+  // Helper to render suggestion list absolutely outside the card
+  const renderSuggestionList = (type: "from" | "to") => {
+    const show =
+      type === "from"
+        ? showFromSuggestions && fromSuggestions.length > 0
+        : showToSuggestions && toSuggestions.length > 0;
+    const suggestions = type === "from" ? fromSuggestions : toSuggestions;
+    const selectSuggestion =
+      type === "from" ? selectFromSuggestion : selectToSuggestion;
+    const y = type === "from" ? fromInputY : toInputY;
+    if (!show || y == null) return null;
+    // Offset for suggestion box (input height + margin)
+    const offset = Platform.OS === "ios" ? 48 : 52;
+    return (
+      <View
+        style={[
+          styles.suggestionBoxEnhanced,
+          {
+            position: "absolute",
+            top: y + offset,
+            left: 20,
+            right: 20,
+            zIndex: 99999,
+            elevation: 100000,
+          },
+        ]}
+        pointerEvents="box-none"
+      >
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          style={{ maxHeight: 150 }}
+          nestedScrollEnabled
+          showsVerticalScrollIndicator={true}
+        >
+          {suggestions.map((item) => (
+            <TouchableOpacity
+              key={item.place_id}
+              onPress={() => selectSuggestion(item)}
+              style={styles.suggestionItemEnhanced}
+              activeOpacity={0.7}
+            >
+              <Icon
+                name="location-outline"
+                size={16}
+                color={AppColors.primary}
+                style={{ marginRight: 8 }}
+              />
+              <Text style={styles.suggestionText}>{item.description}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+    );
   };
 
   return (
@@ -353,6 +455,10 @@ export default function HomeScreen() {
         </View>
       </LinearGradient>
 
+      {/* Render suggestion lists absolutely above ScrollView */}
+      {renderSuggestionList("from")}
+      {renderSuggestionList("to")}
+
       <ScrollView
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
@@ -386,7 +492,13 @@ export default function HomeScreen() {
 
         {/* --- Enhanced Plan Your Journey Card --- */}
         <Animated.View
-          style={[{ opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}
+          style={[
+            { opacity: fadeAnim, transform: [{ scale: scaleAnim }] },
+            (showFromSuggestions || showToSuggestions) && {
+              zIndex: 10000,
+              elevation: 10000,
+            },
+          ]}
         >
           <LinearGradient
             colors={["#a2c2f6ff", "#F8FAFF"]}
@@ -420,6 +532,7 @@ export default function HomeScreen() {
                 />
                 <View style={{ flex: 1 }}>
                   <TextInput
+                    ref={fromInputRef}
                     placeholder="From (e.g., Colombo)"
                     style={styles.input}
                     placeholderTextColor="#154dadff"
@@ -446,35 +559,7 @@ export default function HomeScreen() {
                   )}
                 </View>
               </LinearGradient>
-              {showFromSuggestions && fromSuggestions.length > 0 && (
-                <View style={styles.suggestionBoxEnhanced}>
-                  <ScrollView
-                    keyboardShouldPersistTaps="handled"
-                    style={{ maxHeight: 150 }}
-                    nestedScrollEnabled
-                    showsVerticalScrollIndicator={true}
-                  >
-                    {fromSuggestions.map((item) => (
-                      <TouchableOpacity
-                        key={item.place_id}
-                        onPress={() => selectFromSuggestion(item)}
-                        style={styles.suggestionItemEnhanced}
-                        activeOpacity={0.7}
-                      >
-                        <Icon 
-                          name="location-outline" 
-                          size={16} 
-                          color={AppColors.primary} 
-                          style={{ marginRight: 8 }}
-                        />
-                        <Text style={styles.suggestionText}>
-                          {item.description}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-              )}
+              {/* Suggestion list moved outside the card */}
             </View>
 
             {/* TO */}
@@ -498,6 +583,7 @@ export default function HomeScreen() {
                 />
                 <View style={{ flex: 1 }}>
                   <TextInput
+                    ref={toInputRef}
                     placeholder="To (e.g., Kandy)"
                     style={styles.input}
                     placeholderTextColor="#154dadff"
@@ -524,35 +610,7 @@ export default function HomeScreen() {
                   )}
                 </View>
               </LinearGradient>
-              {showToSuggestions && toSuggestions.length > 0 && (
-                <View style={styles.suggestionBoxEnhanced}>
-                  <ScrollView
-                    keyboardShouldPersistTaps="handled"
-                    style={{ maxHeight: 150 }}
-                    nestedScrollEnabled
-                    showsVerticalScrollIndicator={true}
-                  >
-                    {toSuggestions.map((item) => (
-                      <TouchableOpacity
-                        key={item.place_id}
-                        onPress={() => selectToSuggestion(item)}
-                        style={styles.suggestionItemEnhanced}
-                        activeOpacity={0.7}
-                      >
-                        <Icon 
-                          name="location-outline" 
-                          size={16} 
-                          color={AppColors.primary} 
-                          style={{ marginRight: 8 }}
-                        />
-                        <Text style={styles.suggestionText}>
-                          {item.description}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-              )}
+              {/* Suggestion list moved outside the card */}
             </View>
 
             <TouchableOpacity
@@ -756,7 +814,7 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 4,
   },
-  
+
   headerIcons: {
     flexDirection: "row",
     alignItems: "center",
@@ -827,12 +885,12 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: Platform.OS === "ios" ? 26 : 24,
     includeFontPadding: false,
-    
   },
   journeyCard: {
     padding: 24,
     borderRadius: 24,
     marginBottom: 28,
+    overflow: "visible", // Allow suggestion list to overflow
     ...Platform.select({
       android: {
         elevation: 6,
@@ -861,7 +919,7 @@ const styles = StyleSheet.create({
   inputGroup: {
     marginBottom: 16,
     borderRadius: 16,
-    overflow: "hidden",
+    // overflow: "hidden", // Removed to allow suggestion list to overflow
   },
   inputGradient: {
     flexDirection: "row",
@@ -889,45 +947,16 @@ const styles = StyleSheet.create({
     marginTop: -10,
     zIndex: 1000,
   },
-  suggestionBox: {
-    position: "absolute",
-    top: Platform.OS === "ios" ? 52 : 56,
-    left: 0,
-    right: 0,
-    backgroundColor: "#fff",
-    borderColor: AppColors.border,
-    borderWidth: 1,
-    borderTopWidth: 0,
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
-    maxHeight: 120,
-    zIndex: 300,
-    ...Platform.select({
-      android: {
-        elevation: 20,
-      },
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 12,
-      },
-    }),
-  },
-  suggestionItem: {
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: AppColors.border,
-    backgroundColor: "#fff",
-  },
+
   suggestionText: {
     fontSize: Platform.OS === "ios" ? 16 : 15,
     color: AppColors.text,
     fontWeight: "500",
   },
+  // Adjusted suggestionBoxEnhanced style for better display
   suggestionBoxEnhanced: {
     position: "absolute",
-    top: Platform.OS === "ios" ? 52 : 56,
+    top: Platform.OS === "ios" ? 56 : 60, // Adjusted top position
     left: 0,
     right: 0,
     backgroundColor: "#fff",
@@ -950,6 +979,7 @@ const styles = StyleSheet.create({
       },
     }),
   },
+
   suggestionItemEnhanced: {
     flexDirection: "row",
     alignItems: "center",
