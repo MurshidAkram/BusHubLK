@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { Dropdown } from 'react-native-element-dropdown';
-import { launchImageLibrary } from 'react-native-image-picker';
+import * as ImagePicker from 'expo-image-picker';
 import { storageAPI } from '../services/api';
 
 const AppColors = {
@@ -522,15 +522,23 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
         body.append('contact_email', formData.email || '');
         body.append('contact_phone', formData.phone);
         body.append('reward_offered', formData.rewardOffered ? String(formData.rewardOffered) : '0');
-        // React Native FormData photo object
+        // React Native FormData photo object (Expo format)
         body.append('photo', {
           uri: formData.photo.uri,
           name: formData.photo.fileName || 'photo.jpg',
           type: formData.photo.type || 'image/jpeg',
         } as any);
+        
+        console.log('[LostAndFoundScreen] FormData photo object:', {
+          uri: formData.photo.uri,
+          name: formData.photo.fileName || 'photo.jpg',
+          type: formData.photo.type || 'image/jpeg',
+        });
+        
         headers = {
           'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
+          // Don't set Content-Type for FormData - let the browser/React Native set it
+          // 'Content-Type': 'multipart/form-data' // This is set automatically
         };
       } else {
         body = JSON.stringify({
@@ -552,13 +560,26 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
         };
       }
 
+      console.log('[LostAndFoundScreen] Submitting with photo:', !!formData.photo);
+      if (formData.photo) {
+        console.log('[LostAndFoundScreen] Photo details:', {
+          uri: formData.photo.uri,
+          fileName: formData.photo.fileName,
+          type: formData.photo.type
+        });
+      }
+
       const response = await fetch(`${API_BASE_URL}/lost-found/reports`, {
         method: 'POST',
         headers,
         body,
       });
 
+      console.log('[LostAndFoundScreen] Response status:', response.status);
+      console.log('[LostAndFoundScreen] Response headers:', response.headers);
+
       const result = await response.json();
+      console.log('[LostAndFoundScreen] Response body:', result);
       if (result.success) {
         console.log('✅ Report submitted successfully:', result.data);
         
@@ -1487,18 +1508,97 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
               style={styles.modernPhotoUpload}
               activeOpacity={0.8}
               onPress={async () => {
-                const result = await launchImageLibrary({
-                  mediaType: 'photo',
-                  includeBase64: false,
-                  quality: 0.7,
-                });
-                if (!result.didCancel && result.assets && result.assets.length > 0) {
-                  const asset = result.assets[0];
-                  updateFormData('photo', {
-                    uri: asset.uri,
-                    fileName: asset.fileName || (asset.uri ? asset.uri.split('/').pop() : 'photo.jpg') || 'photo.jpg',
-                    type: asset.type || 'image/jpeg',
-                  });
+                try {
+                  console.log('📷 Opening image picker...');
+                  
+                  // Show action sheet to choose between camera and gallery
+                  Alert.alert(
+                    'Select Image',
+                    'Choose how you want to select an image',
+                    [
+                      {
+                        text: 'Camera',
+                        onPress: async () => {
+                          try {
+                            // Request camera permission
+                            const cameraPermission = await ImagePicker.requestCameraPermissionsAsync();
+                            
+                            if (cameraPermission.granted === false) {
+                              Alert.alert('Permission required', 'Permission to access camera is required!');
+                              return;
+                            }
+                            
+                            const result = await ImagePicker.launchCameraAsync({
+                              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                              allowsEditing: true,
+                              aspect: [4, 3],
+                              quality: 0.7,
+                              base64: false,
+                            });
+                            
+                            if (!result.canceled && result.assets && result.assets.length > 0) {
+                              const asset = result.assets[0];
+                              console.log('📷 Selected asset from camera:', asset);
+                              
+                              updateFormData('photo', {
+                                uri: asset.uri,
+                                fileName: asset.fileName || `camera_${Date.now()}.jpg`,
+                                type: asset.type || 'image/jpeg',
+                              });
+                            }
+                          } catch (error) {
+                            console.error('📷 Camera error:', error);
+                            Alert.alert('Error', 'Failed to take photo');
+                          }
+                        }
+                      },
+                      {
+                        text: 'Gallery',
+                        onPress: async () => {
+                          try {
+                            // Request media library permission
+                            const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+                            
+                            if (permissionResult.granted === false) {
+                              Alert.alert('Permission required', 'Permission to access photo gallery is required!');
+                              return;
+                            }
+                            
+                            const result = await ImagePicker.launchImageLibraryAsync({
+                              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                              allowsEditing: true,
+                              aspect: [4, 3],
+                              quality: 0.7,
+                              base64: false,
+                            });
+                            
+                            console.log('📷 Image picker result:', result);
+                            
+                            if (!result.canceled && result.assets && result.assets.length > 0) {
+                              const asset = result.assets[0];
+                              console.log('📷 Selected asset:', asset);
+                              
+                              updateFormData('photo', {
+                                uri: asset.uri,
+                                fileName: asset.fileName || asset.uri.split('/').pop() || 'photo.jpg',
+                                type: asset.type || 'image/jpeg',
+                              });
+                            }
+                          } catch (error) {
+                            console.error('📷 Gallery error:', error);
+                            Alert.alert('Error', 'Failed to select image from gallery');
+                          }
+                        }
+                      },
+                      {
+                        text: 'Cancel',
+                        style: 'cancel'
+                      }
+                    ]
+                  );
+                } catch (error) {
+                  console.error('📷 Image picker error:', error);
+                  Alert.alert('Error', 'Failed to open image picker');
                 }
               }}
             >
