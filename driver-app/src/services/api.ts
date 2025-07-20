@@ -123,7 +123,7 @@ export const driverAPI = {
     return response.json();
   },
 
-  // Send location update
+  // Send location update to live tracking system
   sendLocationUpdate: async (locationData: {
     latitude: number;
     longitude: number;
@@ -131,23 +131,55 @@ export const driverAPI = {
     routeId: string;
     timestamp: string;
     busRegistration?: string;
+    speed?: number;
+    heading?: number;
+    accuracy?: number;
   }) => {
     const token = await storageAPI.getAuthToken();
-    const response = await fetch(`${API_BASE_URL}/bus-tracking/${locationData.busId}`, {
+    const response = await fetch(`${API_BASE_URL}/live-tracking/position`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
-        busId: parseInt(locationData.busId),
-        registrationNumber: locationData.busRegistration || `BUS-${locationData.busId}`,
+        bus_id: parseInt(locationData.busId),
+        route_id: parseInt(locationData.routeId),
         latitude: locationData.latitude,
         longitude: locationData.longitude,
-        routeNumber: locationData.routeId,
-        occupancyLevel: "Unknown",
-        confidence: 0.0,
+        speed: locationData.speed || null,
+        heading: locationData.heading || null,
+        accuracy: locationData.accuracy || null,
+        passenger_count: 0, // Default value, can be updated later
+        occupancy_level: "unknown", // Default value
       }),
+    });
+    return response.json();
+  },
+
+  // Get driver's current tracking status
+  getTrackingStatus: async () => {
+    const token = await storageAPI.getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/live-tracking/driver/status`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.json();
+  },
+
+  // Update tracking status (active, inactive, break, etc.)
+  updateTrackingStatus: async (busId: string, status: string) => {
+    const token = await storageAPI.getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/live-tracking/bus/${busId}/status`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ status }),
     });
     return response.json();
   },
@@ -355,4 +387,57 @@ export const submitConditionReport = async (reportData: any) => {
   }
 
   return response.json();
+};
+
+// ===============================================
+// LIVE BUS TRACKING API (Public endpoints for passengers)
+// ===============================================
+
+export const busLiveTrackingAPI = {
+  // Get current position of a specific bus
+  getBusCurrentPosition: async (busId: string) => {
+    const response = await fetch(`${API_BASE_URL}/live-tracking/bus/${busId}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    return response.json();
+  },
+
+  // Get all buses on a specific route
+  getBusesOnRoute: async (routeNumber: string) => {
+    const response = await fetch(`${API_BASE_URL}/live-tracking/route/${routeNumber}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    return response.json();
+  },
+
+  // Get all currently active buses
+  getAllActiveBuses: async () => {
+    const response = await fetch(`${API_BASE_URL}/live-tracking/buses/active`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    return response.json();
+  },
+
+  // Get nearby buses within specified radius
+  getNearbyBuses: async (latitude: number, longitude: number, radiusKm: number = 5) => {
+    const response = await fetch(
+      `${API_BASE_URL}/live-tracking/buses/nearby?latitude=${latitude}&longitude=${longitude}&radius=${radiusKm}`, 
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    return response.json();
+  },
 };

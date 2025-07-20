@@ -122,12 +122,30 @@ export default function TrackingScreen({ navigation }: any) {
         const response = await driverAPI.getDailyAssignment(userData.driver_id.toString());
         if (response && !response.error) {
           setAssignmentData(response);
+          
+          // Set assignment data in location service for live tracking
+          locationService.setCurrentAssignment({
+            bus_id: response.bus_id,
+            route_id: response.route_id,
+            driver_id: userData.driver_id,
+            assignment_id: response.assignment_id,
+          });
+          
           // Update tracking status with assignment data
           setTrackingStatus(prev => ({
             ...prev,
             busId: response.bus_id?.toString() || null,
             routeId: response.route_id?.toString() || null,
           }));
+          
+          console.log(`📋 Assignment loaded for live tracking:`, {
+            bus_id: response.bus_id,
+            route_id: response.route_id,
+            driver_id: userData.driver_id,
+            assignment_id: response.assignment_id,
+            bus_registration: response.bus_registration,
+            route_number: response.route_number
+          });
         } else {
           console.log("No assignment found or error:", response.error);
         }
