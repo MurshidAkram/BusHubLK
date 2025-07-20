@@ -926,6 +926,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 16,
     minHeight: Platform.OS === "android" ? 56 : 52,
+    borderRadius: 16,
   },
   inputIcon: {
     marginRight: 12,
@@ -939,6 +940,7 @@ const styles = StyleSheet.create({
     paddingVertical: Platform.OS === "ios" ? 16 : 14,
     paddingRight: 40,
     fontFamily: Platform.OS === "ios" ? "System" : "Roboto",
+    
   },
   clearIcon: {
     position: "absolute",
@@ -949,9 +951,10 @@ const styles = StyleSheet.create({
   },
 
   suggestionText: {
-    fontSize: Platform.OS === "ios" ? 16 : 15,
-    color: AppColors.text,
+    fontSize: Platform.OS === "ios" ? 15 : 14,
+    color: AppColors.primary,
     fontWeight: "500",
+    flexShrink: 1,
   },
   // Adjusted suggestionBoxEnhanced style for better display
   suggestionBoxEnhanced: {
@@ -962,32 +965,36 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderColor: AppColors.border,
     borderWidth: 1,
-    borderTopWidth: 0,
-    borderBottomLeftRadius: 16,
-    borderBottomRightRadius: 16,
-    maxHeight: 150,
+    borderRadius: 14,
+    maxHeight: 110,
+    minWidth: 0,
     zIndex: 9999,
+    paddingVertical: 4,
+    paddingHorizontal: 0,
+    shadowColor: '#0056b3',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.10,
+    shadowRadius: 8,
     ...Platform.select({
       android: {
-        elevation: 50,
+        elevation: 8,
       },
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.25,
-        shadowRadius: 16,
-      },
+      ios: {},
     }),
   },
 
   suggestionItemEnhanced: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 16,
+    paddingVertical: 9,
+    paddingHorizontal: 13,
     borderBottomWidth: 1,
-    borderBottomColor: AppColors.border,
-    backgroundColor: "#fff",
-    minHeight: 50,
+    borderBottomColor: '#d6e6fa',
+    backgroundColor: "#f7fbff",
+    minHeight: 36,
+    borderRadius: 10,
+    marginHorizontal: 4,
+    marginVertical: 1,
   },
   searchButton: {
     borderRadius: 16,

@@ -138,6 +138,7 @@ const getUsersByRegion = async (req, res) => {
 };
 
 // Update user (Admin only)
+// In userController.js, update the updateUser function:
 const updateUser = async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -145,7 +146,7 @@ const updateUser = async (req, res) => {
   }
 
   const { id } = req.params;
-  const updates = req.body;
+  const { first_name, last_name, phone, role_name, role_data } = req.body;
 
   try {
     // Check if user exists
@@ -154,23 +155,37 @@ const updateUser = async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Check for unique constraints
-    if (updates.username && updates.username !== existingUser.username) {
-      const userWithUsername = await User.findByUsername(updates.username);
-      if (userWithUsername && userWithUsername.user_id !== parseInt(id)) {
-        return res.status(400).json({ error: 'Username already taken' });
-      }
+    // Get the new role
+    const newRole = await User.findRoleByName(role_name || existingUser.role_name);
+    if (!newRole) {
+      return res.status(400).json({ error: 'Invalid role' });
     }
 
-    if (updates.email && updates.email !== existingUser.email) {
-      const userWithEmail = await User.findByEmail(updates.email);
-      if (userWithEmail && userWithEmail.user_id !== parseInt(id)) {
-        return res.status(400).json({ error: 'Email already in use' });
+    // Update user basic info
+    const updatedUser = await User.updateUser(id, {
+      first_name,
+      last_name,
+      phone,
+      role_id: newRole.role_id
+    });
+
+    // If role changed, update role-specific data
+    if (role_name && role_name !== existingUser.role_name) {
+      // First, delete old role-specific entry
+      // (You'll need to implement this in your User model)
+      await User.deleteRoleSpecificEntry(existingUser.user_id, existingUser.role_name);
+      
+      // Then create new role-specific entry
+      if (role_name !== 'passenger' && role_name !== 'admin') {
+        await User.createRoleSpecificEntry(id, role_name, role_data || {});
       }
+    } else if (role_data && 
+      ['regional_tech', 'regional_operations', 'depot_manager', 
+       'depot_operations', 'depot_engineer', 'driver', 'conductor'].includes(existingUser.role_name)) {
+      // Update role-specific data if role didn't change
+      await User.updateRoleSpecificEntry(id, existingUser.role_name, role_data);
     }
 
-    const updatedUser = await User.updateUser(id, updates);
-    
     res.json({
       message: 'User updated successfully',
       user: {
@@ -180,7 +195,7 @@ const updateUser = async (req, res) => {
         first_name: updatedUser.first_name,
         last_name: updatedUser.last_name,
         phone: updatedUser.phone,
-        role_id: updatedUser.role_id,
+        role: role_name || existingUser.role_name,
         is_active: updatedUser.is_active,
         updated_at: updatedUser.updated_at
       }

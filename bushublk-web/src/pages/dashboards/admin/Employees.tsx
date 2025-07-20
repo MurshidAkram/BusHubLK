@@ -1,7 +1,18 @@
 // pages/dashboards/admin/Employees.tsx
 import React, { useState, useEffect, useContext } from 'react';
 import { AppContext } from '../../../context/AppContext';
-import { HiOutlineSearch, HiOutlineRefresh, HiOutlinePencilAlt, HiOutlineTrash, HiOutlineEye, HiOutlineUserAdd, HiOutlineFilter, HiOutlineX } from 'react-icons/hi';
+import { 
+  HiOutlineSearch, 
+  HiOutlineRefresh, 
+  HiOutlinePencilAlt, 
+  HiOutlineTrash, 
+  HiOutlineEye, 
+  HiOutlineUserAdd, 
+  HiOutlineFilter, 
+  HiOutlineX,
+  HiOutlineCheck,
+  HiOutlineXCircle
+} from 'react-icons/hi';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -18,6 +29,22 @@ interface User {
   created_at?: string;
 }
 
+interface EditUserData {
+  id: string;
+  username: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  phone?: string;
+  role_name: string;
+  is_active: boolean;
+  role_data?: {
+    depot_id?: string;
+    region_id?: string;
+    appointment_date?: string;
+  };
+}
+
 const Employees = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
@@ -28,7 +55,36 @@ const Employees = () => {
   const [roleFilter, setRoleFilter] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<boolean | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [editFormData, setEditFormData] = useState<EditUserData>({
+    id: '',
+    username: '',
+    email: '',
+    first_name: '',
+    last_name: '',
+    phone: '',
+    role_name: '',
+    is_active: true,
+    role_data: {}
+  });
+  const [editFormErrors, setEditFormErrors] = useState<Record<string, string>>({});
   const context = useContext(AppContext);
+
+  // Available roles for filter
+  const availableRoles = [
+    'admin',
+    'ceo',
+    'dgm_technical',
+    'dgm_operations',
+    'regional_tech',
+    'regional_operations',
+    'depot_manager',
+    'depot_operations',
+    'depot_engineer',
+    'driver',
+    'conductor'
+  ];
 
   // Fetch all users
   const fetchUsers = async () => {
@@ -155,20 +211,85 @@ const Employees = () => {
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
   };
 
-  // Available roles for filter (you might want to fetch these from your API)
-  const availableRoles = [
-    'admin',
-    'ceo',
-    'dgm_technical',
-    'dgm_operations',
-    'regional_tech',
-    'regional_operations',
-    'depot_manager',
-    'depot_operations',
-    'depot_engineer',
-    'driver',
-    'conductor'
-  ];
+  // Handle edit click
+  const handleEditClick = (user: User) => {
+    setCurrentUser(user);
+    setEditFormData({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      phone: user.phone || '',
+      role_name: user.role,
+      is_active: user.is_active,
+      role_data: {} // We'll fetch this separately if needed
+    });
+    setShowEditModal(true);
+  };
+
+  // Handle form input changes
+  const handleEditInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setEditFormData(prev => ({ ...prev, [name]: value }));
+    
+    // Clear error when user starts typing
+    if (editFormErrors[name]) {
+      setEditFormErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
+  };
+
+  // Handle role-specific data changes
+  const handleRoleDataChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setEditFormData(prev => ({
+      ...prev,
+      role_data: {
+        ...prev.role_data,
+        [name]: value
+      }
+    }));
+  };
+
+  // Submit the edit form
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      const response = await fetch(`http://localhost:5000/api/users/${editFormData.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${context?.token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          first_name: editFormData.first_name,
+          last_name: editFormData.last_name,
+          phone: editFormData.phone,
+          role_name: editFormData.role_name,
+          role_data: editFormData.role_data
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update user');
+      }
+
+      const data = await response.json();
+      toast.success('User updated successfully');
+      
+      // Update local state
+      setUsers(users.map(u => u.id === editFormData.id ? { ...u, ...data.user } : u));
+      setShowEditModal(false);
+    } catch (error: any) {
+      toast.error(error.message || 'Error updating user');
+    }
+  };
 
   return (
     <div className="container mx-auto px-4 py-6">
@@ -353,12 +474,13 @@ const Employees = () => {
                               title={user.is_active ? 'Deactivate' : 'Activate'}
                             >
                               {user.is_active ? (
-                                <HiOutlineX className="h-5 w-5" />
+                                <HiOutlineXCircle className="h-5 w-5" />
                               ) : (
-                                <HiOutlineRefresh className="h-5 w-5" />
+                                <HiOutlineCheck className="h-5 w-5" />
                               )}
                             </button>
                             <button
+                              onClick={() => handleEditClick(user)}
                               className="text-blue-600 hover:bg-blue-50 p-1 rounded-md"
                               title="Edit"
                             >
@@ -428,8 +550,157 @@ const Employees = () => {
           )}
         </div>
       </div>
+
+      {/* Edit User Modal */}
+      {showEditModal && currentUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">Edit Employee</h2>
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <HiOutlineX className="h-6 w-6" />
+              </button>
+            </div>
+
+            <form onSubmit={handleEditSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    First Name *
+                  </label>
+                  <input
+                    type="text"
+                    name="first_name"
+                    value={editFormData.first_name}
+                    onChange={handleEditInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Last Name *
+                  </label>
+                  <input
+                    type="text"
+                    name="last_name"
+                    value={editFormData.last_name}
+                    onChange={handleEditInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Phone
+                </label>
+                <input
+                  type="tel"
+                  name="phone"
+                  value={editFormData.phone}
+                  onChange={handleEditInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Role *
+                </label>
+                <select
+                  name="role_name"
+                  value={editFormData.role_name}
+                  onChange={handleEditInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  required
+                >
+                  {availableRoles.map((role) => (
+                    <option key={role} value={role}>
+                      {role.replace(/_/g, ' ')}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {['regional_tech', 'regional_operations', 'depot_manager', 
+                'depot_operations', 'depot_engineer', 'driver', 'conductor'].includes(editFormData.role_name) && (
+                <div className="border-t border-gray-200 pt-4">
+                  <h3 className="text-lg font-medium text-gray-900 mb-3">Role-Specific Information</h3>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Region ID
+                      </label>
+                      <input
+                        type="number"
+                        name="region_id"
+                        value={editFormData.role_data?.region_id || ''}
+                        onChange={handleRoleDataChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        required
+                      />
+                    </div>
+
+                    {['depot_manager', 'depot_operations', 'depot_engineer', 'driver', 'conductor'].includes(editFormData.role_name) && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Depot ID
+                        </label>
+                        <input
+                          type="number"
+                          name="depot_id"
+                          value={editFormData.role_data?.depot_id || ''}
+                          onChange={handleRoleDataChange}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                          required
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Appointment Date
+                    </label>
+                    <input
+                      type="date"
+                      name="appointment_date"
+                      value={editFormData.role_data?.appointment_date || ''}
+                      onChange={handleRoleDataChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+                >
+                  Update Employee
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-export default Employees;
+export default Employees
