@@ -9,11 +9,13 @@ import {
   Platform,
   RefreshControl,
   Alert,
+  Dimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Location from "expo-location";
-import { storageAPI } from "../services/api";
+import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
+import { storageAPI, driverAPI } from "../services/api";
 import { locationService } from "../services/locationService";
 
 // App Color Palette
@@ -46,6 +48,32 @@ interface TrackingStatus {
   lastUpdate: string | null;
 }
 
+interface AssignmentData {
+  assignment_id: number;
+  depot_id: number;
+  bus_id: number;
+  route_id: number;
+  driver_id: number;
+  conductor_id: number | null;
+  assignment_date: string;
+  shift_start_time: string;
+  shift_end_time: string;
+  status: string;
+  bus_registration: string;
+  bus_class: string;
+  bus_manufacturer: string;
+  bus_model: string;
+  route_number: string;
+  route_name: string;
+  start_location: string;
+  end_location: string;
+  depot_name: string;
+  driver_name: string;
+  conductor_name: string | null;
+}
+
+const { width, height } = Dimensions.get('window');
+
 export default function TrackingScreen({ navigation }: any) {
   const [currentLocation, setCurrentLocation] = useState<LocationData | null>(null);
   const [trackingStatus, setTrackingStatus] = useState<TrackingStatus>({
@@ -57,12 +85,20 @@ export default function TrackingScreen({ navigation }: any) {
   const [locationHistory, setLocationHistory] = useState<LocationData[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [userData, setUserData] = useState<any>(null);
+  const [assignmentData, setAssignmentData] = useState<AssignmentData | null>(null);
+  const [showMap, setShowMap] = useState(false);
 
   useEffect(() => {
     loadUserData();
     getCurrentLocation();
     checkTrackingStatus();
   }, []);
+
+  useEffect(() => {
+    if (userData?.driver_id) {
+      loadAssignmentData();
+    }
+  }, [userData]);
 
   const loadUserData = async () => {
     try {
@@ -77,6 +113,27 @@ export default function TrackingScreen({ navigation }: any) {
       }
     } catch (error) {
       console.error("Error loading user data:", error);
+    }
+  };
+
+  const loadAssignmentData = async () => {
+    try {
+      if (userData?.driver_id) {
+        const response = await driverAPI.getDailyAssignment(userData.driver_id.toString());
+        if (response && !response.error) {
+          setAssignmentData(response);
+          // Update tracking status with assignment data
+          setTrackingStatus(prev => ({
+            ...prev,
+            busId: response.bus_id?.toString() || null,
+            routeId: response.route_id?.toString() || null,
+          }));
+        } else {
+          console.log("No assignment found or error:", response.error);
+        }
+      }
+    } catch (error) {
+      console.error("Error loading assignment data:", error);
     }
   };
 
@@ -128,16 +185,26 @@ export default function TrackingScreen({ navigation }: any) {
         setTrackingStatus(prev => ({ ...prev, isActive: false }));
         Alert.alert('Tracking Stopped', 'Location tracking has been stopped.');
       } else {
-        if (userData?.busId && userData?.routeId) {
-          await locationService.startLocationTracking(userData.busId, userData.routeId);
+        // Use assignment data if available, otherwise fall back to userData
+        const busId = assignmentData?.bus_id?.toString() || userData?.busId;
+        const routeId = assignmentData?.route_id?.toString() || userData?.routeId;
+        
+        if (busId && routeId) {
+          await locationService.startLocationTracking(
+            busId, 
+            routeId, 
+            assignmentData?.bus_registration
+          );
           setTrackingStatus(prev => ({ 
             ...prev, 
             isActive: true,
+            busId: busId,
+            routeId: routeId,
             lastUpdate: new Date().toISOString(),
           }));
-          Alert.alert('Tracking Started', 'Location tracking has been started.');
+          Alert.alert('Tracking Started', `Location tracking started for Bus ${assignmentData?.bus_registration || busId} on Route ${assignmentData?.route_number || routeId}.`);
         } else {
-          Alert.alert('Error', 'Bus ID or Route ID is missing. Please contact support.');
+          Alert.alert('Error', 'Bus ID or Route ID is missing. Please ensure you have an active assignment.');
         }
       }
     } catch (error) {
@@ -150,6 +217,9 @@ export default function TrackingScreen({ navigation }: any) {
     setRefreshing(true);
     await getCurrentLocation();
     checkTrackingStatus();
+    if (userData?.driver_id) {
+      await loadAssignmentData();
+    }
     setRefreshing(false);
   };
 
@@ -188,6 +258,12 @@ export default function TrackingScreen({ navigation }: any) {
         >
           <Ionicons name="refresh" size={24} color="#FFFFFF" />
         </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.mapToggleButton}
+          onPress={() => setShowMap(!showMap)}
+        >
+          <Ionicons name={showMap ? "list" : "map"} size={24} color="#FFFFFF" />
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -196,6 +272,124 @@ export default function TrackingScreen({ navigation }: any) {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
+        {/* Daily Assignment Card */}
+        {assignmentData && (
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <MaterialCommunityIcons
+                name="clipboard-text"
+                size={24}
+                color={AppColors.primary}
+              />
+              <Text style={styles.cardTitle}>Today's Assignment</Text>
+            </View>
+
+            <View style={styles.assignmentGrid}>
+              <View style={styles.assignmentItem}>
+                <Text style={styles.assignmentLabel}>Bus</Text>
+                <Text style={styles.assignmentValue}>
+                  {assignmentData.bus_registration}
+                </Text>
+                <Text style={styles.assignmentSubValue}>
+                  {assignmentData.bus_manufacturer} {assignmentData.bus_model} (Class {assignmentData.bus_class})
+                </Text>
+              </View>
+
+              <View style={styles.assignmentItem}>
+                <Text style={styles.assignmentLabel}>Route</Text>
+                <Text style={styles.assignmentValue}>
+                  {assignmentData.route_number}
+                </Text>
+                <Text style={styles.assignmentSubValue}>
+                  {assignmentData.route_name}
+                </Text>
+              </View>
+
+              <View style={styles.assignmentItem}>
+                <Text style={styles.assignmentLabel}>Shift Time</Text>
+                <Text style={styles.assignmentValue}>
+                  {assignmentData.shift_start_time} - {assignmentData.shift_end_time}
+                </Text>
+                <Text style={styles.assignmentSubValue}>
+                  {new Date(assignmentData.assignment_date).toLocaleDateString()}
+                </Text>
+              </View>
+
+              <View style={styles.assignmentItem}>
+                <Text style={styles.assignmentLabel}>Status</Text>
+                <View style={[
+                  styles.statusBadge,
+                  { 
+                    backgroundColor: assignmentData.status === 'active' ? AppColors.success : 
+                                   assignmentData.status === 'assigned' ? AppColors.warning : AppColors.textSecondary
+                  }
+                ]}>
+                  <Text style={styles.statusText}>
+                    {assignmentData.status.toUpperCase()}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.assignmentItem}>
+                <Text style={styles.assignmentLabel}>Route Details</Text>
+                <Text style={styles.assignmentSubValue}>
+                  {assignmentData.start_location} → {assignmentData.end_location}
+                </Text>
+              </View>
+
+              <View style={styles.assignmentItem}>
+                <Text style={styles.assignmentLabel}>Depot</Text>
+                <Text style={styles.assignmentValue}>
+                  {assignmentData.depot_name}
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Map View */}
+        {showMap && currentLocation && (
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <MaterialCommunityIcons
+                name="map"
+                size={24}
+                color={AppColors.primary}
+              />
+              <Text style={styles.cardTitle}>Current Location Map</Text>
+            </View>
+            
+            <View style={styles.mapContainer}>
+              <MapView
+                provider={PROVIDER_GOOGLE}
+                style={styles.map}
+                region={{
+                  latitude: currentLocation.latitude,
+                  longitude: currentLocation.longitude,
+                  latitudeDelta: 0.01,
+                  longitudeDelta: 0.01,
+                }}
+                showsUserLocation={true}
+                showsMyLocationButton={true}
+              >
+                <Marker
+                  coordinate={{
+                    latitude: currentLocation.latitude,
+                    longitude: currentLocation.longitude,
+                  }}
+                  title={assignmentData ? `Bus ${assignmentData.bus_registration}` : "Current Location"}
+                  description={assignmentData ? `Route ${assignmentData.route_number}` : "Driver Location"}
+                >
+                  <MaterialCommunityIcons
+                    name="bus"
+                    size={30}
+                    color={AppColors.primary}
+                  />
+                </Marker>
+              </MapView>
+            </View>
+          </View>
+        )}
         {/* Tracking Status Card */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
@@ -221,12 +415,16 @@ export default function TrackingScreen({ navigation }: any) {
 
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Bus ID:</Text>
-            <Text style={styles.infoValue}>{trackingStatus.busId || 'N/A'}</Text>
+            <Text style={styles.infoValue}>
+              {assignmentData ? `${assignmentData.bus_registration} (ID: ${assignmentData.bus_id})` : (trackingStatus.busId || 'N/A')}
+            </Text>
           </View>
 
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Route ID:</Text>
-            <Text style={styles.infoValue}>{trackingStatus.routeId || 'N/A'}</Text>
+            <Text style={styles.infoLabel}>Route:</Text>
+            <Text style={styles.infoValue}>
+              {assignmentData ? `${assignmentData.route_number} - ${assignmentData.route_name}` : (trackingStatus.routeId || 'N/A')}
+            </Text>
           </View>
 
           {trackingStatus.lastUpdate && (
@@ -361,6 +559,12 @@ export default function TrackingScreen({ navigation }: any) {
               Driver ID: {userData?.driver_id || 'N/A'}
             </Text>
             <Text style={styles.debugText}>
+              Assignment ID: {assignmentData?.assignment_id || 'N/A'}
+            </Text>
+            <Text style={styles.debugText}>
+              Assignment Status: {assignmentData?.status || 'N/A'}
+            </Text>
+            <Text style={styles.debugText}>
               Location History: {locationHistory.length} entries
             </Text>
           </View>
@@ -404,6 +608,9 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   refreshButton: {
+    padding: 5,
+  },
+  mapToggleButton: {
     padding: 5,
   },
   content: {
@@ -561,5 +768,39 @@ const styles = StyleSheet.create({
     color: AppColors.textSecondary,
     marginBottom: 4,
     fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
+  },
+  assignmentGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+  assignmentItem: {
+    width: "48%",
+    marginBottom: 16,
+  },
+  assignmentLabel: {
+    fontSize: 12,
+    color: AppColors.textSecondary,
+    marginBottom: 4,
+    fontWeight: "500",
+  },
+  assignmentValue: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: AppColors.text,
+    marginBottom: 2,
+  },
+  assignmentSubValue: {
+    fontSize: 12,
+    color: AppColors.textSecondary,
+  },
+  mapContainer: {
+    height: 250,
+    borderRadius: 8,
+    overflow: "hidden",
+  },
+  map: {
+    ...StyleSheet.absoluteFillObject,
   },
 });

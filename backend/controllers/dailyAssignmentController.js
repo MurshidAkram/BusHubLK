@@ -58,9 +58,25 @@ const deleteAssignment = async (req, res) => {
   }
 };
 
+// Get assignment by driver ID
+const getAssignmentByDriver = async (req, res) => {
+  const { driver_id } = req.params;
+  try {
+    const assignment = await DailyAssignment.getByDriverId(driver_id);
+    if (!assignment) {
+      return res.status(404).json({ error: 'No active assignment found for this driver' });
+    }
+    res.json(assignment);
+  } catch (err) {
+    console.error('Get assignment by driver error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
 module.exports = {
   getAssignmentsByDepot,
   createAssignment,
   updateAssignment,
-  deleteAssignment
+  deleteAssignment,
+  getAssignmentByDriver
 };

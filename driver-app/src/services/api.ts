@@ -109,6 +109,48 @@ export const driverAPI = {
       return { success: false, error: "Failed to logout" };
     }
   },
+
+  // Get driver's daily assignment
+  getDailyAssignment: async (driverId: string) => {
+    const token = await storageAPI.getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/dailyassignment/driver/${driverId}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.json();
+  },
+
+  // Send location update
+  sendLocationUpdate: async (locationData: {
+    latitude: number;
+    longitude: number;
+    busId: string;
+    routeId: string;
+    timestamp: string;
+    busRegistration?: string;
+  }) => {
+    const token = await storageAPI.getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/bus-tracking/${locationData.busId}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        busId: parseInt(locationData.busId),
+        registrationNumber: locationData.busRegistration || `BUS-${locationData.busId}`,
+        latitude: locationData.latitude,
+        longitude: locationData.longitude,
+        routeNumber: locationData.routeId,
+        occupancyLevel: "Unknown",
+        confidence: 0.0,
+      }),
+    });
+    return response.json();
+  },
 };
 
 // Storage API functions
