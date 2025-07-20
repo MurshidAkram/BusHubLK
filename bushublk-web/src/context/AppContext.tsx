@@ -12,8 +12,8 @@ interface User {
   last_login?: string;
   created_at?: string;
   avatar?: string;
-  depot_id?: number;  // Add depot_id
-  region_id?: number; // Add region_id
+  depot_id?: number; // Add this line
+  region_id?: number; // Also good to have
 }
 
 interface AppContextType {
