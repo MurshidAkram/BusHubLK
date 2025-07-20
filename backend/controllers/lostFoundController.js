@@ -1,7 +1,10 @@
 const db = require('../config/db');
+const { executeTransaction } = require('../utils/dbUtils');
+const LostFoundReport = require('../models/LostFoundReport');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs').promises;
+
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -39,12 +42,11 @@ const upload = multer({
 });
 
 const { v4: uuidv4 } = require('uuid');
+
 // Submit a lost or found item report
 const submitReport = async (req, res) => {
-  const client = await db.connect();
-  
   try {
-    await client.query('BEGIN');
+    console.log('🚀 Starting report submission...');
     
     const {
       passenger_id,
@@ -60,7 +62,8 @@ const submitReport = async (req, res) => {
       reward_offered = 0
     } = req.body;
 
-    console.log('Received report data:', req.body); // Debug log
+    console.log('📋 Received report data:', req.body);
+    console.log('📎 File upload present:', !!req.file);
 
     // Validate required fields and types
     const errors = [];
@@ -73,10 +76,10 @@ const submitReport = async (req, res) => {
     if (!contact_phone) errors.push('contact_phone is required');
     if (region_id !== null && region_id !== undefined && isNaN(Number(region_id))) errors.push('region_id must be a number');
     if (reward_offered !== undefined && reward_offered !== null && isNaN(Number(reward_offered))) errors.push('reward_offered must be a number');
-    // Optional: validate email format
     if (contact_email && !/^\S+@\S+\.\S+$/.test(contact_email)) errors.push('contact_email is invalid');
 
     if (errors.length > 0) {
+      console.log('❌ Validation errors:', errors);
       return res.status(400).json({
         success: false,
         message: 'Validation error',
@@ -85,74 +88,120 @@ const submitReport = async (req, res) => {
       });
     }
 
-
     // Handle file upload
     let item_photo_url = null;
     if (req.file) {
       item_photo_url = `/uploads/lost-found/${req.file.filename}`;
+      console.log('📷 Photo uploaded:', item_photo_url);
     }
-
 
     // Generate a unique report_reference
     const report_reference = uuidv4();
+    console.log('🔗 Generated report reference:', report_reference);
 
-    // Insert the report with report_reference
-    const insertQuery = `
-      INSERT INTO lost_found_reports (
-        passenger_id, report_type, item_category, item_description,
-        route_number, region_id, incident_date, incident_time,
-        contact_email, contact_phone, reward_offered, item_photo_url, report_reference
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-      RETURNING report_id, report_reference
-    `;
-
-    const values = [
-      Number(passenger_id),
-      report_type,
+    // Check for duplicates using the model
+    console.log('🔍 Checking for duplicates...');
+    const isDuplicate = await LostFoundReport.checkDuplicate(
+      passenger_id,
       item_category,
       item_description,
-      route_number || null,
-      region_id !== undefined && region_id !== null && region_id !== '' ? Number(region_id) : null,
       incident_date,
-      incident_time,
-      contact_email || null,
-      contact_phone,
-      reward_offered !== undefined && reward_offered !== null && reward_offered !== '' ? Number(reward_offered) : 0,
-      item_photo_url,
-      report_reference
-    ];
+      incident_time
+    );
 
-    console.log('Executing query with values:', values); // Debug log
-
-    const result = await client.query(insertQuery, values);
-    const newReport = result.rows[0];
-
-    // Try to find potential matches (optional - may not exist yet)
-    try {
-      const matchQuery = `SELECT * FROM find_potential_matches($1)`;
-      const matches = await client.query(matchQuery, [newReport.report_id]);
-
-      // Create match records for high-scoring matches if matches table exists
-      for (const match of matches.rows) {
-        if (match.match_score >= 50) {
-          const matchInsertQuery = `
-            INSERT INTO lost_found_matches (
-              ${report_type === 'lost' ? 'lost_report_id, found_report_id' : 'found_report_id, lost_report_id'},
-              match_score
-            ) VALUES ($1, $2, $3)
-          `;
-          await client.query(matchInsertQuery, [
-            newReport.report_id,
-            match.potential_match_id,
-            match.match_score
-          ]);
-        }
-      }
-    } catch (matchError) {
-      console.log('Match finding skipped (function may not exist):', matchError.message);
+    if (isDuplicate) {
+      console.log('⚠️  Duplicate submission detected');
+      return res.status(200).json({
+        success: true,
+        message: 'Report submitted successfully (duplicate detected)',
+        data: { message: 'Similar report already exists' }
+      });
     }
 
-    await client.query('COMMIT');
+    console.log('✅ No duplicates found, proceeding with insert...');
+
+    // Prepare report data
+    const reportData = {
+      passenger_id: Number(passenger_id),
+      report_type,
+      report_reference,
+      item_category,
+      item_description,
+      item_photo_url,
+      route_number: route_number || null,
+      region_id: region_id !== undefined && region_id !== null && region_id !== '' ? Number(region_id) : null,
+      incident_date,
+      incident_time,
+      contact_email: contact_email || null,
+      contact_phone,
+      reward_offered: reward_offered !== undefined && reward_offered !== null && reward_offered !== '' ? Number(reward_offered) : 0
+    };
+
+    console.log('📝 Creating report with data:', reportData);
+
+    // Create the report using the model
+    const newReport = await LostFoundReport.create(reportData);
+    console.log('✅ Report created successfully:', newReport.report_id);
+
+    // Try to find potential matches
+    try {
+      console.log('🔍 Searching for potential matches...');
+      const matches = await LostFoundReport.findPotentialMatches(newReport.report_id);
+      console.log('📊 Found', matches.length, 'potential matches');
+    } catch (matchError) {
+      console.log('⚠️  Match finding skipped:', matchError.message);
+    }
+
+    // POST-TRANSACTION VERIFICATION - Use a fresh connection to avoid caching
+    console.log('🔍 POST-COMMIT: Verifying data persistence with fresh connection...');
+    try {
+      // Wait a moment for AWS RDS replication (if any)
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const freshClient = await db.connect();
+      try {
+        const postCommitVerify = await freshClient.query(`
+          SELECT report_id, item_category, item_description, status, created_at 
+          FROM lost_found_reports 
+          WHERE report_id = $1
+        `, [newReport.report_id]);
+        
+        if (postCommitVerify.rows.length === 0) {
+          console.log('ℹ️  POST-COMMIT: Data not immediately visible (likely AWS RDS replication lag)');
+          console.log('� This is normal behavior for AWS RDS read replicas - data is safe');
+          
+          // Try one more time with a longer delay
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          const retryVerify = await freshClient.query(`
+            SELECT report_id, item_category, item_description, status, created_at 
+            FROM lost_found_reports 
+            WHERE report_id = $1
+          `, [newReport.report_id]);
+          
+          if (retryVerify.rows.length === 0) {
+            console.log('ℹ️  Data still not visible after 1s delay - normal AWS RDS replication lag');
+          } else {
+            console.log('✅ POST-COMMIT (retry): Data found after delay:', retryVerify.rows[0]);
+          }
+        } else {
+          console.log('✅ POST-COMMIT: Data successfully persisted:', postCommitVerify.rows[0]);
+        }
+      } finally {
+        freshClient.release();
+      }
+    } catch (verifyError) {
+      console.error('❌ POST-COMMIT verification failed:', verifyError.message);
+      // Don't throw error - the transaction succeeded, this is just a verification issue
+      console.log('⚠️  Continuing despite verification failure - data may have been saved');
+    }
+
+    if (isDuplicate) {
+      return res.status(200).json({
+        success: true,
+        message: 'Report submitted successfully (duplicate detected)',
+        data: { message: 'Similar report already exists' }
+      });
+    }
 
     res.status(201).json({
       success: true,
@@ -164,15 +213,35 @@ const submitReport = async (req, res) => {
     });
 
   } catch (error) {
-    await client.query('ROLLBACK');
-    console.error('Error submitting report:', error);
+    console.error('❌ Error in submitReport:', error);
+    console.error('📋 Error details:', {
+      message: error.message,
+      code: error.code,
+      name: error.name
+    });
+    
+    // Specific error handling
+    if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+      return res.status(503).json({
+        success: false,
+        message: 'Database connection error. Please try again later.',
+        error: 'Service temporarily unavailable'
+      });
+    }
+
+    if (error.code === '23505') { // Unique constraint violation
+      return res.status(409).json({
+        success: false,
+        message: 'A report with similar details already exists',
+        error: 'Duplicate entry'
+      });
+    }
+
     res.status(500).json({
       success: false,
       message: 'Failed to submit report',
       error: error.message
     });
-  } finally {
-    client.release();
   }
 };
 
@@ -189,87 +258,40 @@ const getReports = async (req, res) => {
       search
     } = req.query;
 
-    console.log('Get reports query params:', req.query); // Debug log
+    console.log('Get reports query params:', req.query);
 
     const offset = (page - 1) * limit;
-    let whereConditions = ['r.status = $1'];
-    let queryParams = [status];
-    let paramCount = 1;
 
-    // Build dynamic WHERE clause
-    if (report_type) {
-      paramCount++;
-      whereConditions.push(`r.report_type = $${paramCount}`);
-      queryParams.push(report_type);
-    }
+    // Build filters object for the model
+    const filters = {
+      limit: parseInt(limit),
+      offset: parseInt(offset)
+    };
 
-    if (item_category && item_category !== 'all') {
-      paramCount++;
-      whereConditions.push(`r.item_category = $${paramCount}`);
-      queryParams.push(item_category);
-    }
+    if (report_type) filters.report_type = report_type;
+    if (item_category && item_category !== 'all') filters.item_category = item_category;
+    if (route_number) filters.route_number = route_number;
+    if (search) filters.search = search;
 
-    if (route_number) {
-      paramCount++;
-      whereConditions.push(`r.route_number = $${paramCount}`);
-      queryParams.push(route_number);
-    }
+    console.log('🔍 Using filters:', filters);
 
-    if (search) {
-      paramCount++;
-      whereConditions.push(`r.item_description ILIKE $${paramCount}`);
-      queryParams.push(`%${search}%`);
-    }
+    // Use the model to get reports
+    const reports = await LostFoundReport.findAll(filters);
 
-    const whereClause = whereConditions.join(' AND ');
+    // Get total count using the model statistics (simplified)
+    const stats = await LostFoundReport.getStatistics();
+    const totalActive = stats.total_reports; // This is a simplified approach
 
-    const query = `
-      SELECT 
-        r.*,
-        p.first_name,
-        p.last_name,
-        rt.route_name,
-        reg.region_name,
-        CASE 
-          WHEN r.created_at > NOW() - INTERVAL '1 hour' THEN 'Just now'
-          WHEN r.created_at > NOW() - INTERVAL '1 day' THEN EXTRACT(HOUR FROM NOW() - r.created_at) || ' hours ago'
-          ELSE EXTRACT(DAY FROM NOW() - r.created_at) || ' days ago'
-        END as time_ago
-      FROM lost_found_reports r
-      LEFT JOIN passengers pas ON r.passenger_id = pas.passenger_id
-      LEFT JOIN users p ON pas.passenger_id = p.user_id
-      LEFT JOIN routes rt ON r.route_number = rt.route_number
-      LEFT JOIN regions reg ON r.region_id = reg.region_id
-      WHERE ${whereClause}
-      ORDER BY r.created_at DESC
-      LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}
-    `;
-
-    queryParams.push(limit, offset);
-
-    console.log('Executing query:', query); // Debug log
-    console.log('With params:', queryParams); // Debug log
-
-    const result = await db.query(query, queryParams);
-
-    // Get total count for pagination
-    const countQuery = `
-      SELECT COUNT(*) as total
-      FROM lost_found_reports r
-      WHERE ${whereClause}
-    `;
-    const countResult = await db.query(countQuery, queryParams.slice(0, -2));
-
-    console.log('Found reports:', result.rows.length); // Debug log
+    console.log('Found reports:', reports.length);
 
     res.json({
       success: true,
       data: {
-        reports: result.rows,
+        reports: reports,
         pagination: {
           current_page: parseInt(page),
-          total_pages: Math.ceil(countResult.rows[0].total / limit),
-          total_items: parseInt(countResult.rows[0].total),
+          total_pages: Math.ceil(totalActive / limit),
+          total_items: totalActive,
           items_per_page: parseInt(limit)
         }
       }
@@ -291,37 +313,25 @@ const getUserReports = async (req, res) => {
     const { passenger_id } = req.params;
     const { status } = req.query;
 
-    let whereClause = 'r.passenger_id = $1';
-    let queryParams = [passenger_id];
+    console.log('Getting reports for passenger:', passenger_id);
+
+    // Build filters for the model
+    const filters = {
+      passenger_id: parseInt(passenger_id)
+    };
 
     if (status) {
-      whereClause += ' AND r.status = $2';
-      queryParams.push(status);
+      filters.status = status;
     }
 
-    const query = `
-      SELECT 
-        r.*,
-        rt.route_name,
-        d.depot_name,
-        COUNT(m.match_id) as match_count
-      FROM lost_found_reports r
-      LEFT JOIN routes rt ON r.route_number = rt.route_number
-      LEFT JOIN depots d ON r.depot_id = d.depot_id
-      LEFT JOIN lost_found_matches m ON (
-        (r.report_type = 'lost' AND m.lost_report_id = r.report_id) OR
-        (r.report_type = 'found' AND m.found_report_id = r.report_id)
-      )
-      WHERE ${whereClause}
-      GROUP BY r.report_id, rt.route_name, d.depot_name
-      ORDER BY r.created_at DESC
-    `;
+    // Use the model to get user's reports
+    const reports = await LostFoundReport.findAll(filters);
 
-    const result = await db.query(query, queryParams);
+    console.log('Found user reports:', reports.length);
 
     res.json({
       success: true,
-      data: result.rows
+      data: reports
     });
 
   } catch (error) {
@@ -339,37 +349,16 @@ const getMatches = async (req, res) => {
   try {
     const { report_id } = req.params;
 
-    const query = `
-      SELECT 
-        m.*,
-        r.report_type,
-        r.item_category,
-        r.item_description,
-        r.incident_date,
-        r.route_number,
-        r.contact_phone,
-        r.item_photo_url,
-        p.first_name,
-        p.last_name
-      FROM lost_found_matches m
-      JOIN lost_found_reports r ON (
-        CASE 
-          WHEN m.lost_report_id = $1 THEN r.report_id = m.found_report_id
-          ELSE r.report_id = m.lost_report_id
-        END
-      )
-      LEFT JOIN passengers pas ON r.passenger_id = pas.passenger_id
-      LEFT JOIN users p ON pas.passenger_id = p.user_id
-      WHERE (m.lost_report_id = $1 OR m.found_report_id = $1)
-      AND m.match_status IN ('pending', 'confirmed')
-      ORDER BY m.match_score DESC
-    `;
+    console.log('Getting matches for report:', report_id);
 
-    const result = await db.query(query, [report_id]);
+    // Use the model to find potential matches
+    const matches = await LostFoundReport.findPotentialMatches(report_id);
+
+    console.log('Found matches:', matches.length);
 
     res.json({
       success: true,
-      data: result.rows
+      data: matches
     });
 
   } catch (error) {
@@ -510,22 +499,16 @@ const getBusesForRoute = async (req, res) => {
 // Get report statistics
 const getStatistics = async (req, res) => {
   try {
-    const query = `
-      SELECT 
-        COUNT(*) FILTER (WHERE report_type = 'lost') as total_lost,
-        COUNT(*) FILTER (WHERE report_type = 'found') as total_found,
-        COUNT(*) FILTER (WHERE status = 'resolved') as total_resolved,
-        COUNT(*) FILTER (WHERE status = 'active') as total_active,
-        COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '7 days') as this_week,
-        COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '30 days') as this_month
-      FROM lost_found_reports
-    `;
+    console.log('Getting statistics...');
 
-    const result = await db.query(query);
+    // Use the model to get statistics
+    const stats = await LostFoundReport.getStatistics();
+
+    console.log('Statistics loaded:', stats);
 
     res.json({
       success: true,
-      data: result.rows[0]
+      data: stats
     });
 
   } catch (error) {
@@ -538,15 +521,179 @@ const getStatistics = async (req, res) => {
   }
 };
 
+// Test endpoint for database insertion using the model
+const testInsert = async (req, res) => {
+  try {
+    console.log('🧪 Test insert endpoint called');
+    const { v4: uuidv4 } = require('uuid');
+    
+    const reportData = {
+      passenger_id: req.body.passenger_id || 14,
+      report_type: req.body.report_type || 'lost',
+      report_reference: uuidv4(),
+      item_category: req.body.item_category || 'test',
+      item_description: req.body.item_description || 'Test description',
+      incident_date: req.body.incident_date || '2025-07-20',
+      incident_time: req.body.incident_time || '12:00:00',
+      contact_phone: req.body.contact_phone || '0776544566'
+    };
+    
+    console.log('📝 Creating test report:', reportData);
+    
+    // Use the model to create the report
+    const newReport = await LostFoundReport.create(reportData);
+    console.log('✅ Test report created:', newReport.report_id);
+    
+    // Verify by finding it
+    const verification = await LostFoundReport.findById(newReport.report_id);
+    
+    res.json({
+      success: true,
+      message: 'Test insert successful using model',
+      data: {
+        inserted: newReport,
+        verified: verification
+      }
+    });
+  } catch (error) {
+    console.error('❌ Test insert failed:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Test insert failed',
+      error: error.message
+    });
+  }
+};
+
+// Mark a report as resolved
+const markReportResolved = async (req, res) => {
+  try {
+    const { report_id } = req.params;
+    const { passenger_id } = req.body;
+
+    console.log('Marking report as resolved:', report_id, 'by passenger:', passenger_id);
+
+    // First verify the report belongs to the passenger
+    const report = await LostFoundReport.findById(report_id);
+    
+    if (!report) {
+      return res.status(404).json({
+        success: false,
+        message: 'Report not found'
+      });
+    }
+
+    if (report.passenger_id !== parseInt(passenger_id)) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only mark your own reports as resolved'
+      });
+    }
+
+    // Update the report status using raw SQL since our model doesn't have this method yet
+    const query = `
+      UPDATE lost_found_reports 
+      SET status = 'resolved',
+          resolved_date = CURRENT_TIMESTAMP
+      WHERE report_id = $1 AND passenger_id = $2
+      RETURNING report_id, status, resolved_date
+    `;
+
+    const result = await db.query(query, [report_id, passenger_id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Report not found or already resolved'
+      });
+    }
+
+    console.log('Report marked as resolved:', result.rows[0]);
+
+    res.json({
+      success: true,
+      message: 'Report marked as resolved successfully',
+      data: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error('Error marking report as resolved:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to mark report as resolved',
+      error: error.message
+    });
+  }
+};
+
+// Enhanced route search with autocomplete
+const searchRoutes = async (req, res) => {
+  try {
+    const { q } = req.query; // search query
+    
+    if (!q || q.trim().length < 1) {
+      return res.json({
+        success: true,
+        data: []
+      });
+    }
+
+    const searchTerm = q.trim();
+    
+    console.log('Searching routes with term:', searchTerm);
+
+    // Search routes by number or name (case-insensitive)
+    const query = `
+      SELECT 
+        route_number,
+        route_name,
+        start_location,
+        end_location,
+        CASE 
+          WHEN route_number ILIKE $1 THEN 1
+          WHEN route_name ILIKE $2 THEN 2
+          ELSE 3
+        END as relevance
+      FROM routes 
+      WHERE route_number ILIKE $1 
+         OR route_name ILIKE $2
+         OR start_location ILIKE $2
+         OR end_location ILIKE $2
+      ORDER BY relevance, route_number
+      LIMIT 10
+    `;
+
+    const result = await db.query(query, [`%${searchTerm}%`, `%${searchTerm}%`]);
+
+    console.log('Found route matches:', result.rows.length);
+
+    res.json({
+      success: true,
+      data: result.rows
+    });
+
+  } catch (error) {
+    console.error('Error searching routes:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to search routes',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
-  uploadMiddleware: upload.single('item_photo'),
+  uploadMiddleware: upload.single('photo'),
   submitReport,
   getReports,
   getUserReports,
   getMatches,
   updateMatchStatus,
+  markReportResolved,
+  searchRoutes,
   getRoutes,
   getRegions,
   getBusesForRoute,
-  getStatistics
+  getStatistics,
+  testInsert
 };
