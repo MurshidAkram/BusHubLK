@@ -1,147 +1,129 @@
-import axios, { AxiosInstance } from 'axios';
-import Constants from 'expo-constants';
-import { Platform } from 'react-native';
+import axios from 'axios';
 
-class ApiService {
-  private static instance: ApiService;
-  private api: AxiosInstance;
+const API_BASE_URL = 'http://your-backend-url.com'; // Replace with your actual backend URL
+// For local development:
+// const API_BASE_URL = 'http://10.0.2.2:3000'; // Android emulator
+// const API_BASE_URL = 'http://localhost:3000'; // iOS simulator
 
-  private constructor() {
-    this.api = axios.create({
-      baseURL: this.getBaseUrl(),
-      timeout: 10000,
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      }
+const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Request interceptor for logging
+apiClient.interceptors.request.use(
+  (config) => {
+    console.log('🚀 Request:', {
+      method: config.method,
+      url: config.url,
+      params: config.params,
+      data: config.data,
     });
-
-    // Add request interceptor for logging
-    this.api.interceptors.request.use(
-      config => {
-        console.log('🚀 Request:', {
-          url: config.url,
-          method: config.method,
-          data: config.data,
-          params: config.params
-        });
-        return config;
-      },
-      error => {
-        console.error('❌ Request Error:', error);
-        return Promise.reject(error);
-      }
-    );
-
-    // Add response interceptor for logging
-    this.api.interceptors.response.use(
-      response => {
-        console.log('✅ Response:', {
-          url: response.config.url,
-          status: response.status,
-          data: response.data
-        });
-        return response;
-      },
-      error => {
-        console.error('❌ Response Error:', {
-          url: error.config?.url,
-          message: error.message,
-          response: error.response?.data
-        });
-        return Promise.reject(error);
-      }
-    );
+    return config;
+  },
+  (error) => {
+    console.error('❌ Request Error:', error);
+    return Promise.reject(error);
   }
+);
 
-  private getBaseUrl(): string {
-    if (__DEV__) {
-      // Get the debug host from Expo config
-      const debuggerHost = Constants.expoConfig?.hostUri 
-        || Constants.manifest?.debuggerHost 
-        || Constants.manifest2?.extra?.expoGo?.debuggerHost;
-
-      if (debuggerHost) {
-        const host = debuggerHost.split(':')[0];
-        if (Platform.OS === 'android') {
-          // Android emulator needs special handling
-          return 'http://10.0.2.2:5000';
-        }
-        // iOS and physical devices use the actual IP
-        return `http://${host}:5000`;
-      }
-    }
-    
-    // Production URL - replace with your actual production URL
-    return 'https://your-production-url.com';
+// Response interceptor for logging
+apiClient.interceptors.response.use(
+  (response) => {
+    console.log('✅ Response:', {
+      status: response.status,
+      url: response.config.url,
+      data: response.data,
+    });
+    return response;
+  },
+  (error) => {
+    console.error('❌ Response Error:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+      url: error.config?.url,
+    });
+    return Promise.reject(error);
   }
+);
 
-  public static getInstance(): ApiService {
-    if (!ApiService.instance) {
-      ApiService.instance = new ApiService();
-    }
-    return ApiService.instance;
-  }
+interface BusRoute {
+  bus_route_id: number;
+  bus_id: number;
+  route_id: number;
+  registration_number: string;
+  bus_type: string;
+  operator: string;
+  route_number: string;
+  route_name: string;
+  start_location: string;
+  end_location: string;
+  distance: number;
+}
 
-  public async getAvailableRoutes(from: string, to: string) {
+interface RouteSearchResponse {
+  routes: Array<{
+    distance: number;
+    estimated_duration: string;
+    polyline: string;
+    fare: number;
+    segment_distance: number;
+  }>;
+  available_bus_routes: BusRoute[];
+  from_coordinates: { lat: number; lng: number };
+  to_coordinates: { lat: number; lng: number };
+}
+
+const apiService = {
+  // Search for routes between two locations
+  searchRoutes: async (from: string, to: string): Promise<RouteSearchResponse> => {
     try {
-      const response = await this.api.get('/api/routes/available', {
+      const response = await apiClient.get('/api/routes/search', {
         params: { from, to }
       });
-      return response.data.success ? response.data.routes : [];
-    } catch (error) {
-      console.error('Failed to fetch routes:', error);
-      throw error;
-    }
-  }
-
-  public async testConnection() {
-    try {
-      const response = await this.api.get('/api/test');
       return response.data;
     } catch (error) {
-      console.error('Connection test failed:', error);
+      console.error('Failed to search routes:', error);
       throw error;
     }
-  }
+  },
 
-  public async getPlaceDetails(placeId: string) {
+  // Get place details by place ID
+  getPlaceDetails: async (placeId: string) => {
     try {
-      const response = await this.api.get(`/api/places/${placeId}`);
+      const response = await apiClient.get(`/api/routes/place-details/${placeId}`);
       return response.data;
     } catch (error) {
       console.error('Failed to get place details:', error);
       throw error;
     }
-  }
+  },
 
-  public async getRouteInfo(fromPlaceId: string, toPlaceId: string) {
+  // Get route info (for backward compatibility)
+  getRouteInfo: async (fromPlaceId: string, toPlaceId: string) => {
     try {
-      const response = await this.api.get('/api/routes/info', {
-        params: { from: fromPlaceId, to: toPlaceId }
-      });
-      return response.data;
+      // Get place details first
+      const fromPlace = await apiService.getPlaceDetails(fromPlaceId);
+      const toPlace = await apiService.getPlaceDetails(toPlaceId);
+      
+      if (!fromPlace || !toPlace) {
+        throw new Error('Could not get place details');
+      }
+      
+      // Use the formatted address or name for search
+      const fromLocation = fromPlace.formatted_address || fromPlace.name;
+      const toLocation = toPlace.formatted_address || toPlace.name;
+      
+      return await apiService.searchRoutes(fromLocation, toLocation);
     } catch (error) {
       console.error('Failed to get route info:', error);
       throw error;
     }
-  }
+  },
+};
 
-  public async searchRoutes(from: string, to: string) {
-    try {
-      const response = await this.api.get('/api/routes/search', {
-        params: { from, to }
-      });
-      if (response.data.success) {
-        return response.data.routes;
-      }
-      return [];
-    } catch (error) {
-      console.error('Failed to search routes:', error);
-      throw error;
-    }
-  }
-}
-
-export const apiService = ApiService.getInstance();
 export default apiService;
