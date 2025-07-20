@@ -65,8 +65,17 @@ const CreateAccount = () => {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to create user');
+      // Handle validation errors properly
+      if (data.errors && Array.isArray(data.errors)) {
+        // Format validation errors nicely
+        const errorMessages = data.errors.map((err: any) => err.msg).join(', ');
+        throw new Error(errorMessages);
+      } else if (data.error) {
+        throw new Error(data.error);
+      } else {
+        throw new Error('Failed to create user');
       }
+    }
 
       setSuccess('Account created successfully!');
       setTimeout(() => {

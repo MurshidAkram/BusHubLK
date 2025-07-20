@@ -12,7 +12,8 @@ app.use(cors({
   origin: true, // Allow all origins in development
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Mobile-App']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Mobile-App', 'Accept', 'Origin', 'X-Requested-With'],
+  exposedHeaders: ['Content-Length', 'X-Foo', 'X-Bar']
 }));
 
 app.use(morgan('dev'));
@@ -22,6 +23,10 @@ app.use(express.urlencoded({ extended: true }));
 // Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Serve uploaded files - both with and without /api prefix for compatibility
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
+
 // Basic security headers
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -30,10 +35,45 @@ app.use((req, res, next) => {
   next();
 });
 
+// Handle preflight requests for multipart form data
+app.options('/api/lost-found/reports', (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, Origin, X-Requested-With');
+  res.sendStatus(200);
+});
+
+// Health check endpoint for API discovery
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    message: 'BusHubLK API is healthy',
+    timestamp: new Date().toISOString(),
+    version: '1.0.0'
+  });
+});
+
 // Sample route
 app.get('/', (req, res) => {
   res.send('🚍 BusHubLK API is running');
 });
+
+// Test endpoint
+app.get('/api/test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'API is working',
+    timestamp: new Date().toISOString()
+  });
+});
+
+try {
+  const BusTrackingRoutes = require('./routes/BusTrackingRoutes');
+  app.use('/api/bus-tracking', BusTrackingRoutes);
+  console.log('✅ BusTrackingRoutes loaded');
+} catch (error) {
+  console.log('❌ BusTrackingRoutes error:', error.message);
+}
 
 // Load routes with error handling
 try {
@@ -61,6 +101,14 @@ try {
 }
 
 try {
+  const routeRoutes = require('./routes/routeRoutes');
+  app.use('/api/routes', routeRoutes);
+  console.log('✅ routeRoutes loaded');
+} catch (error) {
+  console.log('❌ routeRoutes error:', error.message);
+}
+
+try {
   const driverAuthRoutes = require('./routes/driverAuth');
   app.use('/api/driver', driverAuthRoutes);
   console.log('✅ driverAuth loaded');
@@ -76,7 +124,6 @@ try {
   console.log('❌ passengerAuth error:', error.message);
 }
 
-// This is the main app.use for passenger routes now
 try {
   const passengerRoutes = require('./routes/passengerRoutes');
   app.use('/api/passengers', passengerRoutes);
@@ -84,6 +131,14 @@ try {
 } catch (error) {
   console.log('❌ passengerRoutes error:', error.message);
 }
+try {
+  const dailyAssignmentRoutes = require('./routes/dailyAssignmentRoutes');
+  app.use('/api/dailyassignment', dailyAssignmentRoutes);
+  console.log('✅ dailyAssignmentRoutes loaded');
+} catch (error) {
+  console.log('❌ dailyAssignmentRoutes error:', error.message);
+}
+
 
 try {
   const BusOccupancyRoutes = require('./routes/BusOccupancyRoutes');
@@ -104,6 +159,16 @@ try {
 const regionDepotRoutes = require('./routes/regionDepotRoutes');
 app.use('/api', regionDepotRoutes);
 
+
+const BusTrackingRoutes = require('./routes/BusTrackingRoutes');
+  app.use('/api/bus-tracking', BusTrackingRoutes); 
+
+const fareRoutes = require('./routes/fareRoutes');
+app.use('/api/fares', fareRoutes);
+
+const routeRoutes = require('./routes/routeRoutes');
+app.use('/api/routes', routeRoutes);
+
 try {
   const busConditionReportRoutes = require('./routes/busConditionReportRoutes');
   app.use('/api/bus-condition-reports', busConditionReportRoutes);
@@ -112,14 +177,33 @@ try {
   console.log('❌ busConditionReportRoutes error:', error.message);
 }
 
-// Ensure busRoutes and locationRoutes are NOT loaded separately
-// Their logic and routes are now consolidated into passengerModel/Controller/Routes
+try {
+  const busRoutes = require('./routes/busRoutes');
+  app.use('/api/buses', busRoutes);
+  console.log('✅ busRoutes loaded');
+} catch (error) {
+  console.log('❌ busRoutes error:', error.message);
+}
+
+try {
+  const lostFoundRoutes = require('./routes/lostFoundRoutes');
+  app.use('/api/lost-found', lostFoundRoutes);
+  console.log('✅ lostFoundRoutes loaded');
+} catch (error) {
+  console.log('❌ lostFoundRoutes error:', error.message);
+}
 
 // Static file routes
 app.get('/resetPassword.js', (req, res) => {
   res.setHeader('Content-Type', 'application/javascript');
   res.sendFile(path.join(__dirname, 'public/resetPassword.js'));
 });
+
+// Add this near your other route imports
+const busRoutes = require('./routes/busRoutes');
+
+// And this with your other app.use() calls
+app.use('/api/buses', busRoutes);
 
 
 app.get('/reset-password.html', (req, res) => {
@@ -161,7 +245,7 @@ app.listen(PORT, '0.0.0.0', () => {
   try {
     const { getDynamicBaseURL } = require('./utils/networkUtils');
     const baseURL = getDynamicBaseURL();
-
+    
     console.log(`🚀 Server is running on ${baseURL}`);
     console.log(`📧 Email service configured: ${process.env.EMAIL_SERVICE || 'gmail'}`);
     console.log(`🌐 Base URL: ${baseURL}`);
