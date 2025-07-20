@@ -565,13 +565,132 @@ const testInsert = async (req, res) => {
   }
 };
 
+// Mark a report as resolved
+const markReportResolved = async (req, res) => {
+  try {
+    const { report_id } = req.params;
+    const { passenger_id } = req.body;
+
+    console.log('Marking report as resolved:', report_id, 'by passenger:', passenger_id);
+
+    // First verify the report belongs to the passenger
+    const report = await LostFoundReport.findById(report_id);
+    
+    if (!report) {
+      return res.status(404).json({
+        success: false,
+        message: 'Report not found'
+      });
+    }
+
+    if (report.passenger_id !== parseInt(passenger_id)) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only mark your own reports as resolved'
+      });
+    }
+
+    // Update the report status using raw SQL since our model doesn't have this method yet
+    const query = `
+      UPDATE lost_found_reports 
+      SET status = 'resolved',
+          resolved_date = CURRENT_TIMESTAMP
+      WHERE report_id = $1 AND passenger_id = $2
+      RETURNING report_id, status, resolved_date
+    `;
+
+    const result = await db.query(query, [report_id, passenger_id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Report not found or already resolved'
+      });
+    }
+
+    console.log('Report marked as resolved:', result.rows[0]);
+
+    res.json({
+      success: true,
+      message: 'Report marked as resolved successfully',
+      data: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error('Error marking report as resolved:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to mark report as resolved',
+      error: error.message
+    });
+  }
+};
+
+// Enhanced route search with autocomplete
+const searchRoutes = async (req, res) => {
+  try {
+    const { q } = req.query; // search query
+    
+    if (!q || q.trim().length < 1) {
+      return res.json({
+        success: true,
+        data: []
+      });
+    }
+
+    const searchTerm = q.trim();
+    
+    console.log('Searching routes with term:', searchTerm);
+
+    // Search routes by number or name (case-insensitive)
+    const query = `
+      SELECT 
+        route_number,
+        route_name,
+        start_location,
+        end_location,
+        CASE 
+          WHEN route_number ILIKE $1 THEN 1
+          WHEN route_name ILIKE $2 THEN 2
+          ELSE 3
+        END as relevance
+      FROM routes 
+      WHERE route_number ILIKE $1 
+         OR route_name ILIKE $2
+         OR start_location ILIKE $2
+         OR end_location ILIKE $2
+      ORDER BY relevance, route_number
+      LIMIT 10
+    `;
+
+    const result = await db.query(query, [`%${searchTerm}%`, `%${searchTerm}%`]);
+
+    console.log('Found route matches:', result.rows.length);
+
+    res.json({
+      success: true,
+      data: result.rows
+    });
+
+  } catch (error) {
+    console.error('Error searching routes:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to search routes',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
-  uploadMiddleware: upload.single('item_photo'),
+  uploadMiddleware: upload.single('photo'),
   submitReport,
   getReports,
   getUserReports,
   getMatches,
   updateMatchStatus,
+  markReportResolved,
+  searchRoutes,
   getRoutes,
   getRegions,
   getBusesForRoute,

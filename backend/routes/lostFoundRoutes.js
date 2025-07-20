@@ -6,6 +6,7 @@ const { authenticateJWT } = require('../middlewares/authMiddleware');
 // Public routes (for viewing reports)
 router.get('/reports', lostFoundController.getReports);
 router.get('/routes', lostFoundController.getRoutes);
+router.get('/routes/search', lostFoundController.searchRoutes);
 router.get('/regions', lostFoundController.getRegions);
 router.get('/routes/:route_number/buses', lostFoundController.getBusesForRoute);
 router.get('/statistics', lostFoundController.getStatistics);
@@ -21,6 +22,9 @@ router.use(authenticateJWT); // Apply auth middleware to all routes below
 
 // Get user's own reports
 router.get('/users/:passenger_id/reports', lostFoundController.getUserReports);
+
+// Mark report as resolved
+router.put('/reports/:report_id/resolve', lostFoundController.markReportResolved);
 
 // Get matches for a specific report
 router.get('/reports/:report_id/matches', lostFoundController.getMatches);
