@@ -87,8 +87,8 @@ interface Bus {
   depot_name: string;
 }
 
-// Get API base URL from config
-const API_BASE_URL = 'http://10.22.165.241:5000'; // Use the same IP as your running server
+// Import API base URL from config
+import { API_BASE_URL, initializeApiConnection, getApiEndpoints } from '../config/api';
 
 export default function LostAndFoundScreen({ navigation }: { navigation: any }) {
   const [activeView, setActiveView] = useState('list');
@@ -97,6 +97,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [apiInitialized, setApiInitialized] = useState(false);
   
   // Data states
   const [reports, setReports] = useState<Report[]>([]);
@@ -127,12 +128,36 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
   
   const [errors, setErrors] = useState<{[key: string]: string}>({});
 
-  // Load initial data
+  // Initialize API connection and load initial data
   useEffect(() => {
-    loadUserData();
-    loadReports();
-    loadRoutes();
-    loadRegions();
+    let isInitialized = false;
+    
+    const initializeApp = async () => {
+      if (isInitialized) return; // Prevent duplicate initialization
+      
+      try {
+        console.log('🔄 Initializing API connection...');
+        await initializeApiConnection();
+        setApiInitialized(true);
+        isInitialized = true;
+        
+        console.log('📱 Loading initial data...');
+        await Promise.all([
+          loadUserData(),
+          loadRoutes(),
+          loadRegions()
+        ]);
+        
+        // Load reports after API is initialized
+        await loadReports();
+      } catch (error) {
+        console.error('❌ Failed to initialize app:', error);
+        // Still set as initialized to allow fallback behavior
+        setApiInitialized(true);
+      }
+    };
+    
+    initializeApp();
   }, []);
 
   // Debounce search query to avoid too many API calls
@@ -146,17 +171,24 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Load reports when filters change
+  // Load reports when filters change (but only if API is initialized)
   useEffect(() => {
-    loadReports();
-  }, [selectedCategory, debouncedSearchQuery]);
+    if (apiInitialized) {
+      console.log('🔄 Loading reports due to filter change:', { selectedCategory, debouncedSearchQuery });
+      loadReports();
+    }
+  }, [selectedCategory, debouncedSearchQuery, apiInitialized]);
 
   const loadUserData = async () => {
     try {
-      const user = await storageAPI.getUserData();
-      setUserData(user);
-      if (user?.phone) {
-        setFormData(prev => ({ ...prev, phone: user.phone, email: user.email || '' }));
+      // Only load user data once if not already loaded
+      if (!userData) {
+        const user = await storageAPI.getUserData();
+        console.log('📱 User data loaded:', user);
+        setUserData(user);
+        if (user?.phone) {
+          setFormData(prev => ({ ...prev, phone: user.phone, email: user.email || '' }));
+        }
       }
     } catch (error) {
       console.error('Error loading user data:', error);
@@ -164,31 +196,54 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
   };
 
   const loadReports = async () => {
+    if (!apiInitialized) {
+      console.log('⚠️  API not initialized yet, skipping loadReports');
+      return;
+    }
+
     try {
       setLoading(true);
       const params = new URLSearchParams();
       if (selectedCategory !== 'all') params.append('item_category', selectedCategory);
       if (debouncedSearchQuery.trim()) params.append('search', debouncedSearchQuery.trim());
       
-      const url = `${API_BASE_URL}/api/lost-found/reports?${params}`;
-      console.log('API Request URL:', url); // Debug log
-      console.log('Filters:', { selectedCategory, searchQuery: debouncedSearchQuery }); // Debug log
+      const url = `${API_BASE_URL}/lost-found/reports?${params}`;
+      console.log('📡 API Request URL:', url);
+      console.log('🔍 Filters:', { selectedCategory, searchQuery: debouncedSearchQuery });
       
-      const response = await fetch(url);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
+      const response = await fetch(url, {
+        signal: controller.signal,
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
       const data = await response.json();
-      
-      console.log('API Response:', data); // Debug log
+      console.log('📥 API Response:', data);
       
       if (data.success) {
         setReports(data.data.reports || []);
-        console.log('Reports loaded:', data.data.reports?.length || 0); // Debug log
+        console.log('✅ Reports loaded:', data.data.reports?.length || 0);
       } else {
-        console.error('API Error:', data.message);
+        console.error('❌ API Error:', data.message);
         Alert.alert('Error', data.message || 'Failed to load reports');
       }
-    } catch (error) {
-      console.error('Network Error loading reports:', error);
-      Alert.alert('Network Error', 'Failed to connect to server. Please check your internet connection.');
+    } catch (error: any) {
+      console.error('❌ Network Error loading reports:', error);
+      const errorMessage = error?.name === 'AbortError' 
+        ? 'Request timed out. Please check your connection.'
+        : 'Failed to connect to server. Please check your internet connection.';
+      Alert.alert('Network Error', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -196,7 +251,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
 
   const loadRoutes = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/lost-found/routes`);
+      const response = await fetch(`${API_BASE_URL}/lost-found/routes`);
       const data = await response.json();
       
       if (data.success) {
@@ -209,7 +264,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
 
   const loadRegions = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/lost-found/regions`);
+      const response = await fetch(`${API_BASE_URL}/lost-found/regions`);
       const data = await response.json();
       
       if (data.success) {
@@ -222,7 +277,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
 
   const loadBusesForRoute = async (routeNumber: string) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/lost-found/routes/${routeNumber}/buses`);
+      const response = await fetch(`${API_BASE_URL}/lost-found/routes/${routeNumber}/buses`);
       const data = await response.json();
       
       if (data.success) {
@@ -303,7 +358,10 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
     setErrors(newErrors);
     if (isValid) {
       if (reportStep === 3) {
-        submitReport();
+        // Prevent double submission
+        if (!submitting) {
+          submitReport();
+        }
       } else {
         setReportStep(s => s + 1);
       }
@@ -378,7 +436,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
         };
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/lost-found/reports`, {
+      const response = await fetch(`${API_BASE_URL}/lost-found/reports`, {
         method: 'POST',
         headers,
         body,
@@ -386,7 +444,9 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
 
       const result = await response.json();
       if (result.success) {
-        setReportStep(4); // Go to success screen
+        console.log('✅ Report submitted successfully:', result.data);
+        
+        // Clear form data first
         setFormData({
           reportType: 'lost',
           itemType: null,
@@ -401,6 +461,20 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
           phone: '',
           rewardOffered: '',
         });
+        
+        // Go to success screen
+        setReportStep(4);
+        
+        // Refresh reports list in the background after a delay
+        setTimeout(async () => {
+          try {
+            console.log('🔄 Refreshing reports list after submission...');
+            await loadReports();
+          } catch (error) {
+            console.error('Error refreshing reports:', error);
+          }
+        }, 3000); // 3 second delay to allow for database replication
+        
       } else {
         Alert.alert('Error', result.message || 'Failed to submit report');
       }
@@ -537,6 +611,16 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
         </TouchableOpacity>
         <TouchableOpacity style={styles.topNavButton} onPress={() => { setActiveView('report'); setReportStep(1); setErrors({}); }}>
           <Text style={styles.topNavButtonText}>Report Item</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.headerRightAction} 
+          onPress={async () => {
+            console.log('🔄 Manual refresh requested');
+            await loadReports();
+          }}
+          activeOpacity={0.7}
+        >
+          <Icon name="refresh-outline" size={20} color={AppColors.primary} />
         </TouchableOpacity>
       </View>
       
@@ -1038,8 +1122,15 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
               <Icon name="arrow-back" size={20} color={AppColors.text} />
               <Text style={styles.modernSecondaryButtonText}>Back</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.modernPrimaryButton} onPress={validateAndProceed} activeOpacity={0.8}>
-              <Text style={styles.modernButtonText}>Submit Report</Text>
+            <TouchableOpacity 
+              style={[styles.modernPrimaryButton, submitting && styles.disabledButton]} 
+              onPress={validateAndProceed} 
+              activeOpacity={0.8}
+              disabled={submitting}
+            >
+              <Text style={styles.modernButtonText}>
+                {submitting ? 'Submitting...' : 'Submit Report'}
+              </Text>
               <Icon name="checkmark" size={20} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
@@ -1056,7 +1147,10 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
           
           <Text style={styles.modernSuccessTitle}>Report Submitted!</Text>
           <Text style={styles.modernSuccessMessage}>
-            Thank you for your submission. We'll notify you via email if there are any potential matches for your {formData.reportType} item.
+            Your {formData.reportType} item report has been successfully submitted! We'll notify you via email if there are any potential matches.
+          </Text>
+          <Text style={styles.modernSuccessNote}>
+            Note: Your report may take a few moments to appear in the search results due to database synchronization.
           </Text>
 
           <View style={styles.successStats}>
@@ -1078,7 +1172,14 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
 
           <TouchableOpacity
             style={styles.modernPrimaryButton}
-            onPress={() => { setActiveView('list'); setReportStep(1); setErrors({}); }}
+            onPress={async () => { 
+              console.log('🔄 Returning to search and refreshing reports...');
+              setActiveView('list'); 
+              setReportStep(1); 
+              setErrors({});
+              // Refresh reports when returning to list view
+              await loadReports();
+            }}
             activeOpacity={0.8}
           >
             <Text style={styles.modernButtonText}>Back to Search</Text>
@@ -2115,6 +2216,12 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
   },
   
+  disabledButton: {
+    backgroundColor: AppColors.textSecondary,
+    elevation: 2,
+    shadowOpacity: 0.1,
+  },
+  
   modernButtonText: {
     fontSize: 16,
     fontWeight: '600',
@@ -2293,6 +2400,15 @@ const styles = StyleSheet.create({
     color: AppColors.textSecondary,
     textAlign: 'center',
     lineHeight: 24,
+    paddingHorizontal: 32,
+    marginBottom: 16,
+  },
+  
+  modernSuccessNote: {
+    fontSize: 14,
+    color: AppColors.textSecondary,
+    textAlign: 'center',
+    fontStyle: 'italic',
     paddingHorizontal: 32,
     marginBottom: 32,
   },

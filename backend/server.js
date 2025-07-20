@@ -30,6 +30,16 @@ app.use((req, res, next) => {
   next();
 });
 
+// Health check endpoint for API discovery
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    message: 'BusHubLK API is healthy',
+    timestamp: new Date().toISOString(),
+    version: '1.0.0'
+  });
+});
+
 // Sample route
 app.get('/', (req, res) => {
   res.send('🚍 BusHubLK API is running');

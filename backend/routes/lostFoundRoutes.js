@@ -13,6 +13,9 @@ router.get('/statistics', lostFoundController.getStatistics);
 // Submit a new lost/found report (public route)
 router.post('/reports', lostFoundController.uploadMiddleware, lostFoundController.submitReport);
 
+// Test endpoint for database insertion
+router.post('/test-insert', lostFoundController.testInsert);
+
 // Protected routes (require authentication)
 router.use(authenticateJWT); // Apply auth middleware to all routes below
 
