@@ -18,6 +18,9 @@ import AdminDashboard from './pages/dashboards/admin'
 import ManageRoles from './pages/dashboards/admin/DepotAndRegions'
 import Employees from './pages/dashboards/admin/Employees'
 import BusManaging from './pages/dashboards/admin/BusManaging'
+import RoutesMngmnt from './pages/dashboards/admin/RoutesMngmnt'
+
+
 
 // Depot Manager Components
 import DepotManagerSidebarContent from './components/depot-manager/DepotManagerSidebarContent'
@@ -157,6 +160,7 @@ const App = () => {
     <Route path="depot-and-regions" element={<DepotAndRegions />} />
     <Route path="employees" element={<Employees />} />
     <Route path="buses" element={<BusManaging />} />
+    <Route path="routes" element={<RoutesMngmnt />} />
     {/* Add more admin routes as needed */}
   </Route>
 </Route>

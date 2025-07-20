@@ -244,8 +244,8 @@ const DistanceMonitor = () => {
                         <td className="px-4 py-2 border">{e.scheduledDeparture}</td>
                         <td className="px-4 py-2 border">{e.scheduledArrival}</td>
                         <td className="px-4 py-2 border space-x-2">
-                          <button onClick={() => handleEdit(i)} className="bg-yellow-500 text-white px-2 py-1 rounded text-xs">Edit</button>
-                          <button onClick={() => handleDelete(i)} className="bg-red-600 text-white px-2 py-1 rounded text-xs">Delete</button>
+                        <button onClick={() => handleEdit(i)} className="text-blue-600 hover:underline">Edit</button>
+                        <button onClick={() => handleDelete(i)} className="text-red-600 hover:underline">Delete</button>
                         </td>
                       </>
                     )}

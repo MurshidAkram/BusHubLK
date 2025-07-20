@@ -78,6 +78,14 @@ try {
 }
 
 try {
+  const routeRoutes = require('./routes/routeRoutes');
+  app.use('/api/routes', routeRoutes);
+  console.log('✅ routeRoutes loaded');
+} catch (error) {
+  console.log('❌ routeRoutes error:', error.message);
+}
+
+try {
   const driverAuthRoutes = require('./routes/driverAuth');
   app.use('/api/driver', driverAuthRoutes);
   console.log('✅ driverAuth loaded');
@@ -100,6 +108,14 @@ try {
 } catch (error) {
   console.log('❌ passengerRoutes error:', error.message);
 }
+try {
+  const dailyAssignmentRoutes = require('./routes/dailyAssignmentRoutes');
+  app.use('/api/dailyassignment', dailyAssignmentRoutes);
+  console.log('✅ dailyAssignmentRoutes loaded');
+} catch (error) {
+  console.log('❌ dailyAssignmentRoutes error:', error.message);
+}
+
 
 try {
   const BusOccupancyRoutes = require('./routes/BusOccupancyRoutes');

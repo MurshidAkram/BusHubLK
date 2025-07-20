@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface Assignment {
   id: number;
@@ -16,8 +16,11 @@ interface Bus {
 
 interface Route {
   id: number;
-  name: string;
+  route_number: string;
+  route_name: string;
 }
+
+const BACKEND_URL = 'http://localhost:5000';
 
 const DailyOperations: React.FC = () => {
   const [assignments, setAssignments] = useState<Assignment[]>([
@@ -43,33 +46,7 @@ const DailyOperations: React.FC = () => {
     { id: 3, name: 'NP8910', status: 'Under Service' },
   ]);
 
-  const [routes, setRoutes] = useState<Route[]>([
-    { id: 1, name: '404: Pettah → Fort → Galle Face' },
-    { id: 2, name: '406: Kandy → Peradeniya → Mawanella' },
-    { id: 3, name: '407: Colombo → Wellawatte → Dehiwala' },
-    { id: 4, name: '408: Panadura → Mount Lavinia → Bambalapitiya' },
-  ]);
-
-  const [routeNumber, setRouteNumber] = useState('');
-  const [routeStops, setRouteStops] = useState<string[]>([]);
-  const [selectedStop, setSelectedStop] = useState('');
-  const [editingRouteId, setEditingRouteId] = useState<number | null>(null);
-
-  const areaOptions = [
-    'Pettah', 'Kotte', 'Galle Face', 'Wellawatte', 'Dehiwala', 'Panadura',
-    'Fort', 'Bambalapitiya', 'Mount Lavinia', 'Kandy', 'Peradeniya',
-    'Kadugannawa', 'Mawanella', 'Colombo', 'Gampaha', 'Kiribathgoda'
-  ];
-
-  const [drivers] = useState<string[]>([
-    'Nimal Perera', 'Sunil Fernando', 'Sarath Silva', 'Ajith Kumara', 'Kamal Jayasuriya',
-    'Ruwan Lakmal', 'Dinesh Rathnayake', 'Chamara Gunasekara', 'Anura Dissanayake', 'Tharindu Wijesinghe'
-  ]);
-
-  const [conductors] = useState<string[]>([
-    'Ranjith Bandara', 'Suresh Liyanage', 'Mahinda Rajakaruna', 'Pubudu Kumara', 'Nalaka Priyantha',
-    'Bandara Herath', 'Saman Jayantha', 'Amal Dissanayake', 'Indika Wijeratne', 'Lakshitha Gamage'
-  ]);
+  const [routes, setRoutes] = useState<Route[]>([]);
 
   const [formData, setFormData] = useState({
     bus: '',
@@ -80,61 +57,53 @@ const DailyOperations: React.FC = () => {
 
   const [editId, setEditId] = useState<number | null>(null);
 
-  const handleAddRouteStop = () => {
-    if (selectedStop && !routeStops.includes(selectedStop)) {
-      setRouteStops([...routeStops, selectedStop]);
+  const drivers = [
+    'Nimal Perera', 'Sunil Fernando', 'Sarath Silva', 'Ajith Kumara', 'Kamal Jayasuriya',
+    'Ruwan Lakmal', 'Dinesh Rathnayake', 'Chamara Gunasekara', 'Anura Dissanayake', 'Tharindu Wijesinghe'
+  ];
+
+  const conductors = [
+    'Ranjith Bandara', 'Suresh Liyanage', 'Mahinda Rajakaruna', 'Pubudu Kumara', 'Nalaka Priyantha',
+    'Bandara Herath', 'Saman Jayantha', 'Amal Dissanayake', 'Indika Wijeratne', 'Lakshitha Gamage'
+  ];
+
+  // Fetch all routes from backend
+  const fetchRoutes = async () => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/routes`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch routes: ${response.statusText}`);
+      }
+      const data = await response.json();
+      setRoutes(data);
+    } catch (error) {
+      console.error('Error fetching routes:', error);
     }
   };
 
-  const handleRemoveStop = (stop: string) => {
-    setRouteStops(routeStops.filter(s => s !== stop));
-  };
+  useEffect(() => {
+    fetchRoutes();
+  }, []);
 
-  const handleAddOrUpdateRoute = () => {
-    if (!routeNumber.trim() || routeStops.length < 2) return;
-    const routeName = `${routeNumber.trim()}: ${routeStops.join(' → ')}`;
-
-    if (editingRouteId !== null) {
-      setRoutes(prev => prev.map(r => r.id === editingRouteId ? { ...r, name: routeName } : r));
-      setEditingRouteId(null);
-    } else {
-      setRoutes([...routes, { id: Date.now(), name: routeName }]);
-    }
-
-    setRouteNumber('');
-    setRouteStops([]);
-    setSelectedStop('');
-  };
-
-  const handleEditRoute = (route: Route) => {
-    const [num, ...stops] = route.name.split(/: | → /);
-    setRouteNumber(num);
-    setRouteStops(stops);
-    setEditingRouteId(route.id);
-  };
-
-  const handleDeleteRoute = (id: number) => {
-    setRoutes(routes.filter((r) => r.id !== id));
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  // Assignment form handlers
+  const handleChange = (e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handleAssign = () => {
     const { bus, route, driver, conductor } = formData;
-    if (!bus || !route || !driver || !conductor) return;
+    if (!bus || !route || !driver || !conductor) {
+      alert('Please select bus, route, driver and conductor');
+      return;
+    }
 
     if (editId !== null) {
-      setAssignments((prev) =>
-        prev.map((a) => (a.id === editId ? { ...a, bus, route, driver, conductor } : a))
+      setAssignments(prev =>
+        prev.map(a => (a.id === editId ? { ...a, bus, route, driver, conductor } : a))
       );
       setEditId(null);
     } else {
-      setAssignments([
-        { id: Date.now(), bus, route, driver, conductor },
-        ...assignments,
-      ]);
+      setAssignments([{ id: Date.now(), bus, route, driver, conductor }, ...assignments]);
     }
 
     setFormData({ bus: '', route: '', driver: '', conductor: '' });
@@ -151,59 +120,14 @@ const DailyOperations: React.FC = () => {
   };
 
   const handleRemove = (id: number) => {
-    setAssignments(assignments.filter((a) => a.id !== id));
+    setAssignments(assignments.filter(a => a.id !== id));
   };
 
   return (
-    <div className="space-y-6 ">
+    <div className="space-y-6">
       <div className="bg-white rounded-lg shadow-sm p-6">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Daily Operations</h1>
         <p className="text-gray-600">Manage daily bus operations and schedules.</p>
-      </div>
-
-      {/* Route Section */}
-      <div className="bg-white p-4 rounded shadow">
-        <h2 className="text-lg font-semibold mb-2">{editingRouteId ? 'Edit Route' : 'Add Route'}</h2>
-        <input
-          value={routeNumber}
-          onChange={(e) => setRouteNumber(e.target.value)}
-          placeholder="Route Number (e.g., Route 404)"
-          className="border p-2 rounded w-full mb-2"
-        />
-        <div className="flex gap-2 mb-2">
-          <select value={selectedStop} onChange={(e) => setSelectedStop(e.target.value)} className="border p-2 rounded w-full">
-            <option value="">Select Stop</option>
-            {areaOptions.map((area, i) => (
-              <option key={i} value={area}>{area}</option>
-            ))}
-          </select>
-          <button onClick={handleAddRouteStop} className="bg-green-600 text-white px-4 py-2 rounded">Add Stop</button>
-        </div>
-        <div className="flex flex-wrap gap-2 mb-2">
-          {routeStops.map((stop, i) => (
-            <span key={i} className="bg-gray-200 px-3 py-1 rounded-full flex items-center gap-1">
-              {stop}
-              <button onClick={() => handleRemoveStop(stop)} className="text-red-500 ml-1">×</button>
-            </span>
-          ))}
-        </div>
-        <button onClick={handleAddOrUpdateRoute} className="bg-blue-600 text-white px-4 py-2 rounded">
-          {editingRouteId ? 'Update Route' : 'Add Route'}
-        </button>
-        <div className="mt-4 space-y-2 max-h-32 overflow-y-auto">
-          {routes.map((route) => (
-            <div
-              key={route.id}
-              className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-md px-3 py-2 shadow-sm"
-            >
-              <span className="text-green-700 font-medium">{route.name}</span>
-              <div className="space-x-2">
-                <button onClick={() => handleEditRoute(route)} className="text-blue-600 text-sm">Edit</button>
-                <button onClick={() => handleDeleteRoute(route.id)} className="text-red-600 text-sm">Delete</button>
-              </div>
-            </div>
-          ))}
-        </div>
       </div>
 
       {/* Assignment Form */}
@@ -212,19 +136,25 @@ const DailyOperations: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <select name="bus" value={formData.bus} onChange={handleChange} className="border p-2 rounded-md w-full">
             <option value="">Select Bus</option>
-            {buses.filter(b => b.status === 'Active').map((bus) => <option key={bus.id}>{bus.name}</option>)}
+            {buses.filter(b => b.status === 'Active').map(bus => (
+              <option key={bus.id} value={bus.name}>{bus.name}</option>
+            ))}
           </select>
           <select name="route" value={formData.route} onChange={handleChange} className="border p-2 rounded-md w-full">
             <option value="">Select Route</option>
-            {routes.map((route) => <option key={route.id}>{route.name}</option>)}
+            {routes.map(route => (
+              <option key={route.id} value={`${route.route_number}: ${route.route_name}`}>
+                {route.route_number}: {route.route_name}
+              </option>
+            ))}
           </select>
           <select name="driver" value={formData.driver} onChange={handleChange} className="border p-2 rounded-md w-full">
             <option value="">Select Driver</option>
-            {drivers.map((driver, i) => <option key={i}>{driver}</option>)}
+            {drivers.map((driver, i) => <option key={i} value={driver}>{driver}</option>)}
           </select>
           <select name="conductor" value={formData.conductor} onChange={handleChange} className="border p-2 rounded-md w-full">
             <option value="">Select Conductor</option>
-            {conductors.map((conductor, i) => <option key={i}>{conductor}</option>)}
+            {conductors.map((conductor, i) => <option key={i} value={conductor}>{conductor}</option>)}
           </select>
         </div>
         <button
@@ -253,7 +183,7 @@ const DailyOperations: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {assignments.map((a) => (
+                {assignments.map(a => (
                   <tr key={a.id}>
                     <td className="px-4 py-2 border">{a.bus}</td>
                     <td className="px-4 py-2 border">{a.route}</td>
