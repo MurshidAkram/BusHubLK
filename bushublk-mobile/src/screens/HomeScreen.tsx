@@ -959,11 +959,11 @@ const styles = StyleSheet.create({
   // Adjusted suggestionBoxEnhanced style for better display
   suggestionBoxEnhanced: {
     position: "absolute",
-    top: Platform.OS === "ios" ? 56 : 60,
-    left: 12,
-    right: 12,
-    backgroundColor: "#e6f0fa",
-    borderColor: '#b3d1f7',
+    top: Platform.OS === "ios" ? 56 : 60, // Adjusted top position
+    left: 0,
+    right: 0,
+    backgroundColor: "#fff",
+    borderColor: AppColors.border,
     borderWidth: 1,
     borderRadius: 14,
     maxHeight: 110,

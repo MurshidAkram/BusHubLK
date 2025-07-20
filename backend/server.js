@@ -45,6 +45,23 @@ app.get('/', (req, res) => {
   res.send('🚍 BusHubLK API is running');
 });
 
+// Test endpoint
+app.get('/api/test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'API is working',
+    timestamp: new Date().toISOString()
+  });
+});
+
+try {
+  const BusTrackingRoutes = require('./routes/BusTrackingRoutes');
+  app.use('/api/bus-tracking', BusTrackingRoutes);
+  console.log('✅ BusTrackingRoutes loaded');
+} catch (error) {
+  console.log('❌ BusTrackingRoutes error:', error.message);
+}
+
 // Load routes with error handling
 try {
   const dbTestRoute = require('./routes/dbTestRoute');
@@ -71,6 +88,14 @@ try {
 }
 
 try {
+  const routeRoutes = require('./routes/routeRoutes');
+  app.use('/api/routes', routeRoutes);
+  console.log('✅ routeRoutes loaded');
+} catch (error) {
+  console.log('❌ routeRoutes error:', error.message);
+}
+
+try {
   const driverAuthRoutes = require('./routes/driverAuth');
   app.use('/api/driver', driverAuthRoutes);
   console.log('✅ driverAuth loaded');
@@ -93,6 +118,14 @@ try {
 } catch (error) {
   console.log('❌ passengerRoutes error:', error.message);
 }
+try {
+  const dailyAssignmentRoutes = require('./routes/dailyAssignmentRoutes');
+  app.use('/api/dailyassignment', dailyAssignmentRoutes);
+  console.log('✅ dailyAssignmentRoutes loaded');
+} catch (error) {
+  console.log('❌ dailyAssignmentRoutes error:', error.message);
+}
+
 
 try {
   const BusOccupancyRoutes = require('./routes/BusOccupancyRoutes');
@@ -112,6 +145,16 @@ try {
 
 const regionDepotRoutes = require('./routes/regionDepotRoutes');
 app.use('/api', regionDepotRoutes);
+
+
+const BusTrackingRoutes = require('./routes/BusTrackingRoutes');
+  app.use('/api/bus-tracking', BusTrackingRoutes); 
+
+const fareRoutes = require('./routes/fareRoutes');
+app.use('/api/fares', fareRoutes);
+
+const routeRoutes = require('./routes/routeRoutes');
+app.use('/api/routes', routeRoutes);
 
 try {
   const busConditionReportRoutes = require('./routes/busConditionReportRoutes');
@@ -136,11 +179,18 @@ try {
 } catch (error) {
   console.log('❌ lostFoundRoutes error:', error.message);
 }
+
 // Static file routes
 app.get('/resetPassword.js', (req, res) => {
   res.setHeader('Content-Type', 'application/javascript');
   res.sendFile(path.join(__dirname, 'public/resetPassword.js'));
 });
+
+// Add this near your other route imports
+const busRoutes = require('./routes/busRoutes');
+
+// And this with your other app.use() calls
+app.use('/api/buses', busRoutes);
 
 
 app.get('/reset-password.html', (req, res) => {

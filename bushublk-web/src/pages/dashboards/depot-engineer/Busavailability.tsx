@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { HiSearch, HiFilter, HiEye, HiChevronLeft, HiChevronRight, HiX } from 'react-icons/hi';
+import { HiSearch, HiFilter, HiX, HiChevronLeft, HiChevronRight } from 'react-icons/hi';
 
 interface Bus {
   id: string;
@@ -7,7 +7,7 @@ interface Bus {
   capacity: number;
   route: string;
   mileage: string;
-  status: 'Active' | 'Under Repair' | 'Inactive';
+  status: 'Active' | 'In Service' | 'Maintenance' | 'Out of Service';
   lastService: string;
   nextService: string;
 }
@@ -18,11 +18,13 @@ interface Filters {
   route: string;
 }
 
-const AssignedBuses = () => {
+const Busavailability = () => {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [showFilters, setShowFilters] = useState<boolean>(false);
   const [selectedBus, setSelectedBus] = useState<Bus | null>(null);
+  const [isEditing, setIsEditing] = useState<boolean>(false);
+  const [editedStatus, setEditedStatus] = useState<'Active' | 'In Service' | 'Maintenance' | 'Out of Service'>('Active');
   const [filters, setFilters] = useState<Filters>({
     status: 'all',
     class: 'all',
@@ -31,8 +33,8 @@ const AssignedBuses = () => {
 
   const busesPerPage = 5;
 
-  // Sample bus data with class instead of model
-  const busData: Bus[] = [
+  // Sample bus data with updated dates
+  const [busData, setBusData] = useState<Bus[]>([
     {
       id: '#12',
       class: 'A',
@@ -40,8 +42,8 @@ const AssignedBuses = () => {
       route: 'Route 101',
       mileage: '45,200 km',
       status: 'Active',
-      lastService: '2023-05-15',
-      nextService: '2023-06-15'
+      lastService: '2025-06-15',
+      nextService: '2025-07-15'
     },
     {
       id: '#07',
@@ -49,8 +51,8 @@ const AssignedBuses = () => {
       capacity: 50,
       route: 'Route 205',
       mileage: '38,750 km',
-      status: 'Under Repair',
-      lastService: '2023-04-28',
+      status: 'In Service',
+      lastService: '2025-06-28',
       nextService: '-'
     },
     {
@@ -59,9 +61,9 @@ const AssignedBuses = () => {
       capacity: 40,
       route: 'Route 302',
       mileage: '52,100 km',
-      status: 'Active',
-      lastService: '2023-05-20',
-      nextService: '2023-06-20'
+      status: 'Maintenance',
+      lastService: '2025-06-20',
+      nextService: '2025-07-20'
     },
     {
       id: '#22',
@@ -69,8 +71,8 @@ const AssignedBuses = () => {
       capacity: 45,
       route: 'Route 101',
       mileage: '67,800 km',
-      status: 'Inactive',
-      lastService: '2023-03-10',
+      status: 'Out of Service',
+      lastService: '2025-05-10',
       nextService: '-'
     },
     {
@@ -80,8 +82,8 @@ const AssignedBuses = () => {
       route: 'Route 205',
       mileage: '29,400 km',
       status: 'Active',
-      lastService: '2023-05-10',
-      nextService: '2023-06-10'
+      lastService: '2025-06-10',
+      nextService: '2025-07-10'
     },
     {
       id: '#25',
@@ -89,214 +91,31 @@ const AssignedBuses = () => {
       capacity: 40,
       route: 'Route 302',
       mileage: '41,300 km',
-      status: 'Active',
-      lastService: '2023-05-18',
-      nextService: '2023-06-18'
-    },
-    {
-      id: '#09',
-      class: 'D',
-      capacity: 45,
-      route: 'Route 101',
-      mileage: '58,900 km',
-      status: 'Under Repair',
-      lastService: '2023-04-15',
-      nextService: '-'
-    },
-    {
-      id: '#31',
-      class: 'A',
-      capacity: 50,
-      route: 'Route 205',
-      mileage: '33,200 km',
-      status: 'Active',
-      lastService: '2023-05-22',
-      nextService: '2023-06-22'
-    },
-    {
-      id: '#14',
-      class: 'B',
-      capacity: 40,
-      route: 'Route 302',
-      mileage: '46,700 km',
-      status: 'Active',
-      lastService: '2023-05-12',
-      nextService: '2023-06-12'
-    },
-    {
-      id: '#28',
-      class: 'C',
-      capacity: 45,
-      route: 'Route 101',
-      mileage: '72,400 km',
-      status: 'Inactive',
-      lastService: '2023-02-28',
-      nextService: '-'
-    },
-    {
-      id: '#05',
-      class: 'D',
-      capacity: 50,
-      route: 'Route 205',
-      mileage: '36,800 km',
-      status: 'Active',
-      lastService: '2023-05-25',
-      nextService: '2023-06-25'
-    },
-    {
-      id: '#19',
-      class: 'A',
-      capacity: 40,
-      route: 'Route 302',
-      mileage: '49,200 km',
-      status: 'Active',
-      lastService: '2023-05-16',
-      nextService: '2023-06-16'
-    },
-    {
-      id: '#33',
-      class: 'B',
-      capacity: 45,
-      route: 'Route 101',
-      mileage: '44,600 km',
-      status: 'Active',
-      lastService: '2023-05-08',
-      nextService: '2023-06-08'
-    },
-    {
-      id: '#11',
-      class: 'C',
-      capacity: 50,
-      route: 'Route 205',
-      mileage: '31,900 km',
-      status: 'Active',
-      lastService: '2023-05-14',
-      nextService: '2023-06-14'
-    },
-    {
-      id: '#26',
-      class: 'D',
-      capacity: 40,
-      route: 'Route 302',
-      mileage: '53,700 km',
-      status: 'Under Repair',
-      lastService: '2023-04-20',
-      nextService: '-'
-    },
-    {
-      id: '#17',
-      class: 'A',
-      capacity: 45,
-      route: 'Route 101',
-      mileage: '39,800 km',
-      status: 'Active',
-      lastService: '2023-05-19',
-      nextService: '2023-06-19'
-    },
-    {
-      id: '#29',
-      class: 'B',
-      capacity: 50,
-      route: 'Route 205',
-      mileage: '42,300 km',
-      status: 'Active',
-      lastService: '2023-05-11',
-      nextService: '2023-06-11'
-    },
-    {
-      id: '#08',
-      class: 'C',
-      capacity: 40,
-      route: 'Route 302',
-      mileage: '48,500 km',
-      status: 'Active',
-      lastService: '2023-05-17',
-      nextService: '2023-06-17'
-    },
-    {
-      id: '#23',
-      class: 'D',
-      capacity: 45,
-      route: 'Route 101',
-      mileage: '56,900 km',
-      status: 'Under Repair',
-      lastService: '2023-04-25',
-      nextService: '-'
-    },
-    {
-      id: '#16',
-      class: 'A',
-      capacity: 50,
-      route: 'Route 205',
-      mileage: '34,700 km',
-      status: 'Active',
-      lastService: '2023-05-13',
-      nextService: '2023-06-13'
-    },
-    {
-      id: '#30',
-      class: 'B',
-      capacity: 40,
-      route: 'Route 302',
-      mileage: '47,100 km',
-      status: 'Active',
-      lastService: '2023-05-21',
-      nextService: '2023-06-21'
-    },
-    {
-      id: '#24',
-      class: 'C',
-      capacity: 45,
-      route: 'Route 101',
-      mileage: '61,200 km',
-      status: 'Active',
-      lastService: '2023-05-09',
-      nextService: '2023-06-09'
-    },
-    {
-      id: '#13',
-      class: 'D',
-      capacity: 50,
-      route: 'Route 205',
-      mileage: '37,400 km',
-      status: 'Active',
-      lastService: '2023-05-07',
-      nextService: '2023-06-07'
-    },
-    {
-      id: '#21',
-      class: 'A',
-      capacity: 40,
-      route: 'Route 302',
-      mileage: '50,800 km',
-      status: 'Active',
-      lastService: '2023-05-23',
-      nextService: '2023-06-23'
+      status: 'In Service',
+      lastService: '2025-06-18',
+      nextService: '2025-07-18'
     }
-  ];
+  ]);
 
   // Filter buses based on search term and filters
   const filteredBuses = busData.filter((bus: Bus) => {
-    // Search term filter
     const matchesSearch = 
       bus.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       bus.class.toLowerCase().includes(searchTerm.toLowerCase()) ||
       bus.route.toLowerCase().includes(searchTerm.toLowerCase()) ||
       bus.status.toLowerCase().includes(searchTerm.toLowerCase());
     
-    // Status filter
     const matchesStatus = 
       filters.status === 'all' || 
       (filters.status === 'active' && bus.status === 'Active') ||
-      (filters.status === 'inactive' && bus.status === 'Inactive') ||
-      (filters.status === 'repair' && bus.status === 'Under Repair');
+      (filters.status === 'in-service' && bus.status === 'In Service') ||
+      (filters.status === 'maintenance' && bus.status === 'Maintenance') ||
+      (filters.status === 'out-of-service' && bus.status === 'Out of Service');
     
-    // Class filter
     const matchesClass = 
       filters.class === 'all' ||
       bus.class === filters.class;
     
-    // Route filter
     const matchesRoute = 
       filters.route === 'all' ||
       (filters.route === '101' && bus.route.includes('101')) ||
@@ -306,11 +125,9 @@ const AssignedBuses = () => {
     return matchesSearch && matchesStatus && matchesClass && matchesRoute;
   });
 
-  // Calculate statistics based on filtered buses
+  // Calculate statistics
   const totalBuses = filteredBuses.length;
   const activeBuses = filteredBuses.filter(bus => bus.status === 'Active').length;
-  const inRepairBuses = filteredBuses.filter(bus => bus.status === 'Under Repair').length;
-  const inactiveBuses = filteredBuses.filter(bus => bus.status === 'Inactive').length;
 
   // Pagination
   const totalPages = Math.ceil(filteredBuses.length / busesPerPage);
@@ -318,13 +135,15 @@ const AssignedBuses = () => {
   const endIndex = startIndex + busesPerPage;
   const currentBuses = filteredBuses.slice(startIndex, endIndex);
 
-  const getStatusColor = (status: 'Active' | 'Under Repair' | 'Inactive') => {
+  const getStatusColor = (status: 'Active' | 'In Service' | 'Maintenance' | 'Out of Service') => {
     switch (status) {
       case 'Active':
         return 'text-green-600 bg-green-100';
-      case 'Under Repair':
+      case 'In Service':
+        return 'text-blue-600 bg-blue-100';
+      case 'Maintenance':
         return 'text-orange-600 bg-orange-100';
-      case 'Inactive':
+      case 'Out of Service':
         return 'text-red-600 bg-red-100';
       default:
         return 'text-gray-600 bg-gray-100';
@@ -376,11 +195,38 @@ const AssignedBuses = () => {
     setShowFilters(false);
   };
 
-  const handleViewBus = (bus: Bus) => {
+  const handleEditBus = (bus: Bus) => {
     setSelectedBus(bus);
+    setEditedStatus(bus.status);
+    setIsEditing(true);
   };
 
   const closeBusDetails = () => {
+    setSelectedBus(null);
+    setIsEditing(false);
+  };
+
+  const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setEditedStatus(e.target.value as 'Active' | 'In Service' | 'Maintenance' | 'Out of Service');
+  };
+
+  const handleSaveChanges = () => {
+    if (!selectedBus) return;
+
+    const updatedBusData = busData.map(bus => 
+      bus.id === selectedBus.id ? { ...bus, status: editedStatus } : bus
+    );
+
+    setBusData(updatedBusData);
+    setSelectedBus({ ...selectedBus, status: editedStatus });
+    setIsEditing(false);
+  };
+
+  const handleCancelEdit = () => {
+    if (selectedBus) {
+      setEditedStatus(selectedBus.status);
+    }
+    setIsEditing(false);
     setSelectedBus(null);
   };
 
@@ -388,7 +234,10 @@ const AssignedBuses = () => {
     <div className="p-6 bg-gray-50 min-h-screen">
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Assigned Buses</h1>
+        <div className="p-6 border-b border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-800">Bus Status Update</h3>
+          <p className="text-sm text-gray-400">Review and approve buses for daily service</p>
+        </div>
         <div className="flex items-center space-x-4">
           {/* Search */}
           <div className="relative">
@@ -438,8 +287,9 @@ const AssignedBuses = () => {
                     >
                       <option value="all">All Statuses</option>
                       <option value="active">Active</option>
-                      <option value="inactive">Inactive</option>
-                      <option value="repair">Under Repair</option>
+                      <option value="in-service">In Service</option>
+                      <option value="maintenance">Maintenance</option>
+                      <option value="out-of-service">Out of Service</option>
                     </select>
                   </div>
                   
@@ -500,20 +350,8 @@ const AssignedBuses = () => {
         <div className="bg-white p-4 rounded-lg shadow">
           <h3 className="text-sm font-medium text-gray-500 mb-2">Bus Fleet Overview</h3>
           <div className="flex justify-between items-center">
-            <span className="text-2xl font-bold text-gray-800">Total: {totalBuses} buses</span>
+            <span className="text-2xl font-bold text-gray-800">Active {activeBuses} buses</span>
           </div>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <h3 className="text-sm font-medium text-gray-500 mb-2">Active</h3>
-          <span className="text-2xl font-bold text-green-600">{activeBuses}</span>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <h3 className="text-sm font-medium text-gray-500 mb-2">In Repair</h3>
-          <span className="text-2xl font-bold text-orange-600">{inRepairBuses}</span>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <h3 className="text-sm font-medium text-gray-500 mb-2">Inactive</h3>
-          <span className="text-2xl font-bold text-red-600">{inactiveBuses}</span>
         </div>
       </div>
 
@@ -586,9 +424,9 @@ const AssignedBuses = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     <button 
                       className="bg-blue-500 text-white p-2 rounded hover:bg-blue-600 transition-colors"
-                      onClick={() => handleViewBus(bus)}
+                      onClick={() => handleEditBus(bus)}
                     >
-                      <HiEye className="h-4 w-4" />
+                      Edit
                     </button>
                   </td>
                 </tr>
@@ -649,7 +487,10 @@ const AssignedBuses = () => {
 
       {/* Bus Details Modal */}
       {selectedBus && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div
+          className="fixed inset-0 flex items-center justify-center p-4 z-50"
+          style={{ backgroundColor: 'rgba(15, 23, 42, 0.85)' }}
+        >
           <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold text-gray-800">Bus Details</h2>
@@ -693,9 +534,16 @@ const AssignedBuses = () => {
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-medium text-gray-500">Status:</span>
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(selectedBus.status)}`}>
-                      {selectedBus.status}
-                    </span>
+                    <select
+                      value={editedStatus}
+                      onChange={handleStatusChange}
+                      className="border border-gray-300 rounded-md px-2 py-1 text-sm"
+                    >
+                      <option value="Active">Active</option>
+                      <option value="In Service">In Service</option>
+                      <option value="Maintenance">Maintenance</option>
+                      <option value="Out of Service">Out of Service</option>
+                    </select>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-medium text-gray-500">Mileage:</span>
@@ -722,40 +570,24 @@ const AssignedBuses = () => {
               </div>
 
               {/* Additional Information */}
-              <div className="bg-gray-50 p-4 rounded-lg md:col-span-2">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Additional Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-blue-600">
-                      {selectedBus.status === 'Active' ? '✓' : selectedBus.status === 'Under Repair' ? '⚠' : '✗'}
-                    </div>
-                    <div className="text-sm text-gray-500 mt-1">Operational Status</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-green-600">
-                      {parseInt(selectedBus.mileage.replace(/[^\d]/g, '')) > 50000 ? 'High' : 'Normal'}
-                    </div>
-                    <div className="text-sm text-gray-500 mt-1">Mileage Level</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-purple-600">
-                      {selectedBus.nextService === '-' ? 'Pending' : 'Scheduled'}
-                    </div>
-                    <div className="text-sm text-gray-500 mt-1">Service Status</div>
-                  </div>
-                </div>
-              </div>
+              
+              
             </div>
 
             {/* Action Buttons */}
             <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
               <button
-                onClick={closeBusDetails}
+                onClick={handleCancelEdit}
                 className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
               >
-                Close
+                Cancel
               </button>
-              
+              <button
+                onClick={handleSaveChanges}
+                className="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-blue-500 hover:bg-blue-600"
+              >
+                Save Changes
+              </button>
             </div>
           </div>
         </div>
@@ -764,4 +596,4 @@ const AssignedBuses = () => {
   );
 };
 
-export default AssignedBuses;
+export default Busavailability;

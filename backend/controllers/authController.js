@@ -31,14 +31,32 @@ const loginUser = async (req, res) => {
 
     // Update last login
     await User.updateLastLogin(user.user_id);
+      
+    const roleDetails = await User.getRoleSpecificDetails(user.user_id, user.role_name);
 
+
+    // Create the user object for the payload
+    const userPayload = {
+      id: user.user_id,
+      username: user.username,
+      email: user.email,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      phone: user.phone,
+      role: user.role_name,
+      is_active: user.is_active,
+      last_login: user.last_login,
+      // Add depot_id and other details if they exist
+      ...(roleDetails && { depot_id: roleDetails.depot_id, region_id: roleDetails.region_id })
+    };
+    
     // Create JWT
     const token = jwt.sign(
       {
         userId: user.user_id,
         role: user.role_name,
-        email: user.email,
-        username: user.username
+        // You can add depot_id to the JWT payload as well if needed elsewhere
+        depot_id: roleDetails ? roleDetails.depot_id : null
       },
       process.env.JWT_SECRET,
       { expiresIn: '8h' }
@@ -47,17 +65,7 @@ const loginUser = async (req, res) => {
     res.json({
       message: 'Login successful',
       token,
-      user: {
-        id: user.user_id,
-        username: user.username,
-        email: user.email,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        phone: user.phone,
-        role: user.role_name,
-        is_active: user.is_active,
-        last_login: user.last_login
-      }
+      user: userPayload // Send the enriched user object
     });
 
   } catch (err) {

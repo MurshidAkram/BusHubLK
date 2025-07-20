@@ -21,7 +21,6 @@ const DistanceMonitor = () => {
 
   const [selectedDate, setSelectedDate] = useState<string>(today);
 
-  // Scheduled Timings (Before trip)
   const [scheduleForm, setScheduleForm] = useState({
     bus: '',
     scheduledDeparture: '',
@@ -33,6 +32,13 @@ const DistanceMonitor = () => {
     { date: today, busName: 'NP4567', scheduledDeparture: '09:00', scheduledArrival: '11:30' },
     { date: today, busName: 'NP8910', scheduledDeparture: '07:45', scheduledArrival: '09:15' },
   ]);
+
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState({
+    bus: '',
+    scheduledDeparture: '',
+    scheduledArrival: '',
+  });
 
   const handleScheduleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setScheduleForm({ ...scheduleForm, [e.target.name]: e.target.value });
@@ -52,7 +58,58 @@ const DistanceMonitor = () => {
     setScheduleForm({ bus: '', scheduledDeparture: '', scheduledArrival: '' });
   };
 
-  // Actual Trip Data (After trip)
+  const handleEdit = (index: number) => {
+    const timing = filteredEstimated[index];
+    setEditForm({
+      bus: timing.busName,
+      scheduledDeparture: timing.scheduledDeparture,
+      scheduledArrival: timing.scheduledArrival,
+    });
+    setEditingIndex(index);
+  };
+
+  const handleEditChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEditForm({ ...editForm, [e.target.name]: e.target.value });
+  };
+
+  const handleSaveEdit = () => {
+    if (editingIndex === null) return;
+
+    const updated = [...estimatedTimings];
+    const globalIndex = estimatedTimings.findIndex(
+      (item) =>
+        item.date === selectedDate &&
+        item.busName === filteredEstimated[editingIndex].busName &&
+        item.scheduledDeparture === filteredEstimated[editingIndex].scheduledDeparture &&
+        item.scheduledArrival === filteredEstimated[editingIndex].scheduledArrival
+    );
+
+    if (globalIndex !== -1) {
+      updated[globalIndex] = {
+        date: selectedDate,
+        busName: editForm.bus,
+        scheduledDeparture: editForm.scheduledDeparture,
+        scheduledArrival: editForm.scheduledArrival,
+      };
+      setEstimatedTimings(updated);
+    }
+
+    setEditingIndex(null);
+  };
+
+  const handleDelete = (index: number) => {
+    const itemToRemove = filteredEstimated[index];
+    setEstimatedTimings(prev =>
+      prev.filter(
+        (item) =>
+          !(item.date === selectedDate &&
+            item.busName === itemToRemove.busName &&
+            item.scheduledDeparture === itemToRemove.scheduledDeparture &&
+            item.scheduledArrival === itemToRemove.scheduledArrival)
+      )
+    );
+  };
+
   const [actualForm, setActualForm] = useState({
     bus: '',
     actualDeparture: '',
@@ -137,14 +194,61 @@ const DistanceMonitor = () => {
                   <th className="px-4 py-2 border">Bus</th>
                   <th className="px-4 py-2 border">Scheduled Departure</th>
                   <th className="px-4 py-2 border">Scheduled Arrival</th>
+                  <th className="px-4 py-2 border">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredEstimated.map((e, i) => (
                   <tr key={i}>
-                    <td className="px-4 py-2 border">{e.busName}</td>
-                    <td className="px-4 py-2 border">{e.scheduledDeparture}</td>
-                    <td className="px-4 py-2 border">{e.scheduledArrival}</td>
+                    {editingIndex === i ? (
+                      <>
+                        <td className="px-4 py-2 border">
+                          <select
+                            name="bus"
+                            value={editForm.bus}
+                            onChange={(e) => setEditForm({ ...editForm, bus: e.target.value })}
+                            className="border p-1 rounded w-full"
+                          >
+                            <option value="">Select Bus</option>
+                            {buses.map((bus, j) => (
+                              <option key={j} value={bus}>{bus}</option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="px-4 py-2 border">
+                          <input
+                            type="time"
+                            name="scheduledDeparture"
+                            value={editForm.scheduledDeparture}
+                            onChange={handleEditChange}
+                            className="border p-1 rounded w-full"
+                          />
+                        </td>
+                        <td className="px-4 py-2 border">
+                          <input
+                            type="time"
+                            name="scheduledArrival"
+                            value={editForm.scheduledArrival}
+                            onChange={handleEditChange}
+                            className="border p-1 rounded w-full"
+                          />
+                        </td>
+                        <td className="px-4 py-2 border space-x-2">
+                          <button onClick={handleSaveEdit} className="bg-green-500 text-white px-2 py-1 rounded text-xs">Save</button>
+                          <button onClick={() => setEditingIndex(null)} className="bg-gray-400 text-white px-2 py-1 rounded text-xs">Cancel</button>
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="px-4 py-2 border">{e.busName}</td>
+                        <td className="px-4 py-2 border">{e.scheduledDeparture}</td>
+                        <td className="px-4 py-2 border">{e.scheduledArrival}</td>
+                        <td className="px-4 py-2 border space-x-2">
+                        <button onClick={() => handleEdit(i)} className="text-blue-600 hover:underline">Edit</button>
+                        <button onClick={() => handleDelete(i)} className="text-red-600 hover:underline">Delete</button>
+                        </td>
+                      </>
+                    )}
                   </tr>
                 ))}
               </tbody>
