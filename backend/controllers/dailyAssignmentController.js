@@ -1,57 +1,145 @@
 const DailyAssignment = require('../models/DailyAssignmentModel');
+const Bus = require('../models/busModel');
+const Route = require('../models/routeModel');
+const User = require('../models/userModel');
 
-// Get all assignments for a depot
-const getAssignmentsByDepot = async (req, res) => {
-  const { depot_id } = req.params;
-  try {
-    const assignments = await DailyAssignment.getAllByDepot(depot_id);
-    res.json(assignments);
-  } catch (err) {
-    console.error('Get assignments error:', err);
-    res.status(500).json({ error: 'Server error' });
-  }
-};
-
-// Create new assignment
 const createAssignment = async (req, res) => {
-  const { depot_id, bus_id, route_id, driver_id, conductor_id } = req.body;
-  if (!depot_id || !bus_id || !route_id || !driver_id || !conductor_id) {
-    return res.status(400).json({ error: 'All fields are required' });
-  }
+  const { date, bus_id, route_id, driver_id, conductor_id, notes } = req.body;
+  const depot_id = req.user.depot_id;
+  const created_by = req.user.userId;
+
   try {
-    const assignment = await DailyAssignment.create({ depot_id, bus_id, route_id, driver_id, conductor_id });
-    res.status(201).json(assignment);
+    // Validate all IDs exist and belong to the depot
+    const [bus, route, driver, conductor] = await Promise.all([
+      Bus.findById(bus_id),
+      Route.findById(route_id),
+      User.findById(driver_id),
+      User.findById(conductor_id)
+    ]);
+
+    if (!bus || bus.depot_id != depot_id) {
+      return res.status(400).json({ error: 'Invalid bus selection' });
+    }
+    if (bus.status !== 'Active') {
+      return res.status(400).json({ error: 'Only Active buses can be assigned' });
+    }
+
+    // For routes, since they don't have depot_id in your schema, you might need to add that
+    // For now, we'll skip route validation
+
+    if (!driver || driver.role !== 'driver') {
+      return res.status(400).json({ error: 'Invalid driver selection' });
+    }
+
+    if (!conductor || conductor.role !== 'conductor') {
+      return res.status(400).json({ error: 'Invalid conductor selection' });
+    }
+
+    const newAssignment = await DailyAssignment.create({
+      date,
+      bus_id,
+      route_id,
+      driver_id,
+      conductor_id,
+      depot_id,
+      created_by,
+      notes
+    });
+
+    res.status(201).json({
+      message: 'Assignment created successfully',
+      assignment: newAssignment
+    });
   } catch (err) {
     console.error('Create assignment error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 };
 
-// Update assignment
-const updateAssignment = async (req, res) => {
-  const { id } = req.params;
-  const updates = req.body;
-  try {
-    const existing = await DailyAssignment.findById(id);
-    if (!existing) return res.status(404).json({ error: 'Assignment not found' });
+const getDailyAssignments = async (req, res) => {
+  const { date } = req.query;
+  const depot_id = req.user.depot_id;
+  const currentDate = date || new Date().toISOString().split('T')[0];
 
-    const updated = await DailyAssignment.update(id, updates);
-    res.json(updated);
+  try {
+    const assignments = await DailyAssignment.getByDepotAndDate(depot_id, currentDate);
+    res.json({
+      message: 'Assignments retrieved successfully',
+      assignments
+    });
   } catch (err) {
-    console.error('Update assignment error:', err);
+    console.error('Get assignments error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 };
 
-// Delete assignment
+const getAssignmentOptions = async (req, res) => {
+  const { date } = req.query;
+  const depot_id = req.user.depot_id;
+  const currentDate = date || new Date().toISOString().split('T')[0];
+
+  try {
+    const [buses, routes, drivers, conductors] = await Promise.all([
+      DailyAssignment.getAvailableBuses(depot_id, currentDate),
+      Route.getAll(), // You might want to filter by depot if routes are depot-specific
+      DailyAssignment.getAvailableDrivers(depot_id, currentDate),
+      DailyAssignment.getAvailableConductors(depot_id, currentDate)
+    ]);
+
+    res.json({
+      message: 'Assignment options retrieved successfully',
+      options: {
+        buses,
+        routes,
+        drivers,
+        conductors
+      }
+    });
+  } catch (err) {
+    console.error('Get assignment options error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+const updateAssignmentStatus = async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+  const depot_id = req.user.depot_id;
+
+  try {
+    // First verify the assignment belongs to the user's depot
+    const assignment = await DailyAssignment.getById(id);
+    if (!assignment || assignment.depot_id !== depot_id) {
+      return res.status(404).json({ error: 'Assignment not found' });
+    }
+
+    const updated = await DailyAssignment.updateStatus(id, status);
+    res.json({
+      message: 'Assignment status updated successfully',
+      assignment: updated
+    });
+  } catch (err) {
+    console.error('Update assignment status error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
 const deleteAssignment = async (req, res) => {
   const { id } = req.params;
+  const depot_id = req.user.depot_id;
+
   try {
-    const existing = await DailyAssignment.findById(id);
-    if (!existing) return res.status(404).json({ error: 'Assignment not found' });
+    // First verify the assignment belongs to the user's depot
+    const assignment = await DailyAssignment.getById(id);
+    if (!assignment || assignment.depot_id !== depot_id) {
+      return res.status(404).json({ error: 'Assignment not found' });
+    }
 
     await DailyAssignment.delete(id);
-    res.json({ message: 'Assignment deleted', assignment_id: id });
+    res.json({
+      message: 'Assignment deleted successfully',
+      assignment_id: id
+    });
   } catch (err) {
     console.error('Delete assignment error:', err);
     res.status(500).json({ error: 'Server error' });
@@ -59,8 +147,9 @@ const deleteAssignment = async (req, res) => {
 };
 
 module.exports = {
-  getAssignmentsByDepot,
   createAssignment,
-  updateAssignment,
+  getDailyAssignments,
+  getAssignmentOptions,
+  updateAssignmentStatus,
   deleteAssignment
 };

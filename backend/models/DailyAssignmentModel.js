@@ -1,77 +1,105 @@
 const db = require('../config/db');
 
 class DailyAssignment {
-  static async getAllByDepot(depot_id) {
+  static async create({ date, bus_id, route_id, driver_id, conductor_id, depot_id, created_by, notes = null }) {
     const result = await db.query(
-      `SELECT da.assignment_id, da.depot_id, da.bus_id, da.route_id, da.driver_id, da.conductor_id,
-              b.registration_number AS bus_name,
-              r.route_number || ': ' || r.route_name AS route_name,
-              d.depot_name,
-              udriver.name AS driver_name,
-              uconductor.name AS conductor_name,
-              da.created_at, da.updated_at
-       FROM dailyassignment da
-       JOIN buses b ON da.bus_id = b.bus_id
-       JOIN routes r ON da.route_id = r.route_id
-       JOIN depots d ON da.depot_id = d.depot_id
-       JOIN users udriver ON da.driver_id = udriver.user_id
-       JOIN users uconductor ON da.conductor_id = uconductor.user_id
-       WHERE da.depot_id = $1
-       ORDER BY da.assignment_id DESC`,
-      [depot_id]
-    );
-    return result.rows;
-  }
-
-  static async create({ depot_id, bus_id, route_id, driver_id, conductor_id }) {
-    const result = await db.query(
-      `INSERT INTO dailyassignment (depot_id, bus_id, route_id, driver_id, conductor_id)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO daily_assignments 
+       (date, bus_id, route_id, driver_id, conductor_id, depot_id, created_by, notes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
-      [depot_id, bus_id, route_id, driver_id, conductor_id]
+      [date, bus_id, route_id, driver_id, conductor_id, depot_id, created_by, notes]
     );
     return result.rows[0];
   }
 
-  static async update(assignment_id, updates) {
-    const allowedFields = ['bus_id', 'route_id', 'driver_id', 'conductor_id'];
-    const setClauses = [];
-    const values = [];
-    let idx = 1;
+  
 
-    for (const [key, value] of Object.entries(updates)) {
-      if (allowedFields.includes(key)) {
-        setClauses.push(`${key} = $${idx}`);
-        values.push(value);
-        idx++;
-      }
-    }
-    if (setClauses.length === 0) throw new Error('No valid fields to update');
-
-    values.push(assignment_id);
+  static async getByDepotAndDate(depot_id, date) {
     const result = await db.query(
-      `UPDATE dailyassignment SET ${setClauses.join(', ')}, updated_at = CURRENT_TIMESTAMP
-       WHERE assignment_id = $${idx}
+      `SELECT da.*, 
+              b.registration_number as bus_number,
+              r.route_number, r.route_name,
+              d.first_name as driver_first_name, d.last_name as driver_last_name,
+              c.first_name as conductor_first_name, c.last_name as conductor_last_name
+       FROM daily_assignments da
+       JOIN buses b ON da.bus_id = b.bus_id
+       JOIN routes r ON da.route_id = r.route_id
+       JOIN users d ON da.driver_id = d.user_id
+       JOIN users c ON da.conductor_id = c.user_id
+       WHERE da.depot_id = $1 AND da.date = $2
+       ORDER BY da.assignment_id`,
+      [depot_id, date]
+    );
+    return result.rows;
+  }
+
+  static async updateStatus(assignment_id, status) {
+    const result = await db.query(
+      `UPDATE daily_assignments 
+       SET status = $1, updated_at = CURRENT_TIMESTAMP
+       WHERE assignment_id = $2
        RETURNING *`,
-      values
+      [status, assignment_id]
     );
     return result.rows[0];
   }
 
   static async delete(assignment_id) {
     const result = await db.query(
-      `DELETE FROM dailyassignment WHERE assignment_id = $1 RETURNING assignment_id`,
+      'DELETE FROM daily_assignments WHERE assignment_id = $1 RETURNING *',
       [assignment_id]
     );
     return result.rows[0];
   }
 
-  static async findById(assignment_id) {
+  static async getAvailableBuses(depot_id, date) {
     const result = await db.query(
-      `SELECT * FROM dailyassignment WHERE assignment_id = $1`,
-      [assignment_id]
+      `SELECT b.* 
+       FROM buses b
+       WHERE b.depot_id = $1 
+       AND b.status = 'Active'
+       AND b.bus_id NOT IN (
+         SELECT bus_id 
+         FROM daily_assignments 
+         WHERE date = $2 AND status != 'Cancelled'
+       )`,
+      [depot_id, date]
     );
-    return result.rows[0];
+    return result.rows;
+  }
+
+  static async getAvailableDrivers(depot_id, date) {
+    const result = await db.query(
+      `SELECT u.* 
+       FROM users u
+       JOIN drivers d ON u.user_id = d.driver_id
+       WHERE d.depot_id = $1 
+       AND u.is_active = TRUE
+       AND u.user_id NOT IN (
+         SELECT driver_id 
+         FROM daily_assignments 
+         WHERE date = $2 AND status != 'Cancelled'
+       )`,
+      [depot_id, date]
+    );
+    return result.rows;
+  }
+
+  static async getAvailableConductors(depot_id, date) {
+    const result = await db.query(
+      `SELECT u.* 
+       FROM users u
+       JOIN conductors c ON u.user_id = c.conductor_id
+       WHERE c.depot_id = $1 
+       AND u.is_active = TRUE
+       AND u.user_id NOT IN (
+         SELECT conductor_id 
+         FROM daily_assignments 
+         WHERE date = $2 AND status != 'Cancelled'
+       )`,
+      [depot_id, date]
+    );
+    return result.rows;
   }
 }
 

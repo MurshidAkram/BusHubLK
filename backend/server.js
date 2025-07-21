@@ -110,7 +110,7 @@ try {
 }
 try {
   const dailyAssignmentRoutes = require('./routes/dailyAssignmentRoutes');
-  app.use('/api/dailyassignment', dailyAssignmentRoutes);
+  app.use('/api/assignments', dailyAssignmentRoutes);
   console.log('✅ dailyAssignmentRoutes loaded');
 } catch (error) {
   console.log('❌ dailyAssignmentRoutes error:', error.message);

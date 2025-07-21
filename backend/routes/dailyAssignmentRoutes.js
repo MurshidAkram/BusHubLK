@@ -1,25 +1,48 @@
 const express = require('express');
 const router = express.Router();
 const {
-  getAssignmentsByDepot,
   createAssignment,
-  updateAssignment,
+  getDailyAssignments,
+  getAssignmentOptions,
+  updateAssignmentStatus,
   deleteAssignment
 } = require('../controllers/dailyAssignmentController');
 
-const { authenticateJWT, authorizeAdmin } = require('../middlewares/authMiddleware');
+const { authenticateJWT, authorizeDepotStaff } = require('../middlewares/authMiddleware');
 
-// Get all assignments for depot
-router.get('/depot/:depot_id', authenticateJWT, authorizeAdmin, getAssignmentsByDepot);
+// POST /api/assignments - Create new assignment
+router.post('/',
+  authenticateJWT,
+  authorizeDepotStaff,
+  createAssignment
+);
 
-// Create new assignment
-router.post('/', authenticateJWT, authorizeAdmin, createAssignment);
+// GET /api/assignments - Get today's assignments
+router.get('/',
+  authenticateJWT,
+  authorizeDepotStaff,
+  getDailyAssignments
+);
 
-// Update assignment
-router.put('/:id', authenticateJWT, authorizeAdmin, updateAssignment);
+// GET /api/assignments/options - Get available buses, routes, drivers, conductors
+router.get('/options',
+  authenticateJWT,
+  authorizeDepotStaff,
+  getAssignmentOptions
+);
 
-// Delete assignment
-router.delete('/:id', authenticateJWT, authorizeAdmin, deleteAssignment);
+// PUT /api/assignments/:id/status - Update assignment status
+router.put('/:id/status',
+  authenticateJWT,
+  authorizeDepotStaff,
+  updateAssignmentStatus
+);
+
+// DELETE /api/assignments/:id - Delete assignment
+router.delete('/:id',
+  authenticateJWT,
+  authorizeDepotStaff,
+  deleteAssignment
+);
 
 module.exports = router;
-
