@@ -11,12 +11,11 @@ import LostAndFoundScreen from "../screens/LostAndFoundScreen";
 import EmergencyScreen from "../screens/EmergencyScreen";
 import ConditionScreen from "../screens/ConditionScreen";
 import TravelLogScreen from "../screens/TravelLogScreen";
-import TrackingScreen from "../screens/TrackingScreen";
-
 import ProfileScreen from "../screens/ProfileScreen";
 import SettingsScreen from "../screens/SettingScreen";
 import MapScreen from "../screens/MapScreen";
 import ScheduleScreen from "../screens/ScheduleScreen";
+import NotificationsScreen from "../screens/NotificationsScreen";
 
 // Create Stack Navigators for each tab
 const HomeStack = createStackNavigator();
@@ -24,14 +23,13 @@ const ScheduleStack = createStackNavigator();
 const ProfileStack = createStackNavigator();
 const SettingsStack = createStackNavigator();
 
-// Placeholder screen (kept for future use)
-const PlaceholderScreen = ({ title }: { title: string }) => (
+// Placeholder screen
+const PlaceholderScreen = ({ title }) => (
   <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
     <Text style={{ fontSize: 18, fontWeight: "bold" }}>{title}</Text>
     <Text style={{ marginTop: 10, color: "#666" }}>Coming Soon</Text>
   </View>
 );
-
 
 // Home Stack Navigator
 const HomeStackNavigator = () => {
@@ -47,18 +45,14 @@ const HomeStackNavigator = () => {
       <HomeStack.Screen name="Emergency" component={EmergencyScreen} />
       <HomeStack.Screen name="Condition" component={ConditionScreen} />
       <HomeStack.Screen name="TravelLog" component={TravelLogScreen} />
-      <HomeStack.Screen name="Tracking" component={TrackingScreen} />
-      <HomeStack.Screen name="ProfileModal" component={ProfileScreen} />
+      <HomeStack.Screen name="Notifications" component={NotificationsScreen} />
       <HomeStack.Screen name="MapScreen" component={MapScreen} />
-
     </HomeStack.Navigator>
   );
 };
 
-
 // Schedule Stack Navigator
 const ScheduleStackNavigator = () => {
-
   return (
     <ScheduleStack.Navigator
       screenOptions={{
@@ -91,9 +85,7 @@ const SettingsStackNavigator = () => {
         headerShown: false,
       }}
     >
-
       <SettingsStack.Screen name="SettingsMain" component={SettingsScreen} />
-
     </SettingsStack.Navigator>
   );
 };
@@ -107,7 +99,7 @@ const TabNavigator = () => {
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarIcon: ({ focused, color, size }) => {
-          let iconName: any;
+          let iconName;
 
           if (route.name === "Home") {
             iconName = focused ? "home" : "home-outline";
@@ -117,8 +109,6 @@ const TabNavigator = () => {
             iconName = focused ? "person" : "person-outline";
           } else if (route.name === "Settings") {
             iconName = focused ? "settings" : "settings-outline";
-          } else {
-            iconName = "help-outline";
           }
 
           return <Ionicons name={iconName} size={size} color={color} />;

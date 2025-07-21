@@ -1,5 +1,3 @@
-// In routes/passengerRoutes.js
-
 const express = require('express');
 const router = express.Router();
 const {
@@ -7,32 +5,23 @@ const {
     getEmergencyContacts,
     updateEmergencyContact,
     deleteEmergencyContact,
-    notifyEmergencyContacts, // 1. Import the new controller function
-    createAlert, // 1. Import the new controller functions
-  getAlertsByPassenger, // from the same file
+    notifyEmergencyContacts,
+    createAlert,
+    getAlertsByPassenger,
+    getNearestDepot,
 } = require('../controllers/passengerController');
 
-// --- NEW: Route to trigger emergency notifications ---
-// Route: POST /api/passengers/notify-contacts
-router.post('/notify-contacts', notifyEmergencyContacts); // 2. Add the new route
-
-router.post('/:id/alerts', createAlert); // 2. Add the new routes
-router.get('/:id/alerts', getAlertsByPassenger);
-
-// GET all contacts for a specific passenger
-// Route: GET /api/passengers/:id/contacts
+// --- Passenger Contact Routes ---
 router.get('/:id/contacts', getEmergencyContacts);
-
-// POST a new contact for a specific passenger
-// Route: POST /api/passengers/:id/contacts
 router.post('/:id/contacts', addEmergencyContact);
-
-// PUT (update) a specific contact for a specific passenger
-// Route: PUT /api/passengers/:id/contacts/:contactId
 router.put('/:id/contacts/:contactId', updateEmergencyContact);
-
-// DELETE a specific contact for a specific passenger
-// Route: DELETE /api/passengers/:id/contacts/:contactId
 router.delete('/:id/contacts/:contactId', deleteEmergencyContact);
+
+// --- Emergency Alert Routes ---
+router.post('/notify-contacts', notifyEmergencyContacts); // Endpoint for sending notifications
+router.post('/:id/alerts', createAlert); // Endpoint for creating an alert record
+router.get('/:id/alerts', getAlertsByPassenger); // Endpoint for fetching alert history
+router.get('/:id/nearest-depot', getNearestDepot);
+
 
 module.exports = router;
