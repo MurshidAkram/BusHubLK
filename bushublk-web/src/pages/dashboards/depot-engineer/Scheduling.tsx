@@ -66,12 +66,10 @@ const ServiceScheduleApp: React.FC = () => {
 
     const days: (number | null)[] = [];
     
-    // Add empty cells for days before the first day of the month
     for (let i = 0; i < startingDayOfWeek; i++) {
       days.push(null);
     }
     
-    // Add days of the month
     for (let day = 1; day <= daysInMonth; day++) {
       days.push(day);
     }
@@ -148,6 +146,14 @@ const ServiceScheduleApp: React.FC = () => {
 
   const calendarDays = getDaysInMonth(currentDate);
   const today = new Date();
+
+  // Available buses under the depot (hardcoded based on context)
+  const availableBuses = [
+   
+    { id: '17', number: 'NC-1234' },
+    { id: '21', number: 'NP-3456' },
+    { id: '23', number: 'NY-3891' },
+  ];
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -299,29 +305,29 @@ const ServiceScheduleApp: React.FC = () => {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Service Type</label>
-                  <select
+                  <input
+                    type="text"
                     value={newService.serviceType}
-                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setNewService({...newService, serviceType: e.target.value})}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewService({...newService, serviceType: e.target.value})}
+                    placeholder="e.g., Oil Change"
                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">Select service type</option>
-                    <option value="Oil Change">Oil Change</option>
-                    <option value="Brake Inspection">Brake Inspection</option>
-                    <option value="Tire Rotation">Tire Rotation</option>
-                    <option value="Engine Check">Engine Check</option>
-                    <option value="Transmission Service">Transmission Service</option>
-                  </select>
+                  />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Bus ID</label>
-                  <input
-                    type="text"
+                  <select
                     value={newService.busId}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewService({...newService, busId: e.target.value})}
-                    placeholder="e.g., #12"
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setNewService({...newService, busId: e.target.value})}
                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
+                  >
+                    <option value="">Select a bus</option>
+                    {availableBuses.map((bus) => (
+                      <option key={bus.id} value={bus.id}>
+                        {bus.number} ({bus.id})
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
@@ -359,7 +365,7 @@ const ServiceScheduleApp: React.FC = () => {
                   onClick={handleAddService}
                   className="flex-1 py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
-                  Add Service
+                  Add schedule
                 </button>
               </div>
             </div>

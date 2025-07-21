@@ -10,6 +10,9 @@ import {
   HiFire,
   HiHeart
 } from 'react-icons/hi';
+import { useState, useEffect, useContext } from 'react';
+import { AppContext } from '../../../context/AppContext';
+import axios, { AxiosError } from 'axios';
 
 interface EmergencyReport {
   id: string;
@@ -18,24 +21,53 @@ interface EmergencyReport {
   type: 'fire' | 'medical' | 'mechanical';
   reason: string;
   status: 'pending' | 'resolved' | 'in-progress';
-  region: string; // Added region field
-  depot: string;  // Added depot field
+  region: string;
+  depot: string;
+}
+
+interface Bus {
+  bus_id: string;
+  registration_number: string;
+  depot_id: string;
+  class: string;
+  manufacturer: string;
+  model: string;
+  year: number;
+  mileage: string;
+  status: 'Active' | 'In Service' | 'Maintenance' | 'Out of Service';
+  depot_name?: string;
+  region_name?: string;
+}
+
+interface BusResponse {
+  success: boolean;
+  message: string;
+  buses: Bus[];
+}
+
+interface AppContextType {
+  user: { role: string; userId: string; depot_id?: string; region_id?: string; } | null;
+  token: string | null;
 }
 
 const DepotEngineerDashboard = () => {
-  // Mock data - replace with actual API calls
-  const stats = {
-    totalBuses: 42,
-    activeBuses: 24,
-    underMaintenance: 5,
+  const context = useContext<AppContextType | null>(AppContext);
+  const navigate = useNavigate();
+  const [stats, setStats] = useState({
+    totalBuses: 0,
+    activeBuses: 0,
+    underMaintenance: 0,
     EmergencyReports: 2,
     criticalIssues: 2,
     busesOverdueService: 4,
     busesOperational: 18,
     busesInGarage: 6,
     complianceRate: 92
-  };
-  const navigate = useNavigate();
+  });
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const token = context?.token;
 
   const pendingApprovals = [
     { id: 17, reg_num: 'NC_1234', priority: 'High', status: 'Major issue' },
@@ -51,8 +83,8 @@ const DepotEngineerDashboard = () => {
       type: 'fire',
       reason: 'Engine compartment fire',
       status: 'pending',
-      region: 'Central', // Added region
-      depot: 'Kandy Depot' // Added depot
+      region: 'Central',
+      depot: 'Kandy Depot'
     },
     { 
       id: '23',
@@ -61,8 +93,8 @@ const DepotEngineerDashboard = () => {
       type: 'medical',
       reason: 'Passenger medical emergency',
       status: 'pending',
-      region: 'Western', // Added region
-      depot: 'Colombo Depot' // Added depot
+      region: 'Western',
+      depot: 'Colombo Depot'
     }
   ];
 
@@ -95,6 +127,54 @@ const DepotEngineerDashboard = () => {
       default: return 'bg-gray-100 text-gray-800';
     }
   };
+
+  const fetchBuses = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const apiUrl = `http://localhost:5000/api/depot-engineer/buses`;
+      const response = await axios.get<BusResponse>(apiUrl, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (response.data.success) {
+        const buses = response.data.buses;
+        setStats(prevStats => ({
+          ...prevStats,
+          totalBuses: buses.length,
+          activeBuses: buses.filter(bus => bus.status === 'Active').length,
+          underMaintenance: buses.filter(bus => bus.status === 'Maintenance').length
+        }));
+      } else {
+        setError('Failed to fetch buses.');
+      }
+    } catch (err) {
+      const axiosError = err as AxiosError;
+      console.error('Error fetching buses:', axiosError);
+      if (axiosError.response && axiosError.response.data) {
+        setError((axiosError.response.data as any).error || 'Failed to fetch buses.');
+      } else {
+        setError('Failed to fetch buses. Please try again later.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (token && context?.user?.role === 'depot_engineer') {
+      fetchBuses();
+    }
+  }, [token, context?.user?.role]);
+
+  if (loading) {
+    return <div className="text-center py-8">Loading dashboard...</div>;
+  }
+
+  if (error) {
+    return <div className="text-center py-8 text-red-600">Error: {error}</div>;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
