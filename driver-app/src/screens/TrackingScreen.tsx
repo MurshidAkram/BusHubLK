@@ -208,19 +208,21 @@ export default function TrackingScreen({ navigation }: any) {
         const routeId = assignmentData?.route_id?.toString() || userData?.routeId;
         
         if (busId && routeId) {
-          await locationService.startLocationTracking(
+          const success = await locationService.startSmartLocationTracking(
             busId, 
             routeId, 
             assignmentData?.bus_registration
           );
-          setTrackingStatus(prev => ({ 
-            ...prev, 
-            isActive: true,
-            busId: busId,
-            routeId: routeId,
-            lastUpdate: new Date().toISOString(),
-          }));
-          Alert.alert('Tracking Started', `Location tracking started for Bus ${assignmentData?.bus_registration || busId} on Route ${assignmentData?.route_number || routeId}.`);
+          if (success) {
+            setTrackingStatus(prev => ({ 
+              ...prev, 
+              isActive: true,
+              busId: busId,
+              routeId: routeId,
+              lastUpdate: new Date().toISOString(),
+            }));
+            Alert.alert('Tracking Started', `Background location tracking started for Bus ${assignmentData?.bus_registration || busId} on Route ${assignmentData?.route_number || routeId}.`);
+          }
         } else {
           Alert.alert('Error', 'Bus ID or Route ID is missing. Please ensure you have an active assignment.');
         }
