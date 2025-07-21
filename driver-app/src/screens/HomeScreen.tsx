@@ -15,6 +15,7 @@ import { useNavigation } from "@react-navigation/native";
 import {
   Ionicons,
   MaterialCommunityIcons,
+  FontAwesome5,
 } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -40,33 +41,30 @@ const AppColors = {
 
 const GOOGLE_MAPS_API_KEY = "AIzaSyAeXR9ct7HrHMCQXSWLrWQl5OlRYjNhbxo";
 
-// TopHeader component with logo in square box
-const TopHeader = () => {
-  const navigation = useNavigation();
-  return (
-    <View style={styles.header}>
-      <View style={styles.headerLeftContainer}>
-        <View style={styles.logoWrapper}>
-          <Image
-            source={require("../../assets/logowithoutbg_white.png")}
-            style={styles.headerLogo}
-            resizeMode="contain"
-          />
-        </View>
-        <Text style={styles.headerTitle}>
-          BusHub<Text style={styles.superscript}>LK</Text> Driver
-        </Text>
+// TopHeader component with improved visibility
+const TopHeader = () => (
+  <View style={styles.header}>
+    <View style={styles.headerLeftContainer}>
+      <View style={styles.logoWrapper}>
+        <Image
+          source={require("../../assets/logowithoutbg_white.png")}
+          style={styles.headerLogo}
+          resizeMode="contain"
+        />
       </View>
-      <View style={styles.headerIconContainer}>
-        <TouchableOpacity style={styles.headerIcon} onPress={() => navigation.navigate("Notifications")}>
-          <Ionicons name="notifications-outline" size={28} color="#FFFFFF" />
-        </TouchableOpacity>
-      </View>
+      <Text style={styles.headerTitle}>
+        BusHub<Text style={styles.superscript}>LK</Text> Driver
+      </Text>
     </View>
-  );
-};
+    <View style={styles.headerIconContainer}>
+      <TouchableOpacity style={styles.headerIcon} onPress={() => {}}>
+        <Ionicons name="notifications-outline" size={28} color="#FFFFFF" />
+      </TouchableOpacity>
+    </View>
+  </View>
+);
 
-// WelcomeBanner component
+// WelcomeBanner component (unchanged)
 const WelcomeBanner = () => (
   <LinearGradient
     colors={["#0056b3", "#0076e3"]}
@@ -87,7 +85,7 @@ const WelcomeBanner = () => (
   </LinearGradient>
 );
 
-// QuickActionButton component
+// QuickActionButton component (unchanged)
 const QuickActionButton = ({ icon, text, onPress }) => (
   <TouchableOpacity style={styles.quickActionCard} onPress={onPress} activeOpacity={0.8}>
     <View style={styles.quickActionIconContainer}>
@@ -97,7 +95,7 @@ const QuickActionButton = ({ icon, text, onPress }) => (
   </TouchableOpacity>
 );
 
-// Main HomeScreen Component
+// Main HomeScreen Component (unchanged)
 export default function HomeScreen() {
   const navigation = useNavigation();
   const [from, setFrom] = useState("");
@@ -319,6 +317,11 @@ export default function HomeScreen() {
               text="Lost & Found"
               onPress={() => navigation.navigate("LostAndFound")}
             />
+            <QuickActionButton
+              icon="map-marker-radius"
+              text="Tracking Data"
+              onPress={() => navigation.navigate("Tracking")}
+            />
           </View>
         </View>
       </ScrollView>
@@ -370,17 +373,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   logoWrapper: {
-    width: 45,
-    height: 45,
-    borderRadius: 8,
+    width: 35,
+    height: 35,
+    borderRadius: 8, // Square with rounded corners
+    backgroundColor: "none",
     justifyContent: "center",
     alignItems: "center",
     overflow: "hidden",
     marginRight: 10,
   },
   headerLogo: {
-    width: 50,
-    height: 50,
+    width: 70,
+    height: 40,
   },
   headerTitle: {
     color: "#FFFFFF",
@@ -577,13 +581,13 @@ const styles = StyleSheet.create({
   },
   quickActionCard: {
     width: "48%",
-    height: Platform.OS === "ios" ? 100 : 95,
+    height: Platform.OS === "ios" ? 85 : 80,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: AppColors.card,
     borderRadius: 18,
     paddingHorizontal: 5,
-    paddingVertical: 10,
+    paddingVertical: 8,
     borderWidth: 1,
     borderColor: AppColors.border,
     marginBottom: 12,
