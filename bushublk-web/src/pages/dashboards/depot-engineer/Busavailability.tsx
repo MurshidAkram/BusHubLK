@@ -1,4 +1,3 @@
-// Busavailability.tsx
 import React, { useState, useEffect, useContext } from 'react';
 import { HiSearch, HiFilter, HiX, HiChevronLeft, HiChevronRight } from 'react-icons/hi';
 import { AppContext } from '../../../context/AppContext';
@@ -14,8 +13,8 @@ interface Bus {
   year: number;
   mileage: string;
   status: 'Active' | 'In Service' | 'Maintenance' | 'Out of Service';
-  depot_name?: string; // Added from backend response
-  region_name?: string; // Added from backend response
+  depot_name?: string;
+  region_name?: string;
 }
 
 interface Filters {
@@ -29,15 +28,15 @@ interface AppContextType {
   token: string | null;
 }
 
-// API response type
 interface BusResponse {
   success: boolean;
   message: string;
-  buses: Bus[];
+  buses?: Bus[]; // Changed to optional as not all responses will have 'buses'
+  bus?: Bus;    // Added 'bus' (singular) for update responses
 }
 
 const Busavailability = () => {
-  const context = useContext<AppContextType | null>(AppContext);
+  const context = useContext(AppContext) as AppContextType | null;
 
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -63,39 +62,48 @@ const Busavailability = () => {
   const userRegionId = context?.user?.region_id;
   const token = context?.token;
 
-  // Function to fetch buses based on user role and assigned depot/region
   const fetchBuses = async () => {
     setLoading(true);
     setError(null);
     try {
-      let apiUrl = `http://localhost:5000/api/buses`; // Default for admin/super-admin
+      if (!token) {
+        setError('Authentication token is missing. Please log in.');
+        setLoading(false);
+        return;
+      }
 
-      // Adjust API endpoint based on user role
+      let apiUrl = 'http://localhost:5000/api/buses'; // Default fallback
       if (userRole === 'depot_engineer') {
-        apiUrl = `http://localhost:5000/api/depot-engineer/buses`;
+        apiUrl = 'http://localhost:5000/api/depot-engineer/buses';
       } else if (userRole === 'depot_manager' || userRole === 'depot_operations') {
-        if (userDepotId) {
-          apiUrl = `http://localhost:5000/api/buses/depot/${userDepotId}`;
-        } else {
-          setError('Depot ID not found for this user role.');
+        if (!userDepotId) {
+          setError('Depot ID is required for this user role.');
           setLoading(false);
           return;
         }
+        apiUrl = `http://localhost:5000/api/buses/depot/${userDepotId}`;
       }
+      console.log('Fetching from:', apiUrl); // Debug log
 
       const response = await axios.get<BusResponse>(apiUrl, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
-      setBuses(response.data.buses);
+      if (response.data.success && response.data.buses) { // Ensure this is `buses` for GET
+        setBuses(response.data.buses);
+      } else {
+        setError(`Failed to fetch buses: ${response.data.message}`);
+      }
     } catch (err) {
       const axiosError = err as AxiosError;
-      console.error('Error fetching buses:', axiosError);
-      if (axiosError.response && axiosError.response.data) {
-        setError((axiosError.response.data as any).error || 'Failed to fetch buses.');
+      console.error('API Error:', axiosError);
+      if (axiosError.response) {
+        setError(`Failed to fetch buses: ${axiosError.response.status} - ${axiosError.response.data?.message || axiosError.response.statusText}`);
+      } else if (axiosError.request) {
+        setError('Failed to fetch buses. The API endpoint might be down or unreachable.');
       } else {
-        setError('Failed to fetch buses. Please try again later.');
+        setError(`Error setting up request: ${axiosError.message}`);
       }
     } finally {
       setLoading(false);
@@ -105,17 +113,20 @@ const Busavailability = () => {
   useEffect(() => {
     if (token && userRole) {
       fetchBuses();
+    } else if (!token) {
+      setError('Please log in to view bus availability.');
+      setLoading(false);
     }
-  }, [token, userRole, userDepotId, userRegionId]); // Re-fetch when user context changes
+  }, [token, userRole, userDepotId, userRegionId]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
-    setCurrentPage(1); // Reset to first page on search
+    setCurrentPage(1);
   };
 
   const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFilters({ ...filters, [e.target.name]: e.target.value });
-    setCurrentPage(1); // Reset to first page on filter change
+    setCurrentPage(1);
   };
 
   const clearFilters = () => {
@@ -129,7 +140,7 @@ const Busavailability = () => {
       bus.manufacturer.toLowerCase().includes(searchTerm.toLowerCase()) ||
       bus.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
       bus.depot_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      bus.region_name?.toLowerCase().includes(searchTerm.toLowerCase()); // Include region_name in search
+      bus.region_name?.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesStatus = filters.status === '' || bus.status === filters.status;
     const matchesClass = filters.class === '' || bus.class.toLowerCase().includes(filters.class.toLowerCase());
@@ -177,23 +188,27 @@ const Busavailability = () => {
           },
         }
       );
+      // CORRECTED: Check for 'bus' (singular) in the response for updates
       if (response.data.success && response.data.bus) {
-        // Update the local state with the new bus data including updated_at
-        setBuses(prevBuses =>
-          prevBuses.map(bus =>
-            bus.bus_id === selectedBus.bus_id ? { ...response.data.bus, status: editedStatus } : bus
-          )
-        );
-        setShowEditModal(false);
-        setSelectedBus(null);
+          // Update the specific bus in the local state with the new status
+          setBuses(prevBuses =>
+              prevBuses.map(bus =>
+                  bus.bus_id === selectedBus.bus_id ? { ...bus, status: editedStatus } : bus
+              )
+          );
+          setShowEditModal(false);
+          setSelectedBus(null);
+          // Optionally, show a success message temporarily
+          // setError(null); // Clear any previous error message
       } else {
-        setError('Failed to update bus status.');
+          // This else block handles cases where success is false or 'bus' property is missing
+          setError('Failed to update bus status: ' + (response.data.message || 'Unknown error.'));
       }
     } catch (err) {
       const axiosError = err as AxiosError;
       console.error('Error updating bus status:', axiosError);
-      if (axiosError.response && axiosError.response.data) {
-        setError((axiosError.response.data as any).error || 'Failed to update bus status.');
+      if (axiosError.response) {
+        setError(`Failed to update status: ${axiosError.response.status} - ${axiosError.response.data?.message || axiosError.response.statusText}`);
       } else {
         setError('Failed to update bus status. Please try again later.');
       }
@@ -347,7 +362,7 @@ const Busavailability = () => {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    {userRole === 'depot_engineer' && ( // Only depot engineers can edit status
+                    {userRole === 'depot_engineer' && (
                       <button
                         onClick={() => handleEditClick(bus)}
                         className="text-blue-600 hover:text-blue-900 ml-4"
@@ -369,11 +384,7 @@ const Busavailability = () => {
         </table>
       </div>
 
-      {/* Pagination */}
-      <nav
-        className="flex items-center justify-between pt-4"
-        aria-label="Pagination"
-      >
+      <nav className="flex items-center justify-between pt-4" aria-label="Pagination">
         <div className="flex-1 flex justify-between">
           <button
             onClick={() => handlePageChange(currentPage - 1)}
@@ -392,7 +403,6 @@ const Busavailability = () => {
         </div>
       </nav>
 
-      {/* Edit Status Modal */}
       {showEditModal && selectedBus && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-75 overflow-y-auto h-full w-full flex items-center justify-center z-50">
           <div className="relative p-8 bg-white w-96 max-w-full mx-auto rounded-lg shadow-lg">

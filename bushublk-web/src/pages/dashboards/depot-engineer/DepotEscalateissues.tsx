@@ -189,7 +189,6 @@ const DepotEscalateIssues = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-     
 
       {/* Stats Cards */}
       <div className="max-w-7xl mx-auto px-4 py-6">
@@ -203,7 +202,6 @@ const DepotEscalateIssues = () => {
               <FileText className="w-8 h-8 text-gray-400" />
             </div>
           </div>
-         
           <div className="bg-white rounded-lg shadow-sm p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -267,7 +265,7 @@ const DepotEscalateIssues = () => {
                 <option value="Breakdown">Breakdown</option>
                 <option value="Accident">Accident</option>
                 <option value="Passenger">Passenger</option>
-                <option value="Passenger">Other</option>
+                <option value="Other">Other</option>
               </select>
             </div>
             <div className="flex items-center space-x-2">
@@ -302,7 +300,6 @@ const DepotEscalateIssues = () => {
                           )}
                         </div>
                         <div className="flex items-center space-x-2">
-                         
                           <span className={`px-2 py-1 text-xs font-medium rounded-full ${getTypeColor(report.type)}`}>
                             {report.type}
                           </span>
@@ -391,7 +388,7 @@ const DepotEscalateIssues = () => {
         {/* Popup for Issue Details with Scrollbar */}
         {showPopup && selectedIssue && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-2xl h-[90vh] overflow-y-auto">
+            <div className="bg-white rounded-lg p-6 w-full max-w-2xl h-[70vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-gray-900">Issue Details - {selectedIssue.id}</h2>
                 <button
@@ -465,16 +462,6 @@ const DepotEscalateIssues = () => {
                 </div>
 
                 <div className="border-t pt-4">
-                  <div className="flex space-x-2 mb-3">
-                    <button
-                      className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors flex items-center justify-center space-x-1"
-                      onClick={() => setShowChat(!showChat)}
-                    >
-                      <MessageSquare className="w-4 h-4" />
-                      <span>Chat</span>
-                    </button>
-                  </div>
-
                   {selectedIssue.status !== 'Resolved' && selectedIssue.status !== 'Escalated to RTO' && (
                     <div className="flex space-x-2">
                       <button
@@ -494,38 +481,6 @@ const DepotEscalateIssues = () => {
                     </div>
                   )}
                 </div>
-
-                {showChat && (
-                  <div className="mt-4 p-2 bg-gray-50 rounded-lg">
-                    <div className="max-h-60 overflow-y-auto mb-2 space-y-2">
-                      {selectedIssue.chatHistory.map((chat: { sender: string; message: string; time: string }, index: number) => (
-                        <div
-                          key={index}
-                          className={`p-2 rounded-lg ${chat.sender === 'engineer' ? 'bg-blue-100 text-right' : 'bg-gray-200'}`}
-                        >
-                          <p className="text-sm font-medium">{chat.sender === 'engineer' ? 'You' : chat.sender}</p>
-                          <p className="text-sm">{chat.message}</p>
-                          <p className="text-xs text-gray-500">{chat.time}</p>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex space-x-2">
-                      <input
-                        type="text"
-                        value={chatMessage}
-                        onChange={(e) => setChatMessage(e.target.value)}
-                        placeholder="Type a message..."
-                        className="flex-1 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                      <button
-                        onClick={sendMessage}
-                        className="bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700"
-                      >
-                        <Send className="w-5 h-5" />
-                      </button>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           </div>
