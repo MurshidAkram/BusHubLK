@@ -1,13 +1,14 @@
+// src/screens/ForgotPasswordScreen.tsx
 import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  StyleSheet, 
-  Image, 
-  KeyboardAvoidingView, 
-  Platform, 
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   Dimensions,
   StatusBar,
@@ -15,6 +16,12 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { API_BASE_URL } from '../config/api';
+
+// IMPORTANT: Replace with your backend server's IP address and port
+// e.g., 'http://192.168.1.100:5000/api'
+// src/screens/ForgotPasswordScreen.tsx (and ResetPasswordScreen.tsx)
+//const API_BASE_URL = 'http://192.168.43.114:5000/api'; // <--- THIS MUST MATCH YOUR BACKEND'S IP AND PORT// <--- Make sure this is YOUR actual local IP or deployment URL
 
 const { width, height } = Dimensions.get('window');
 
@@ -30,16 +37,40 @@ export default function ForgotPasswordScreen({ navigation }: any) {
     }
 
     setIsLoading(true);
-    // Add your password reset logic here
-    setTimeout(() => {
+    try {
+      // Corrected Endpoint to match backend router.post('/request', ...)
+      const response = await fetch(`${API_BASE_URL}/password-reset/request`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) { // Check for successful HTTP status codes (2xx)
+        setIsEmailSent(true);
+        // Improved message for user clarity (don't confirm email existence for security)
+        Alert.alert('Success', 'If an account with that email exists, a password reset link has been sent to your email.');
+      } else {
+        // Handle server-side errors
+        Alert.alert('Error', data.message || 'Failed to send password reset link. Please try again.');
+      }
+    } catch (error) {
+      console.error('Network or API error:', error);
+      Alert.alert('Error', 'Could not connect to the server. Please check your internet connection or server status.');
+    } finally {
       setIsLoading(false);
-      setIsEmailSent(true);
-    }, 2000);
+    }
   };
 
   const handleResendEmail = () => {
     setIsEmailSent(false);
-    handleResetPassword();
+    setEmail(''); // Clear email input for a fresh start, or keep it if desired
+    // You might want to add a small delay or a simple rate-limiting mechanism here
+    // to prevent users from spamming the resend button.
+    // handleResetPassword(); // Uncomment this line if you want to automatically resend on button click
   };
 
   return (
@@ -86,7 +117,7 @@ export default function ForgotPasswordScreen({ navigation }: any) {
                     {/* Icon */}
                     <View style={styles.iconContainer}>
                       <View style={styles.iconWrapper}>
-                      <Ionicons name="lock-closed" size={32} color="#93c5fd" /> 
+                      <Ionicons name="lock-closed" size={32} color="#93c5fd" />
                       </View>
                     </View>
 
@@ -224,7 +255,7 @@ const styles = StyleSheet.create({
     width: 180,
     height: 180,
     marginBottom: 2,
-   
+
   },
   appName: {
     fontSize: 28,
