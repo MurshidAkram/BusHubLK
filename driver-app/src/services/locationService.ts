@@ -32,7 +32,7 @@ class LocationService {
     return false;
   }
 
-  async startLocationTracking(busId: string, routeId: string) {
+  async startLocationTracking(busId: string, routeId: string, busRegistration?: string) {
     const hasPermission = await this.hasLocationPermission();
     if (!hasPermission) return;
 
@@ -47,17 +47,17 @@ class LocationService {
         const timestamp = new Date(location.timestamp).toISOString();
 
         try {
-          // @ts-ignore
           await driverAPI.sendLocationUpdate({
             latitude,
             longitude,
             busId,
             routeId,
             timestamp,
+            busRegistration: busRegistration || `BUS-${busId}`,
           });
-          console.log("Location update sent:", latitude, longitude);
+          console.log("✅ Location update sent:", latitude, longitude);
         } catch (error) {
-          console.error("Failed to send location update:", error);
+          console.error("❌ Failed to send location update:", error);
         }
       }
     );

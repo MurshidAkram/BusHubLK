@@ -4,7 +4,8 @@ const {
   getAssignmentsByDepot,
   createAssignment,
   updateAssignment,
-  deleteAssignment
+  deleteAssignment,
+  getAssignmentByDriver
 } = require('../controllers/dailyAssignmentController');
 
 const { authenticateJWT, authorizeAdmin } = require('../middlewares/authMiddleware');
@@ -20,6 +21,9 @@ router.put('/:id', authenticateJWT, authorizeAdmin, updateAssignment);
 
 // Delete assignment
 router.delete('/:id', authenticateJWT, authorizeAdmin, deleteAssignment);
+
+// Get assignment by driver ID
+router.get('/driver/:driver_id', authenticateJWT, getAssignmentByDriver);
 
 module.exports = router;
 
