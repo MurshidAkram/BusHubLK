@@ -133,6 +133,14 @@ try {
 }
 
 try {
+  const depotEngineerRoutes = require('./routes/depotEngineerRoutes');
+  app.use('/api/depot-engineer', depotEngineerRoutes); // Mount at /api/depot-engineer
+  console.log('✅ depotEngineerRoutes loaded');
+} catch (error) {
+  console.log('❌ depotEngineerRoutes error:', error.message);
+}
+
+try {
   const lostFoundRoutes = require('./routes/lostFoundRoutes');
   app.use('/api/lost-found', lostFoundRoutes);
   console.log('✅ lostFoundRoutes loaded');

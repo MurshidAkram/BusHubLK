@@ -1,19 +1,18 @@
 import { useState } from 'react';
 import { 
-  FaBell, 
   FaSearch, 
   FaCheckCircle, 
   FaExclamationTriangle, 
   FaBus, 
-  FaUser, 
   FaCheck,
   FaClock,
   FaFilter
 } from 'react-icons/fa';
 
 interface Report {
-  id: number;
+  id: string;
   busId: string;
+  driverId: string;
   driverName: string;
   priority: 'Low' | 'Medium' | 'High';
   busStatus: 'Good' | 'Minor Issue' | 'Major Issue' | 'Out of Service';
@@ -31,41 +30,34 @@ const Autoforwardbusstatus = () => {
 
   const [reports, setReports] = useState<Report[]>([
     {
-      id: 1,
-      busId: 'BUS-001',
+      id: "1",
+      busId: '17',
+      driverId: '2',
       driverName: 'Nimal',
-      priority: 'Medium',
-      busStatus: 'Minor Issue',
+      priority: 'High',
+      busStatus: 'Major Issue',
       issueDescription: 'Engine making unusual noise during acceleration',
       reviewed: false,
       reportedAt: '2023-06-15T08:30:00'
     },
     {
-      id: 2,
-      busId: 'BUS-012',
+      id: "2",
+      busId: '23',
+      driverId: '4',
       driverName: 'Venukaran',
-      priority: 'High',
-      busStatus: 'Major Issue',
-      issueDescription: 'Brake pedal feels soft, might need fluid check',
-      reviewed: true,
-      reportedAt: '2023-06-15T09:45:00'
+      priority: 'Medium',
+      busStatus: 'Minor Issue',
+      issueDescription: 'head lights did not working',
+      reviewed: false,
+      reportedAt: '2023-06-15T11:20:00'
     },
     {
-      id: 3,
-      busId: 'BUS-025',
+      id: "3",
+      busId: '21',
+      driverId: '6',
       driverName: 'Loganathan',
       priority: 'Low',
       busStatus: 'Good',
-      issueDescription: 'Air conditioning not working properly',
-      reviewed: true,
-      reportedAt: '2023-06-15T10:15:00'
-    },
-    {
-      id: 4,
-      busId: 'BUS-008',
-      driverName: 'Sankar',
-      priority: 'High',
-      busStatus: 'Out of Service',
       issueDescription: 'head lights did not working',
       reviewed: false,
       reportedAt: '2023-06-15T11:20:00'
@@ -106,26 +98,21 @@ const Autoforwardbusstatus = () => {
     const matchesPriority = priorityFilter === 'all' || 
                            report.priority.toLowerCase() === priorityFilter.toLowerCase();
     const matchesSearch = report.busId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         report.driverId.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          report.driverName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          report.issueDescription.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesStatus && matchesPriority && matchesSearch;
   });
 
-  const markAsReviewed = (reportId: number) => {
+  const markAsReviewed = (reportId: string) => {
     setReports(reports.map(report => 
       report.id === reportId ? { ...report, reviewed: true } : report
     ));
   };
 
-  const markAsUnreviewed = (reportId: number) => {
+  const markAsUnreviewed = (reportId: string) => {
     setReports(reports.map(report => 
       report.id === reportId ? { ...report, reviewed: false } : report
-    ));
-  };
-
-  const markAllAsReviewed = () => {
-    setReports(reports.map(report => 
-      !report.reviewed ? { ...report, reviewed: true } : report
     ));
   };
 
@@ -161,7 +148,6 @@ const Autoforwardbusstatus = () => {
               <h1 className="text-2xl font-bold text-gray-800">Bus Status Reports</h1>
             </div>
           </div>
-         
         </div>
       </div>
 
@@ -269,7 +255,7 @@ const Autoforwardbusstatus = () => {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bus ID</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Driver</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Driver ID</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reported At</th>
@@ -287,7 +273,7 @@ const Autoforwardbusstatus = () => {
                       <div className="font-medium text-gray-900">{report.busId}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-gray-900">{report.driverName}</div>
+                      <div className="text-gray-900">{report.driverId}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getPriorityColor(report.priority)}`}>
@@ -388,31 +374,6 @@ const Autoforwardbusstatus = () => {
                   <p className="mt-1 text-gray-900 whitespace-pre-line">{selectedReport.issueDescription}</p>
                 </div>
 
-                <div className="pt-4 border-t border-gray-200">
-                  <div className="flex justify-end space-x-3">
-                    {selectedReport.reviewed ? (
-                      <button
-                        onClick={() => {
-                          markAsUnreviewed(selectedReport.id);
-                          closeModal();
-                        }}
-                        className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg transition-colors"
-                      >
-                        Mark as Unreviewed
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => {
-                          markAsReviewed(selectedReport.id);
-                          closeModal();
-                        }}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-                      >
-                        Mark as Reviewed
-                      </button>
-                    )}
-                  </div>
-                </div>
               </div>
             </div>
           </div>

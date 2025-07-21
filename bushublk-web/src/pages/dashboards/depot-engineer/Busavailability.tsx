@@ -68,9 +68,7 @@ const Busavailability = () => {
     setLoading(true);
     setError(null);
     try {
-      // Assuming process.env is handled by your build tool (e.g., Create React App, Vite, Next.js)
-      // If you're still getting 'Cannot find name 'process'', ensure @types/node is installed
-      // (npm install --save-dev @types/node) and your tsconfig.json is correctly configured.
+     
       let apiUrl = `http://localhost:5000/api/buses`; // Default for admin/super-admin
 
       // Adjust API endpoint based on user role
@@ -213,6 +211,7 @@ const Busavailability = () => {
   return (
     <div className="container mx-auto p-6 bg-white rounded-lg shadow-md">
       <h2 className="text-3xl font-bold text-gray-800 mb-6">Bus Availability Dashboard</h2>
+      
 
       <div className="flex flex-col md:flex-row justify-between items-center mb-6 space-y-4 md:space-y-0 md:space-x-4">
         <div className="relative w-full md:w-1/3">

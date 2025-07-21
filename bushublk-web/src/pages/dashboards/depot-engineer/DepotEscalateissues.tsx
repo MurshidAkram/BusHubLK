@@ -33,13 +33,13 @@ const DepotEscalateIssues = () => {
   const [escalationReason, setEscalationReason] = useState('');
   const [emergencyReports, setEmergencyReports] = useState<EmergencyReport[]>([
     {
-      id: 'ER-2025-001',
+      id: '17',
       type: 'Fire',
       priority: 'Critical',
       status: 'In Progress',
       driver: 'Rajesh ',
       driverPhone: '+94-77-123-4567',
-      vehicle: 'TN-09-BC-1234',
+      vehicle: 'NC-1234',
       location: 'Near Colombo Central Station',
       description: 'Small fire detected in engine compartment, passengers evacuated safely',
       timestamp: '2025-07-19 09:15:00',
@@ -54,13 +54,13 @@ const DepotEscalateIssues = () => {
       ],
     },
     {
-      id: 'ER-2025-002',
+      id: '23',
       type: 'Medical',
       priority: 'High',
       status: 'Resolved',
       driver: 'Sankar',
       driverPhone: '+94-77-234-5678',
-      vehicle: 'TN-09-AB-5678',
+      vehicle: 'NY-3456',
       location: 'Galle Road Junction',
       description: 'Passenger medical emergency, ambulance requested',
       timestamp: '2025-07-19 08:30:00',
@@ -294,7 +294,7 @@ const DepotEscalateIssues = () => {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center space-x-2">
-                          <h3 className="text-sm font-semibold text-gray-900">{report.id}</h3>
+                          <h3 className="text-sm font-semibold text-gray-900">Driverid:{report.id}</h3>
                           {report.escalatedToRTO && (
                             <span className="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-600">
                               RTO

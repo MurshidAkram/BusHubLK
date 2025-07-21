@@ -22,30 +22,23 @@ const ServiceScheduleApp: React.FC = () => {
     {
       id: 1,
       serviceType: 'Oil Change',
-      busId: '#12',
+      busId: '23',
       scheduledDate: '2024-07-05',
       status: 'Pending'
     },
     {
       id: 2,
       serviceType: 'Brake Inspection',
-      busId: '#07',
+      busId: '17',
       scheduledDate: '2024-07-10',
       status: 'Pending'
     },
     {
       id: 3,
       serviceType: 'Tire Rotation',
-      busId: '#15',
+      busId: '21',
       scheduledDate: '2024-07-15',
       status: 'Completed'
-    },
-    {
-      id: 4,
-      serviceType: 'Engine Check',
-      busId: '#23',
-      scheduledDate: '2024-07-20',
-      status: 'In Progress'
     }
   ]);
   const [showNewScheduleModal, setShowNewScheduleModal] = useState<boolean>(false);

@@ -50,7 +50,7 @@ const mockBuses: Bus[] =  [
     status: 'Active',
     lastService: '2024-06-15',
     nextService: '2024-07-15',
-    mileage: 125000,
+    mileage: 0,
     fuelEfficiency: 8.5,
     driver: 'Kasun Perera',
     conductor: 'Saman Silva',
@@ -79,7 +79,7 @@ const mockBuses: Bus[] =  [
     status: 'In Service',
     lastService: '2024-06-20',
     nextService: '2024-07-20',
-    mileage: 98000,
+    mileage: 0,
     fuelEfficiency: 9.2,
     driver: 'Nimal Fernando',
     conductor: 'Priya Jayawardena',
@@ -104,7 +104,7 @@ const mockBuses: Bus[] =  [
     status: 'Maintenance',
     lastService: '2024-06-25',
     nextService: '2024-07-25',
-    mileage: 67000,
+    mileage: 0,
     fuelEfficiency: 10.1,
     driver: 'Chamara Rathnayake',
     conductor: 'Dilani Perera',
@@ -175,13 +175,7 @@ const Busmanagement: React.FC = () => {
     <div className="space-y-6">
      
 
-      {/* Fleet Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Total Buses" value={fleetStats.total} color="text-blue-600" />
-        <StatCard label="Active/In Service" value={fleetStats.active + fleetStats.inService} color="text-green-600" />
-        <StatCard label="In Maintenance" value={fleetStats.maintenance} color="text-yellow-600" />
-        <StatCard label="Avg Fuel Efficiency" value={`${fleetStats.avgFuelEfficiency} km/l`} color="text-purple-600" />
-      </div>
+      
 
       {/* Search and Filter */}
       <div className="bg-white rounded-lg shadow-sm p-6">
