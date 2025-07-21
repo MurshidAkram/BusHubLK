@@ -68,7 +68,6 @@ const Busavailability = () => {
     setLoading(true);
     setError(null);
     try {
-     
       let apiUrl = `http://localhost:5000/api/buses`; // Default for admin/super-admin
 
       // Adjust API endpoint based on user role
@@ -114,7 +113,6 @@ const Busavailability = () => {
     setCurrentPage(1); // Reset to first page on search
   };
 
-  // FIX: Union type for event target to handle both HTMLInputElement and HTMLSelectElement
   const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFilters({ ...filters, [e.target.name]: e.target.value });
     setCurrentPage(1); // Reset to first page on filter change
@@ -170,7 +168,8 @@ const Busavailability = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.put(`${process.env.REACT_APP_API_BASE_URL}/api/buses/${selectedBus.bus_id}`,
+      const response = await axios.put<BusResponse>(
+        `http://localhost:5000/api/depot-engineer/buses/${selectedBus.bus_id}/status`,
         { status: editedStatus },
         {
           headers: {
@@ -178,9 +177,12 @@ const Busavailability = () => {
           },
         }
       );
-      if (response.data.bus) {
+      if (response.data.success && response.data.bus) {
+        // Update the local state with the new bus data including updated_at
         setBuses(prevBuses =>
-          prevBuses.map(bus => (bus.bus_id === selectedBus.bus_id ? response.data.bus : bus))
+          prevBuses.map(bus =>
+            bus.bus_id === selectedBus.bus_id ? { ...response.data.bus, status: editedStatus } : bus
+          )
         );
         setShowEditModal(false);
         setSelectedBus(null);
@@ -211,7 +213,6 @@ const Busavailability = () => {
   return (
     <div className="container mx-auto p-6 bg-white rounded-lg shadow-md">
       <h2 className="text-3xl font-bold text-gray-800 mb-6">Bus Availability Dashboard</h2>
-      
 
       <div className="flex flex-col md:flex-row justify-between items-center mb-6 space-y-4 md:space-y-0 md:space-x-4">
         <div className="relative w-full md:w-1/3">
