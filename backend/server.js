@@ -75,6 +75,14 @@ try {
   console.log('❌ BusTrackingRoutes error:', error.message);
 }
 
+try {
+  const busLiveTrackingRoutes = require('./routes/busLiveTrackingRoutes');
+  app.use('/api/live-tracking', busLiveTrackingRoutes);
+  console.log('✅ busLiveTrackingRoutes loaded');
+} catch (error) {
+  console.log('❌ busLiveTrackingRoutes error:', error.message);
+}
+
 // Load routes with error handling
 try {
   const dbTestRoute = require('./routes/dbTestRoute');

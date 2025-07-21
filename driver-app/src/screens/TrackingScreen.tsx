@@ -122,12 +122,30 @@ export default function TrackingScreen({ navigation }: any) {
         const response = await driverAPI.getDailyAssignment(userData.driver_id.toString());
         if (response && !response.error) {
           setAssignmentData(response);
+          
+          // Set assignment data in location service for live tracking
+          locationService.setCurrentAssignment({
+            bus_id: response.bus_id,
+            route_id: response.route_id,
+            driver_id: userData.driver_id,
+            assignment_id: response.assignment_id,
+          });
+          
           // Update tracking status with assignment data
           setTrackingStatus(prev => ({
             ...prev,
             busId: response.bus_id?.toString() || null,
             routeId: response.route_id?.toString() || null,
           }));
+          
+          console.log(`📋 Assignment loaded for live tracking:`, {
+            bus_id: response.bus_id,
+            route_id: response.route_id,
+            driver_id: userData.driver_id,
+            assignment_id: response.assignment_id,
+            bus_registration: response.bus_registration,
+            route_number: response.route_number
+          });
         } else {
           console.log("No assignment found or error:", response.error);
         }
@@ -190,19 +208,21 @@ export default function TrackingScreen({ navigation }: any) {
         const routeId = assignmentData?.route_id?.toString() || userData?.routeId;
         
         if (busId && routeId) {
-          await locationService.startLocationTracking(
+          const success = await locationService.startSmartLocationTracking(
             busId, 
             routeId, 
             assignmentData?.bus_registration
           );
-          setTrackingStatus(prev => ({ 
-            ...prev, 
-            isActive: true,
-            busId: busId,
-            routeId: routeId,
-            lastUpdate: new Date().toISOString(),
-          }));
-          Alert.alert('Tracking Started', `Location tracking started for Bus ${assignmentData?.bus_registration || busId} on Route ${assignmentData?.route_number || routeId}.`);
+          if (success) {
+            setTrackingStatus(prev => ({ 
+              ...prev, 
+              isActive: true,
+              busId: busId,
+              routeId: routeId,
+              lastUpdate: new Date().toISOString(),
+            }));
+            Alert.alert('Tracking Started', `Background location tracking started for Bus ${assignmentData?.bus_registration || busId} on Route ${assignmentData?.route_number || routeId}.`);
+          }
         } else {
           Alert.alert('Error', 'Bus ID or Route ID is missing. Please ensure you have an active assignment.');
         }
