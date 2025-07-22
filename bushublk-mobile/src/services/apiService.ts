@@ -1,9 +1,6 @@
 import axios from 'axios';
-
-const API_BASE_URL = 'http://your-backend-url.com'; // Replace with your actual backend URL
-// For local development:
-// const API_BASE_URL = 'http://10.0.2.2:3000'; // Android emulator
-// const API_BASE_URL = 'http://localhost:3000'; // iOS simulator
+import { busLiveTrackingAPI } from '../services/busLiveTrackingAPI';
+import { API_BASE_URL } from '../config/api';
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -51,6 +48,12 @@ apiClient.interceptors.response.use(
   }
 );
 
+// Define API endpoints as constants
+const API_ENDPOINTS = {
+  ROUTES_SEARCH: '/api/routes/search',
+  PLACE_DETAILS: '/api/routes/place-details',
+};
+
 interface BusRoute {
   bus_route_id: number;
   bus_id: number;
@@ -82,7 +85,7 @@ const apiService = {
   // Search for routes between two locations
   searchRoutes: async (from: string, to: string): Promise<RouteSearchResponse> => {
     try {
-      const response = await apiClient.get('/api/routes/search', {
+      const response = await apiClient.get(API_ENDPOINTS.ROUTES_SEARCH, {
         params: { from, to }
       });
       return response.data;
@@ -95,7 +98,7 @@ const apiService = {
   // Get place details by place ID
   getPlaceDetails: async (placeId: string) => {
     try {
-      const response = await apiClient.get(`/api/routes/place-details/${placeId}`);
+      const response = await apiClient.get(`${API_ENDPOINTS.PLACE_DETAILS}/${placeId}`);
       return response.data;
     } catch (error) {
       console.error('Failed to get place details:', error);
@@ -106,7 +109,6 @@ const apiService = {
   // Get route info (for backward compatibility)
   getRouteInfo: async (fromPlaceId: string, toPlaceId: string) => {
     try {
-      // Get place details first
       const fromPlace = await apiService.getPlaceDetails(fromPlaceId);
       const toPlace = await apiService.getPlaceDetails(toPlaceId);
       
@@ -114,7 +116,6 @@ const apiService = {
         throw new Error('Could not get place details');
       }
       
-      // Use the formatted address or name for search
       const fromLocation = fromPlace.formatted_address || fromPlace.name;
       const toLocation = toPlace.formatted_address || toPlace.name;
       
@@ -123,6 +124,11 @@ const apiService = {
       console.error('Failed to get route info:', error);
       throw error;
     }
+  },
+
+  // Fetch nearby buses
+  getNearbyBuses: async (latitude: number, longitude: number, radiusKm: number = 5) => {
+    return await busLiveTrackingAPI.getNearbyBuses(latitude, longitude, radiusKm);
   },
 };
 

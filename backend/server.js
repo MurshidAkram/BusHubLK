@@ -71,10 +71,12 @@ app.get('/api/test', (req, res) => {
 try {
   const BusTrackingRoutes = require('./routes/BusTrackingRoutes');
   app.use('/api/bus-tracking', BusTrackingRoutes);
+  app.use('/api/live-tracking', BusTrackingRoutes);
   console.log('✅ BusTrackingRoutes loaded');
 } catch (error) {
   console.log('❌ BusTrackingRoutes error:', error.message);
 }
+
 
 try {
   const busLiveTrackingRoutes = require('./routes/busLiveTrackingRoutes');
