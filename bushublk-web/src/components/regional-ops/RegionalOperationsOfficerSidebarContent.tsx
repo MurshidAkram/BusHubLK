@@ -31,32 +31,10 @@ const RegionalOperationsOfficerSidebarContent = () => {
         }
       >
         <HiHome className="mr-3 flex-shrink-0 h-5 w-5" />
-        Regional Overview
+        Dashboard
       </NavLink>
 
-      <NavLink
-        to="/regional-operations-officer/depot-management"
-        className={({ isActive }) =>
-          `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
-            ? 'bg-indigo-700 text-white' 
-            : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`
-        }
-      >
-        <HiOfficeBuilding className="mr-3 flex-shrink-0 h-5 w-5" />
-        Depot Management
-      </NavLink>
-
-      <NavLink
-        to="/regional-operations-officer/fleet-coordination"
-        className={({ isActive }) =>
-          `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
-            ? 'bg-indigo-700 text-white' 
-            : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`
-        }
-      >
-        <HiTruck className="mr-3 flex-shrink-0 h-5 w-5" />
-        Fleet Coordination
-      </NavLink>
+     
 
       <NavLink
         to="/regional-operations-officer/schedule-oversight"
@@ -67,7 +45,7 @@ const RegionalOperationsOfficerSidebarContent = () => {
         }
       >
         <HiClock className="mr-3 flex-shrink-0 h-5 w-5" />
-        Schedule Oversight
+        Daily Duty
       </NavLink>
 
     
@@ -81,20 +59,10 @@ const RegionalOperationsOfficerSidebarContent = () => {
         }
       >
         <HiUsers className="mr-3 flex-shrink-0 h-5 w-5" />
-        Crew Oversight
+        Crew 
       </NavLink>
 
-      <NavLink
-        to="/regional-operations-officer/asset-distribution"
-        className={({ isActive }) =>
-          `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
-            ? 'bg-indigo-700 text-white' 
-            : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`
-        }
-      >
-        <HiClipboardList className="mr-3 flex-shrink-0 h-5 w-5" />
-        Resource Allocation
-      </NavLink>
+      
 
 
       <NavLink
@@ -106,7 +74,7 @@ const RegionalOperationsOfficerSidebarContent = () => {
         }
       >
         <HiExclamationCircle className="mr-3 flex-shrink-0 h-5 w-5" />
-        Incident Coordination
+       Issues
       </NavLink>
 
       <NavLink
@@ -118,7 +86,7 @@ const RegionalOperationsOfficerSidebarContent = () => {
         }
       >
         <HiPhone className="mr-3 flex-shrink-0 h-5 w-5" />
-        Communication Hub
+        Contact
       </NavLink>
 
       <NavLink
@@ -130,20 +98,10 @@ const RegionalOperationsOfficerSidebarContent = () => {
         }
       >
         <HiDocumentReport className="mr-3 flex-shrink-0 h-5 w-5" />
-        Operations Reports
+         Reports
       </NavLink>
 
-      <NavLink
-        to="/regional-operations-officer/ops-settings"
-        className={({ isActive }) =>
-          `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
-            ? 'bg-indigo-700 text-white' 
-            : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`
-        }
-      >
-        <HiCog className="mr-3 flex-shrink-0 h-5 w-5" />
-        Regional Settings
-      </NavLink>
+     
     </div>
   );
 };

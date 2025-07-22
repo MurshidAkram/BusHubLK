@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import { Megaphone, Send, X } from 'lucide-react';
 
-interface Announcement {
+interface Message {
   id: number;
   type: 'Received' | 'Sent';
   from: string;
@@ -11,13 +12,13 @@ interface Announcement {
 }
 
 const Announcements = () => {
-  const [announcements, setAnnouncements] = useState<Announcement[]>([
+  const [messages, setMessages] = useState<Message[]>([
     {
       id: 1,
       type: 'Received',
-      from: 'Regional Office',
+      from: 'Regional operations Officer',
       to: 'Depot Manager',
-      title: 'Urgent: Submit Weekly Report',
+      title: 'Submit Weekly Report',
       message: 'Please submit the weekly operational report by 5 PM today.',
       date: '2025-07-03',
     },
@@ -30,108 +31,147 @@ const Announcements = () => {
       message: 'All staff are requested to participate in the depot-wide cleaning this Friday.',
       date: '2025-07-02',
     },
+    {
+      id: 3,
+      type: 'Sent',
+      from: 'Depot Manager',
+      to: 'DGM(op)',
+      title: 'Staff Meeting',
+      message: 'Reminder: Staff meeting scheduled for Monday at 9 AM.',
+      date: '2025-06-30',
+    },
   ]);
 
-  const [newAnnouncement, setNewAnnouncement] = useState({
+  const [newMessage, setNewMessage] = useState({
     title: '',
     message: '',
     to: '',
   });
 
+  const [showForm, setShowForm] = useState(false);
+
   const handleSend = () => {
-    const newItem: Announcement = {
+    const newItem: Message = {
       id: Date.now(),
       type: 'Sent',
       from: 'Depot Manager',
-      to: newAnnouncement.to,
-      title: newAnnouncement.title,
-      message: newAnnouncement.message,
+      to: newMessage.to,
+      title: newMessage.title,
+      message: newMessage.message,
       date: new Date().toISOString().slice(0, 10),
     };
-    setAnnouncements([newItem, ...announcements]);
-    setNewAnnouncement({ title: '', message: '', to: '' });
+    setMessages([newItem, ...messages]);
+    setNewMessage({ title: '', message: '', to: '' });
+    setShowForm(false);
   };
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Internal Notifications & Announcements</h1>
-        <p className="text-gray-600">Send announcements to depot staff or provide updates to regional office.</p>
-      </div>
-
-      {/* Send New Announcement */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">Send New Announcement</h2>
-        <div className="space-y-4">
-          <select
-            className="w-full p-2 border border-gray-300 rounded"
-            value={newAnnouncement.to}
-            onChange={(e) =>
-              setNewAnnouncement({ ...newAnnouncement, to: e.target.value })
-            }
-          >
-            <option value="">Select Recipient</option>
-            <option value="Depot Staff">Depot Staff</option>
-            <option value="Regional Office">Regional Office</option>
-          </select>
-
-          <input
-            type="text"
-            placeholder="Title"
-            className="w-full p-2 border border-gray-300 rounded"
-            value={newAnnouncement.title}
-            onChange={(e) =>
-              setNewAnnouncement({ ...newAnnouncement, title: e.target.value })
-            }
-          />
-
-          <textarea
-            placeholder="Message"
-            rows={4}
-            className="w-full p-2 border border-gray-300 rounded"
-            value={newAnnouncement.message}
-            onChange={(e) =>
-              setNewAnnouncement({ ...newAnnouncement, message: e.target.value })
-            }
-          />
-
-          <button
-            onClick={handleSend}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
-            disabled={
-              !newAnnouncement.title || !newAnnouncement.message || !newAnnouncement.to
-            }
-          >
-            Send Announcement
-          </button>
+      {/* Header */}
+      <div className="bg-white rounded-2xl shadow-md p-6 flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
+            Communication hub
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Stay updated with the latest messages
+          </p>
         </div>
       </div>
 
-      {/* Announcements List */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
+      {/* Below header: Messages info + Send Message button */}
+      <div className="bg-white rounded-2xl shadow-md p-4 flex justify-between items-center">
+        <div className="text-sm text-gray-600">
+          Showing {messages.length} of {messages.length} messages
+        </div>
+        <button
+          onClick={() => setShowForm((prev) => !prev)}
+          className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg shadow"
+        >
+          {showForm ? 'Hide Form' : 'Send message'}
+        </button>
+      </div>
+
+      {/* Message Form */}
+      {showForm && (
+        <div className="bg-white rounded-2xl shadow p-6 space-y-5">
+          <h2 className="text-xl font-semibold text-gray-800">Send New Message</h2>
+          <div className="grid gap-4">
+            <select
+              className="w-full p-3 border border-gray-300 rounded-lg text-sm"
+              value={newMessage.to}
+              onChange={(e) => setNewMessage({ ...newMessage, to: e.target.value })}
+            >
+              <option value="">Select Recipient</option>
+              <option value="Depot Operations Manager">DOM(Depot Operations Manager)</option>
+              <option value="Depot Engineer">DE(Depot Engineer)</option>
+              <option value="Regional Operations Officer">RTO(Regional Technical Officer)</option>
+              <option value="Regional Operations Officer">ROO(Regional Operations Officer)</option>
+          
+            </select>
+
+            <input
+              type="text"
+              placeholder="Message Title"
+              className="w-full p-3 border border-gray-300 rounded-lg text-sm"
+              value={newMessage.title}
+              onChange={(e) => setNewMessage({ ...newMessage, title: e.target.value })}
+            />
+
+            <textarea
+              placeholder="Write your message..."
+              rows={5}
+              className="w-full p-3 border border-gray-300 rounded-lg text-sm"
+              value={newMessage.message}
+              onChange={(e) => setNewMessage({ ...newMessage, message: e.target.value })}
+            />
+
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={handleSend}
+                disabled={!newMessage.title || !newMessage.message || !newMessage.to}
+                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium px-4 py-2 rounded-lg shadow disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Send className="w-4 h-4" />
+                Send
+              </button>
+              <button
+                onClick={() => setShowForm(false)}
+                className="flex items-center gap-2 bg-gray-200 hover:bg-gray-300 text-gray-800 text-sm font-medium px-4 py-2 rounded-lg"
+              >
+                <X className="w-4 h-4" />
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Recent Messages */}
+      <div className="bg-white rounded-2xl shadow p-6">
         <h2 className="text-xl font-semibold text-gray-800 mb-4">Recent Announcements</h2>
-        {announcements.length === 0 ? (
-          <p className="text-gray-500">No announcements available.</p>
+        {messages.length === 0 ? (
+          <p className="text-sm text-gray-500">No messages available.</p>
         ) : (
           <ul className="space-y-4">
-            {announcements.map((item) => (
-              <li key={item.id} className="border border-gray-200 p-4 rounded shadow-sm">
-                <div className="flex justify-between items-center mb-2">
-                  <h3 className="text-lg font-semibold text-gray-800">{item.title}</h3>
-                  <span className="text-sm text-gray-500">{item.date}</span>
-                </div>
-                <p className="text-gray-700 mb-2">{item.message}</p>
-                <div className="text-sm text-gray-500">
-                  {item.type === 'Sent' ? (
-                    <>
-                      From: <span className="font-medium">{item.from}</span> → To:{' '}
-                      <span className="font-medium">{item.to}</span>
-                    </>
-                  ) : (
-                    <>
-                      From: <span className="font-medium">{item.from}</span>
-                    </>
-                  )}
+            {messages.map((item) => (
+              <li
+                key={item.id}
+                className="border border-gray-200 rounded-xl p-5 bg-gray-50 hover:bg-gray-100 transition"
+              >
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-800">{item.title}</h3>
+                    <p className="text-sm text-gray-600 mt-1">{item.message}</p>
+                  </div>
+                  <span className="text-xs text-gray-500 block text-right mt-1">
+                    {item.date} —{' '}
+                    <span className={item.type === 'Sent' ? 'text-green-600' : 'text-blue-600'}>
+                      {item.type}
+                    </span>
+                    <br />
+                    <span className="text-gray-700 font-semibold">From: </span>{item.from}
+                  </span>
                 </div>
               </li>
             ))}

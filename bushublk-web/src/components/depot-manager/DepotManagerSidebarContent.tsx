@@ -26,7 +26,7 @@ const DepotManagerSidebarContent = () => {
         }
       >
         <HiHome className="mr-3 flex-shrink-0 h-5 w-5" />
-        Dashboard Overview
+        Dashboard
       </NavLink>
 
       <NavLink
@@ -38,20 +38,23 @@ const DepotManagerSidebarContent = () => {
         }
       >
         <HiTruck className="mr-3 flex-shrink-0 h-5 w-5" />
-        Fleet Management
+        Fleet 
       </NavLink>
 
-       <NavLink
-        to="/depot-manager/checklist-verification"
-        className={({ isActive }) =>
-          `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
-            ? 'bg-green-700 text-white' 
-            : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`
-        }
-      >
-        <HiClipboardList className="mr-3 flex-shrink-0 h-5 w-5" />
-        Checklist Verification
-      </NavLink>
+      {/*
+  <NavLink
+    to="/depot-manager/checklist-verification"
+    className={({ isActive }) =>
+      `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
+        ? 'bg-green-700 text-white' 
+        : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`
+    }
+  >
+    <HiClipboardList className="mr-3 flex-shrink-0 h-5 w-5" />
+    Checklist Verification
+  </NavLink>
+*/}
+
 
       <NavLink
         to="/depot-manager/driver-management"
@@ -62,21 +65,10 @@ const DepotManagerSidebarContent = () => {
         }
       >
         <HiUsers className="mr-3 flex-shrink-0 h-5 w-5" />
-        Driver & Conductor Management
+        Crew
       </NavLink>
 
-      <NavLink
-        to="/depot-manager/schedules"
-        className={({ isActive }) =>
-          `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
-            ? 'bg-green-700 text-white' 
-            : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`
-        }
-      >
-        <HiClock className="mr-3 flex-shrink-0 h-5 w-5" />
-        Route Schedules
-      </NavLink>
-
+    
       <NavLink
         to="/depot-manager/assignments"
         className={({ isActive }) =>
@@ -86,7 +78,7 @@ const DepotManagerSidebarContent = () => {
         }
       >
         <HiClipboardList className="mr-3 flex-shrink-0 h-5 w-5" />
-        Daily Assignments
+        Daily duty
       </NavLink>
 
       <NavLink
@@ -98,7 +90,7 @@ const DepotManagerSidebarContent = () => {
         }
       >
         <HiLocationMarker className="mr-3 flex-shrink-0 h-5 w-5" />
-       Announcements
+       Contact
       </NavLink>
 
       <NavLink
@@ -110,7 +102,7 @@ const DepotManagerSidebarContent = () => {
         }
       >
         <HiExclamationCircle className="mr-3 flex-shrink-0 h-5 w-5" />
-        Maintenance Alerts
+        Issues
       </NavLink>
 
       <NavLink
@@ -122,7 +114,7 @@ const DepotManagerSidebarContent = () => {
         }
       >
         <HiDocumentReport className="mr-3 flex-shrink-0 h-5 w-5" />
-        Depot Reports
+       Reports
       </NavLink>
 
      
@@ -136,7 +128,7 @@ const DepotManagerSidebarContent = () => {
         }
       >
         <HiCog className="mr-3 flex-shrink-0 h-5 w-5" />
-        Depot Settings
+         Settings
       </NavLink>
     </div>
   );

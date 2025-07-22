@@ -10,5 +10,8 @@
     "react-native-safe-area-context": "^5.5.0",
     "react-native-screens": "^4.11.1",
     "recharts": "^3.0.2"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.8"
   }
 }

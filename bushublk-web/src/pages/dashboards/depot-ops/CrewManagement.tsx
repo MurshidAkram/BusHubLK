@@ -11,49 +11,73 @@ interface CrewMember {
 }
 
 const CrewManagement = () => {
+  const [filterRole, setFilterRole] = useState<'All' | 'Driver' | 'Conductor'>('All');
+
   const [crewList, setCrewList] = useState<CrewMember[]>([
     {
       id: 1,
       name: 'Nimal Perera',
-      contact: '0771234567',
+      contact: '+94771234567',
       role: 'Driver',
       status: 'On Duty',
     },
     {
       id: 2,
       name: 'Sunil Silva',
-      contact: '0769876543',
+      contact: '+94769876543',
       role: 'Conductor',
       status: 'On Break',
     },
     {
       id: 3,
       name: 'Kamal Fernando',
-      contact: '0712345678',
+      contact: '+94712345678',
       role: 'Driver',
       status: 'Off Duty',
     },
-  ]);
-
-  const [name, setName] = useState('');
-  const [contact, setContact] = useState('');
-  const [role, setRole] = useState<'Driver' | 'Conductor'>('Driver');
-
-  const handleAddCrew = () => {
-    if (!name.trim() || !contact.trim()) return;
-
-    const newMember: CrewMember = {
-      id: Date.now(),
-      name,
-      contact,
-      role,
+    {
+      id: 4,
+      name: 'Mohamed Rizwan',
+      contact: '+94751234567',
+      role: 'Conductor',
+      status: 'On Duty',
+    },
+    {
+      id: 5,
+      name: 'Nawas Ameer',
+      contact: '+94784561230',
+      role: 'Driver',
+      status: 'On Break',
+    },
+    {
+      id: 6,
+      name: 'Thilina Jayasooriya',
+      contact: '+94711122233',
+      role: 'Driver',
+      status: 'On Duty',
+    },
+    {
+      id: 7,
+      name: 'Sahan Bandara',
+      contact: '+94779988776',
+      role: 'Conductor',
       status: 'Off Duty',
-    };
-
-    setCrewList([...crewList, newMember]);
-    setName('');
-    setContact('');
-  };
+    },
+    {
+      id: 8,
+      name: 'Siththi Lebbe Faiz',
+      contact: '+94761122445',
+      role: 'Driver',
+      status: 'On Duty',
+    },
+    {
+      id: 9,
+      name: 'Ramesh Sivalingam',
+      contact: '+94723344556',
+      role: 'Conductor',
+      status: 'On Break',
+    },
+  ]);
 
   const cycleStatus = (current: CrewStatus): CrewStatus => {
     switch (current) {
@@ -89,64 +113,46 @@ const CrewManagement = () => {
     }
   };
 
+  const filteredCrew = crewList.filter(member =>
+    filterRole === 'All' ? true : member.role === filterRole
+  );
+
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-lg shadow-sm p-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Crew Management</h1>
-        <p className="text-gray-600">Create and manage bus crew assignments and schedules.</p>
+        <h1 className="text-2xl font-bold text-gray-900 mb-1">Crew</h1>
+        <p className="text-sm text-gray-600">Today's bus crew assignments</p>
       </div>
 
       <div className="bg-white rounded-lg shadow-sm p-6">
-        <h2 className="text-lg font-semibold mb-2">Add Crew Member</h2>
-        <div className="flex flex-col sm:flex-row gap-2">
-          <input
-            type="text"
-            placeholder="Full Name"
-            className="border p-2 rounded w-full"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-          <input
-            type="text"
-            placeholder="Contact Number"
-            className="border p-2 rounded w-full"
-            value={contact}
-            onChange={(e) => setContact(e.target.value)}
-          />
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-900">Crew List</h2>
           <select
-            className="border p-2 rounded"
-            value={role}
-            onChange={(e) => setRole(e.target.value as 'Driver' | 'Conductor')}
+            className="border border-gray-300 rounded p-1 text-sm"
+            value={filterRole}
+            onChange={(e) => setFilterRole(e.target.value as 'All' | 'Driver' | 'Conductor')}
           >
+            <option value="All">All</option>
             <option value="Driver">Driver</option>
             <option value="Conductor">Conductor</option>
           </select>
-          <button
-            onClick={handleAddCrew}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-          >
-            Add
-          </button>
         </div>
-      </div>
 
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <h2 className="text-lg font-semibold mb-2">Crew List</h2>
-        {crewList.length === 0 ? (
-          <p className="text-gray-500">No crew members added yet.</p>
+        {filteredCrew.length === 0 ? (
+          <p className="text-sm text-gray-500">No crew members match the selected role.</p>
         ) : (
           <table className="w-full border mt-2 text-sm">
             <thead>
-              <tr className="bg-gray-100">
+              <tr className="bg-gray-100 text-sm">
                 <th className="p-2 text-left">Name</th>
-                <th className="p-2 text-left">Contact</th>
+                <th className="p-2 text-left">Contact number</th>
                 <th className="p-2 text-left">Role</th>
                 <th className="p-2 text-left">Status</th>
                 <th className="p-2 text-left">Action</th>
               </tr>
             </thead>
             <tbody>
-              {crewList.map((member) => (
+              {filteredCrew.map((member) => (
                 <tr key={member.id} className="border-t">
                   <td className="p-2">{member.name}</td>
                   <td className="p-2">{member.contact}</td>
@@ -159,7 +165,7 @@ const CrewManagement = () => {
                   <td className="p-2">
                     <button
                       onClick={() => toggleStatus(member.id)}
-                      className="text-blue-600 hover:underline"
+                      className="text-sm text-blue-600 hover:underline"
                     >
                       Change Status
                     </button>

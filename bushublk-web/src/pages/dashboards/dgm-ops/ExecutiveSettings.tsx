@@ -1,108 +1,106 @@
-import React, { useState } from 'react';
-import type { FormEvent } from 'react';
+import React from 'react';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from 'recharts';
 
-const ExecutiveSettings: React.FC = () => {
-  const [regionName, setRegionName] = useState('Western Province');
-  const [numberOfDepots, setNumberOfDepots] = useState(8);
-  const [activeRoutes, setActiveRoutes] = useState(120);
-  const [fleetSize, setFleetSize] = useState(250);
-  const [remarks, setRemarks] = useState('All operations running smoothly.');
+interface DepotReport {
+  region: string;
+  depot: string;
+  totalBuses: number;
+  totalCrew: number;
+  fleetUtilizationPercent: number;
+  passengerFeedbackScore: number;
+  routesCovered: number;
+  totalRoutes: number;
+}
 
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    alert('Executive settings updated successfully!');
+const depotReports: DepotReport[] = [
+  { region: 'Western', depot: 'Colombo Depot', totalBuses: 120, totalCrew: 250, fleetUtilizationPercent: 85, passengerFeedbackScore: 4.3, routesCovered: 30, totalRoutes: 32 },
+  { region: 'Western', depot: 'Pettah', totalBuses: 80, totalCrew: 160, fleetUtilizationPercent: 72, passengerFeedbackScore: 4.0, routesCovered: 22, totalRoutes: 25 },
+  { region: 'Western', depot: 'Nugegoda', totalBuses: 70, totalCrew: 150, fleetUtilizationPercent: 77, passengerFeedbackScore: 3.8, routesCovered: 20, totalRoutes: 21 },
+  { region: 'Southern', depot: 'Kotte', totalBuses: 65, totalCrew: 140, fleetUtilizationPercent: 79, passengerFeedbackScore: 4.1, routesCovered: 18, totalRoutes: 20 },
+  { region: 'Southern', depot: 'Dehiwala', totalBuses: 90, totalCrew: 180, fleetUtilizationPercent: 80, passengerFeedbackScore: 4.2, routesCovered: 25, totalRoutes: 27 },
+];
+
+// Utility to group depots by region
+const groupByRegion = (reports: DepotReport[]) => {
+  const grouped: { [region: string]: DepotReport[] } = {};
+  for (const report of reports) {
+    if (!grouped[report.region]) {
+      grouped[report.region] = [];
+    }
+    grouped[report.region].push(report);
+  }
+  return grouped;
+};
+
+// Utility to calculate region-level stats
+const calculateRegionStats = (depots: DepotReport[]) => {
+  const totalBuses = depots.reduce((sum, d) => sum + d.totalBuses, 0);
+  const totalCrew = depots.reduce((sum, d) => sum + d.totalCrew, 0);
+  const avgUtil = depots.reduce((sum, d) => sum + d.fleetUtilizationPercent, 0) / depots.length;
+  const avgFeedback = depots.reduce((sum, d) => sum + d.passengerFeedbackScore, 0) / depots.length;
+  const totalRoutes = depots.reduce((sum, d) => sum + d.totalRoutes, 0);
+  const coveredRoutes = depots.reduce((sum, d) => sum + d.routesCovered, 0);
+  const coveragePercent = (coveredRoutes / totalRoutes) * 100;
+
+  return {
+    totalBuses,
+    totalCrew,
+    avgUtil: parseFloat(avgUtil.toFixed(2)),
+    avgFeedback: parseFloat(avgFeedback.toFixed(2)),
+    coveragePercent: parseFloat(coveragePercent.toFixed(2)),
   };
+};
+
+const ExecutiveSettings = () => {
+  const regions = groupByRegion(depotReports);
 
   return (
-   <div className="space-y-6">
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Executive Settings</h1>
-        <p className="text-gray-600">
-          Manage region-wide operational settings and overview.
-        </p>
-      </div>
+    <div className="bg-white rounded-lg shadow-sm p-6 space-y-12">
+      <h1 className="text-2xl font-bold text-gray-900 mb-4">Region-wise Depot Reports</h1>
+      <p className="text-gray-600 mb-6">
+        Summarized operational reports by region including fleet stats and visual comparison between depots.
+      </p>
 
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">Region Overview</h2>
-        <ul className="space-y-2 text-gray-700">
-          <li><strong>Region Name:</strong> {regionName}</li>
-          <li><strong>Number of Depots:</strong> {numberOfDepots}</li>
-          <li><strong>Active Routes:</strong> {activeRoutes}</li>
-          <li><strong>Fleet Size:</strong> {fleetSize}</li>
-          <li><strong>Remarks:</strong> {remarks}</li>
-        </ul>
-      </div>
+      {Object.entries(regions).map(([regionName, depots]) => {
+        const stats = calculateRegionStats(depots);
 
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">Edit Settings</h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Region Name</label>
-            <input
-              type="text"
-              value={regionName}
-              onChange={(e) => setRegionName(e.target.value)}
-              className="mt-1 w-full border border-gray-300 rounded px-3 py-2"
-              required
-            />
-          </div>
+        return (
+          <section key={regionName} className="border rounded-lg p-4 shadow-sm">
+            <h2 className="text-xl font-bold mb-2 text-blue-800">{regionName} Region Overview</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4 text-gray-700">
+              <div className="bg-gray-100 p-3 rounded-lg">Total Buses: <strong>{stats.totalBuses}</strong></div>
+              <div className="bg-gray-100 p-3 rounded-lg">Total Crew: <strong>{stats.totalCrew}</strong></div>
+              <div className="bg-gray-100 p-3 rounded-lg">Fleet Utilization: <strong>{stats.avgUtil}%</strong></div>
+              <div className="bg-gray-100 p-3 rounded-lg">Feedback Score: <strong>{stats.avgFeedback}/5</strong></div>
+              <div className="bg-gray-100 p-3 rounded-lg">Route Coverage: <strong>{stats.coveragePercent}%</strong></div>
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Number of Depots</label>
-            <input
-              type="number"
-              value={numberOfDepots}
-              onChange={(e) => setNumberOfDepots(Math.max(1, parseInt(e.target.value) || 1))}
-              min={1}
-              className="mt-1 w-full border border-gray-300 rounded px-3 py-2"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Active Routes</label>
-            <input
-              type="number"
-              value={activeRoutes}
-              onChange={(e) => setActiveRoutes(Math.max(0, parseInt(e.target.value) || 0))}
-              min={0}
-              className="mt-1 w-full border border-gray-300 rounded px-3 py-2"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Fleet Size</label>
-            <input
-              type="number"
-              value={fleetSize}
-              onChange={(e) => setFleetSize(Math.max(0, parseInt(e.target.value) || 0))}
-              min={0}
-              className="mt-1 w-full border border-gray-300 rounded px-3 py-2"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Remarks</label>
-            <textarea
-              value={remarks}
-              onChange={(e) => setRemarks(e.target.value)}
-              rows={3}
-              className="mt-1 w-full border border-gray-300 rounded px-3 py-2"
-            />
-          </div>
-
-          <button
-            type="submit"
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
-          >
-            Save Changes
-          </button>
-        </form>
-      </div>
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart data={depots} margin={{ top: 10, right: 20, left: 0, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="depot" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="fleetUtilizationPercent" fill="#3182CE" name="Fleet Utilization (%)" />
+                <Bar dataKey="passengerFeedbackScore" fill="#FF8042" name="Feedback Score" />
+              </BarChart>
+            </ResponsiveContainer>
+          </section>
+        );
+      })}
     </div>
   );
 };
+
 
 export default ExecutiveSettings;

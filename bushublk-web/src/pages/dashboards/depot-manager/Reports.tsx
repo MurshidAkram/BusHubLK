@@ -42,17 +42,17 @@ const operationsSummary: OperationsSummary[] = [
 
 const Reports: React.FC = () => {
   return (
-    <div className="space-y-6 ">
+    <div className="space-y-6">
       {/* Depot Reports Header */}
       <div className="bg-white rounded-lg shadow-md p-6">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Depot Reports</h1>
-        <p className="text-gray-600">View overall overview.</p>
+        <p className="text-sm text-gray-600">View overall overview.</p>
       </div>
 
       {/* Operations Chart */}
       <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Operations Overview</h2>
-        <p className="text-gray-600 mb-4">Routes assigned throughout the week.</p>
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">Operations Overview</h2>
+        <p className="text-sm text-gray-600 mb-4">Routes assigned throughout the week.</p>
         <ResponsiveContainer width="100%" height={300}>
           <LineChart data={operationsSummary}>
             <Line type="monotone" dataKey="routesAssigned" stroke="#3b82f6" strokeWidth={3} />
@@ -66,8 +66,8 @@ const Reports: React.FC = () => {
 
       {/* Fleet Monitoring */}
       <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Fleet Monitoring</h2>
-        <p className="text-gray-600 mb-4">Service and parts replacement summary per bus.</p>
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">Fleet Monitoring</h2>
+        <p className="text-sm text-gray-600 mb-4">Service and parts replacement summary per bus.</p>
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={fleetServiceHistory}>
             <CartesianGrid strokeDasharray="3 3" />

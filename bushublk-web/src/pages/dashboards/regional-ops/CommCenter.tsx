@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import { Megaphone, Send, X } from 'lucide-react';
 
 interface Message {
   id: number;
-  to: 'Depot Manager' | 'DG (Operational)';
-  from: 'Regional Operations Officer';
+  type: 'Received' | 'Sent';
+  from: string;
+  to: string;
   title: string;
   message: string;
   date: string;
@@ -13,19 +15,30 @@ const CommCenter = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 1,
+      type: 'Received',
+      from: 'Regional operations Officer',
       to: 'Depot Manager',
-      from: 'Regional Operations Officer',
-      title: 'Staff Evaluation Required',
-      message: 'Please submit staff performance reports by the end of the week.',
-      date: '2025-07-16',
+      title: 'Submit Weekly Report',
+      message: 'Please submit the weekly operational report by 5 PM today.',
+      date: '2025-07-03',
     },
     {
       id: 2,
-      to: 'DG (Operational)',
-      from: 'Regional Operations Officer',
-      title: 'Request for Fleet Expansion',
-      message: 'A request to expand the fleet in Region 3 has been submitted.',
-      date: '2025-07-15',
+      type: 'Sent',
+      from: 'Depot Manager',
+      to: 'Depot Staff',
+      title: 'Depot Cleaning Drive',
+      message: 'All staff are requested to participate in the depot-wide cleaning this Friday.',
+      date: '2025-07-02',
+    },
+    {
+      id: 3,
+      type: 'Sent',
+      from: 'Depot Manager',
+      to: 'DGM(op)',
+      title: 'Staff Meeting',
+      message: 'Reminder: Staff meeting scheduled for Monday at 9 AM.',
+      date: '2025-06-30',
     },
   ]);
 
@@ -35,91 +48,128 @@ const CommCenter = () => {
     to: '',
   });
 
+  const [showForm, setShowForm] = useState(false);
+
   const handleSend = () => {
     const newItem: Message = {
       id: Date.now(),
-      to: newMessage.to as 'Depot Manager' | 'DG (Operational)',
-      from: 'Regional Operations Officer',
+      type: 'Sent',
+      from: 'Depot Manager',
+      to: newMessage.to,
       title: newMessage.title,
       message: newMessage.message,
       date: new Date().toISOString().slice(0, 10),
     };
     setMessages([newItem, ...messages]);
     setNewMessage({ title: '', message: '', to: '' });
+    setShowForm(false);
   };
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Communication Hub</h1>
-        <p className="text-gray-600">
-          Send messages to Depot Managers or report to the Deputy General Manager (Operational).
-        </p>
-      </div>
-
-      {/* Send New Message */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">Send New Message</h2>
-        <div className="space-y-4">
-          <select
-            className="w-full p-2 border border-gray-300 rounded"
-            value={newMessage.to}
-            onChange={(e) => setNewMessage({ ...newMessage, to: e.target.value })}
-          >
-            <option value="">Select Recipient</option>
-            <option value="Depot Manager">Depot Manager</option>
-            <option value="DG (Operational)">DG (Operational)</option>
-          </select>
-
-          <input
-            type="text"
-            placeholder="Title"
-            className="w-full p-2 border border-gray-300 rounded"
-            value={newMessage.title}
-            onChange={(e) =>
-              setNewMessage({ ...newMessage, title: e.target.value })
-            }
-          />
-
-          <textarea
-            placeholder="Message"
-            rows={4}
-            className="w-full p-2 border border-gray-300 rounded"
-            value={newMessage.message}
-            onChange={(e) =>
-              setNewMessage({ ...newMessage, message: e.target.value })
-            }
-          />
-
-          <button
-            onClick={handleSend}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
-            disabled={
-              !newMessage.title || !newMessage.message || !newMessage.to
-            }
-          >
-            Send Message
-          </button>
+      {/* Header */}
+      <div className="bg-white rounded-2xl shadow-md p-6 flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
+            Communication hub
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Stay updated with the latest messages
+          </p>
         </div>
       </div>
 
-      {/* Messages List */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">Recent Messages</h2>
+      {/* Below header: Messages info + Send Message button */}
+      <div className="bg-white rounded-2xl shadow-md p-4 flex justify-between items-center">
+        <div className="text-sm text-gray-600">
+          Showing {messages.length} of {messages.length} messages
+        </div>
+        <button
+          onClick={() => setShowForm((prev) => !prev)}
+          className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg shadow"
+        >
+          {showForm ? 'Hide Form' : 'Send message'}
+        </button>
+      </div>
+
+      {/* Message Form */}
+      {showForm && (
+        <div className="bg-white rounded-2xl shadow p-6 space-y-5">
+          <h2 className="text-xl font-semibold text-gray-800">Send New Message</h2>
+          <div className="grid gap-4">
+            <select
+              className="w-full p-3 border border-gray-300 rounded-lg text-sm"
+              value={newMessage.to}
+              onChange={(e) => setNewMessage({ ...newMessage, to: e.target.value })}
+            >
+              <option value="">Select Recipient</option>
+              <option value="Regional Operations Officer">Depot manager</option>
+              <option value="Deputy General Manager (Operations)">DGM(operations)</option>
+              
+            </select>
+
+            <input
+              type="text"
+              placeholder="Message Title"
+              className="w-full p-3 border border-gray-300 rounded-lg text-sm"
+              value={newMessage.title}
+              onChange={(e) => setNewMessage({ ...newMessage, title: e.target.value })}
+            />
+
+            <textarea
+              placeholder="Write your message..."
+              rows={5}
+              className="w-full p-3 border border-gray-300 rounded-lg text-sm"
+              value={newMessage.message}
+              onChange={(e) => setNewMessage({ ...newMessage, message: e.target.value })}
+            />
+
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={handleSend}
+                disabled={!newMessage.title || !newMessage.message || !newMessage.to}
+                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium px-4 py-2 rounded-lg shadow disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Send className="w-4 h-4" />
+                Send
+              </button>
+              <button
+                onClick={() => setShowForm(false)}
+                className="flex items-center gap-2 bg-gray-200 hover:bg-gray-300 text-gray-800 text-sm font-medium px-4 py-2 rounded-lg"
+              >
+                <X className="w-4 h-4" />
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Recent Messages */}
+      <div className="bg-white rounded-2xl shadow p-6">
+        <h2 className="text-xl font-semibold text-gray-800 mb-4">Recent Announcements</h2>
         {messages.length === 0 ? (
-          <p className="text-gray-500">No messages sent.</p>
+          <p className="text-sm text-gray-500">No messages available.</p>
         ) : (
           <ul className="space-y-4">
             {messages.map((item) => (
-              <li key={item.id} className="border border-gray-200 p-4 rounded shadow-sm">
-                <div className="flex justify-between items-center mb-2">
-                  <h3 className="text-lg font-semibold text-gray-800">{item.title}</h3>
-                  <span className="text-sm text-gray-500">{item.date}</span>
-                </div>
-                <p className="text-gray-700 mb-2">{item.message}</p>
-                <div className="text-sm text-gray-500">
-                  From: <span className="font-medium">{item.from}</span> → To:{' '}
-                  <span className="font-medium">{item.to}</span>
+              <li
+                key={item.id}
+                className="border border-gray-200 rounded-xl p-5 bg-gray-50 hover:bg-gray-100 transition"
+              >
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-800">{item.title}</h3>
+                    <p className="text-sm text-gray-600 mt-1">{item.message}</p>
+                  </div>
+                  <span className="text-xs text-gray-500 block text-right mt-1">
+                    {item.date} —{' '}
+                    <span className={item.type === 'Sent' ? 'text-green-600' : 'text-blue-600'}>
+                      {item.type}
+                    </span>
+                    <br />
+                    <span className="text-gray-700 font-semibold">From: </span>{item.from}
+                  </span>
                 </div>
               </li>
             ))}

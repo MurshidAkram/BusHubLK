@@ -37,7 +37,7 @@ const DGMOperationsSidebarContent = () => {
         }
       >
         <HiHome className="mr-3 flex-shrink-0 h-5 w-5" />
-        Executive Dashboard
+         Dashboard
       </NavLink>
 
       <NavLink
@@ -49,7 +49,19 @@ const DGMOperationsSidebarContent = () => {
         }
       >
         <HiGlobeAlt className="mr-3 flex-shrink-0 h-5 w-5" />
-        National Operations
+        Daily Duty
+      </NavLink>
+
+      <NavLink
+        to="/dgm-operations/crew-oversight"
+        className={({ isActive }) =>
+          `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
+            ? 'bg-indigo-700 text-white' 
+            : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`
+        }
+      >
+        <HiGlobeAlt className="mr-3 flex-shrink-0 h-5 w-5" />
+       Crew
       </NavLink>
 
       <NavLink
@@ -61,7 +73,7 @@ const DGMOperationsSidebarContent = () => {
         }
       >
         <HiExclamationCircle className="mr-3 flex-shrink-0 h-5 w-5" />
-        Communication Center
+        Contact
       </NavLink>
 
 
@@ -74,7 +86,7 @@ const DGMOperationsSidebarContent = () => {
         }
       >
         <HiDocumentReport className="mr-3 flex-shrink-0 h-5 w-5" />
-     Feedback
+     Issues
       </NavLink>
 
      
@@ -88,7 +100,7 @@ const DGMOperationsSidebarContent = () => {
         }
       >
         <HiCog className="mr-3 flex-shrink-0 h-5 w-5" />
-        Executive Settings
+        Reports
       </NavLink>
     </div>
   );
