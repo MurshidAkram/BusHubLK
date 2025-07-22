@@ -51,24 +51,55 @@ export default function DriverLoginScreen() {
         // Store the token and user data using storageAPI
         await storageAPI.storeAuthToken(response.token);
 
-        // Fetch assigned bus and route info from backend if not included in login response
+        // Fetch assigned bus and route info from daily assignment
         let userData = response.user;
-        if (!userData.busId || !userData.routeId) {
-          try {
-            const profile = await driverAPI.getDriverProfile();
-            userData = { ...userData, busId: profile.assignedBusId, routeId: profile.assignedRouteId };
-          } catch (error) {
-            console.error("Failed to fetch driver profile for bus/route info:", error);
+        
+        try {
+          console.log("Fetching daily assignment for driver:", userData.driver_id);
+          const assignmentResponse = await driverAPI.getDailyAssignment(userData.driver_id.toString());
+          
+          if (assignmentResponse && assignmentResponse.bus_id && assignmentResponse.route_id) {
+            console.log("Daily assignment found:", {
+              bus_id: assignmentResponse.bus_id,
+              route_id: assignmentResponse.route_id,
+              assignment_id: assignmentResponse.assignment_id
+            });
+            
+            userData = { 
+              ...userData, 
+              busId: assignmentResponse.bus_id.toString(), 
+              routeId: assignmentResponse.route_id.toString(),
+              assignmentId: assignmentResponse.assignment_id,
+              busRegistration: assignmentResponse.bus_registration
+            };
+            
+            // Also set assignment data in location service
+            locationService.setCurrentAssignment({
+              bus_id: assignmentResponse.bus_id,
+              route_id: assignmentResponse.route_id,
+              driver_id: userData.driver_id,
+              assignment_id: assignmentResponse.assignment_id
+            });
+          } else {
+            console.warn("No active daily assignment found for driver:", userData.driver_id);
           }
+        } catch (error) {
+          console.error("Failed to fetch daily assignment:", error);
         }
 
         await storageAPI.storeUserData(userData);
 
         // Start location tracking after storing user data
         if (userData.busId && userData.routeId) {
-          locationService.startLocationTracking(userData.busId, userData.routeId);
+          console.log("Starting location tracking with assignment data");
+          locationService.startSmartLocationTracking(userData.busId, userData.routeId, userData.busRegistration);
         } else {
-          console.warn("Bus ID or Route ID missing in user data, cannot start location tracking");
+          console.warn("Bus ID or Route ID missing - no active daily assignment found");
+          Alert.alert(
+            "No Assignment Found", 
+            "You don't have an active daily assignment. Please contact your depot manager to assign you to a bus and route.",
+            [{ text: "OK" }]
+          );
         }
 
         setIsLoading(false);

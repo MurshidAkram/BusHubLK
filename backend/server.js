@@ -2,25 +2,30 @@ const express = require('express');
 const path = require('path');
 const cors = require('cors');
 const morgan = require('morgan');
-require('dotenv').config();
+require('dotenv').config(); // Load environment variables at the very beginning
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Basic CORS configuration
 app.use(cors({
-  origin: true, // Allow all origins in development
+  origin: true, // Allow all origins in development (for testing)
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Mobile-App']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Mobile-App', 'Accept', 'Origin', 'X-Requested-With'],
+  exposedHeaders: ['Content-Length', 'X-Foo', 'X-Bar']
 }));
 
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve static files
+// Serve static files (ensure 'public' exists in your backend root)
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Serve uploaded files
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/api/uploads', express.static(path.join(__dirname, 'uploads'))); // For compatibility
 
 // Basic security headers
 app.use((req, res, next) => {
@@ -30,17 +35,55 @@ app.use((req, res, next) => {
   next();
 });
 
+// Handle preflight requests for multipart form data (if lost-found needs it, keep it)
+app.options('/api/lost-found/reports', (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, Origin', 'X-Requested-With');
+  res.sendStatus(200);
+});
+
+// Health check endpoint for API discovery
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    message: 'BusHubLK API is healthy',
+    timestamp: new Date().toISOString(),
+    version: '1.0.0'
+  });
+});
+
 // Sample route
 app.get('/', (req, res) => {
   res.send('🚍 BusHubLK API is running');
 });
 
+// Test endpoint
+app.get('/api/test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'API is working',
+    timestamp: new Date().toISOString()
+  });
+});
+
+
 try {
   const BusTrackingRoutes = require('./routes/BusTrackingRoutes');
   app.use('/api/bus-tracking', BusTrackingRoutes);
+  app.use('/api/live-tracking', BusTrackingRoutes);
   console.log('✅ BusTrackingRoutes loaded');
 } catch (error) {
   console.log('❌ BusTrackingRoutes error:', error.message);
+}
+
+
+try {
+  const busLiveTrackingRoutes = require('./routes/busLiveTrackingRoutes');
+  app.use('/api/live-tracking', busLiveTrackingRoutes);
+  console.log('✅ busLiveTrackingRoutes loaded');
+} catch (error) {
+  console.log('❌ busLiveTrackingRoutes error:', error.message);
 }
 
 // Load routes with error handling
@@ -69,6 +112,14 @@ try {
 }
 
 try {
+  const routeRoutes = require('./routes/routeRoutes');
+  app.use('/api/routes', routeRoutes);
+  console.log('✅ routeRoutes loaded');
+} catch (error) {
+  console.log('❌ routeRoutes error:', error.message);
+}
+
+try {
   const driverAuthRoutes = require('./routes/driverAuth');
   app.use('/api/driver', driverAuthRoutes);
   console.log('✅ driverAuth loaded');
@@ -91,6 +142,14 @@ try {
 } catch (error) {
   console.log('❌ passengerRoutes error:', error.message);
 }
+try {
+  const dailyAssignmentRoutes = require('./routes/dailyAssignmentRoutes');
+  app.use('/api/dailyassignment', dailyAssignmentRoutes);
+  console.log('✅ dailyAssignmentRoutes loaded');
+} catch (error) {
+  console.log('❌ dailyAssignmentRoutes error:', error.message);
+}
+
 
 try {
   const BusOccupancyRoutes = require('./routes/BusOccupancyRoutes');
@@ -108,29 +167,30 @@ try {
   console.log('❌ passwordReset error:', error.message);
 }
 
+
+
+
+
 const regionDepotRoutes = require('./routes/regionDepotRoutes');
 app.use('/api', regionDepotRoutes);
+console.log('✅ regionDepotRoutes loaded');
 
+const fareRoutes = require('./routes/fareRoutes');
+app.use('/api/fares', fareRoutes);
+console.log('✅ fareRoutes loaded');
 
-const BusTrackingRoutes = require('./routes/BusTrackingRoutes');
-  app.use('/api/bus-tracking', BusTrackingRoutes); 
+const busConditionReportRoutes = require('./routes/busConditionReportRoutes');
+app.use('/api/bus-condition-reports', busConditionReportRoutes);
+console.log('✅ busConditionReportRoutes loaded');
 
+const busRoutes = require('./routes/busRoutes');
+app.use('/api/buses', busRoutes);
+console.log('✅ busRoutes loaded');
 
-try {
-  const busConditionReportRoutes = require('./routes/busConditionReportRoutes');
-  app.use('/api/bus-condition-reports', busConditionReportRoutes);
-  console.log('✅ busConditionReportRoutes loaded');
-} catch (error) {
-  console.log('❌ busConditionReportRoutes error:', error.message);
-}
+const lostFoundRoutes = require('./routes/lostFoundRoutes');
+app.use('/api/lost-found', lostFoundRoutes);
+console.log('✅ lostFoundRoutes loaded');
 
-try {
-  const busRoutes = require('./routes/busRoutes');
-  app.use('/api/buses', busRoutes);
-  console.log('✅ busRoutes loaded');
-} catch (error) {
-  console.log('❌ busRoutes error:', error.message);
-}
 
 try {
   const depotEngineerRoutes = require('./routes/depotEngineerRoutes');
@@ -140,43 +200,31 @@ try {
   console.log('❌ depotEngineerRoutes error:', error.message);
 }
 
-try {
-  const lostFoundRoutes = require('./routes/lostFoundRoutes');
-  app.use('/api/lost-found', lostFoundRoutes);
-  console.log('✅ lostFoundRoutes loaded');
-} catch (error) {
-  console.log('❌ lostFoundRoutes error:', error.message);
-}
 
-// Static file routes
 app.get('/resetPassword.js', (req, res) => {
   res.setHeader('Content-Type', 'application/javascript');
   res.sendFile(path.join(__dirname, 'public/resetPassword.js'));
 });
 
-// Add this near your other route imports
-const busRoutes = require('./routes/busRoutes');
-
-// And this with your other app.use() calls
-app.use('/api/buses', busRoutes);
-
-
 app.get('/reset-password.html', (req, res) => {
   res.setHeader('Content-Type', 'text/html');
   res.sendFile(path.join(__dirname, 'public/reset-password.html'));
-
 });
 
-// Error handling
+// Error handling middleware (should be last app.use before 404 handler)
 app.use((error, req, res, next) => {
   console.error('Server error:', error);
+  // Check if headers have already been sent to prevent "Cannot set headers after they are sent to the client" error
+  if (res.headersSent) {
+    return next(error);
+  }
   res.status(500).json({
     success: false,
     error: 'Internal server error'
   });
 });
 
-// 404 handler
+// 404 handler (should be the very last middleware)
 app.use((req, res) => {
   res.status(404).json({
     success: false,
@@ -184,12 +232,11 @@ app.use((req, res) => {
   });
 });
 
-
+// Favicon and robots.txt
 app.get('/favicon.ico', (req, res) => {
   res.status(204).end();
 });
 
-// Handle common static file requests
 app.get('/robots.txt', (req, res) => {
   res.type('text/plain');
   res.send('User-agent: *\nDisallow: /');
@@ -200,11 +247,11 @@ app.listen(PORT, '0.0.0.0', () => {
   try {
     const { getDynamicBaseURL } = require('./utils/networkUtils');
     const baseURL = getDynamicBaseURL();
-    
+
     console.log(`🚀 Server is running on ${baseURL}`);
-    console.log(`📧 Email service configured: ${process.env.EMAIL_SERVICE || 'gmail'}`);
-    console.log(`🌐 Base URL: ${baseURL}`);
-    console.log(`🔐 Password reset available at: ${baseURL}/api/password-reset`);
+    console.log(`📧 Email service configured: ${process.env.EMAIL_SERVICE || 'smtp'}`); // Default to smtp
+    console.log(`🌐 Base URL for deep links/web access: ${baseURL}`);
+    console.log(`🔐 Password reset endpoint: ${baseURL}/api/password-reset`);
   } catch (error) {
     console.log(`🚀 Server is running on http://localhost:${PORT}`);
     console.log('❌ Network utils error:', error.message);

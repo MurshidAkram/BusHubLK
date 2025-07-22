@@ -32,7 +32,6 @@ const PlaceholderScreen = ({ title }: { title: string }) => (
   </View>
 );
 
-
 // Home Stack Navigator
 const HomeStackNavigator = () => {
   return (
@@ -50,15 +49,12 @@ const HomeStackNavigator = () => {
       <HomeStack.Screen name="Tracking" component={TrackingScreen} />
       <HomeStack.Screen name="ProfileModal" component={ProfileScreen} />
       <HomeStack.Screen name="MapScreen" component={MapScreen} />
-
     </HomeStack.Navigator>
   );
 };
 
-
 // Schedule Stack Navigator
 const ScheduleStackNavigator = () => {
-
   return (
     <ScheduleStack.Navigator
       screenOptions={{
@@ -91,9 +87,7 @@ const SettingsStackNavigator = () => {
         headerShown: false,
       }}
     >
-
       <SettingsStack.Screen name="SettingsMain" component={SettingsScreen} />
-
     </SettingsStack.Navigator>
   );
 };

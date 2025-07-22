@@ -9,13 +9,13 @@ import {
   TextInput,
   FlatList,
   ActivityIndicator,
+  Alert,
   Dimensions,
   Modal,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import MapView, { Marker, PROVIDER_GOOGLE, Circle } from 'react-native-maps';
 import { StackScreenProps } from '@react-navigation/stack';
-import * as Location from 'expo-location';
 import { HomeStackParamList } from '../navigation/navigationTypes';
 
 type Props = StackScreenProps<HomeStackParamList, 'BusTracking'>;
@@ -35,209 +35,175 @@ const AppColors = {
 
 interface BusLocation {
   busId: string;
-  registrationNumber: string;
-  routeNumber: string | null;
-  status: 'Active' | 'In Service' | 'Maintenance' | 'Out of Service' | 'Retired';
+  routeNumber: string;
+  operator: 'SLTB' | 'Private';
+  driverName: string;
   latitude: number;
   longitude: number;
+  heading: number;
+  speed: number; // km/h
   lastUpdated: Date;
+  status: 'active' | 'inactive' | 'breakdown' | 'depot';
+  nextStop: string;
+  estimatedArrival: string;
   passengerCount: number;
   capacity: number;
-  occupancyLevel: string;
-  confidence: number;
+  busType: 'Normal' | 'Semi-Luxury' | 'Luxury' | 'Express';
 }
 
 interface BusRoute {
   routeNumber: string;
   routeName: string;
-  startLocation: string;
-  endLocation: string;
+  operator: 'SLTB' | 'Private';
   activeBuses: number;
   totalBuses: number;
 }
 
+// Sample bus tracking data (in real implementation, this would come from your backend)
+const SAMPLE_BUS_LOCATIONS: BusLocation[] = [
+  {
+    busId: 'SLTB-138-001',
+    routeNumber: '138',
+    operator: 'SLTB',
+    driverName: 'Kamal Perera',
+    latitude: 6.9271,
+    longitude: 79.8612,
+    heading: 45,
+    speed: 35,
+    lastUpdated: new Date(),
+    status: 'active',
+    nextStop: 'Pettah',
+    estimatedArrival: '5 mins',
+    passengerCount: 45,
+    capacity: 60,
+    busType: 'Semi-Luxury'
+  },
+  {
+    busId: 'SLTB-138-002',
+    routeNumber: '138',
+    operator: 'SLTB',
+    driverName: 'Sunil Silva',
+    latitude: 7.2906,
+    longitude: 80.6337,
+    heading: 180,
+    speed: 42,
+    lastUpdated: new Date(Date.now() - 2 * 60 * 1000), // 2 minutes ago
+    status: 'active',
+    nextStop: 'Kandy Central',
+    estimatedArrival: '12 mins',
+    passengerCount: 38,
+    capacity: 60,
+    busType: 'Semi-Luxury'
+  },
+  {
+    busId: 'PVT-001-E01',
+    routeNumber: 'E01',
+    operator: 'Private',
+    driverName: 'Nimal Fernando',
+    latitude: 6.9897,
+    longitude: 80.2142,
+    heading: 90,
+    speed: 55,
+    lastUpdated: new Date(Date.now() - 1 * 60 * 1000), // 1 minute ago
+    status: 'active',
+    nextStop: 'Kegalle',
+    estimatedArrival: '8 mins',
+    passengerCount: 28,
+    capacity: 45,
+    busType: 'Luxury'
+  },
+  {
+    busId: 'SLTB-001-001',
+    routeNumber: '1',
+    operator: 'SLTB',
+    driverName: 'Ranjith Kumar',
+    latitude: 6.8485,
+    longitude: 79.9681,
+    heading: 225,
+    speed: 28,
+    lastUpdated: new Date(Date.now() - 5 * 60 * 1000), // 5 minutes ago
+    status: 'active',
+    nextStop: 'Mount Lavinia',
+    estimatedArrival: '3 mins',
+    passengerCount: 52,
+    capacity: 65,
+    busType: 'Normal'
+  }
+];
+
+const SAMPLE_ROUTES: BusRoute[] = [
+  { routeNumber: '138', routeName: 'Colombo - Kandy', operator: 'SLTB', activeBuses: 2, totalBuses: 5 },
+  { routeNumber: 'E01', routeName: 'Colombo - Kandy Express', operator: 'Private', activeBuses: 1, totalBuses: 3 },
+  { routeNumber: '1', routeName: 'Colombo - Galle', operator: 'SLTB', activeBuses: 1, totalBuses: 4 },
+  { routeNumber: '4', routeName: 'Colombo - Matara', operator: 'SLTB', activeBuses: 0, totalBuses: 3 },
+];
+
 export default function BusTrackingScreen({ navigation }: Props) {
   const [selectedRoute, setSelectedRoute] = useState<string | null>(null);
-  const [busLocations, setBusLocations] = useState<BusLocation[]>([]);
+  const [busLocations, setBusLocations] = useState<BusLocation[]>(SAMPLE_BUS_LOCATIONS);
   const [filteredBuses, setFilteredBuses] = useState<BusLocation[]>([]);
-  const [routes, setRoutes] = useState<BusRoute[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [selectedBus, setSelectedBus] = useState<BusLocation | null>(null);
   const [showBusDetails, setShowBusDetails] = useState(false);
-  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [mapRegion, setMapRegion] = useState({
-    latitude: 6.9271, // Default: Colombo
+    latitude: 6.9271,
     longitude: 79.8612,
-    latitudeDelta: 0.05,
-    longitudeDelta: 0.05,
+    latitudeDelta: 0.5,
+    longitudeDelta: 0.5,
   });
 
   const mapRef = useRef<MapView>(null);
+  const trackingInterval = useRef<NodeJS.Timeout | null>(null);
 
-  // Request location permission
-  const requestLocationPermission = async () => {
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        setError('Location permission denied');
-        return false;
-      }
-      return true;
-    } catch (err) {
-      console.warn(err);
-      setError('Failed to request location permission');
-      return false;
-    }
-  };
-
-  // Get user's current location
-  const getUserLocation = async () => {
-    try {
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
-        timeInterval: 10000,
-        distanceInterval: 10,
-      });
-      const { latitude, longitude } = location.coords;
-      console.log('User location:', { latitude, longitude }); // Debug
-      setUserLocation({ latitude, longitude });
-      setMapRegion({
-        latitude,
-        longitude,
-        latitudeDelta: 0.05,
-        longitudeDelta: 0.05,
-      });
-      mapRef.current?.animateToRegion(
-        { latitude, longitude, latitudeDelta: 0.05, longitudeDelta: 0.05 },
-        1000
-      );
-    } catch (err) {
-      console.warn(err);
-      setError('Unable to fetch your location');
-    }
-  };
-
-  // Calculate distance (in kilometers)
-  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-    const R = 6371; // Earth's radius in km
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-      Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  };
-
-  // Fetch routes
-  const fetchRoutes = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch('http://your-server:port/api/bus-tracking/routes'); // Update URL
-      const data = await response.json();
-      console.log('Fetched routes:', data); // Debug
-      setRoutes(data.map((item: any) => ({
-        routeNumber: item.route_number,
-        routeName: item.route_name,
-        startLocation: item.start_location,
-        endLocation: item.end_location,
-        activeBuses: item.active_buses || 0,
-        totalBuses: item.total_buses || 0,
-      })));
-    } catch (err) {
-      console.error('Error fetching routes:', err);
-      setError('Failed to fetch routes');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Fetch bus locations
-  const fetchBusLocations = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch('http://your-server:port/api/bus-tracking'); // Update URL
-      const data = await response.json();
-      console.log('Fetched buses:', data); // Debug
-      setBusLocations(data.map((item: any) => ({
-        busId: item.bus_id,
-        registrationNumber: item.registration_number,
-        routeNumber: item.route_number || null,
-        status: item.status,
-        latitude: parseFloat(item.latitude || 0),
-        longitude: parseFloat(item.longitude || 0),
-        lastUpdated: new Date(item.updated_at),
-        passengerCount: item.passenger_count,
-        capacity: item.capacity,
-        occupancyLevel: item.occupancy_level || 'Unknown',
-        confidence: item.confidence || 0.0,
-      })));
-    } catch (err) {
-      console.error('Error fetching buses:', err);
-      setError('Failed to fetch bus locations');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Initialize
   useEffect(() => {
-    const init = async () => {
-      const hasPermission = await requestLocationPermission();
-      if (hasPermission) {
-        await getUserLocation();
+    // Start real-time tracking simulation
+    startBusTracking();
+    return () => {
+      if (trackingInterval.current) {
+        clearInterval(trackingInterval.current);
       }
-      await Promise.all([fetchRoutes(), fetchBusLocations()]);
     };
-    init();
   }, []);
 
-  // Filter buses
   useEffect(() => {
-    if (!userLocation) {
-      setFilteredBuses(busLocations);
-      return;
-    }
+    filterBuses();
+  }, [selectedRoute, searchQuery, busLocations]);
 
-    let filtered = busLocations.filter(bus => {
-      if (selectedRoute && bus.routeNumber !== selectedRoute) {
-        return false;
-      }
-      if (searchQuery) {
-        return bus.routeNumber && bus.routeNumber.toLowerCase().includes(searchQuery.toLowerCase());
-      }
-      const distance = calculateDistance(
-        userLocation.latitude,
-        userLocation.longitude,
-        bus.latitude,
-        bus.longitude
+  const startBusTracking = () => {
+    // Simulate real-time bus location updates
+    trackingInterval.current = setInterval(() => {
+      setBusLocations(prevLocations => 
+        prevLocations.map(bus => ({
+          ...bus,
+          // Simulate small movements (in real app, this comes from GPS)
+          latitude: bus.latitude + (Math.random() - 0.5) * 0.001,
+          longitude: bus.longitude + (Math.random() - 0.5) * 0.001,
+          speed: Math.max(0, bus.speed + (Math.random() - 0.5) * 10),
+          lastUpdated: new Date(),
+          passengerCount: Math.min(bus.capacity, Math.max(0, bus.passengerCount + Math.floor((Math.random() - 0.5) * 5)))
+        }))
       );
-      return distance <= 5 && bus.status === 'Active';
-    });
+    }, 5000); // Update every 5 seconds
+  };
 
-    console.log('Filtered buses:', filtered); // Debug
-    setFilteredBuses(filtered);
-
-    if (filtered.length > 0) {
-      const latitudes = [userLocation.latitude, ...filtered.map(bus => bus.latitude)];
-      const longitudes = [userLocation.longitude, ...filtered.map(bus => bus.longitude)];
-      const minLat = Math.min(...latitudes);
-      const maxLat = Math.max(...latitudes);
-      const minLng = Math.min(...longitudes);
-      const maxLng = Math.max(...longitudes);
-      const region = {
-        latitude: (minLat + maxLat) / 2,
-        longitude: (minLng + maxLng) / 2,
-        latitudeDelta: Math.max((maxLat - minLat) * 1.5, 0.05),
-        longitudeDelta: Math.max((maxLng - minLng) * 1.5, 0.05),
-      };
-      setMapRegion(region);
-      mapRef.current?.animateToRegion(region, 1000);
+  const filterBuses = () => {
+    let filtered = busLocations;
+    
+    if (selectedRoute) {
+      filtered = filtered.filter(bus => bus.routeNumber === selectedRoute);
     }
-  }, [selectedRoute, searchQuery, busLocations, userLocation]);
+    
+    if (searchQuery) {
+      filtered = filtered.filter(bus => 
+        bus.routeNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        bus.nextStop.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        bus.driverName.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+    
+    setFilteredBuses(filtered);
+  };
 
   const selectRoute = (routeNumber: string) => {
     setSelectedRoute(selectedRoute === routeNumber ? null : routeNumber);
@@ -248,31 +214,34 @@ export default function BusTrackingScreen({ navigation }: Props) {
     setMapRegion({
       latitude: bus.latitude,
       longitude: bus.longitude,
-      latitudeDelta: 0.02,
-      longitudeDelta: 0.02,
+      latitudeDelta: 0.1,
+      longitudeDelta: 0.1,
     });
     mapRef.current?.animateToRegion({
       latitude: bus.latitude,
       longitude: bus.longitude,
-      latitudeDelta: 0.02,
-      longitudeDelta: 0.02,
+      latitudeDelta: 0.1,
+      longitudeDelta: 0.1,
     }, 1000);
   };
 
   const showAllBuses = () => {
-    if (filteredBuses.length > 0 && userLocation) {
-      const latitudes = [userLocation.latitude, ...filteredBuses.map(bus => bus.latitude)];
-      const longitudes = [userLocation.longitude, ...filteredBuses.map(bus => bus.longitude)];
+    if (filteredBuses.length > 0) {
+      const latitudes = filteredBuses.map(bus => bus.latitude);
+      const longitudes = filteredBuses.map(bus => bus.longitude);
+      
       const minLat = Math.min(...latitudes);
       const maxLat = Math.max(...latitudes);
       const minLng = Math.min(...longitudes);
       const maxLng = Math.max(...longitudes);
+      
       const region = {
         latitude: (minLat + maxLat) / 2,
         longitude: (minLng + maxLng) / 2,
-        latitudeDelta: Math.max((maxLat - minLat) * 1.5, 0.05),
-        longitudeDelta: Math.max((maxLng - minLng) * 1.5, 0.05),
+        latitudeDelta: (maxLat - minLat) * 1.5,
+        longitudeDelta: (maxLng - minLng) * 1.5,
       };
+      
       setMapRegion(region);
       mapRef.current?.animateToRegion(region, 1000);
     }
@@ -280,11 +249,10 @@ export default function BusTrackingScreen({ navigation }: Props) {
 
   const getBusStatusColor = (status: string) => {
     switch (status) {
-      case 'Active':
-      case 'In Service': return AppColors.success;
-      case 'Maintenance': return AppColors.warning;
-      case 'Out of Service': return AppColors.danger;
-      case 'Retired': return AppColors.textSecondary;
+      case 'active': return AppColors.success;
+      case 'inactive': return AppColors.textSecondary;
+      case 'breakdown': return AppColors.danger;
+      case 'depot': return AppColors.warning;
       default: return AppColors.textSecondary;
     }
   };
@@ -304,32 +272,26 @@ export default function BusTrackingScreen({ navigation }: Props) {
       onPress={() => selectRoute(item.routeNumber)}
     >
       <View style={styles.routeHeader}>
-        <Text style={[styles.routeNumber, selectedRoute === item.routeNumber && styles.routeNumberSelected]}>
-          {item.routeNumber}
-        </Text>
+        <Text style={styles.routeNumber}>{item.routeNumber}</Text>
         <View style={styles.busCount}>
-          <Text style={[styles.busCountText, selectedRoute === item.routeNumber && styles.routeTextSelected]}>
+          <Text style={styles.busCountText}>
             {item.activeBuses}/{item.totalBuses} buses
           </Text>
           <View style={[
             styles.statusDot,
-            { backgroundColor: item.activeBuses > 0 ? (selectedRoute === item.routeNumber ? 'white' : AppColors.success) : AppColors.textSecondary }
+            { backgroundColor: item.activeBuses > 0 ? AppColors.success : AppColors.textSecondary }
           ]} />
         </View>
       </View>
-      <Text style={[styles.routeName, selectedRoute === item.routeNumber && styles.routeTextSelected]}>
-        {item.routeName}
-      </Text>
+      <Text style={styles.routeName}>{item.routeName}</Text>
+      <Text style={styles.operator}>{item.operator}</Text>
     </TouchableOpacity>
   );
 
   const renderBusItem = ({ item }: { item: BusLocation }) => {
     const occupancy = item.passengerCount / item.capacity;
     const timeSinceUpdate = Math.floor((Date.now() - item.lastUpdated.getTime()) / 60000);
-    const distance = userLocation
-      ? calculateDistance(userLocation.latitude, userLocation.longitude, item.latitude, item.longitude).toFixed(2)
-      : 'N/A';
-
+    
     return (
       <TouchableOpacity
         style={styles.busCard}
@@ -341,30 +303,32 @@ export default function BusTrackingScreen({ navigation }: Props) {
       >
         <View style={styles.busHeader}>
           <View style={styles.busInfo}>
-            <Text style={styles.busId}>{item.registrationNumber}</Text>
-            <Text style={styles.busRoute}>Route {item.routeNumber || 'N/A'}</Text>
+            <Text style={styles.busId}>{item.busId}</Text>
+            <Text style={styles.busRoute}>Route {item.routeNumber}</Text>
           </View>
           <View style={styles.busStatus}>
             <View style={[styles.statusDot, { backgroundColor: getBusStatusColor(item.status) }]} />
             <Text style={styles.statusText}>{item.status}</Text>
           </View>
         </View>
-
+        
         <View style={styles.busDetails}>
+          <View style={styles.busDetailRow}>
+            <Icon name="location-outline" size={16} color={AppColors.textSecondary} />
+            <Text style={styles.busDetailText}>Next: {item.nextStop} ({item.estimatedArrival})</Text>
+          </View>
+          <View style={styles.busDetailRow}>
+            <Icon name="speedometer-outline" size={16} color={AppColors.textSecondary} />
+            <Text style={styles.busDetailText}>{item.speed.toFixed(0)} km/h</Text>
+          </View>
           <View style={styles.busDetailRow}>
             <Icon name="people-outline" size={16} color={getOccupancyColor(occupancy)} />
             <Text style={[styles.busDetailText, { color: getOccupancyColor(occupancy) }]}>
-              Occupancy: {item.passengerCount}/{item.capacity} ({Math.round(occupancy * 100)}%) {item.occupancyLevel}
-            </Text>
-          </View>
-          <View style={styles.busDetailRow}>
-            <Icon name="pin-outline" size={16} color={AppColors.textSecondary} />
-            <Text style={styles.busDetailText}>
-              Distance: {distance} km
+              {item.passengerCount}/{item.capacity} ({Math.round(occupancy * 100)}%)
             </Text>
           </View>
         </View>
-
+        
         <View style={styles.lastUpdated}>
           <Text style={styles.lastUpdatedText}>
             Updated {timeSinceUpdate === 0 ? 'now' : `${timeSinceUpdate}m ago`}
@@ -377,10 +341,11 @@ export default function BusTrackingScreen({ navigation }: Props) {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={AppColors.background} />
-
+      
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Icon name="arrow-back-outline" size={24} color={AppColors.text} />
+          <Icon name="arrow-back" size={24} color={AppColors.text} />
         </TouchableOpacity>
         <Text style={styles.title}>Bus Tracking</Text>
         <TouchableOpacity onPress={showAllBuses} style={styles.viewAllButton}>
@@ -388,25 +353,27 @@ export default function BusTrackingScreen({ navigation }: Props) {
         </TouchableOpacity>
       </View>
 
+      {/* Search Bar */}
       <View style={styles.searchContainer}>
         <Icon name="search-outline" size={20} color={AppColors.textSecondary} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Search route number..."
+          placeholder="Search routes, stops, or drivers..."
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
-        {searchQuery.length > 0 && (
+               {searchQuery.length > 0 && (
           <TouchableOpacity onPress={() => setSearchQuery('')}>
             <Icon name="close-circle" size={20} color={AppColors.textSecondary} />
           </TouchableOpacity>
         )}
       </View>
 
+      {/* Route Filter */}
       <View style={styles.routeFilterContainer}>
         <Text style={styles.filterTitle}>Routes:</Text>
         <FlatList
-          data={routes}
+          data={SAMPLE_ROUTES}
           horizontal
           showsHorizontalScrollIndicator={false}
           keyExtractor={(item) => item.routeNumber}
@@ -415,20 +382,8 @@ export default function BusTrackingScreen({ navigation }: Props) {
         />
       </View>
 
+      {/* Map View */}
       <View style={styles.mapContainer}>
-        {loading && (
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color={AppColors.primary} />
-          </View>
-        )}
-        {error && (
-          <View style={styles.errorOverlay}>
-            <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity onPress={() => setError(null)} style={styles.retryButton}>
-              <Text style={styles.retryButtonText}>Dismiss</Text>
-            </TouchableOpacity>
-          </View>
-        )}
         <MapView
           ref={mapRef}
           provider={PROVIDER_GOOGLE}
@@ -445,8 +400,8 @@ export default function BusTrackingScreen({ navigation }: Props) {
                 latitude: bus.latitude,
                 longitude: bus.longitude,
               }}
-              title={`Bus ${bus.registrationNumber} (${bus.routeNumber || 'N/A'})`}
-              description={`Occupancy: ${bus.occupancyLevel}`}
+              title={`Bus ${bus.routeNumber}`}
+              description={`${bus.nextStop} - ${bus.estimatedArrival}`}
               onPress={() => setSelectedBus(bus)}
             >
               <View style={[
@@ -454,10 +409,11 @@ export default function BusTrackingScreen({ navigation }: Props) {
                 { backgroundColor: getBusStatusColor(bus.status) }
               ]}>
                 <Icon name="bus" size={16} color="white" />
-                <Text style={styles.busMarkerText}>{bus.routeNumber || 'N/A'}</Text>
+                <Text style={styles.busMarkerText}>{bus.routeNumber}</Text>
               </View>
             </Marker>
           ))}
+          
           {selectedBus && (
             <Circle
               center={{
@@ -471,14 +427,12 @@ export default function BusTrackingScreen({ navigation }: Props) {
             />
           )}
         </MapView>
-
+        
+        {/* Map Controls */}
         <View style={styles.mapControls}>
           <TouchableOpacity
             style={styles.mapControlButton}
-            onPress={() => {
-              setSelectedRoute(null);
-              setSearchQuery('');
-            }}
+            onPress={() => setSelectedRoute(null)}
           >
             <Icon name="refresh" size={20} color={AppColors.primary} />
             <Text style={styles.mapControlText}>Reset</Text>
@@ -493,21 +447,22 @@ export default function BusTrackingScreen({ navigation }: Props) {
         </View>
       </View>
 
+      {/* Bus List */}
       <View style={styles.busListContainer}>
         <View style={styles.busListHeader}>
           <Text style={styles.busListTitle}>
-            Nearby Buses ({filteredBuses.length})
+            Active Buses ({filteredBuses.length})
           </Text>
           {selectedRoute && (
             <TouchableOpacity
               onPress={() => setSelectedRoute(null)}
               style={styles.clearFilterButton}
             >
-              <Text style={styles.clearFilterText}>Clear Route Filter</Text>
+              <Text style={styles.clearFilterText}>Clear Filter</Text>
             </TouchableOpacity>
           )}
         </View>
-
+        
         <FlatList
           data={filteredBuses}
           keyExtractor={(item) => item.busId}
@@ -517,15 +472,17 @@ export default function BusTrackingScreen({ navigation }: Props) {
             <View style={styles.emptyContainer}>
               <Icon name="bus-outline" size={48} color={AppColors.textSecondary} />
               <Text style={styles.emptyText}>
-                {selectedRoute
-                  ? `No nearby buses found for route ${selectedRoute}`
-                  : 'No nearby buses found'}
+                {selectedRoute 
+                  ? `No active buses found for route ${selectedRoute}`
+                  : 'No buses found matching your search'
+                }
               </Text>
             </View>
           }
         />
       </View>
 
+      {/* Bus Details Modal */}
       <Modal
         visible={showBusDetails}
         animationType="slide"
@@ -545,43 +502,57 @@ export default function BusTrackingScreen({ navigation }: Props) {
                     <Icon name="close" size={24} color={AppColors.text} />
                   </TouchableOpacity>
                 </View>
-
+                
                 <View style={styles.modalBody}>
                   <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Registration:</Text>
-                    <Text style={styles.detailValue}>{selectedBus.registrationNumber}</Text>
+                    <Text style={styles.detailLabel}>Bus ID:</Text>
+                    <Text style={styles.detailValue}>{selectedBus.busId}</Text>
                   </View>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Route:</Text>
-                    <Text style={styles.detailValue}>{selectedBus.routeNumber || 'N/A'}</Text>
+                    <Text style={styles.detailValue}>{selectedBus.routeNumber}</Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Driver:</Text>
+                    <Text style={styles.detailValue}>{selectedBus.driverName}</Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Bus Type:</Text>
+                    <Text style={styles.detailValue}>{selectedBus.busType}</Text>
                   </View>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Status:</Text>
-                    <Text style={[styles.detailValue, { color: getBusStatusColor(selectedBus.status) }]}>
-                      {selectedBus.status}
+                    <Text style={[
+                      styles.detailValue,
+                      { color: getBusStatusColor(selectedBus.status) }
+                    ]}>
+                      {selectedBus.status.toUpperCase()}
                     </Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Speed:</Text>
+                    <Text style={styles.detailValue}>{selectedBus.speed.toFixed(0)} km/h</Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Next Stop:</Text>
+                    <Text style={styles.detailValue}>{selectedBus.nextStop}</Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>ETA:</Text>
+                    <Text style={styles.detailValue}>{selectedBus.estimatedArrival}</Text>
                   </View>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Occupancy:</Text>
-                    <Text style={[styles.detailValue, { color: getOccupancyColor(selectedBus.passengerCount / selectedBus.capacity) }]}>
-                      {selectedBus.passengerCount}/{selectedBus.capacity}
-                      ({Math.round((selectedBus.passengerCount / selectedBus.capacity) * 100)}%) {selectedBus.occupancyLevel}
-                    </Text>
-                  </View>
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Confidence:</Text>
-                    <Text style={styles.detailValue}>{(selectedBus.confidence * 100).toFixed(0)}%</Text>
-                  </View>
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Distance:</Text>
-                    <Text style={styles.detailValue}>
-                      {userLocation
-                        ? `${calculateDistance(userLocation.latitude, userLocation.longitude, selectedBus.latitude, selectedBus.longitude).toFixed(2)} km`
-                        : 'N/A'}
+                    <Text style={[
+                      styles.detailValue,
+                      { color: getOccupancyColor(selectedBus.passengerCount / selectedBus.capacity) }
+                    ]}>
+                      {selectedBus.passengerCount}/{selectedBus.capacity} 
+                      ({Math.round((selectedBus.passengerCount / selectedBus.capacity) * 100)}%)
                     </Text>
                   </View>
                 </View>
-
+                
                 <View style={styles.modalActions}>
                   <TouchableOpacity
                     style={styles.trackButton}
@@ -612,7 +583,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 10,
+    paddingHorizontal: 16,
     paddingVertical: 12,
     backgroundColor: AppColors.card,
     borderBottomWidth: 1,
@@ -622,7 +593,7 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   title: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     color: AppColors.text,
   },
@@ -687,12 +658,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: AppColors.text,
   },
-  routeNumberSelected: {
-    color: 'white',
-  },
-  routeTextSelected: {
-    color: '#E0E0E0',
-  },
   busCount: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -711,6 +676,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: AppColors.textSecondary,
     marginBottom: 2,
+  },
+  operator: {
+    fontSize: 10,
+    color: AppColors.textSecondary,
+    fontWeight: '500',
   },
   mapContainer: {
     flex: 1,
@@ -762,7 +732,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   busListContainer: {
-    maxHeight: Dimensions.get('window').height * 0.35,
+    maxHeight: 200,
     backgroundColor: AppColors.card,
     borderTopWidth: 1,
     borderTopColor: AppColors.border,
@@ -929,39 +899,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     marginLeft: 8,
-  },
-  loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  errorOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  errorText: {
-    fontSize: 16,
-    color: AppColors.danger,
-    textAlign: 'center',
-    marginBottom: 10,
-  },
-  retryButton: {
-    backgroundColor: AppColors.primary,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
   },
 });
