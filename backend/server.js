@@ -67,6 +67,7 @@ app.get('/api/test', (req, res) => {
   });
 });
 
+
 try {
   const BusTrackingRoutes = require('./routes/BusTrackingRoutes');
   app.use('/api/bus-tracking', BusTrackingRoutes);
@@ -92,43 +93,81 @@ try {
   console.log('❌ dbTestRoute error:', error.message);
 }
 
-const authRoutes = require('./routes/authRoutes');
-app.use('/api/auth', authRoutes);
-console.log('✅ authRoutes loaded');
+try {
+  const authRoutes = require('./routes/authRoutes');
+  app.use('/api/auth', authRoutes);
+  console.log('✅ authRoutes loaded');
+} catch (error) {
+  console.log('❌ authRoutes error:', error.message);
+}
 
-const userRoutes = require('./routes/userRoutes');
-app.use('/api/users', userRoutes);
-console.log('✅ userRoutes loaded');
+try {
+  const userRoutes = require('./routes/userRoutes');
+  app.use('/api/users', userRoutes);
+  console.log('✅ userRoutes loaded');
+} catch (error) {
+  console.log('❌ userRoutes error:', error.message);
+}
 
-const routeRoutes = require('./routes/routeRoutes');
-app.use('/api/routes', routeRoutes);
-console.log('✅ routeRoutes loaded');
+try {
+  const routeRoutes = require('./routes/routeRoutes');
+  app.use('/api/routes', routeRoutes);
+  console.log('✅ routeRoutes loaded');
+} catch (error) {
+  console.log('❌ routeRoutes error:', error.message);
+}
 
-const driverAuthRoutes = require('./routes/driverAuth');
-app.use('/api/driver', driverAuthRoutes);
-console.log('✅ driverAuth loaded');
+try {
+  const driverAuthRoutes = require('./routes/driverAuth');
+  app.use('/api/driver', driverAuthRoutes);
+  console.log('✅ driverAuth loaded');
+} catch (error) {
+  console.log('❌ driverAuth error:', error.message);
+}
 
-// NOTE: passengerAuthRoutes and passengerRoutes can use the same base path
-// but ensure their internal routes don't conflict, or combine them if logical.
-const passengerAuthRoutes = require('./routes/passengerAuth');
-app.use('/api/passengers', passengerAuthRoutes); // Changed from /api/passengers (already mounted by passengerRoutes)
-console.log('✅ passengerAuth loaded');
+try {
+  const passengerAuthRoutes = require('./routes/passengerAuth');
+  app.use('/api/passengers', passengerAuthRoutes);
+  console.log('✅ passengerAuth loaded');
+} catch (error) {
+  console.log('❌ passengerAuth error:', error.message);
+}
 
-const passengerRoutes = require('./routes/passengerRoutes');
-app.use('/api/passengers', passengerRoutes);
-console.log('✅ passengerRoutes loaded');
+try {
+  const passengerRoutes = require('./routes/passengerRoutes');
+  app.use('/api/passengers', passengerRoutes);
+  console.log('✅ passengerRoutes loaded');
+} catch (error) {
+  console.log('❌ passengerRoutes error:', error.message);
+}
+try {
+  const dailyAssignmentRoutes = require('./routes/dailyAssignmentRoutes');
+  app.use('/api/dailyassignment', dailyAssignmentRoutes);
+  console.log('✅ dailyAssignmentRoutes loaded');
+} catch (error) {
+  console.log('❌ dailyAssignmentRoutes error:', error.message);
+}
 
-const dailyAssignmentRoutes = require('./routes/dailyAssignmentRoutes');
-app.use('/api/dailyassignment', dailyAssignmentRoutes);
-console.log('✅ dailyAssignmentRoutes loaded');
 
-const BusOccupancyRoutes = require('./routes/BusOccupancyRoutes');
-app.use('/api/bus-occupancy', BusOccupancyRoutes);
-console.log('✅ BusOccupancyRoutes loaded');
+try {
+  const BusOccupancyRoutes = require('./routes/BusOccupancyRoutes');
+  app.use('/api/bus-occupancy', BusOccupancyRoutes);
+  console.log('✅ BusOccupancyRoutes loaded');
+} catch (error) {
+  console.log('❌ BusOccupancyRoutes error:', error.message);
+}
 
-const passwordResetRoutes = require('./routes/passwordReset');
-app.use('/api/password-reset', passwordResetRoutes);
-console.log('✅ passwordReset loaded');
+try {
+  const passwordResetRoutes = require('./routes/passwordReset');
+  app.use('/api/password-reset', passwordResetRoutes);
+  console.log('✅ passwordReset loaded');
+} catch (error) {
+  console.log('❌ passwordReset error:', error.message);
+}
+
+
+
+
 
 const regionDepotRoutes = require('./routes/regionDepotRoutes');
 app.use('/api', regionDepotRoutes);
@@ -150,11 +189,8 @@ const lostFoundRoutes = require('./routes/lostFoundRoutes');
 app.use('/api/lost-found', lostFoundRoutes);
 console.log('✅ lostFoundRoutes loaded');
 
-// ----------------------------------------------------------------------
-// END LOAD ALL ROUTES
-// ----------------------------------------------------------------------
 
-// Static file routes (for reset password HTML/JS)
+
 app.get('/resetPassword.js', (req, res) => {
   res.setHeader('Content-Type', 'application/javascript');
   res.sendFile(path.join(__dirname, 'public/resetPassword.js'));
