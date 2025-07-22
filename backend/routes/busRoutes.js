@@ -13,7 +13,7 @@ const {
   deleteBus
 } = require('../controllers/busController');
 
-const { authenticateJWT, authorizeAdmin } = require('../middlewares/authMiddleware');
+const { authenticateJWT, authorizeAdmin, authorizeDepotStaff} = require('../middlewares/authMiddleware');
 
 const { body, param, query } = require('express-validator');
 
@@ -31,7 +31,7 @@ router.get('/:id', authenticateJWT, authorizeAdmin, [
 ], getBusById);
 
 // GET /api/buses/depot/:depot_id - Get buses by depot
-router.get('/depot/:depot_id', authenticateJWT, authorizeAdmin, [
+router.get('/depot/:depot_id', authenticateJWT, authorizeDepotStaff, [
   param('depot_id').isInt().withMessage('Depot ID must be an integer')
 ], getBusesByDepot);
 
