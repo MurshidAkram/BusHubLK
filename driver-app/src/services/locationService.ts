@@ -157,8 +157,8 @@ class LocationService {
       // Configure location tracking options - use simpler options for iOS to avoid issues
       const locationOptions = {
         accuracy: Location.Accuracy.High,
-        distanceInterval: 5, // meters - trigger update every 5 meters
-        timeInterval: 3000, // Keep it simple - 3 seconds for all cases
+        distanceInterval: 0, // meters - disable distance-based updates (use 0 to ignore distance)
+        timeInterval: 4000, // 4 seconds - insert location every 4 seconds regardless of distance
       };
 
       console.log("📍 Starting location subscription...", locationOptions);
@@ -317,8 +317,8 @@ class LocationService {
       // Configure location tracking options based on background support
       const locationOptions = {
         accuracy: Location.Accuracy.High,
-        distanceInterval: 5, // meters - trigger update every 5 meters
-        timeInterval: enableBackground ? 5000 : 3000, // Longer interval for background to save battery
+        distanceInterval: 0, // meters - disable distance-based updates (use 0 to ignore distance)
+        timeInterval: 4000, // 4 seconds - insert location every 4 seconds regardless of distance
         // For background tracking, we need these additional options
         ...(enableBackground && {
           deferredUpdatesInterval: 10000, // 10 seconds - batch updates in background
