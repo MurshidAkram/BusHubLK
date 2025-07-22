@@ -64,7 +64,7 @@ const AppColors = {
   purple: "#8B5CF6",
 };
 
-const GOOGLE_MAPS_API_KEY = "AIzaSyAeXR9ct7HrHMCQXSWLrWQl5OlRYjNhbxo";
+const Maps_API_KEY = "AIzaSyAeXR9ct7HrHMCQXSWLrWQl5OlRYjNhbxo"; // Ensure this is valid
 
 // --- Mock Data (Unchanged) ---
 const quickActions = [
@@ -173,8 +173,9 @@ export default function HomeScreen() {
   // For dynamic suggestion list positioning
   const fromInputRef = useRef<TextInput>(null);
   const toInputRef = useRef<TextInput>(null);
-  const [fromInputY, setFromInputY] = useState<number | null>(null);
-  const [toInputY, setToInputY] = useState<number | null>(null);
+  const [fromInputLayout, setFromInputLayout] = useState<{ y: number, height: number } | null>(null);
+  const [toInputLayout, setToInputLayout] = useState<{ y: number, height: number } | null>(null);
+
 
   // Load user data on component mount
   useEffect(() => {
@@ -231,6 +232,8 @@ export default function HomeScreen() {
             console.log("After logout - Token:", token);
             console.log("After logout - UserData:", userData);
             console.log("User logged out successfully");
+            // Navigate to login or splash screen
+            navigation.replace("Login"); // Assuming 'Login' is your login screen route name
           } catch (error) {
             console.error("Error during logout:", error);
             Alert.alert("Error", "Failed to logout. Please try again.");
@@ -255,14 +258,15 @@ export default function HomeScreen() {
       const response = await axios.get(
         `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(
           input
-        )}&components=country:LK&language=en&key=${GOOGLE_MAPS_API_KEY}`
+        )}&components=country:LK&language=en&key=${Maps_API_KEY}`
       );
       if (response.data.status === "OK") {
         setSuggestions(response.data.predictions);
       } else {
         setSuggestions([]);
       }
-    } catch {
+    } catch (err) {
+      console.error("Error fetching place suggestions:", err);
       setSuggestions([]);
     }
   };
@@ -322,32 +326,14 @@ export default function HomeScreen() {
   };
 
   // --- Dynamic suggestion list positioning ---
-  const measureInput = (
-    ref: React.RefObject<TextInput>,
-    setY: (y: number) => void
-  ) => {
-    if (ref.current) {
-      const handle = findNodeHandle(ref.current);
-      if (handle) {
-        UIManager.measure(handle, (_x, _y, _w, _h, _px, py) => {
-          setY(py);
-        });
-      }
+  const onInputLayout = (event, type: 'from' | 'to') => {
+    const { y, height } = event.nativeEvent.layout;
+    if (type === 'from') {
+      setFromInputLayout({ y, height });
+    } else {
+      setToInputLayout({ y, height });
     }
   };
-
-  // When showing suggestions, measure input position
-  useEffect(() => {
-    if (showFromSuggestions) {
-      setTimeout(() => measureInput(fromInputRef, setFromInputY), 50);
-    }
-  }, [showFromSuggestions]);
-
-  useEffect(() => {
-    if (showToSuggestions) {
-      setTimeout(() => measureInput(toInputRef, setToInputY), 50);
-    }
-  }, [showToSuggestions]);
 
   // Helper to render suggestion list absolutely outside the card
   const renderSuggestionList = (type: "from" | "to") => {
@@ -358,28 +344,34 @@ export default function HomeScreen() {
     const suggestions = type === "from" ? fromSuggestions : toSuggestions;
     const selectSuggestion =
       type === "from" ? selectFromSuggestion : selectToSuggestion;
-    const y = type === "from" ? fromInputY : toInputY;
-    if (!show || y == null) return null;
-    // Offset for suggestion box (input height + margin)
-    const offset = Platform.OS === "ios" ? 48 : 52;
+    
+    const layout = type === 'from' ? fromInputLayout : toInputLayout;
+
+    if (!show || !layout) return null;
+
+    // Calculate `top` position more reliably using layout info
+    // `layout.y` is the y-coordinate of the input relative to its parent (ScrollView)
+    // We add the height of the input + a small margin for spacing.
+    const topPosition = layout.y + layout.height + 8; // 8 is just a small visual offset
+
     return (
       <View
         style={[
           styles.suggestionBoxEnhanced,
           {
             position: "absolute",
-            top: y + offset,
-            left: 20,
-            right: 20,
-            zIndex: 99999,
-            elevation: 100000,
+            top: topPosition,
+            left: 20, // Align with the contentContainer padding
+            right: 20, // Align with the contentContainer padding
           },
         ]}
-        pointerEvents="box-none"
+        // This is crucial to allow taps to pass through to suggestions
+        // and to ensure the box itself doesn't block underlying taps when not visible
+        pointerEvents={show ? "auto" : "none"} // 'auto' when visible, 'none' when hidden
       >
         <ScrollView
           keyboardShouldPersistTaps="handled"
-          style={{ maxHeight: 150 }}
+          style={styles.suggestionScrollView}
           nestedScrollEnabled
           showsVerticalScrollIndicator={true}
         >
@@ -413,13 +405,13 @@ export default function HomeScreen() {
       />
 
       <Image
-        source={require("../../assets/logowithoutbg_blue.png")}
+        source={require("../../assets/logowithoutbg_blue.png")} // Ensure this path is correct
         style={styles.backgroundImage}
       />
 
       <StatusBar
         barStyle="light-content"
-        backgroundColor={AppColors.primary}
+        backgroundColor={AppColors.primary} // Explicitly set for Android
         translucent={false}
       />
 
@@ -455,14 +447,14 @@ export default function HomeScreen() {
         </View>
       </LinearGradient>
 
-      {/* Render suggestion lists absolutely above ScrollView */}
+      {/* Render suggestion lists absolutely above ScrollView, but outside of its flow */}
       {renderSuggestionList("from")}
       {renderSuggestionList("to")}
 
       <ScrollView
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="always"
+        keyboardShouldPersistTaps="always" // Essential for interacting with suggestions
       >
         {/* --- Enhanced Welcome Banner --- */}
         <Animated.View
@@ -494,10 +486,7 @@ export default function HomeScreen() {
         <Animated.View
           style={[
             { opacity: fadeAnim, transform: [{ scale: scaleAnim }] },
-            (showFromSuggestions || showToSuggestions) && {
-              zIndex: 10000,
-              elevation: 10000,
-            },
+            // Removed zIndex/elevation from this Animated.View, let the suggestion box manage its own layering.
           ]}
         >
           <LinearGradient
@@ -513,13 +502,7 @@ export default function HomeScreen() {
 
             {/* FROM */}
             <View
-              style={[
-                styles.inputGroup,
-                {
-                  zIndex: showFromSuggestions ? 1000 : 1,
-                  elevation: showFromSuggestions ? 1000 : 1,
-                },
-              ]}
+              style={styles.inputGroup} // Removed zIndex/elevation from inputGroup, not needed here
             >
               <LinearGradient
                 colors={[AppColors.primaryMuted, "rgba(0, 86, 179, 0.05)"]}
@@ -538,7 +521,13 @@ export default function HomeScreen() {
                     placeholderTextColor="#154dadff"
                     value={from}
                     onChangeText={handleFromChange}
-                    onFocus={() => setShowFromSuggestions(true)}
+                    onFocus={() => {
+                        setShowFromSuggestions(true);
+                        // Measure layout on focus, ensuring it's recent
+                        fromInputRef.current?.measureInWindow((x, y, width, height) => {
+                            setFromInputLayout({ y: y - StatusBar.currentHeight, height: height }); // Adjust for StatusBar if translucent is false
+                        });
+                    }}
                     onBlur={() => {
                       setTimeout(() => setShowFromSuggestions(false), 200);
                     }}
@@ -559,18 +548,11 @@ export default function HomeScreen() {
                   )}
                 </View>
               </LinearGradient>
-              {/* Suggestion list moved outside the card */}
             </View>
 
             {/* TO */}
             <View
-              style={[
-                styles.inputGroup,
-                {
-                  zIndex: showToSuggestions ? 1000 : 1,
-                  elevation: showToSuggestions ? 1000 : 1,
-                },
-              ]}
+              style={styles.inputGroup} // Removed zIndex/elevation from inputGroup
             >
               <LinearGradient
                 colors={[AppColors.primaryMuted, "rgba(0, 86, 179, 0.05)"]}
@@ -589,7 +571,13 @@ export default function HomeScreen() {
                     placeholderTextColor="#154dadff"
                     value={to}
                     onChangeText={handleToChange}
-                    onFocus={() => setShowToSuggestions(true)}
+                    onFocus={() => {
+                        setShowToSuggestions(true);
+                        // Measure layout on focus, ensuring it's recent
+                        toInputRef.current?.measureInWindow((x, y, width, height) => {
+                            setToInputLayout({ y: y - StatusBar.currentHeight, height: height }); // Adjust for StatusBar if translucent is false
+                        });
+                    }}
                     onBlur={() => {
                       setTimeout(() => setShowToSuggestions(false), 200);
                     }}
@@ -610,7 +598,6 @@ export default function HomeScreen() {
                   )}
                 </View>
               </LinearGradient>
-              {/* Suggestion list moved outside the card */}
             </View>
 
             <TouchableOpacity
@@ -619,9 +606,11 @@ export default function HomeScreen() {
                 (!fromPlace || !toPlace) && { opacity: 0.5 },
               ]}
               onPress={() => {
+                handleJourneySearch(); // Trigger local bus search
                 navigation.navigate("BusRouteResults", {
                   from: fromPlace,
                   to: toPlace,
+                  filteredBuses: filteredBuses, // Pass filtered buses to the results screen
                 });
               }}
               disabled={!fromPlace || !toPlace}
@@ -648,6 +637,7 @@ export default function HomeScreen() {
         {/* Show filtered buses below the card */}
         {filteredBuses.length > 0 ? (
           <View style={{ marginBottom: 20 }}>
+            <Text style={styles.sectionTitle}>Available Buses</Text>
             {filteredBuses.map((bus) => (
               <Animated.View
                 key={bus.id}
@@ -773,7 +763,7 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 20,
-    paddingVertical: Platform.OS === "ios" ? 16 : 18,
+    paddingVertical: 16, // Slightly increased padding for better Android look
     ...Platform.select({
       android: {
         elevation: 8,
@@ -804,9 +794,8 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: "#FFFFFF",
-    fontSize: Platform.OS === "ios" ? 21 : 24,
+    fontSize: 23, // Adjusted font size slightly
     fontWeight: "600",
-    fontFamily: Platform.OS === "ios" ? "System" : "Roboto",
     letterSpacing: 0.6,
     includeFontPadding: false,
     textAlignVertical: "center",
@@ -814,7 +803,6 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 4,
   },
-
   headerIcons: {
     flexDirection: "row",
     alignItems: "center",
@@ -837,7 +825,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     borderRadius: 20,
-    padding: 20,
+    padding: 20, // Reverted to 20, was 18. Seems better for both.
     marginBottom: 24,
     ...Platform.select({
       android: {
@@ -865,32 +853,31 @@ const styles = StyleSheet.create({
   },
   welcomeTitle: {
     color: "#fff",
-    fontSize: Platform.OS === "ios" ? 20 : 18,
+    fontSize: 19, // Slightly larger
     fontWeight: "700",
-    fontFamily: Platform.OS === "ios" ? "System" : "Roboto",
     marginBottom: 4,
   },
   welcomeSubtitle: {
     color: "rgba(255, 255, 255, 0.9)",
-    fontSize: Platform.OS === "ios" ? 15 : 14,
+    fontSize: 15, // Slightly larger
     fontWeight: "500",
   },
   section: {
     marginBottom: 20,
   },
   sectionTitle: {
-    fontSize: Platform.OS === "ios" ? 20 : 19,
+    fontSize: 20, // Slightly larger
     fontWeight: "700",
     color: AppColors.primary,
     textAlign: "center",
-    lineHeight: Platform.OS === "ios" ? 26 : 24,
+    lineHeight: 26, // Adjusted line height
     includeFontPadding: false,
   },
   journeyCard: {
     padding: 24,
     borderRadius: 24,
     marginBottom: 28,
-    overflow: "visible", // Allow suggestion list to overflow
+    overflow: "visible", // Crucial for suggestions
     ...Platform.select({
       android: {
         elevation: 6,
@@ -910,22 +897,20 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   journeyTitle: {
-    fontSize: Platform.OS === "ios" ? 20 : 18,
+    fontSize: 19, // Slightly larger
     fontWeight: "700",
     color: AppColors.primary,
     marginLeft: 8,
-    fontFamily: Platform.OS === "ios" ? "System" : "Roboto",
   },
   inputGroup: {
     marginBottom: 16,
     borderRadius: 16,
-    // overflow: "hidden", // Removed to allow suggestion list to overflow
   },
   inputGradient: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
-    minHeight: Platform.OS === "android" ? 56 : 52,
+    minHeight: 52, // Ensures consistent height
     borderRadius: 16,
   },
   inputIcon: {
@@ -934,67 +919,52 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontSize: Platform.OS === "ios" ? 17 : 16,
+    fontSize: 16,
     color: AppColors.text,
     fontWeight: "500",
-    paddingVertical: Platform.OS === "ios" ? 16 : 14,
-    paddingRight: 40,
-    fontFamily: Platform.OS === "ios" ? "System" : "Roboto",
-    
+    paddingVertical: Platform.OS === 'ios' ? 16 : 14, // Retain small platform difference if needed
+    paddingHorizontal: 0, // Ensure no extra horizontal padding from RN default
+    paddingRight: 40, // Space for clear icon
   },
   clearIcon: {
     position: "absolute",
     right: 12,
     top: "50%",
-    marginTop: -10,
+    marginTop: -10, // Adjust for icon vertical centering
     zIndex: 1000,
   },
-
-  suggestionText: {
-    fontSize: Platform.OS === "ios" ? 15 : 14,
-    color: AppColors.primary,
-    fontWeight: "500",
-    flexShrink: 1,
-  },
-  // Adjusted suggestionBoxEnhanced style for better display
   suggestionBoxEnhanced: {
-    position: "absolute",
-    top: Platform.OS === "ios" ? 56 : 60, // Adjusted top position
-    left: 0,
-    right: 0,
     backgroundColor: "#fff",
     borderColor: AppColors.border,
     borderWidth: 1,
     borderRadius: 14,
-    maxHeight: 110,
-    minWidth: 0,
-    zIndex: 9999,
+    maxHeight: 150, // Keep max height for scrollability
+    zIndex: 1000, // High zIndex for iOS
+    elevation: 1000, // High elevation for Android
     paddingVertical: 4,
     paddingHorizontal: 0,
     shadowColor: '#0056b3',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.10,
     shadowRadius: 8,
-    ...Platform.select({
-      android: {
-        elevation: 8,
-      },
-      ios: {},
-    }),
   },
-
+  suggestionScrollView: {
+    maxHeight: 140, // Adjust this if the parent maxHeight is not enough
+  },
   suggestionItemEnhanced: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 9,
-    paddingHorizontal: 13,
+    paddingVertical: 10, // Increased padding
+    paddingHorizontal: 16, // Increased padding
     borderBottomWidth: 1,
     borderBottomColor: '#d6e6fa',
     backgroundColor: "#f7fbff",
-    minHeight: 36,
-    borderRadius: 10,
-    marginHorizontal: 4,
-    marginVertical: 1,
+  },
+  suggestionText: {
+    fontSize: 15, // Unified font size for readability
+    color: AppColors.primary,
+    fontWeight: "500",
+    flexShrink: 1,
   },
   searchButton: {
     borderRadius: 16,
@@ -1005,26 +975,24 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: Platform.OS === "ios" ? 18 : 16,
+    paddingVertical: 16,
   },
   searchButtonText: {
     color: "#FFFFFF",
-    fontSize: Platform.OS === "ios" ? 17 : 16,
+    fontSize: 17, // Slightly larger
     fontWeight: "600",
-    fontFamily: Platform.OS === "ios" ? "System" : "Roboto",
   },
-  // UNCHANGED Quick Actions Styles
   quickActionGrid: {
     top: 10,
     flexDirection: "row",
     justifyContent: "space-between",
     flexWrap: "wrap",
-    gap: 4,
-    marginHorizontal: -2,
+    gap: 8, // Increased gap for better spacing
+    marginHorizontal: -4, // Counteract gap
   },
   quickActionCard: {
-    width: "31%",
-    height: Platform.OS === "ios" ? 100 : 95,
+    width: "30%", // Adjusted width to accommodate gap
+    aspectRatio: 1, // Keep it square
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: AppColors.card,
@@ -1056,17 +1024,16 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   cardText: {
-    fontSize: Platform.OS === "ios" ? 12 : 11,
+    fontSize: 12, // Standardized
     fontWeight: "500",
     color: AppColors.textSecondary,
     textAlign: "center",
-    lineHeight: Platform.OS === "ios" ? 16 : 15,
+    lineHeight: 16, // Adjusted line height
     includeFontPadding: false,
   },
-  // Enhanced Bus Card Styles
   busCard: {
     backgroundColor: AppColors.card,
-    padding: 20,
+    padding: 18, // Adjusted padding
     borderRadius: 16,
     marginBottom: 12,
     ...Platform.select({
@@ -1097,17 +1064,15 @@ const styles = StyleSheet.create({
     color: AppColors.primary,
     fontWeight: "700",
     fontSize: 18,
-    fontFamily: Platform.OS === "ios" ? "System" : "Roboto",
   },
   busDetails: {
     flex: 1,
   },
   busDestination: {
-    fontSize: Platform.OS === "ios" ? 17 : 16,
+    fontSize: 16,
     fontWeight: "600",
     color: AppColors.text,
     marginBottom: 4,
-    fontFamily: Platform.OS === "ios" ? "System" : "Roboto",
   },
   arrivalContainer: {
     flexDirection: "row",
@@ -1115,13 +1080,13 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   arrivalTime: {
-    fontSize: Platform.OS === "ios" ? 15 : 14,
+    fontSize: 14,
     fontWeight: "500",
     color: AppColors.text,
     marginLeft: 6,
   },
   busArrival: {
-    fontSize: Platform.OS === "ios" ? 14 : 13,
+    fontSize: 13,
     color: AppColors.textSecondary,
     fontWeight: "500",
   },
@@ -1129,10 +1094,9 @@ const styles = StyleSheet.create({
     color: AppColors.textSecondary,
     textAlign: "center",
     marginBottom: 20,
-    fontSize: Platform.OS === "ios" ? 16 : 15,
+    fontSize: 15,
     fontStyle: "italic",
   },
-  // UNCHANGED Services Styles
   serviceGrid: {
     top: 10,
     flexDirection: "row",
@@ -1143,7 +1107,7 @@ const styles = StyleSheet.create({
     width: "48%",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: Platform.OS === "ios" ? 20 : 18,
+    paddingVertical: 20, // Slightly more padding
     marginBottom: 12,
     backgroundColor: AppColors.card,
     borderRadius: 18,
@@ -1162,12 +1126,12 @@ const styles = StyleSheet.create({
     }),
   },
   serviceCardText: {
-    fontSize: Platform.OS === "ios" ? 12 : 11,
+    fontSize: 12, // Standardized
     fontWeight: "500",
     color: AppColors.textSecondary,
     textAlign: "center",
     marginTop: 10,
-    lineHeight: Platform.OS === "ios" ? 16 : 15,
+    lineHeight: 16, // Adjusted line height
     includeFontPadding: false,
   },
 });
