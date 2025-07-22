@@ -477,12 +477,12 @@ const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
             } else {
                 const errorData = await notifyResponse.json();
                 notificationSummary.overallSuccess = false; // Mark as false if notify API itself failed
-                notificationSummary.detailedMessage.push(`Notification API Error: ${errorData.message || 'Unknown error.'}`);
-                console.error('Notify API failed:', notificationSummary.detailedMessage);
+                // No need to push detailed message here as we are removing it from the final alert
+                console.error('Notify API failed:', errorData.message);
             }
         } catch (e) {
             notificationSummary.overallSuccess = false; // Mark as false for network errors
-            notificationSummary.detailedMessage.push(`Network Error (Notifications): ${(e as Error).message || 'Unknown network issue.'}`);
+            // No need to push detailed message here as we are removing it from the final alert
             console.error('Network error during notify:', e);
         }
 
@@ -508,8 +508,8 @@ const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
             // Construct detailed success message for final pop-up
             let successMessage = `Emergency Alert Sent!\n\n`;
             successMessage += `Contacts Notified:\n`;
-            successMessage += `  - SMS: ${notificationSummary.smsSentToContacts} successful\n`;
-            successMessage += `  - Email: ${notificationSummary.emailsSentToContacts} successful\n`;
+            successMessage += `  - SMS: ${notificationSummary.smsSentToContacts} successful\n`;
+            successMessage += `  - Email: ${notificationSummary.emailsSentToContacts} successful\n`;
             if (notificationSummary.depotName !== 'N/A') {
                 if (notificationSummary.smsSentToDepot) {
                     successMessage += `Nearest Depot (${notificationSummary.depotName}) notified via SMS.\n`;
@@ -519,17 +519,18 @@ const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
             } else {
                 successMessage += `Nearest Depot not identified for notification.\n`;
             }
-            if (notificationSummary.detailedMessage.length > 0) {
-                successMessage += `\nDetails:\n${notificationSummary.detailedMessage.join('\n')}`;
-            }
+            // Removed: if (notificationSummary.detailedMessage.length > 0) {
+            // Removed:    successMessage += `\nDetails:\n${notificationSummary.detailedMessage.join('\n')}`;
+            // Removed: }
 
             Alert.alert('Alert Sent!', successMessage, [{ text: 'OK' }]);
 
         } catch (err) {
             console.error('Error creating alert record or displaying final alert:', err);
             let errorMessage = `Could not finalize alert record: ${(err as Error).message || 'Unknown error.'}`;
+            // If notificationSummary has errors, still useful to show them here
             if (notificationSummary.detailedMessage.length > 0) {
-                errorMessage += `\n\nNotification Details:\n${notificationSummary.detailedMessage.join('\n')}`;
+                errorMessage += `\n\nNotification Issues:\n${notificationSummary.detailedMessage.join('\n')}`;
             }
             Alert.alert('Alert Failed', errorMessage, [{ text: 'OK' }]);
         }
