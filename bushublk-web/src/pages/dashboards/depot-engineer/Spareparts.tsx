@@ -262,7 +262,7 @@ const SparePartsInventory: React.FC = () => {
 
         {/* Use Part Modal */}
         {showUseModal && selectedPart && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+           <div className="fixed inset-0 backdrop-blur-sm bg-white/10 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
               <div className="p-6">
                 <h3 className="text-lg font-medium text-gray-900 mb-4">
@@ -328,7 +328,7 @@ const SparePartsInventory: React.FC = () => {
 
         {/* Restock Part Modal */}
         {showRestockModal && selectedPart && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="fixed inset-0 backdrop-blur-sm bg-white/10 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
               <div className="p-6">
                 <h3 className="text-lg font-medium text-gray-900 mb-4">
@@ -394,7 +394,7 @@ const SparePartsInventory: React.FC = () => {
 
         {/* Add New Part Modal */}
         {showAddPartModal && (
-          <div className="fixed inset-0 backdrop-blur-sm bg-white/10 flex items-center justify-center z-50 p-4">
+           <div className="fixed inset-0 backdrop-blur-sm bg-white/10 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
               <div className="p-6">
                 <h3 className="text-lg font-medium text-gray-900 mb-4">

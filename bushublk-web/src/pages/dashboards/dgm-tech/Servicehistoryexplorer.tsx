@@ -3,7 +3,7 @@ import { HiEye, HiPencil, HiFilter, HiSearch, HiChevronDown, HiChevronUp, HiX } 
 
 interface ServiceRecord {
   serviceId: string;
-  busId: string;
+  busnum: string;
   serviceDate: string;
   serviceType: string;
   dataCharged: string;
@@ -12,7 +12,7 @@ interface ServiceRecord {
 
 const Servicehistoryexplorer = () => {
   const [filters, setFilters] = useState({
-    busId: '',
+    busnum: '',
     serviceType: '',
     startDate: '',
     endDate: '',
@@ -26,14 +26,11 @@ const Servicehistoryexplorer = () => {
 
   // Updated sample data with two-digit bus IDs and no taxization
   const serviceData: ServiceRecord[] = [
-    { serviceId: 'SRV-001', busId: '01', serviceDate: '15 Jan 2023', serviceType: 'Oil Change', dataCharged: 'Synthetic oil, filter replacement', cost: 12000 },
-    { serviceId: 'SRV-002', busId: '02', serviceDate: '22 Feb 2023', serviceType: 'Brake Service', dataCharged: 'Brake pads, fluid replacement', cost: 25000 },
-    { serviceId: 'SRV-003', busId: '01', serviceDate: '10 Mar 2023', serviceType: 'Tire Rotation', dataCharged: 'Tire rotation, balancing', cost: 8000 },
-    { serviceId: 'SRV-004', busId: '03', serviceDate: '05 Apr 2023', serviceType: 'Engine Tune-up', dataCharged: 'Spark plugs, air filter', cost: 18000 },
-    { serviceId: 'SRV-005', busId: '02', serviceDate: '18 May 2023', serviceType: 'Transmission Service', dataCharged: 'Fluid change, inspection', cost: 30000 },
-    { serviceId: 'SRV-006', busId: '04', serviceDate: '22 Jun 2023', serviceType: 'AC Repair', dataCharged: 'Compressor replacement', cost: 35000 },
-    { serviceId: 'SRV-007', busId: '03', serviceDate: '12 Jul 2023', serviceType: 'Electrical Check', dataCharged: 'Wiring inspection, battery test', cost: 15000 },
-    { serviceId: 'SRV-008', busId: '01', serviceDate: '28 Aug 2023', serviceType: 'Suspension Repair', dataCharged: 'Shock absorber replacement', cost: 28000 }
+    { serviceId: 'SRV-001', busnum: '01', serviceDate: '15 Jan 2023', serviceType: 'Oil Change', dataCharged: 'Synthetic oil, filter replacement', cost: 12000 },
+    { serviceId: 'SRV-002', busnum: '02', serviceDate: '22 Feb 2023', serviceType: 'Brake Service', dataCharged: 'Brake pads, fluid replacement', cost: 25000 },
+    { serviceId: 'SRV-003', busnum: '01', serviceDate: '10 Mar 2023', serviceType: 'Tire Rotation', dataCharged: 'Tire rotation, balancing', cost: 8000 },
+    { serviceId: 'SRV-004', busnum: '03', serviceDate: '05 Apr 2023', serviceType: 'Engine Tune-up', dataCharged: 'Spark plugs, air filter', cost: 18000 }
+   
   ];
 
   const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -46,7 +43,7 @@ const Servicehistoryexplorer = () => {
 
   const filteredData = serviceData.filter(service => {
     return (
-      (filters.busId === '' || service.busId.includes(filters.busId)) &&
+      (filters.busnum === '' || service.busnum.includes(filters.busnum)) &&
       (filters.serviceType === '' || service.serviceType.toLowerCase().includes(filters.serviceType.toLowerCase())) &&
       (filters.startDate === '' || new Date(service.serviceDate) >= new Date(filters.startDate)) &&
       (filters.endDate === '' || new Date(service.serviceDate) <= new Date(filters.endDate)) &&
@@ -100,7 +97,7 @@ const Servicehistoryexplorer = () => {
                 type="text"
                 id="busId"
                 name="busId"
-                value={filters.busId}
+                value={filters.busnum}
                 onChange={handleFilterChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Filter by Bus ID"
@@ -229,7 +226,7 @@ const Servicehistoryexplorer = () => {
                       {service.serviceId}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {service.busId}
+                      {service.busnum}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {service.serviceDate}
@@ -308,7 +305,7 @@ const Servicehistoryexplorer = () => {
                   <div className="space-y-4">
                     <div>
                       <p className="text-sm text-gray-500">Bus ID</p>
-                      <p className="text-gray-800">{selectedRecord.busId}</p>
+                      <p className="text-gray-800">{selectedRecord.busnum}</p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-500">Service Date</p>

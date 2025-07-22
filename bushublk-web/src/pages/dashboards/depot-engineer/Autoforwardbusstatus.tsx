@@ -13,7 +13,7 @@ import {
 
 interface Report {
   id: string;
-  busId: string;
+  busNum: string;
   driverId: string;
   driverName: string;
   priority: 'Low' | 'Medium' | 'High';
@@ -34,7 +34,7 @@ const Autoforwardbusstatus = () => {
   const [reports, setReports] = useState<Report[]>([
     {
       id: "1",
-      busId: '17',
+      busNum: 'NC-1234',
       driverId: '2',
       driverName: 'Nimal',
       priority: 'High',
@@ -45,7 +45,7 @@ const Autoforwardbusstatus = () => {
     },
     {
       id: "2",
-      busId: '23',
+      busNum: 'NP-3456',
       driverId: '4',
       driverName: 'Venukaran',
       priority: 'Medium',
@@ -56,7 +56,7 @@ const Autoforwardbusstatus = () => {
     },
     {
       id: "3",
-      busId: '21',
+      busNum: 'LA-9801',
       driverId: '6',
       driverName: 'Loganathan',
       priority: 'Low',
@@ -100,7 +100,7 @@ const Autoforwardbusstatus = () => {
                          report.busStatus.toLowerCase() === statusFilter.toLowerCase();
     const matchesPriority = priorityFilter === 'all' || 
                            report.priority.toLowerCase() === priorityFilter.toLowerCase();
-    const matchesSearch = report.busId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const matchesSearch = report.busNum.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          report.driverId.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          report.driverName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          report.issueDescription.toLowerCase().includes(searchTerm.toLowerCase());
@@ -135,7 +135,7 @@ const Autoforwardbusstatus = () => {
   const handleUpdateStatus = () => {
     navigate('/depot-engineer/Busavailability', { 
       state: { 
-        busId: selectedReport?.busId,
+        busId: selectedReport?.busNum,
         currentStatus: selectedReport?.busStatus
       } 
     });
@@ -266,8 +266,8 @@ const Autoforwardbusstatus = () => {
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bus ID</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Driver ID</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bus Number</th>
+                {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reported By</th> */}
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reported At</th>
@@ -282,11 +282,11 @@ const Autoforwardbusstatus = () => {
                     className={`hover:bg-gray-50 ${!report.reviewed ? 'bg-blue-50' : ''}`}
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="font-medium text-gray-900">{report.busId}</div>
+                      <div className="font-medium text-gray-900">{report.busNum}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    {/* <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-gray-900">{report.driverId}</div>
-                    </td>
+                    </td> */}
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getPriorityColor(report.priority)}`}>
                         {report.priority}
@@ -353,7 +353,7 @@ const Autoforwardbusstatus = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <h3 className="text-sm font-medium text-gray-500">Bus ID</h3>
-                    <p className="mt-1 text-gray-900">{selectedReport.busId}</p>
+                    <p className="mt-1 text-gray-900">{selectedReport.busNum}</p>
                   </div>
                   <div>
                     <h3 className="text-sm font-medium text-gray-500">Driver</h3>

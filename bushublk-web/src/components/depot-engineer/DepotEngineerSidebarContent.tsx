@@ -10,7 +10,8 @@ import {
   HiArrowRight,
   HiArrowCircleRight,
   HiClipboardCheck,
-  HiUsers
+  HiUsers,
+  HiRefresh
 } from 'react-icons/hi';
 
 const DepotEngineerSidebarContent = () => {
@@ -38,7 +39,7 @@ const DepotEngineerSidebarContent = () => {
         }
       >
         <HiTruck className="mr-3 flex-shrink-0 h-5 w-5" />
-        Busmanagement
+        Bus Management
       </NavLink>
 
       <NavLink
@@ -49,8 +50,8 @@ const DepotEngineerSidebarContent = () => {
             : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`
         }
       >
-        <HiCog className="mr-3 flex-shrink-0 h-5 w-5" />
-        Busavailability
+        <HiRefresh className="mr-3 flex-shrink-0 h-5 w-5" />
+        Bus Availability
       </NavLink>
 
       <NavLink
@@ -73,7 +74,7 @@ const DepotEngineerSidebarContent = () => {
         }
       >
         <HiArrowCircleRight className="mr-3 flex-shrink-0 h-5 w-5" />
-        Autoforwarded Busstatuses
+        BusCondition Reports
       </NavLink>
 
       <NavLink

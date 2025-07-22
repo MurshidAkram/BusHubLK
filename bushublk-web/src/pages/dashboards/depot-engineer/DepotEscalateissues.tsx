@@ -292,7 +292,7 @@ const DepotEscalateIssues = () => {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center space-x-2">
-                          <h3 className="text-sm font-semibold text-gray-900">Driverid:{report.id}</h3>
+                          <h3 className="text-sm font-semibold text-gray-900">Reportid:{report.id}</h3>
                           {report.escalatedToDepotManager && (
                             <span className="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-600">
                               Depot Manager

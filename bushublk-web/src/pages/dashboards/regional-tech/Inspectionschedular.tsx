@@ -1,480 +1,497 @@
 import React, { useState } from 'react';
-import { FaEdit, FaPaperPlane, FaSearch, FaFilter, FaCheck } from 'react-icons/fa';
-
-// Define allowed status types
-type StatusType = 'Pending' | 'In Progress' | 'Completed' | 'Cancelled';
 
 interface Inspection {
-  id: string;
-  depot: string;
-  engineer: string;
-  engineerid: string;
-  type: string;
-  scheduledDate: string;
-  dueDate: string;
-  status: StatusType;
-  buses: number;
-  description: string;
+  id: number;
+  inspectionType: string;
+  busId: string;
+  date: string;
+  status: string;
 }
 
-const initialInspections: Inspection[] = [
-  {
-    id: 'INS-2023-056',
-    depot: 'North Depot',
-    engineer: 'Engineer Rajesh',
-    engineerid: '7',
-    type: 'Quarterly Technical',
-    scheduledDate: '2025-06-05',
-    dueDate: '2023-07-21',
-    status: 'In Progress',
-    buses: 24,
-    description: 'Full technical inspection of all buses in the depot'
-  },
-  {
-    id: 'INS-2023-057',
-    depot: 'South Depot',
-    engineer: 'Engineer Priya',
-    engineerid: '12',
-    type: 'Brake System Audit',
-    scheduledDate: '2025-06-10',
-    dueDate: '2025-08-15',
-    status: 'Pending',
-    buses: 30,
-    description: 'Comprehensive brake system inspection and testing'
-  },
-  {
-    id: 'INS-2023-058',
-    depot: 'East Depot',
-    engineer: 'Engineer Amit',
-    engineerid: '23',
-    type: 'Electrical Systems',
-    scheduledDate: '2025-06-15',
-    dueDate: '2025-08-20',
-    status: 'Pending',
-    buses: 28,
-    description: 'Electrical systems check including wiring and lighting'
-  },
-];
+interface NewInspection {
+  inspectionType: string;
+  busId: string;
+  date: string;
+  status: string;
+}
 
-const engineerOptions = [
-  'Engineer Rajesh',
-  'Engineer Priya',
-  'Engineer Amit',
-  'Engineer Sanjay'
-];
-
-const depotOptions = [
-  'North Depot',
-  'South Depot',
-  'East Depot',
-  'West Depot'
-];
-
-const inspectionTypes = [
-  'Quarterly Technical',
-  'Annual Comprehensive',
-  'Brake System Audit',
-  'Electrical Systems',
-  'Emission Testing',
-  'Safety Equipment Check'
-];
-
-const getStatusBadge = (status: StatusType): string => {
-  const base = 'px-3 py-1 rounded-full text-xs font-medium';
-  switch (status) {
-    case 'Pending':
-      return `${base} bg-yellow-100 text-yellow-800`;
-    case 'In Progress':
-      return `${base} bg-blue-100 text-blue-800`;
-    case 'Completed':
-      return `${base} bg-green-100 text-green-800`;
-    case 'Cancelled':
-      return `${base} bg-red-100 text-red-800`;
-    default:
-      return `${base} bg-gray-100 text-gray-800`;
-  }
-};
-
-const RTOInspectionDashboard: React.FC = () => {
-  const [inspections, setInspections] = useState<Inspection[]>(initialInspections);
-  const [showModal, setShowModal] = useState<boolean>(false);
-  const [editMode, setEditMode] = useState<boolean>(false);
-  const [currentInspection, setCurrentInspection] = useState<Inspection | null>(null);
-  const [searchTerm, setSearchTerm] = useState<string>('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-
-  // Form state
-  const [formData, setFormData] = useState<Omit<Inspection, 'id' | 'status'>>({
-    depot: '',
-    engineer: '',
-    type: '',
-    scheduledDate: '',
-    dueDate: '',
-    buses: 0,
-    description: ''
-  });
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: name === 'buses' ? parseInt(value) || 0 : value
-    }));
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (editMode && currentInspection) {
-      // Update existing inspection
-      const updatedInspections = inspections.map(inspection => 
-        inspection.id === currentInspection.id 
-          ? { ...formData, id: currentInspection.id, status: currentInspection.status }
-          : inspection
-      );
-      setInspections(updatedInspections);
-    } else {
-      // Create new inspection
-      const newInspection: Inspection = {
-        id: `INS-${Date.now()}`,
-        ...formData,
-        status: 'Pending'
-      };
-      setInspections([newInspection, ...inspections]);
+const InspectionScheduleApp: React.FC = () => {
+  const [currentDate, setCurrentDate] = useState<Date>(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [inspections, setInspections] = useState<Inspection[]>([
+    {
+      id: 1,
+      inspectionType: 'Safety Check',
+      busId: '23',
+      date: '2024-07-05',
+      status: 'Pending'
+    },
+    {
+      id: 2,
+      inspectionType: 'Annual Inspection',
+      busId: '17',
+      date: '2024-07-10',
+      status: 'Pending'
+    },
+    {
+      id: 3,
+      inspectionType: 'Pre-Trip Inspection',
+      busId: '21',
+      date: '2024-07-15',
+      status: 'Completed'
     }
-
-    setShowModal(false);
-    resetForm();
-  };
-
-  const handleEdit = (inspection: Inspection) => {
-    setCurrentInspection(inspection);
-    setFormData({
-      depot: inspection.depot,
-      engineer: inspection.engineer,
-      type: inspection.type,
-      scheduledDate: inspection.scheduledDate,
-      dueDate: inspection.dueDate,
-      buses: inspection.buses,
-      description: inspection.description
-    });
-    setEditMode(true);
-    setShowModal(true);
-  };
-
-  const resetForm = () => {
-    setFormData({
-      depot: '',
-      engineer: '',
-      type: '',
-      scheduledDate: '',
-      dueDate: '',
-      buses: 0,
-      description: ''
-    });
-    setEditMode(false);
-    setCurrentInspection(null);
-  };
-
-  const filteredInspections = inspections.filter(inspection => {
-    const matchesSearch = inspection.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         inspection.depot.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         inspection.engineer.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         inspection.type.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = statusFilter === 'all' || inspection.status === statusFilter;
-    
-    return matchesSearch && matchesStatus;
+  ]);
+  const [showNewInspectionModal, setShowNewInspectionModal] = useState<boolean>(false);
+  const [showEditModal, setShowEditModal] = useState<boolean>(false);
+  const [newInspection, setNewInspection] = useState<NewInspection>({
+    inspectionType: '',
+    busId: '',
+    date: '',
+    status: 'Pending'
   });
+  const [editingInspection, setEditingInspection] = useState<Inspection | null>(null);
 
-  const sendToEngineer = (id: string) => {
-    alert(`Inspection ${id} has been sent to the assigned engineer`);
+  const months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  const getDaysInMonth = (date: Date): (number | null)[] => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startingDayOfWeek = firstDay.getDay();
+
+    const days: (number | null)[] = [];
+    
+    for (let i = 0; i < startingDayOfWeek; i++) {
+      days.push(null);
+    }
+    
+    for (let day = 1; day <= daysInMonth; day++) {
+      days.push(day);
+    }
+    
+    return days;
   };
 
-  const markAsCompleted = (id: string) => {
+  const getInspectionsForDate = (date: Date): Inspection[] => {
+    const dateStr = date.toISOString().split('T')[0];
+    return inspections.filter(inspection => inspection.date === dateStr);
+  };
+
+  const getStatusColor = (status: string): string => {
+    switch (status) {
+      case 'Completed':
+        return 'bg-green-100 text-green-800';
+      case 'In Progress':
+        return 'bg-blue-100 text-blue-800';
+      case 'Pending':
+        return 'bg-yellow-100 text-yellow-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusIcon = (status: string): React.ReactNode => {
+    switch (status) {
+      case 'Completed':
+        return <span className="w-4 h-4 text-green-600">✓</span>;
+      case 'In Progress':
+        return <span className="w-4 h-4 text-blue-600">⏳</span>;
+      case 'Pending':
+        return <span className="w-4 h-4 text-yellow-600">⏰</span>;
+      default:
+        return null;
+    }
+  };
+
+  const handlePrevMonth = () => {
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
+  };
+
+  const handleNextMonth = () => {
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
+  };
+
+  const handleDateClick = (day: number | null): void => {
+    if (day) {
+      const clickedDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+      setSelectedDate(clickedDate);
+    }
+  };
+
+  const handleAddInspection = (): void => {
+    if (newInspection.inspectionType && newInspection.busId && newInspection.date) {
+      const inspection = {
+        id: inspections.length > 0 ? Math.max(...inspections.map(i => i.id)) + 1 : 1,
+        ...newInspection
+      };
+      setInspections([...inspections, inspection]);
+      setNewInspection({
+        inspectionType: '',
+        busId: '',
+        date: '',
+        status: 'Pending'
+      });
+      setShowNewInspectionModal(false);
+    }
+  };
+
+  const handleEditInspection = (inspection: Inspection): void => {
+    setEditingInspection(inspection);
+    setShowEditModal(true);
+  };
+
+  const handleUpdateInspection = (): void => {
+    if (editingInspection) {
+      setInspections(inspections.map(inspection => 
+        inspection.id === editingInspection.id ? editingInspection : inspection
+      ));
+      setShowEditModal(false);
+      setEditingInspection(null);
+    }
+  };
+
+  const handleDeleteInspection = (id: number): void => {
+    setInspections(inspections.filter(inspection => inspection.id !== id));
+  };
+
+  const handleMarkAsCompleted = (id: number): void => {
     setInspections(inspections.map(inspection => 
-      inspection.id === id 
-        ? { ...inspection, status: 'Completed' } 
-        : inspection
+      inspection.id === id ? {...inspection, status: 'Completed'} : inspection
     ));
-    alert(`Inspection ${id} has been marked as completed`);
   };
+
+  const calendarDays = getDaysInMonth(currentDate);
+  const today = new Date();
+
+  // Available buses under the depot
+  const availableBuses = [
+    { id: '17', number: 'NC-1234' },
+    { id: '21', number: 'NP-3456' },
+    { id: '23', number: 'NY-3891' },
+  ];
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-7xl mx-auto flex flex-col h-full">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-8">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-800">RTO Inspection Management</h1>
-            <p className="text-gray-600">Schedule and manage depot inspections</p>
-          </div>
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">Inspection Schedules</h1>
           <button
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 mt-4 md:mt-0"
-            onClick={() => {
-              resetForm();
-              setShowModal(true);
-            }}
+            onClick={() => setShowNewInspectionModal(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
           >
-            + New Inspection
+            <span className="text-lg">+</span>
+            New Inspection
           </button>
         </div>
 
-        {/* Filters */}
-        <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <FaSearch className="text-gray-400" />
-              </div>
-              <input
-                type="text"
-                placeholder="Search inspections..."
-                className="pl-10 pr-4 py-2 w-full border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <FaFilter className="text-gray-400" />
-              </div>
-              <select
-                className="pl-10 pr-4 py-2 w-full border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
+        {/* Calendar Section */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex-grow mb-8">
+          <div className="p-6">
+            <h2 className="text-xl font-semibold text-gray-700 mb-6">Calendar View</h2>
+            
+            {/* Calendar Header */}
+            <div className="flex justify-between items-center mb-4">
+              <button
+                onClick={handlePrevMonth}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-lg font-bold"
               >
-                <option value="all">All Statuses</option>
-                <option value="Pending">Pending</option>
-                <option value="In Progress">In Progress</option>
-                <option value="Completed">Completed</option>
-                <option value="Cancelled">Cancelled</option>
-              </select>
+                ←
+              </button>
+              <h3 className="text-lg font-semibold">
+                {months[currentDate.getMonth()]} {currentDate.getFullYear()}
+              </h3>
+              <button
+                onClick={handleNextMonth}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-lg font-bold"
+              >
+                →
+              </button>
+            </div>
+
+            {/* Calendar Grid */}
+            <div className="grid grid-cols-7 gap-1 mb-1">
+              {days.map(day => (
+                <div key={day} className="p-3 text-center text-sm font-medium text-gray-500">
+                  {day}
+                </div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-7 gap-1">
+              {calendarDays.map((day, index) => {
+                const cellDate = day ? new Date(currentDate.getFullYear(), currentDate.getMonth(), day) : null;
+                const dayInspections = cellDate ? getInspectionsForDate(cellDate) : [];
+                const isToday = cellDate && cellDate.toDateString() === today.toDateString();
+                const isSelected = cellDate && cellDate.toDateString() === selectedDate.toDateString();
+
+                return (
+                  <div
+                    key={index}
+                    className={`p-1 border border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${
+                      isToday ? 'bg-blue-50 border-blue-200' : ''
+                    } ${isSelected ? 'bg-blue-100 border-blue-300' : ''}`}
+                    onClick={() => handleDateClick(day)}
+                  >
+                    {day && (
+                      <div>
+                        <div className={`text-sm font-medium mb-1 ${isToday ? 'text-blue-600' : 'text-gray-900'}`}>
+                          {day}
+                        </div>
+                        <div className="space-y-1">
+                          {dayInspections.slice(0, 2).map((inspection, idx) => (
+                            <div
+                              key={idx}
+                              className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-800 truncate"
+                            >
+                              {inspection.inspectionType}
+                            </div>
+                          ))}
+                          {dayInspections.length > 2 && (
+                            <div className="text-xs text-gray-500">
+                              +{dayInspections.length - 2} more
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
 
-        {/* Inspections Table */}
-        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Inspection ID</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Depot</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">EngineerId</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Scheduled Date</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredInspections.length > 0 ? (
-                  filteredInspections.map((inspection) => (
-                    <tr key={inspection.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{inspection.id}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{inspection.depot}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{inspection.engineerid}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{inspection.type}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{inspection.scheduledDate}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{inspection.dueDate}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={getStatusBadge(inspection.status)}>
+        {/* Upcoming Inspections Table */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+          <div className="p-6">
+            <h2 className="text-xl font-semibold text-gray-700 mb-6">Upcoming Inspections</h2>
+            
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">Inspection Type</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">Bus ID</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">Date</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">Status</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {inspections.map((inspection) => (
+                    <tr key={inspection.id} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="py-4 px-4 text-gray-900">{inspection.inspectionType}</td>
+                      <td className="py-4 px-4 text-gray-900">{inspection.busId}</td>
+                      <td className="py-4 px-4 text-gray-900">{inspection.date}</td>
+                      <td className="py-4 px-4">
+                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(inspection.status)}`}>
+                          {getStatusIcon(inspection.status)}
                           {inspection.status}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => handleEdit(inspection)}
-                            className="text-blue-600 hover:text-blue-900"
-                            title="Edit"
+                      <td className="py-4 px-4">
+                        <div className="flex gap-2">
+                          <button 
+                            onClick={() => handleEditInspection(inspection)}
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                           >
-                            <FaEdit />
-                          </button>
-                          <button
-                            onClick={() => sendToEngineer(inspection.id)}
-                            className="text-green-600 hover:text-green-900"
-                            title="Send to Engineer"
-                          >
-                            <FaPaperPlane />
+                            <span className="text-sm">✏️</span>
                           </button>
                           {inspection.status !== 'Completed' && (
                             <button
-                              onClick={() => markAsCompleted(inspection.id)}
-                              className="text-purple-600 hover:text-purple-900"
-                              title="Mark as Completed"
+                              onClick={() => handleMarkAsCompleted(inspection.id)}
+                              className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                              title="Mark as completed"
                             >
-                              <FaCheck />
+                              <span className="text-sm">✓</span>
                             </button>
                           )}
+                          <button
+                            onClick={() => handleDeleteInspection(inspection.id)}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            <span className="text-sm">🗑️</span>
+                          </button>
                         </div>
                       </td>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={8} className="px-6 py-4 text-center text-sm text-gray-500">
-                      No inspections found matching your criteria
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      {/* Inspection Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-gray-800">
-                  {editMode ? 'Edit Inspection' : 'Create New Inspection'}
-                </h2>
-                <button
-                  onClick={() => {
-                    setShowModal(false);
-                    resetForm();
-                  }}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-
-              <form onSubmit={handleSubmit}>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Depot</label>
-                    <select
-                      name="depot"
-                      className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      value={formData.depot}
-                      onChange={handleInputChange}
-                      required
-                    >
-                      <option value="">Select Depot</option>
-                      {depotOptions.map(depot => (
-                        <option key={depot} value={depot}>{depot}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Assigned Engineer</label>
-                    <select
-                      name="engineer"
-                      className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      value={formData.engineer}
-                      onChange={handleInputChange}
-                      required
-                    >
-                      <option value="">Select Engineer</option>
-                      {engineerOptions.map(engineer => (
-                        <option key={engineer} value={engineer}>{engineer}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Inspection Type</label>
-                    <select
-                      name="type"
-                      className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      value={formData.type}
-                      onChange={handleInputChange}
-                      required
-                    >
-                      <option value="">Select Type</option>
-                      {inspectionTypes.map(type => (
-                        <option key={type} value={type}>{type}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Number of Buses</label>
-                    <input
-                      type="number"
-                      name="buses"
-                      className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      value={formData.buses}
-                      onChange={handleInputChange}
-                      min="1"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Scheduled Date</label>
-                    <input
-                      type="date"
-                      name="scheduledDate"
-                      className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      value={formData.scheduledDate}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
-                    <input
-                      type="date"
-                      name="dueDate"
-                      className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      value={formData.dueDate}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                  <textarea
-                    name="description"
-                    rows={3}
-                    className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    value={formData.description}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
-
-                <div className="flex justify-end space-x-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowModal(false);
-                      resetForm();
-                    }}
-                    className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                  >
-                    {editMode ? 'Update Inspection' : 'Create Inspection'}
-                  </button>
-                </div>
-              </form>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
-      )}
+
+        {/* New Inspection Modal */}
+        {showNewInspectionModal && (
+          <div className="fixed inset-0 backdrop-blur-sm bg-white/10 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+              <h3 className="text-lg font-semibold mb-4">Schedule New Inspection</h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Inspection Type</label>
+                  <input
+                    type="text"
+                    value={newInspection.inspectionType}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewInspection({...newInspection, inspectionType: e.target.value})}
+                    placeholder="e.g., Safety Check"
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Bus ID</label>
+                  <select
+                    value={newInspection.busId}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setNewInspection({...newInspection, busId: e.target.value})}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Select a bus</option>
+                    {availableBuses.map((bus) => (
+                      <option key={bus.id} value={bus.id}>
+                        {bus.number} ({bus.id})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                  <input
+                    type="date"
+                    value={newInspection.date}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewInspection({...newInspection, date: e.target.value})}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                  <select
+                    value={newInspection.status}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setNewInspection({...newInspection, status: e.target.value})}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="Pending">Pending</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Completed">Completed</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => setShowNewInspectionModal(false)}
+                  className="flex-1 py-2 px-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAddInspection}
+                  className="flex-1 py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Add Inspection
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Inspection Modal */}
+        {showEditModal && editingInspection && (
+          <div className="fixed inset-0 backdrop-blur-sm bg-white/10 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+              <h3 className="text-lg font-semibold mb-4">Edit Inspection</h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Inspection Type</label>
+                  <input
+                    type="text"
+                    value={editingInspection.inspectionType}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+                      setEditingInspection({...editingInspection, inspectionType: e.target.value})
+                    }
+                    placeholder="e.g., Safety Check"
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Bus ID</label>
+                  <select
+                    value={editingInspection.busId}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => 
+                      setEditingInspection({...editingInspection, busId: e.target.value})
+                    }
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Select a bus</option>
+                    {availableBuses.map((bus) => (
+                      <option key={bus.id} value={bus.id}>
+                        {bus.number} ({bus.id})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                  <input
+                    type="date"
+                    value={editingInspection.date}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+                      setEditingInspection({...editingInspection, date: e.target.value})
+                    }
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                  <select
+                    value={editingInspection.status}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => 
+                      setEditingInspection({...editingInspection, status: e.target.value})
+                    }
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="Pending">Pending</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Completed">Completed</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => setShowEditModal(false)}
+                  className="flex-1 py-2 px-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleUpdateInspection}
+                  className="flex-1 py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Update Inspection
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
 
-export default RTOInspectionDashboard;
+export default InspectionScheduleApp;

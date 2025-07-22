@@ -227,7 +227,7 @@ const Busavailability = () => {
 
   return (
     <div className="container mx-auto p-6 bg-white rounded-lg shadow-md">
-      <h2 className="text-3xl font-bold text-gray-800 mb-6">Bus Availability Dashboard</h2>
+      <h2 className="text-3xl font-bold text-gray-800 mb-6">Bus Availability </h2>
 
       <div className="flex flex-col md:flex-row justify-between items-center mb-6 space-y-4 md:space-y-0 md:space-x-4">
         <div className="relative w-full md:w-1/3">
@@ -253,53 +253,62 @@ const Busavailability = () => {
       </div>
 
       {showFilters && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 p-4 border border-gray-200 rounded-md bg-gray-50">
-          <div>
-            <label htmlFor="status" className="block text-sm font-medium text-gray-700">Status:</label>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 p-6 bg-white border border-gray-200 rounded-lg shadow-sm">
+          <div className="space-y-2">
+            <label htmlFor="status" className="block text-sm font-medium text-gray-700 flex items-center">
+              <span className="bg-blue-100 text-blue-800 p-1 rounded mr-2">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+                </svg>
+              </span>
+              Status
+            </label>
             <select
               id="status"
               name="status"
               value={filters.status}
               onChange={handleFilterChange}
-              className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+              className="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 transition duration-150 ease-in-out"
             >
-              <option value="">All</option>
-              <option value="Active">Active</option>
-              <option value="In Service">In Service</option>
-              <option value="Maintenance">Maintenance</option>
-              <option value="Out of Service">Out of Service</option>
+              <option value="">All Statuses</option>
+              <option value="Active" className="text-green-600">Active</option>
+              <option value="In Service" className="text-blue-600">In Service</option>
+              <option value="Maintenance" className="text-yellow-600">Maintenance</option>
+              <option value="Out of Service" className="text-red-600">Out of Service</option>
             </select>
           </div>
-          <div>
-            <label htmlFor="class" className="block text-sm font-medium text-gray-700">Class:</label>
+
+          <div className="space-y-2">
+            <label htmlFor="class" className="block text-sm font-medium text-gray-700 flex items-center">
+              <span className="bg-purple-100 text-purple-800 p-1 rounded mr-2">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z" />
+                </svg>
+              </span>
+              Class
+            </label>
             <input
               type="text"
               id="class"
               name="class"
               value={filters.class}
               onChange={handleFilterChange}
-              className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-              placeholder="e.g., Luxury"
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 transition duration-150 ease-in-out"
+              placeholder="e.g., Luxury, Standard"
             />
           </div>
-          <div>
-            <label htmlFor="depot" className="block text-sm font-medium text-gray-700">Depot:</label>
-            <input
-              type="text"
-              id="depot"
-              name="depot"
-              value={filters.depot}
-              onChange={handleFilterChange}
-              className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-              placeholder="e.g., Kandy"
-            />
+
+         
+
+          <div className="md:col-span-3 flex justify-end pt-2">
+            <button
+              onClick={clearFilters}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition duration-150 ease-in-out"
+            >
+              <HiX className="mr-2" />
+              Clear All Filters
+            </button>
           </div>
-          <button
-            onClick={clearFilters}
-            className="md:col-span-3 w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <HiX className="mr-2" /> Clear Filters
-          </button>
         </div>
       )}
 
@@ -310,18 +319,18 @@ const Busavailability = () => {
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Reg. Number
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              {/* <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Depot
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Region
-              </th>
+              </th> */}
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Class
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              {/* <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Manufacturer
-              </th>
+              </th> */}
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Model
               </th>
@@ -344,10 +353,10 @@ const Busavailability = () => {
               currentBuses.map((bus) => (
                 <tr key={bus.bus_id}>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{bus.registration_number}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{bus.depot_name || 'N/A'}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{bus.region_name || 'N/A'}</td>
+                  {/* <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{bus.depot_name || 'N/A'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{bus.region_name || 'N/A'}</td> */}
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{bus.class}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{bus.manufacturer}</td>
+                  {/* <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{bus.manufacturer}</td> */}
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{bus.model}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{bus.year}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{bus.mileage}</td>
@@ -404,7 +413,7 @@ const Busavailability = () => {
       </nav>
 
       {showEditModal && selectedBus && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-75 overflow-y-auto h-full w-full flex items-center justify-center z-50">
+         <div className="fixed inset-0 backdrop-blur-sm bg-white/10 flex items-center justify-center z-50 p-4">
           <div className="relative p-8 bg-white w-96 max-w-full mx-auto rounded-lg shadow-lg">
             <h3 className="text-xl font-bold text-gray-900 mb-4">Edit Bus Status</h3>
             <button

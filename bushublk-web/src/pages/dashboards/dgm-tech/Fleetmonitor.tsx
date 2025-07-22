@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { HiEye, HiPencil, HiFilter, HiDownload, HiChevronDown, HiChevronUp, HiSearch, HiX } from 'react-icons/hi';
+import { HiEye, HiFilter, HiChevronDown, HiChevronUp, HiSearch, HiX } from 'react-icons/hi';
 
 interface Bus {
   id: string;
@@ -38,38 +38,90 @@ interface RegionsData {
 }
 
 interface ExpandedRegions {
-  'Western Province': boolean;
-  'Central Province': boolean;
-  'Southern Province': boolean;
-  'Northern Province': boolean;
-  'Eastern Province': boolean;
-  'North Western Province': boolean;
-  'North Central Province': boolean;
-  'Uva Province': boolean;
-  'Sabaragamuwa Province': boolean;
+  'Colombo': boolean;
+  'Gampaha': boolean;
+  'Kaluthara': boolean;
+  'Wayamba': boolean;
+  'Mahanuwara': boolean;
+  'Sabaragamuwa': boolean;
+  'Southern': boolean;
+  'Rajarata': boolean;
+  'Uva': boolean;
+  'Northern': boolean;
+  'Eastern': boolean;
 }
 
 const FleetMonitor = () => {
-  const [selectedRegion, setSelectedRegion] = useState<string>('Western Province');
+  const [selectedRegion, setSelectedRegion] = useState<string>('Colombo');
   const [selectedDepot, setSelectedDepot] = useState<string>('Colombo Central Depot');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [expandedRegions, setExpandedRegions] = useState<ExpandedRegions>({
-    'Western Province': true,
-    'Central Province': false,
-    'Southern Province': false,
-    'Northern Province': false,
-    'Eastern Province': false,
-    'North Western Province': false,
-    'North Central Province': false,
-    'Uva Province': false,
-    'Sabaragamuwa Province': false
+    'Colombo': true,
+    'Gampaha': false,
+    'Kaluthara': false,
+    'Wayamba': false,
+    'Mahanuwara': false,
+    'Sabaragamuwa': false,
+    'Southern': false,
+    'Rajarata': false,
+    'Uva': false,
+    'Northern': false,
+    'Eastern': false
   });
   const [selectedBus, setSelectedBus] = useState<Bus | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // SLTB Regions Data - Updated to match Sri Lankan provinces
+  // Toggle region expansion
+  const toggleRegion = (region: keyof ExpandedRegions) => {
+    setExpandedRegions(prev => ({
+      ...prev,
+      [region]: !prev[region]
+    }));
+  };
+
+  // Handle region selection
+  const handleRegionClick = (regionName: string) => {
+    setSelectedRegion(regionName);
+    // Select the first depot in the region by default
+    if (regionsData[regionName]?.depotsList.length > 0) {
+      setSelectedDepot(regionsData[regionName].depotsList[0].name);
+    }
+  };
+
+  // Handle depot selection
+  const handleDepotClick = (depotName: string) => {
+    setSelectedDepot(depotName);
+  };
+
+  // Get status badge styling
+  const getStatusBadge = (status: 'Active' | 'Maintenance' | 'Inactive') => {
+    switch (status) {
+      case 'Active':
+        return 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800';
+      case 'Maintenance':
+        return 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800';
+      case 'Inactive':
+        return 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800';
+      default:
+        return 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800';
+    }
+  };
+
+  // Handle viewing bus details
+  const handleViewBus = (bus: Bus) => {
+    setSelectedBus(bus);
+    setIsModalOpen(true);
+  };
+
+  // Close modal
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setSelectedBus(null);
+  };
+
+  // Updated to match the 11 regions from the image
   const regionsData: RegionsData = {
-    'Western Province': {
+    'Colombo': {
       depots: 8,
       buses: 450,
       depotsList: [
@@ -80,96 +132,119 @@ const FleetMonitor = () => {
         { name: 'Kollupitiya Depot', buses: 45, underMaintenance: 2 },
         { name: 'Borella Depot', buses: 50, underMaintenance: 3 },
         { name: 'Dehiwala Depot', buses: 40, underMaintenance: 2 },
-        { name: 'Gampaha Main Depot', buses: 50, underMaintenance: 3 }
+        { name: 'Fort Depot', buses: 50, underMaintenance: 3 }
       ]
     },
-    'Central Province': {
+    'Gampaha': {
       depots: 6,
       buses: 350,
+      depotsList: [
+        { name: 'Gampaha Main Depot', buses: 80, underMaintenance: 7 },
+        { name: 'Negombo Depot', buses: 60, underMaintenance: 5 },
+        { name: 'Katunayake Depot', buses: 55, underMaintenance: 4 },
+        { name: 'Mirigama Depot', buses: 50, underMaintenance: 3 },
+        { name: 'Veyangoda Depot', buses: 50, underMaintenance: 3 },
+        { name: 'Minuwangoda Depot', buses: 55, underMaintenance: 4 }
+      ]
+    },
+    'Kaluthara': {
+      depots: 5,
+      buses: 300,
+      depotsList: [
+        { name: 'Kaluthara Main Depot', buses: 70, underMaintenance: 6 },
+        { name: 'Panadura Depot', buses: 60, underMaintenance: 5 },
+        { name: 'Horana Depot', buses: 50, underMaintenance: 4 },
+        { name: 'Matugama Depot', buses: 50, underMaintenance: 3 },
+        { name: 'Beruwala Depot', buses: 70, underMaintenance: 5 }
+      ]
+    },
+    'Wayamba': {
+      depots: 5,
+      buses: 280,
+      depotsList: [
+        { name: 'Kurunegala Depot', buses: 70, underMaintenance: 6 },
+        { name: 'Puttalam Depot', buses: 60, underMaintenance: 5 },
+        { name: 'Chilaw Depot', buses: 50, underMaintenance: 4 },
+        { name: 'Kuliyapitiya Depot', buses: 50, underMaintenance: 3 },
+        { name: 'Nikaweratiya Depot', buses: 50, underMaintenance: 3 }
+      ]
+    },
+    'Mahanuwara': {
+      depots: 6,
+      buses: 320,
       depotsList: [
         { name: 'Kandy Central Depot', buses: 80, underMaintenance: 7 },
         { name: 'Peradeniya Depot', buses: 60, underMaintenance: 5 },
         { name: 'Katugastota Depot', buses: 55, underMaintenance: 4 },
         { name: 'Gampola Depot', buses: 50, underMaintenance: 3 },
         { name: 'Nuwara Eliya Depot', buses: 50, underMaintenance: 3 },
-        { name: 'Matale Main Depot', buses: 55, underMaintenance: 4 }
+        { name: 'Matale Main Depot', buses: 25, underMaintenance: 2 }
       ]
     },
-    'Southern Province': {
+    'Sabaragamuwa': {
+      depots: 5,
+      buses: 250,
+      depotsList: [
+        { name: 'Ratnapura Depot', buses: 70, underMaintenance: 6 },
+        { name: 'Kegalle Depot', buses: 60, underMaintenance: 5 },
+        { name: 'Balangoda Depot', buses: 50, underMaintenance: 4 },
+        { name: 'Embilipitiya Depot', buses: 40, underMaintenance: 3 },
+        { name: 'Kuruwita Depot', buses: 30, underMaintenance: 2 }
+      ]
+    },
+    'Southern': {
       depots: 6,
-      buses: 320,
+      buses: 300,
       depotsList: [
         { name: 'Galle Main Depot', buses: 70, underMaintenance: 6 },
         { name: 'Matara Main Depot', buses: 60, underMaintenance: 5 },
         { name: 'Hambantota Depot', buses: 50, underMaintenance: 4 },
         { name: 'Ambalangoda Depot', buses: 45, underMaintenance: 3 },
-        { name: 'Tangalle Depot', buses: 50, underMaintenance: 3 },
-        { name: 'Tissamaharama Depot', buses: 45, underMaintenance: 3 }
+        { name: 'Tangalle Depot', buses: 45, underMaintenance: 3 },
+        { name: 'Tissamaharama Depot', buses: 30, underMaintenance: 2 }
       ]
     },
-    'Northern Province': {
+    'Rajarata': {
       depots: 5,
-      buses: 280,
+      buses: 270,
+      depotsList: [
+        { name: 'Anuradhapura Main Depot', buses: 80, underMaintenance: 7 },
+        { name: 'Polonnaruwa Depot', buses: 60, underMaintenance: 5 },
+        { name: 'Medawachchiya Depot', buses: 50, underMaintenance: 4 },
+        { name: 'Kekirawa Depot', buses: 40, underMaintenance: 3 },
+        { name: 'Habarana Depot', buses: 40, underMaintenance: 3 }
+      ]
+    },
+    'Uva': {
+      depots: 4,
+      buses: 200,
+      depotsList: [
+        { name: 'Badulla Depot', buses: 70, underMaintenance: 6 },
+        { name: 'Monaragala Depot', buses: 60, underMaintenance: 5 },
+        { name: 'Bandarawela Depot', buses: 40, underMaintenance: 3 },
+        { name: 'Haputale Depot', buses: 30, underMaintenance: 2 }
+      ]
+    },
+    'Northern': {
+      depots: 5,
+      buses: 250,
       depotsList: [
         { name: 'Jaffna Main Depot', buses: 70, underMaintenance: 6 },
         { name: 'Vavuniya Depot', buses: 60, underMaintenance: 5 },
         { name: 'Kilinochchi Depot', buses: 50, underMaintenance: 4 },
-        { name: 'Mannar Depot', buses: 50, underMaintenance: 3 },
-        { name: 'Point Pedro Depot', buses: 50, underMaintenance: 3 }
+        { name: 'Mannar Depot', buses: 40, underMaintenance: 3 },
+        { name: 'Point Pedro Depot', buses: 30, underMaintenance: 2 }
       ]
     },
-    'Eastern Province': {
+    'Eastern': {
       depots: 5,
-      buses: 250,
+      buses: 240,
       depotsList: [
-        { name: 'Batticaloa Depot', buses: 60, underMaintenance: 5 },
-        { name: 'Trincomalee Depot', buses: 55, underMaintenance: 4 },
-        { name: 'Ampara Depot', buses: 50, underMaintenance: 3 },
-        { name: 'Kalmunai Depot', buses: 45, underMaintenance: 3 },
-        { name: 'Akkaraipattu Depot', buses: 40, underMaintenance: 2 }
-      ]
-    },
-    'North Western Province': {
-      depots: 5,
-      buses: 230,
-      depotsList: [
-        { name: 'Kurunegala Depot', buses: 60, underMaintenance: 5 },
-        { name: 'Puttalam Depot', buses: 50, underMaintenance: 4 },
-        { name: 'Chilaw Depot', buses: 45, underMaintenance: 3 },
-        { name: 'Kuliyapitiya Depot', buses: 40, underMaintenance: 2 },
-        { name: 'Nikaweratiya Depot', buses: 35, underMaintenance: 2 }
-      ]
-    },
-    'North Central Province': {
-      depots: 4,
-      buses: 200,
-      depotsList: [
-        { name: 'Anuradhapura Main Depot', buses: 70, underMaintenance: 6 },
-        { name: 'Polonnaruwa Depot', buses: 50, underMaintenance: 4 },
-        { name: 'Medawachchiya Depot', buses: 45, underMaintenance: 3 },
-        { name: 'Kekirawa Depot', buses: 35, underMaintenance: 2 }
-      ]
-    },
-    'Uva Province': {
-      depots: 5,
-      buses: 180,
-      depotsList: [
-        { name: 'Badulla Depot', buses: 60, underMaintenance: 5 },
-        { name: 'Monaragala Depot', buses: 50, underMaintenance: 4 },
-        { name: 'Bandarawela Depot', buses: 35, underMaintenance: 2 },
-        { name: 'Haputale Depot', buses: 20, underMaintenance: 1 },
-        { name: 'Wellawaya Depot', buses: 15, underMaintenance: 1 }
-      ]
-    },
-    'Sabaragamuwa Province': {
-      depots: 5,
-      buses: 200,
-      depotsList: [
-        { name: 'Ratnapura Depot', buses: 60, underMaintenance: 5 },
-        { name: 'Kegalle Depot', buses: 50, underMaintenance: 4 },
-        { name: 'Balangoda Depot', buses: 40, underMaintenance: 3 },
-        { name: 'Embilipitiya Depot', buses: 30, underMaintenance: 2 },
-        { name: 'Kuruwita Depot', buses: 20, underMaintenance: 1 }
+        { name: 'Batticaloa Depot', buses: 70, underMaintenance: 6 },
+        { name: 'Trincomalee Depot', buses: 60, underMaintenance: 5 },
+        { name: 'Ampara Depot', buses: 50, underMaintenance: 4 },
+        { name: 'Kalmunai Depot', buses: 40, underMaintenance: 3 },
+        { name: 'Akkaraipattu Depot', buses: 20, underMaintenance: 1 }
       ]
     }
   };
@@ -177,7 +252,7 @@ const FleetMonitor = () => {
   // SLTB Bus Data with common Sri Lankan bus models
   const getBusData = (region: string, depot: string): Bus[] => {
     const busData: BusData = {
-      'Western Province': {
+      'Colombo': {
         'Colombo Central Depot': [
           { 
             id: 'SLTB-CC-101', 
@@ -204,19 +279,6 @@ const FleetMonitor = () => {
             capacity: 52,
             registrationDate: '22 Mar 2019',
             manufacturer: 'Ashok Leyland'
-          },
-          { 
-            id: 'SLTB-CC-103', 
-            model: 'TATA Starbus', 
-            status: 'Active', 
-            lastService: '22 Jun 2023', 
-            nextService: '22 Sep 2023', 
-            issues: 'AC not cooling',
-            mileage: 195200,
-            fuelType: 'Diesel',
-            capacity: 50,
-            registrationDate: '05 Aug 2020',
-            manufacturer: 'TATA'
           }
         ],
         'Pettah Depot': [
@@ -232,26 +294,13 @@ const FleetMonitor = () => {
             capacity: 48,
             registrationDate: '12 Feb 2017',
             manufacturer: 'Leyland'
-          },
-          { 
-            id: 'SLTB-PT-202', 
-            model: 'Ashok Leyland Oyster', 
-            status: 'Maintenance', 
-            lastService: '15 May 2023', 
-            nextService: '15 Aug 2023', 
-            issues: 'Brake system',
-            mileage: 234780,
-            fuelType: 'Diesel',
-            capacity: 52,
-            registrationDate: '08 Jul 2018',
-            manufacturer: 'Ashok Leyland'
           }
         ]
       },
-      'Central Province': {
-        'Kandy Central Depot': [
+      'Gampaha': {
+        'Gampaha Main Depot': [
           { 
-            id: 'SLTB-KD-301', 
+            id: 'SLTB-GP-301', 
             model: 'TATA LPO 1613', 
             status: 'Active', 
             lastService: '12 Jun 2023', 
@@ -262,26 +311,13 @@ const FleetMonitor = () => {
             capacity: 52,
             registrationDate: '25 Jan 2019',
             manufacturer: 'TATA'
-          },
-          { 
-            id: 'SLTB-KD-302', 
-            model: 'Ashok Leyland Viking', 
-            status: 'Maintenance', 
-            lastService: '08 May 2023', 
-            nextService: '08 Aug 2023', 
-            issues: 'Suspension',
-            mileage: 256700,
-            fuelType: 'Diesel',
-            capacity: 48,
-            registrationDate: '14 Sep 2017',
-            manufacturer: 'Ashok Leyland'
           }
         ]
       },
-      'Southern Province': {
-        'Galle Main Depot': [
+      'Kaluthara': {
+        'Kaluthara Main Depot': [
           { 
-            id: 'SLTB-GL-401', 
+            id: 'SLTB-KL-401', 
             model: 'Leyland Tiger', 
             status: 'Active', 
             lastService: '28 Jun 2023', 
@@ -292,19 +328,6 @@ const FleetMonitor = () => {
             capacity: 52,
             registrationDate: '03 May 2020',
             manufacturer: 'Leyland'
-          },
-          { 
-            id: 'SLTB-GL-402', 
-            model: 'TATA LPO 1618', 
-            status: 'Active', 
-            lastService: '25 Jun 2023', 
-            nextService: '25 Sep 2023', 
-            issues: 'Minor electrical issues',
-            mileage: 165200,
-            fuelType: 'Diesel',
-            capacity: 50,
-            registrationDate: '19 Mar 2021',
-            manufacturer: 'TATA'
           }
         ]
       }
@@ -313,53 +336,10 @@ const FleetMonitor = () => {
     return busData[region]?.[depot] || [];
   };
 
-  const toggleRegion = (regionName: keyof ExpandedRegions) => {
-    setExpandedRegions(prev => ({
-      ...prev,
-      [regionName]: !prev[regionName]
-    }));
-  };
-
-  const handleRegionClick = (regionName: string) => {
-    setSelectedRegion(regionName);
-    // Auto-select first depot of the region
-    if (regionsData[regionName]?.depotsList.length > 0) {
-      setSelectedDepot(regionsData[regionName].depotsList[0].name);
-    }
-  };
-
-  const handleDepotClick = (depotName: string) => {
-    setSelectedDepot(depotName);
-  };
-
-  const handleViewBus = (bus: Bus) => {
-    setSelectedBus(bus);
-    setIsModalOpen(true);
-  };
-
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setSelectedBus(null);
-  };
-
-  const getStatusBadge = (status: Bus['status']) => {
-    const baseClasses = "px-2 py-1 rounded-full text-xs font-medium";
-    switch (status) {
-      case 'Active':
-        return `${baseClasses} bg-green-100 text-green-800`;
-      case 'Maintenance':
-        return `${baseClasses} bg-yellow-100 text-yellow-800`;
-      case 'Inactive':
-        return `${baseClasses} bg-red-100 text-red-800`;
-      default:
-        return `${baseClasses} bg-gray-100 text-gray-800`;
-    }
-  };
-
-  const filteredBuses = getBusData(selectedRegion, selectedDepot).filter(bus =>
+  // Filter buses based on search term
+  const filteredBuses = getBusData(selectedRegion, selectedDepot).filter(bus => 
     bus.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    bus.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    bus.status.toLowerCase().includes(searchTerm.toLowerCase())
+    bus.model.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -367,19 +347,19 @@ const FleetMonitor = () => {
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-800">SLTB Fleet Monitoring Dashboard</h1>
-        <p className="text-gray-600">Monitor and manage SLTB fleet across all provinces</p>
+        <p className="text-gray-600">Monitor and manage SLTB fleet across all regions</p>
       </div>
 
       {/* Regions and Depots Section */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-6 overflow-hidden">
         <div className="p-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-800">Select Province and Depot</h2>
+          <h2 className="text-lg font-semibold text-gray-800">Select Region and Depot</h2>
         </div>
         
         <div className="p-4">
           {/* Regions */}
           <div className="mb-6">
-            <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-3">SLTB Provinces</h3>
+            <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-3">SLTB Regions</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {Object.entries(regionsData).map(([regionName, regionData]) => (
                 <div 
@@ -562,9 +542,9 @@ const FleetMonitor = () => {
       {/* Bus Details Modal */}
       {isModalOpen && selectedBus && (
         <div
-        className="fixed inset-0 flex items-center justify-center p-4 z-50"
-        style={{ backgroundColor: 'rgba(15, 23, 42, 0.85)' }}
-      >
+          className="fixed inset-0 flex items-center justify-center p-4 z-50"
+          style={{ backgroundColor: 'rgba(15, 23, 42, 0.85)' }}
+        >
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex justify-between items-start">

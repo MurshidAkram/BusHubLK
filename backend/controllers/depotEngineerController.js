@@ -1,5 +1,6 @@
 const Bus = require('../models/busModel');
 const User = require('../models/userModel');
+const RegionDepot = require('../models/regionDepotModel');
 
 // Get buses for depot engineer (filtered by their depot)
 const getBusesForDepotEngineer = async (req, res) => {
@@ -14,12 +15,28 @@ const getBusesForDepotEngineer = async (req, res) => {
             });
         }
 
+        // Get depot details to include region and depot names
+        const depot = await RegionDepot.getDepotById(depotEngineerDetails.depot_id);
+        
+        if (!depot) {
+            return res.status(404).json({ 
+                success: false,
+                message: 'Depot not found' 
+            });
+        }
+
         const buses = await Bus.getByDepot(depotEngineerDetails.depot_id);
         
         res.json({
             success: true,
             message: 'Buses retrieved successfully',
-            buses
+            buses,
+            depot: {
+                depot_id: depot.depot_id,
+                depot_name: depot.depot_name,
+                region_id: depot.region_id,
+                region_name: depot.region_name
+            }
         });
     } catch (err) {
         console.error('Get buses for depot engineer error:', err);
