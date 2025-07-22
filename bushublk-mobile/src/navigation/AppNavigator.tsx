@@ -7,7 +7,7 @@ import TabNavigator from "./TabNavigator";
 // Import other screens
 import LostAndFoundScreen from "../screens/LostAndFoundScreen";
 import NotificationsScreen from "../screens/NotificationsScreen";
-import BusTracker from "../screens/BusTrackerScreen";
+import BusTracker from "../screens/BusTrackerScreenDemo";
 import BusRouteResultsScreen from "../screens/BusRouteResultsScreen";
 import BusOccupancyScreen from "../screens/BusOccupancyScreen";
 import ComplaintsScreen from "../screens/ComplaintsScreen";

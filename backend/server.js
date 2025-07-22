@@ -67,13 +67,30 @@ app.get('/api/test', (req, res) => {
   });
 });
 
-// ----------------------------------------------------------------------
-// LOAD ALL ROUTES
-// ----------------------------------------------------------------------
+try {
+  const BusTrackingRoutes = require('./routes/BusTrackingRoutes');
+  app.use('/api/bus-tracking', BusTrackingRoutes);
+  console.log('✅ BusTrackingRoutes loaded');
+} catch (error) {
+  console.log('❌ BusTrackingRoutes error:', error.message);
+}
 
-const dbTestRoute = require('./routes/dbTestRoute');
-app.use('/api', dbTestRoute);
-console.log('✅ dbTestRoute loaded');
+try {
+  const busLiveTrackingRoutes = require('./routes/busLiveTrackingRoutes');
+  app.use('/api/live-tracking', busLiveTrackingRoutes);
+  console.log('✅ busLiveTrackingRoutes loaded');
+} catch (error) {
+  console.log('❌ busLiveTrackingRoutes error:', error.message);
+}
+
+// Load routes with error handling
+try {
+  const dbTestRoute = require('./routes/dbTestRoute');
+  app.use('/api', dbTestRoute);
+  console.log('✅ dbTestRoute loaded');
+} catch (error) {
+  console.log('❌ dbTestRoute error:', error.message);
+}
 
 const authRoutes = require('./routes/authRoutes');
 app.use('/api/auth', authRoutes);
