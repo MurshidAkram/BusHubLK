@@ -407,42 +407,164 @@ export default function BusOccupancyScreen() {
 
   const { detectedBus, confidence, detectionReason, movementHistory } = useEnhancedBusDetection(userLocation, buses, demoMode, selectedDemoBus);
 
-  // In BusOccupancyScreen.tsx, update the fetchAllOccupancies function
-const fetchAllOccupancies = useCallback(async () => {
-  setStatus('loading');
-  setError(null);
-  try {
-    console.log('Fetching occupancies from:', `${API_BASE_URL}/bus-occupancy`);
-    const response = await fetch(`${API_BASE_URL}/bus-occupancy`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-    const text = await response.text(); // Log raw response
-    console.log('Raw response:', text);
-    if (!response.ok) {
-      const errorData = isJson(text) ? JSON.parse(text) : { message: text || `Failed with status: ${response.status}` };
-      throw new Error(errorData.message || 'Failed to fetch occupancies.');
+  const performOccupancyUpdate = useCallback(async (level: string) => {
+    if (!currentBus) return;
+    
+    if (lastOccupancyUpdate) {
+      const timeSinceLastUpdate = Date.now() - new Date(lastOccupancyUpdate).getTime();
+      if (timeSinceLastUpdate < 120000) {
+        const remainingTime = Math.ceil((120000 - timeSinceLastUpdate) / 1000);
+        Alert.alert('Too Soon', `Please wait ${remainingTime} seconds before updating again.`);
+        return;
+      }
     }
-    const data = JSON.parse(text);
-    setAllOccupancies(data);
-    setStatus('succeeded');
-  } catch (err: any) {
-    console.error('Error fetching occupancies:', err);
-    setError(err.message || 'Failed to connect to the server. Please check your network.');
-    setStatus('failed');
-  }
-}, []);
+    
+    setOccupancy(level);
+    const updateTime = new Date().toLocaleTimeString();
+    setBusStatuses(prev => ({
+      ...prev,
+      [currentBus.id]: {
+        ...currentBus,
+        occupancy: level,
+        updatedAt: updateTime,
+      },
+    }));
+    
+    setLastOccupancyUpdate(new Date().toISOString());
+    setShowOccupancyModal(false);
+    
+    const levelInfo = OCCUPANCY_LEVELS.find(l => l.value === level);
+    Alert.alert(
+      'Updated! ✅', 
+      `Occupancy set to ${levelInfo?.label.toUpperCase()} with ${confidence}% confidence`
+    );
 
-const isJson = (str: string) => {
-  try {
-    JSON.parse(str);
-    return true;
-  } catch {
-    return false;
-  }
-};
+    setStatus('loading');
+    setError(null);
+    
+    // Extract numeric ID from bus_X format
+    const numericBusId = currentBus.id.replace('bus_', '');
+    
+    try {
+      // Try to get user data for passenger ID
+      let passengerId;
+      try {
+        const userData = await storageAPI.getUserData();
+        passengerId = userData?.user_id || userData?.passenger_id;
+        console.log('Found user data:', userData);
+      } catch (userDataError) {
+        console.log('Could not get user data:', userDataError);
+      }
+      
+      // If no passenger ID found, we'll use a default value in the backend
+      console.log(`Updating occupancy for bus ID: ${numericBusId}, passenger ID: ${passengerId || 'default'}`);
+      
+      console.log('Request URL:', `${API_BASE_URL}/bus-occupancy/${numericBusId}`);
+      console.log('Request payload:', {
+        busId: parseInt(numericBusId, 10),
+        passengerId: passengerId,
+        occupancyLevel: level,
+        latitude: userLocation?.latitude,
+        longitude: userLocation?.longitude,
+        confidence: demoMode ? 100 : confidence,
+      });
+      
+      const response = await fetch(`${API_BASE_URL}/bus-occupancy/${numericBusId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Demo-Mode': demoMode ? 'true' : 'false'
+        },
+        body: JSON.stringify({
+          busId: parseInt(numericBusId, 10),
+          passengerId: passengerId,
+          occupancyLevel: level,
+          latitude: userLocation?.latitude,
+          longitude: userLocation?.longitude,
+          confidence: demoMode ? 100 : confidence,
+        }),
+      });
+      
+      // Log the raw response for debugging
+      const responseText = await response.text();
+      console.log('Raw response:', responseText);
+      
+      if (!response.ok) {
+        // Try to parse the error response
+        let errorMessage = `Failed with status ${response.status}`;
+        try {
+          const errorData = JSON.parse(responseText);
+          errorMessage = errorData.message || errorMessage;
+        } catch (e) {
+          // If we can't parse the JSON, use the raw text
+          errorMessage = responseText || errorMessage;
+        }
+        
+        throw new Error(errorMessage);
+      }
+      
+      setStatus('succeeded');
+      await fetchAllOccupancies();
+    } catch (err: any) {
+      console.error('Error updating occupancy:', err);
+      setError(err.message || 'Failed to update occupancy. Please check your network.');
+      setStatus('failed');
+      Alert.alert('Error', `Failed to update occupancy: ${err.message}`);
+    }
+  }, [currentBus, userLocation, confidence, demoMode]);
+
+  const fetchAllOccupancies = useCallback(async () => {
+    setStatus('loading');
+    setError(null);
+    try {
+      console.log('Fetching occupancies from:', `${API_BASE_URL}/bus-occupancy`);
+      const response = await fetch(`${API_BASE_URL}/bus-occupancy`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      // Get the raw response text first
+      const text = await response.text();
+      console.log('Raw occupancies response:', text);
+      
+      if (!response.ok) {
+        let errorMessage = `Failed with status ${response.status}`;
+        try {
+          const errorData = JSON.parse(text);
+          errorMessage = errorData.message || errorMessage;
+        } catch (e) {
+          errorMessage = text || errorMessage;
+        }
+        throw new Error(errorMessage);
+      }
+      
+      // Parse the response as JSON
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        throw new Error(`Invalid JSON response: ${text}`);
+      }
+      
+      setAllOccupancies(data);
+      setStatus('succeeded');
+    } catch (err: any) {
+      console.error('Error fetching occupancies:', err);
+      setError(err.message || 'Failed to connect to the server. Please check your network.');
+      setStatus('failed');
+    }
+  }, []);
+
+  const isJson = (str: string) => {
+    try {
+      JSON.parse(str);
+      return true;
+    } catch {
+      return false;
+    }
+  };
 
   useEffect(() => {
     fetchAllOccupancies();
@@ -628,70 +750,8 @@ const isJson = (str: string) => {
       return;
     }
     
-    performOccupancyUpdate(level);
+    await performOccupancyUpdate(level);
   };
-
-  const performOccupancyUpdate = useCallback(async (level: string) => {
-    if (!currentBus) return;
-    
-    if (lastOccupancyUpdate) {
-      const timeSinceLastUpdate = Date.now() - new Date(lastOccupancyUpdate).getTime();
-      if (timeSinceLastUpdate < 120000) {
-        const remainingTime = Math.ceil((120000 - timeSinceLastUpdate) / 1000);
-        Alert.alert('Too Soon', `Please wait ${remainingTime} seconds before updating again.`);
-        return;
-      }
-    }
-    
-    setOccupancy(level);
-    const updateTime = new Date().toLocaleTimeString();
-    setBusStatuses(prev => ({
-      ...prev,
-      [currentBus.id]: {
-        ...currentBus,
-        occupancy: level,
-        updatedAt: updateTime,
-      },
-    }));
-    
-    setLastOccupancyUpdate(new Date().toISOString());
-    setShowOccupancyModal(false);
-    
-    const levelInfo = OCCUPANCY_LEVELS.find(l => l.value === level);
-    Alert.alert(
-      'Updated! ✅', 
-      `Occupancy set to ${levelInfo?.label.toUpperCase()} with ${confidence}% confidence`
-    );
-
-    setStatus('loading');
-    setError(null);
-    try {
-      console.log('Updating occupancy at:', `${API_BASE_URL}/bus-occupancy/${currentBus.id.replace('bus_', '')}`);
-      const response = await fetch(`${API_BASE_URL}/bus-occupancy/${currentBus.id.replace('bus_', '')}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          busId: currentBus.id.replace('bus_', ''),
-          occupancyLevel: level,
-          latitude: userLocation?.latitude,
-          longitude: userLocation?.longitude,
-          confidence: demoMode ? 100 : confidence,
-        }),
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Failed to update occupancy: ${response.status}`);
-      }
-      setStatus('succeeded');
-      await fetchAllOccupancies();
-    } catch (err: any) {
-      console.error('Error updating occupancy:', err);
-      setError(err.message || 'Failed to update occupancy. Please check your network.');
-      setStatus('failed');
-    }
-  }, [currentBus, userLocation, confidence, demoMode, fetchAllOccupancies]);
 
   const getConfidenceColor = (confidence: number): string => {
     if (confidence >= HIGH_CONFIDENCE_THRESHOLD) return '#198754';
@@ -779,7 +839,7 @@ const isJson = (str: string) => {
                 style={[styles.updateButton]}
                 onPress={() => setShowOccupancyModal(true)}
               >
-                <Text style={styles.updateButtonText}>Update Occupancy (Modal)</Text>
+                <Text style={styles.updateButtonText}>Update Occupancy</Text>
               </TouchableOpacity>
             </View>
           ) : (
