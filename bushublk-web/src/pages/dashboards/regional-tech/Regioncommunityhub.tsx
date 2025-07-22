@@ -60,7 +60,7 @@ const RegionCommunityHub = () => {
     const newItem: Message = {
       id: Date.now(),
       type: 'Sent',
-      from: 'Depot Manager',
+      from: 'Regional Technical Officer',
       to: newMessage.to,
       title: newMessage.title,
       message: newMessage.message,

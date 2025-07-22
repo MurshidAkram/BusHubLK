@@ -63,7 +63,7 @@ const DgmCommunityHub = () => {
     const newItem: Message = {
       id: Date.now(),
       type: 'Sent',
-      from: 'Regional Technical Officer',
+      from: 'DGM technical',
       to: newMessage.to,
       title: newMessage.title,
       message: newMessage.message,

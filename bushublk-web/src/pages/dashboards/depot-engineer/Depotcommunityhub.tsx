@@ -50,7 +50,7 @@ const DepotCommunityHub = () => {
     const newItem: Message = {
       id: Date.now(),
       type: 'Sent',
-      from: 'Depot Manager',
+      from: 'Depot Engineer',
       to: newMessage.to,
       title: newMessage.title,
       message: newMessage.message,
