@@ -31,15 +31,30 @@ const headcountByRegion = [
   { region: 'Central', count: 2100 },
   { region: 'Southern', count: 1800 },
   { region: 'Eastern', count: 900 },
+  { region: 'North-Western', count: 1900 },
   { region: 'Northern', count: 700 },
+  { region: 'North-Central', count: 900 },
+  { region: 'Uva', count: 1100 },
+  { region: 'Sabaragamu', count: 1800 },
 ];
 
 const headcountByDistrict = [
   { region: 'Colombo', count: 320 },
   { region: 'Gampaha', count: 210 },
   { region: 'Kaluthara', count: 180 },
-  { region: 'Galle', count: 90 },
-  { region: 'Kandy', count: 70 },
+  { region: 'Galle', count: 150 },
+  { region: 'Matara', count: 100 },
+  { region: 'Hambantota', count: 90 },
+  { region: 'Kandy', count: 220 },
+  { region: 'Nuwara Eliya', count: 80 },
+  { region: 'Mathale', count: 70 },
+  { region: 'Kurunegala', count: 230 },
+  { region: 'Puttalam', count: 100 },
+  { region: 'Rathnapura', count: 170 },
+  { region: 'Kegalle', count: 145 },
+  { region: 'Anuradhapura', count: 130 },
+  { region: 'Badulla', count: 85 },
+  { region: 'Jaffna', count: 160 },
 ];
 
 const departmentDistribution = [
@@ -50,10 +65,6 @@ const departmentDistribution = [
   { name: 'IT',         value: 5  },
 ];
 
-const genderDistribution = [
-  { name: 'Male',   value: 60 },
-  { name: 'Female', value: 40 },
-];
 
 const numberOfEmployees = [
   { month: 'Jan', count: 40 },
@@ -72,13 +83,6 @@ const ageDistribution = [
   { ageGroup: '55+', count:   420 },
 ];
 
-const gradeBreakdown = [
-  { grade: 'A', count: 1200 },
-  { grade: 'B', count: 2400 },
-  { grade: 'C', count: 2000 },
-  { grade: 'D', count: 1200 },
-  { grade: 'E', count: 620  },
-];
 
 const COLORS = ['#60A5FA', '#34D399', '#FBBF24', '#F87171', '#A78BFA'];
 
@@ -96,50 +100,38 @@ const WorkforceAnalyticsPage: React.FC = () => (
     {/* Top‑line KPIs */}
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-6">
       <div className="bg-white rounded-xl shadow p-6 flex items-center">
-        <HiUsers className="h-8 w-8 text-blue-600 mr-4" />
+        <HiUsers className="h-8 w-8 text-purple-600 mr-4" />
         <div>
           <p className="text-sm text-gray-500">Total Employees</p>
           <p className="text-xl font-bold text-gray-800">8,420</p>
         </div>
       </div>
-
       <div className="bg-white rounded-xl shadow p-6 flex items-center">
-        <HiTrendingUp className="h-8 w-8 text-green-600 mr-4" />
+        <HiUsers className="h-8 w-8 text-green-600 mr-4" />
         <div>
-          <p className="text-sm text-gray-500">Turnover Rate</p>
-          <p className="text-xl font-bold text-gray-800">5.2%</p>
+          <p className="text-sm text-gray-500"> Depot Managers</p>
+          <p className="text-xl font-bold text-gray-800">420</p>
         </div>
       </div>
-
       <div className="bg-white rounded-xl shadow p-6 flex items-center">
-        <HiColorSwatch className="h-8 w-8 text-yellow-500 mr-4" />
+        <HiUsers className="h-8 w-8 text-orange-400 mr-4" />
         <div>
-          <p className="text-sm text-gray-500">Avg. Tenure</p>
-          <p className="text-xl font-bold text-gray-800">3.4 yrs</p>
+          <p className="text-sm text-gray-500"> Operational Managers</p>
+          <p className="text-xl font-bold text-gray-800">670</p>
         </div>
       </div>
-
       <div className="bg-white rounded-xl shadow p-6 flex items-center">
-        <HiChartBar className="h-8 w-8 text-purple-600 mr-4" />
+        <HiUsers className="h-8 w-8 text-yellow-600 mr-4" />
         <div>
-          <p className="text-sm text-gray-500">Satisfaction</p>
-          <p className="text-xl font-bold text-gray-800">84%</p>
+          <p className="text-sm text-gray-500"> Depot Engineers</p>
+          <p className="text-xl font-bold text-gray-800">560</p>
         </div>
       </div>
-
       <div className="bg-white rounded-xl shadow p-6 flex items-center">
-        <HiUser className="h-8 w-8 text-pink-600 mr-4" />
+        <HiUsers className="h-8 w-8 text-red-600 mr-4" />
         <div>
-          <p className="text-sm text-gray-500">Gender Split</p>
-          <p className="text-xl font-bold text-gray-800">60/40</p>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl shadow p-6 flex items-center">
-        <HiAcademicCap className="h-8 w-8 text-indigo-600 mr-4" />
-        <div>
-          <p className="text-sm text-gray-500">Training Hrs/Emp</p>
-          <p className="text-xl font-bold text-gray-800">8.2</p>
+          <p className="text-sm text-gray-500"> Drivers & Conductors</p>
+          <p className="text-xl font-bold text-gray-800">3,470</p>
         </div>
       </div>
     </div>
@@ -147,7 +139,7 @@ const WorkforceAnalyticsPage: React.FC = () => (
     {/* Charts Grid */}
     <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
       {/* Headcount by Region */}
-      <div className="bg-white rounded-xl shadow p-6">
+      <div className="bg-white rounded-xl shadow p-6 xl:col-span-2">
         <h3 className="text-lg font-medium mb-4">Headcount by Region</h3>
         <div className="h-48">
           <ResponsiveContainer width="100%" height="100%">
@@ -161,7 +153,22 @@ const WorkforceAnalyticsPage: React.FC = () => (
         </div>
       </div>
 
+      {/* Training Hours Trend */}
       <div className="bg-white rounded-xl shadow p-6">
+        <h3 className="text-lg font-medium mb-4">New Employees</h3>
+        <div className="h-48">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={numberOfEmployees}>
+              <XAxis dataKey="month" />
+              <YAxis />
+              <Tooltip />
+              <Line type="monotone" dataKey="count" stroke="#a11ccaff" strokeWidth={2} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl shadow p-6 xl:col-span-3">
         <h3 className="text-lg font-medium mb-4">Headcount by District</h3>
         <div className="h-48">
           <ResponsiveContainer width="100%" height="100%">
@@ -175,71 +182,8 @@ const WorkforceAnalyticsPage: React.FC = () => (
         </div>
       </div>
 
-      {/* Gender Distribution */}
-      <div className="bg-white rounded-xl shadow p-6">
-        <h3 className="text-lg font-medium mb-4">Gender Distribution</h3>
-        <div className="h-48">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={genderDistribution}
-                dataKey="value"
-                nameKey="name"
-                innerRadius={40}
-                outerRadius={60}
-                label
-              >
-                {genderDistribution.map((entry, idx) => (
-                  <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
-                ))}
-              </Pie>
-              <Legend verticalAlign="bottom" />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* Department Distribution */}
-      <div className="bg-white rounded-xl shadow p-6">
-        <h3 className="text-lg font-medium mb-4">Department Distribution</h3>
-        <div className="h-48">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={departmentDistribution}
-                dataKey="value"
-                nameKey="name"
-                innerRadius={40}
-                outerRadius={60}
-                label
-              >
-                {departmentDistribution.map((entry, idx) => (
-                  <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
-                ))}
-              </Pie>
-              <Legend verticalAlign="bottom" />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* Training Hours Trend */}
-      <div className="bg-white rounded-xl shadow p-6">
-        <h3 className="text-lg font-medium mb-4">New Employees</h3>
-        <div className="h-48">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={numberOfEmployees}>
-              <XAxis dataKey="month" />
-              <YAxis />
-              <Tooltip />
-              <Line type="monotone" dataKey="count" stroke="#6366F1" strokeWidth={2} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
       {/* Age Distribution */}
-      <div className="bg-white rounded-xl shadow p-6 xl:col-span-3">
+      <div className="bg-white rounded-xl shadow p-6 xl:col-span-2">
         <h3 className="text-lg font-medium mb-4">Age Distribution</h3>
         <div className="h-48">
           <ResponsiveContainer width="100%" height="100%">
@@ -254,26 +198,6 @@ const WorkforceAnalyticsPage: React.FC = () => (
       </div>
     </div>
 
-    {/* Grade Breakdown Table */}
-    <div className="bg-white rounded-xl shadow p-6">
-      <h3 className="text-lg font-medium mb-4">Top 5 Job Grades</h3>
-      <table className="w-full text-sm text-left">
-        <thead className="bg-gray-50">
-          <tr>
-            <th className="px-4 py-2">Grade</th>
-            <th className="px-4 py-2"># Employees</th>
-          </tr>
-        </thead>
-        <tbody>
-          {gradeBreakdown.map(({ grade, count }) => (
-            <tr key={grade} className="border-t">
-              <td className="px-4 py-2">{grade}</td>
-              <td className="px-4 py-2 font-medium">{count}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
   </div>
 );
 

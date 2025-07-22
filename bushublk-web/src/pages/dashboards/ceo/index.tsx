@@ -174,19 +174,7 @@ const CEODashboard = () => {
 
       {/* Executive KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-        <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl shadow-lg p-6 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-blue-100 text-sm font-medium">Total Revenue</p>
-              <p className="text-2xl font-bold">{formatCurrency(executiveMetrics.totalRevenue)}</p>
-              <p className="text-blue-100 text-xs mt-1">Annual</p>
-            </div>
-            <div className="p-3 bg-blue-500 bg-opacity-30 rounded-full">
-              <HiCurrencyDollar className="h-6 w-6" />
-            </div>
-          </div>
-        </div>
-
+      
         <div className="bg-gradient-to-br from-green-600 to-green-700 rounded-xl shadow-lg p-6 text-white">
           <div className="flex items-center justify-between">
             <div>
