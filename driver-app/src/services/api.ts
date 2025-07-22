@@ -109,6 +109,80 @@ export const driverAPI = {
       return { success: false, error: "Failed to logout" };
     }
   },
+
+  // Get driver's daily assignment
+  getDailyAssignment: async (driverId: string) => {
+    const token = await storageAPI.getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/dailyassignment/driver/${driverId}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.json();
+  },
+
+  // Send location update to live tracking system
+  sendLocationUpdate: async (locationData: {
+    latitude: number;
+    longitude: number;
+    busId: string;
+    routeId: string;
+    timestamp: string;
+    busRegistration?: string;
+    speed?: number;
+    heading?: number;
+    accuracy?: number;
+  }) => {
+    const token = await storageAPI.getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/live-tracking/position`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        bus_id: parseInt(locationData.busId),
+        route_id: parseInt(locationData.routeId),
+        latitude: locationData.latitude,
+        longitude: locationData.longitude,
+        speed: locationData.speed || null,
+        heading: locationData.heading || null,
+        accuracy: locationData.accuracy || null,
+        passenger_count: 0, // Default value, can be updated later
+        occupancy_level: "unknown", // Default value
+      }),
+    });
+    return response.json();
+  },
+
+  // Get driver's current tracking status
+  getTrackingStatus: async () => {
+    const token = await storageAPI.getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/live-tracking/driver/status`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.json();
+  },
+
+  // Update tracking status (active, inactive, break, etc.)
+  updateTrackingStatus: async (busId: string, status: string) => {
+    const token = await storageAPI.getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/live-tracking/bus/${busId}/status`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ status }),
+    });
+    return response.json();
+  },
 };
 
 // Storage API functions
@@ -127,10 +201,6 @@ export const storageAPI = {
   getAuthToken: async (): Promise<string | null> => {
     try {
       const token = await AsyncStorage.getItem("driverToken");
-      console.log(
-        "🔑 Retrieved token:",
-        token ? "Token exists" : "No token found"
-      );
       return token;
     } catch (error) {
       console.error("❌ Error getting auth token:", error);
@@ -144,10 +214,6 @@ export const storageAPI = {
       const token = await AsyncStorage.getItem("driverToken");
       const userData = await AsyncStorage.getItem("driverUser");
       const isAuth = !!(token && userData);
-      console.log(
-        "🔐 Authentication check:",
-        isAuth ? "Authenticated" : "Not authenticated"
-      );
       return isAuth;
     } catch (error) {
       console.error("❌ Error checking authentication:", error);
@@ -170,10 +236,6 @@ export const storageAPI = {
     try {
       const userData = await AsyncStorage.getItem("driverUser");
       const parsedData = userData ? JSON.parse(userData) : null;
-      console.log(
-        "👤 Retrieved user data:",
-        parsedData ? "User data exists" : "No user data"
-      );
       return parsedData;
     } catch (error) {
       console.error("❌ Error getting user data:", error);
@@ -313,4 +375,57 @@ export const submitConditionReport = async (reportData: any) => {
   }
 
   return response.json();
+};
+
+// ===============================================
+// LIVE BUS TRACKING API (Public endpoints for passengers)
+// ===============================================
+
+export const busLiveTrackingAPI = {
+  // Get current position of a specific bus
+  getBusCurrentPosition: async (busId: string) => {
+    const response = await fetch(`${API_BASE_URL}/live-tracking/bus/${busId}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    return response.json();
+  },
+
+  // Get all buses on a specific route
+  getBusesOnRoute: async (routeNumber: string) => {
+    const response = await fetch(`${API_BASE_URL}/live-tracking/route/${routeNumber}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    return response.json();
+  },
+
+  // Get all currently active buses
+  getAllActiveBuses: async () => {
+    const response = await fetch(`${API_BASE_URL}/live-tracking/buses/active`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    return response.json();
+  },
+
+  // Get nearby buses within specified radius
+  getNearbyBuses: async (latitude: number, longitude: number, radiusKm: number = 5) => {
+    const response = await fetch(
+      `${API_BASE_URL}/live-tracking/buses/nearby?latitude=${latitude}&longitude=${longitude}&radius=${radiusKm}`, 
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    return response.json();
+  },
 };

@@ -87,7 +87,11 @@ const WelcomeBanner = () => (
 
 // QuickActionButton component (unchanged)
 const QuickActionButton = ({ icon, text, onPress }) => (
-  <TouchableOpacity style={styles.quickActionCard} onPress={onPress} activeOpacity={0.8}>
+  <TouchableOpacity
+    style={styles.quickActionCard}
+    onPress={onPress}
+    activeOpacity={0.8}
+  >
     <View style={styles.quickActionIconContainer}>
       <MaterialCommunityIcons name={icon} size={26} color={AppColors.primary} />
     </View>
@@ -192,8 +196,18 @@ export default function HomeScreen() {
           style={styles.journeyCard}
         >
           <Text style={styles.journeyTitle}>Your Current Trip</Text>
-          <View style={[styles.inputGroup, { position: "relative", zIndex: showFromSuggestions ? 200 : 10 }]}>
-            <Ionicons name="location-outline" size={20} color={AppColors.primary} style={styles.inputIcon} />
+          <View
+            style={[
+              styles.inputGroup,
+              { position: "relative", zIndex: showFromSuggestions ? 200 : 10 },
+            ]}
+          >
+            <Ionicons
+              name="location-outline"
+              size={20}
+              color={AppColors.primary}
+              style={styles.inputIcon}
+            />
             <View style={{ flex: 1 }}>
               <TextInput
                 placeholder="From (e.g., Kaduwela)"
@@ -202,7 +216,9 @@ export default function HomeScreen() {
                 value={from}
                 onChangeText={handleFromChange}
                 onFocus={() => setShowFromSuggestions(true)}
-                onBlur={() => setTimeout(() => setShowFromSuggestions(false), 200)}
+                onBlur={() =>
+                  setTimeout(() => setShowFromSuggestions(false), 200)
+                }
               />
               {from.length > 0 && (
                 <TouchableOpacity
@@ -239,8 +255,18 @@ export default function HomeScreen() {
               )}
             </View>
           </View>
-          <View style={[styles.inputGroup, { position: "relative", zIndex: showToSuggestions ? 200 : 10 }]}>
-            <Ionicons name="flag-outline" size={20} color={AppColors.primary} style={styles.inputIcon} />
+          <View
+            style={[
+              styles.inputGroup,
+              { position: "relative", zIndex: showToSuggestions ? 200 : 10 },
+            ]}
+          >
+            <Ionicons
+              name="flag-outline"
+              size={20}
+              color={AppColors.primary}
+              style={styles.inputIcon}
+            />
             <View style={{ flex: 1 }}>
               <TextInput
                 placeholder="To (e.g., Kollupitiya)"
@@ -249,7 +275,9 @@ export default function HomeScreen() {
                 value={to}
                 onChangeText={handleToChange}
                 onFocus={() => setShowToSuggestions(true)}
-                onBlur={() => setTimeout(() => setShowToSuggestions(false), 200)}
+                onBlur={() =>
+                  setTimeout(() => setShowToSuggestions(false), 200)
+                }
               />
               {to.length > 0 && (
                 <TouchableOpacity
@@ -287,8 +315,13 @@ export default function HomeScreen() {
             </View>
           </View>
           <TouchableOpacity
-            style={[styles.searchButton, (!fromPlace || !toPlace) && { opacity: 0.5 }]}
-            onPress={() => navigation.navigate("MapScreen", { fromPlace, toPlace })}
+            style={[
+              styles.searchButton,
+              (!fromPlace || !toPlace) && { opacity: 0.5 },
+            ]}
+            onPress={() =>
+              navigation.navigate("MapScreen", { fromPlace, toPlace })
+            }
             disabled={!fromPlace || !toPlace}
           >
             <Text style={styles.searchButtonText}>View Route Details</Text>

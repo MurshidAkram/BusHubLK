@@ -511,6 +511,172 @@ CREATE TABLE alerts (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS depot_locations (
+    depot_id INTEGER PRIMARY KEY,
+    latitude NUMERIC(10, 8) NOT NULL,
+    longitude NUMERIC(11, 8) NOT NULL,
+    CONSTRAINT fk_depot_id_dl FOREIGN KEY (depot_id) REFERENCES depots(depot_id) ON DELETE CASCADE
+);
+
+INSERT INTO bus_locations (bus_id, latitude, longitude) VALUES
+(17, 6.9100, 79.8900) ON CONFLICT (bus_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude, last_updated=EXCLUDED.last_updated, -- Example for bus_id 1
+(20, 6.8500, 79.9200) ON CONFLICT (bus_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude, last_updated=EXCLUDED.last_updated; -- Example for bus_id 2
+
+
+-- Insert / Update data into depot_locations table with approximate coordinates for Sri Lankan depots
+
+-- Colombo Region
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (1, 6.8208, 79.8860) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Rathmalana
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (2, 6.7723, 79.8829) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Moratuwa
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (3, 6.7909, 79.8808) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Katubedda
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (4, 6.8530, 79.9192) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Udahamulla
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (5, 6.8645, 79.9272) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Maharagama
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (6, 6.8596, 80.0123) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Homagama
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (7, 6.7865, 79.9463) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kesbewa
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (8, 6.9189, 79.8973) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Meetotamulla
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (9, 6.9069, 79.9576) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Talangama
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (10, 6.9749, 79.8860) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Mattakkuliya
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (11, 6.9248, 79.9678) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Angoda
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (12, 6.9537, 80.2078) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Avissawella
+
+-- Gampaha Region
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (13, 7.2114, 79.8451) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Negombo
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (14, 7.2341, 79.9404) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Divulapitiya
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (15, 7.1528, 80.0569) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Nittambuwa
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (16, 7.0279, 80.0638) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kirindiwela
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (17, 7.0863, 79.9984) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Gampaha
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (18, 7.0094, 79.9696) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kadawatha
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (19, 6.9589, 79.9238) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kelaniya
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (20, 6.9945, 79.8998) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Welisara
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (21, 7.0886, 79.8931) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Ja-Ela
+
+-- Kaluthara Region
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (22, 6.7020, 79.9079) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Panadura
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (23, 6.5861, 79.9609) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kaluthara
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (24, 6.4255, 80.0003) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Aluthgama
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (25, 6.4800, 80.1200) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Mathugama (Approx)
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (26, 6.7118, 80.0890) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Horana
+
+-- Wayamba Region
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (27, 7.4589, 80.0401) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kuliyapitiya
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (28, 7.4851, 80.3702) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kurunegala South (using Kurunegala town)
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (29, 7.4851, 80.3702) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kurunegala North (using Kurunegala town)
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (30, 7.2917, 80.3340) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Alawwa
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (31, 7.5750, 79.7997) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Chilaw
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (32, 8.0335, 79.8373) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Puttalam
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (33, 7.7470, 79.8630) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Wennappuwa
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (34, 7.2882, 80.1479) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Giriulla
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (35, 7.8540, 80.2030) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Maho
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (36, 7.9620, 80.1190) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Nikaweratiya
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (37, 7.6698, 80.3235) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Wariyapola
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (38, 8.1670, 80.3160) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Galgamuwa
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (39, 7.3750, 80.1760) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Narammala
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (40, 7.6200, 80.3400) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Redegama (Approx, near Kurunegala)
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (41, 7.9890, 79.9760) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Anamaduwa
+
+-- Mahanuwara Region
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (42, 7.2900, 80.6300) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kandy North (using Kandy Central)
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (43, 7.2900, 80.6300) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kandy South (using Kandy Central)
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (44, 7.4580, 80.6230) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Matale
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (45, 7.2600, 80.5400) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Yatinuwara (Peradeniya/Kandy area)
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (46, 7.3500, 80.6800) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Wattegama
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (47, 7.2700, 80.8000) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Teldeniya
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (48, 7.2900, 80.8800) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Ududumbara
+
+-- Sabaragamuwa Region
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (49, 6.7020, 80.3950) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Rathnapura
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (50, 6.5400, 80.3700) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kalawana (Approx)
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (51, 6.6400, 80.3700) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Balangoda
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (52, 6.5500, 80.8000) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Godakawela
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (53, 6.3075, 80.9325) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Embilipitiya
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (54, 7.0250, 80.3200) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kegalle
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (55, 7.0000, 80.3400) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Mawanella
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (56, 7.2200, 80.3800) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Rambukkana
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (57, 6.9400, 80.3300) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Deraniyagala
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (58, 6.6000, 80.4600) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kahawatta
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (59, 7.1500, 80.3000) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Warakapola
+
+-- Southern Region
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (60, 6.0535, 80.2200) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Galle
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (61, 6.1100, 80.2800) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Udugama (Approx)
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (62, 6.2200, 80.0500) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Ambalangoda
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (63, 6.2800, 80.1200) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Elpitiya
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (64, 5.9500, 80.5300) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Matara
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (65, 6.0400, 80.3400) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Akuressa
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (66, 6.0100, 80.6200) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Hakmana
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (67, 6.0200, 81.0000) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Tangalle
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (68, 6.1300, 81.1100) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Ambalantota
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (69, 6.4172, 81.3396) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kataragama
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (70, 6.0000, 80.3000) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Koggala
+
+-- Rajarata Region
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (71, 8.3200, 80.4000) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Anuradhapura
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (72, 7.9300, 81.0000) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Polonnaruwa
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (73, 8.0400, 80.5800) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kekirawa
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (74, 8.3500, 80.8200) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Horowpathana
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (75, 8.6000, 80.6000) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kebithigollewa
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (76, 7.8700, 80.6500) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Dambulla
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (77, 7.9000, 80.7500) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Diyasenpura (near Polonnaruwa)
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (78, 8.5000, 80.3700) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Medawachchiya
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (79, 8.5800, 80.7900) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kanthale
+
+-- Nuwaraeliya Region
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (80, 7.1500, 80.5900) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Gampola
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (81, 7.0200, 80.5400) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Nawalapitiya
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (82, 6.9400, 80.5800) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Hatton
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (83, 6.9500, 80.7700) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Nuwaraeliya
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (84, 7.0000, 80.6000) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kotmale
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (85, 7.0700, 80.7000) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Hanguranketa
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (86, 6.9000, 80.8000) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Walapone
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (87, 6.9800, 80.6500) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kurunduwatta (Approx)
+
+-- New Eastern Region
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (88, 7.1800, 81.8200) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Akkaraipattu
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (89, 7.2800, 81.6500) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Amparai
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (90, 7.7100, 81.6900) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Batticaloa
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (91, 7.4200, 81.8300) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kalmunai
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (92, 7.6900, 81.8200) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kanthankudy
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (93, 8.4400, 81.3300) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Muthur
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (94, 8.5700, 81.2300) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Trincomalee
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (95, 7.9700, 81.4800) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Valaichchenai
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (96, 7.5000, 81.7800) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kalawanchikudi
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (97, 7.7300, 81.5600) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Eravur
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (98, 7.3700, 81.8100) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Samanthurai
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (99, 6.7800, 81.8200) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Pottuvil
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (100, 8.3300, 81.2100) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kinniya
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (101, 8.2400, 81.4200) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Vakarai
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (102, 8.0000, 81.5000) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Rethithanna (Approx, near Valachchenai)
+
+-- Northern Region
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (103, 9.3900, 80.3900) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kilinochchi
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (104, 9.2500, 80.7500) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Mulative (Mullaitivu)
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (105, 9.6600, 80.0000) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Jaffna
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (106, 9.8200, 80.2600) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Point-Pedro
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (107, 9.7700, 79.8800) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Karinagar (Kayts Island area)
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (108, 8.9700, 79.9100) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Mannar
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (109, 8.7500, 80.4900) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Vavunia (Vavuniya)
+
+-- Uva Region
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (110, 6.9900, 81.0500) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Badulla
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (111, 6.8100, 80.9900) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Bandarawela
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (112, 6.8700, 80.9700) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Keppetipola
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (113, 6.7800, 81.3400) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Monaragala
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (114, 7.0800, 81.3300) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Bibila
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (115, 7.1300, 80.9700) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Mahiyanganaya
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (116, 6.7400, 81.2500) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Wellawaya
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (117, 7.2700, 81.2000) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Dehiattakandiya
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (118, 6.8000, 81.2000) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Tanamalvila
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (119, 6.8000, 81.3000) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Siyabalanduwa
+
+
+INSERT INTO bus_locations (bus_id, latitude, longitude) VALUES
+(17, 6.9100, 79.8900)
+ON CONFLICT (bus_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude, last_updated=CURRENT_TIMESTAMP;
+
+INSERT INTO bus_locations (bus_id, latitude, longitude) VALUES
+(20, 6.8500, 79.9200)
+ON CONFLICT (bus_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude, last_updated=CURRENT_TIMESTAMP;
+
 CREATE TABLE bus_condition_reports (
     report_id SERIAL PRIMARY KEY,
     bus_id INTEGER REFERENCES buses(bus_id) ON DELETE CASCADE,

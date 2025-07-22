@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { Dropdown } from 'react-native-element-dropdown';
-import { launchImageLibrary } from 'react-native-image-picker';
+import * as ImagePicker from 'expo-image-picker';
 import { storageAPI } from '../services/api';
 
 const AppColors = {
@@ -64,6 +64,7 @@ interface Report {
   incident_date: string;
   incident_time: string;
   contact_phone: string;
+  contact_email?: string;
   status: string;
   time_ago: string;
   first_name?: string;
@@ -72,6 +73,7 @@ interface Report {
   reward_offered?: number;
   approximate_location?: string;
   is_verified?: boolean;
+  resolved_date?: string;
 }
 
 interface Route {
@@ -87,23 +89,29 @@ interface Bus {
   depot_name: string;
 }
 
-// Get API base URL from config
-const API_BASE_URL = 'http://10.22.165.241:5000'; // Use the same IP as your running server
+// Import API base URL from config
+import { API_BASE_URL, initializeApiConnection, getApiEndpoints } from '../config/api';
 
 export default function LostAndFoundScreen({ navigation }: { navigation: any }) {
-  const [activeView, setActiveView] = useState('list');
+  const [activeView, setActiveView] = useState('list'); // 'list', 'report', 'myreports'
   const [reportStep, setReportStep] = useState(1);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [apiInitialized, setApiInitialized] = useState(false);
   
   // Data states
   const [reports, setReports] = useState<Report[]>([]);
+  const [myReports, setMyReports] = useState<Report[]>([]);
   const [routes, setRoutes] = useState<Route[]>([]);
   const [buses, setBuses] = useState<Bus[]>([]);
   const [regions, setRegions] = useState<any[]>([]);
   const [userData, setUserData] = useState(null);
+  
+  // Route search state
+  const [routeSearchResults, setRouteSearchResults] = useState<Route[]>([]);
+  const [routeSearchLoading, setRouteSearchLoading] = useState(false);
   
   // Form data
   const [formData, setFormData] = useState({
@@ -127,12 +135,46 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
   
   const [errors, setErrors] = useState<{[key: string]: string}>({});
 
-  // Load initial data
+  // Helper function to format 24-hour time to 12-hour AM/PM format for display
+  const formatTimeForDisplay = (time24: string) => {
+    if (!time24) return '';
+    const [hours, minutes] = time24.split(':');
+    const hour24 = parseInt(hours);
+    const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24;
+    const period = hour24 < 12 ? 'AM' : 'PM';
+    return `${hour12}:${minutes} ${period}`;
+  };
+
+  // Initialize API connection and load initial data
   useEffect(() => {
-    loadUserData();
-    loadReports();
-    loadRoutes();
-    loadRegions();
+    let isInitialized = false;
+    
+    const initializeApp = async () => {
+      if (isInitialized) return; // Prevent duplicate initialization
+      
+      try {
+        console.log('🔄 Initializing API connection...');
+        await initializeApiConnection();
+        setApiInitialized(true);
+        isInitialized = true;
+        
+        console.log('📱 Loading initial data...');
+        await Promise.all([
+          loadUserData(),
+          loadRoutes(),
+          loadRegions()
+        ]);
+        
+        // Load reports after API is initialized
+        await loadReports();
+      } catch (error) {
+        console.error('❌ Failed to initialize app:', error);
+        // Still set as initialized to allow fallback behavior
+        setApiInitialized(true);
+      }
+    };
+    
+    initializeApp();
   }, []);
 
   // Debounce search query to avoid too many API calls
@@ -146,57 +188,93 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Load reports when filters change
-  useEffect(() => {
-    loadReports();
-  }, [selectedCategory, debouncedSearchQuery]);
-
-  const loadUserData = async () => {
-    try {
-      const user = await storageAPI.getUserData();
-      setUserData(user);
-      if (user?.phone) {
-        setFormData(prev => ({ ...prev, phone: user.phone, email: user.email || '' }));
-      }
-    } catch (error) {
-      console.error('Error loading user data:', error);
+  // Define loadReports with useCallback to prevent recreation on every render
+  const loadReports = useCallback(async () => {
+    if (!apiInitialized) {
+      console.log('⚠️  API not initialized yet, skipping loadReports');
+      return;
     }
-  };
 
-  const loadReports = async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams();
       if (selectedCategory !== 'all') params.append('item_category', selectedCategory);
       if (debouncedSearchQuery.trim()) params.append('search', debouncedSearchQuery.trim());
       
-      const url = `${API_BASE_URL}/api/lost-found/reports?${params}`;
-      console.log('API Request URL:', url); // Debug log
-      console.log('Filters:', { selectedCategory, searchQuery: debouncedSearchQuery }); // Debug log
+      const url = `${API_BASE_URL}/lost-found/reports?${params}`;
+      console.log('📡 API Request URL:', url);
+      console.log('🔍 Filters:', { selectedCategory, searchQuery: debouncedSearchQuery });
       
-      const response = await fetch(url);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
+      const response = await fetch(url, {
+        signal: controller.signal,
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
       const data = await response.json();
-      
-      console.log('API Response:', data); // Debug log
+      console.log('📥 API Response:', data);
       
       if (data.success) {
         setReports(data.data.reports || []);
-        console.log('Reports loaded:', data.data.reports?.length || 0); // Debug log
+        console.log('✅ Reports loaded:', data.data.reports?.length || 0);
       } else {
-        console.error('API Error:', data.message);
+        console.error('❌ API Error:', data.message);
         Alert.alert('Error', data.message || 'Failed to load reports');
       }
-    } catch (error) {
-      console.error('Network Error loading reports:', error);
-      Alert.alert('Network Error', 'Failed to connect to server. Please check your internet connection.');
+    } catch (error: any) {
+      console.error('❌ Network Error loading reports:', error);
+      const errorMessage = error?.name === 'AbortError' 
+        ? 'Request timed out. Please check your connection.'
+        : 'Failed to connect to server. Please check your internet connection.';
+      Alert.alert('Network Error', errorMessage);
     } finally {
       setLoading(false);
+    }
+  }, [apiInitialized, selectedCategory, debouncedSearchQuery]);
+
+  // Load reports when filters change (but only if API is initialized)
+  useEffect(() => {
+    if (apiInitialized) {
+      console.log('🔄 Loading reports due to filter change:', { selectedCategory, debouncedSearchQuery });
+      loadReports();
+    }
+  }, [selectedCategory, debouncedSearchQuery, apiInitialized, loadReports]);
+
+  // Stable search handler to prevent TextInput from losing focus
+  const handleSearchChange = useCallback((text: string) => {
+    setSearchQuery(text);
+  }, []);
+
+  const loadUserData = async () => {
+    try {
+      // Only load user data once if not already loaded
+      if (!userData) {
+        const user = await storageAPI.getUserData();
+        console.log('📱 User data loaded:', user);
+        setUserData(user);
+        if (user?.phone) {
+          setFormData(prev => ({ ...prev, phone: user.phone, email: user.email || '' }));
+        }
+      }
+    } catch (error) {
+      console.error('Error loading user data:', error);
     }
   };
 
   const loadRoutes = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/lost-found/routes`);
+      const response = await fetch(`${API_BASE_URL}/lost-found/routes`);
       const data = await response.json();
       
       if (data.success) {
@@ -209,20 +287,25 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
 
   const loadRegions = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/lost-found/regions`);
+      console.log('[LostAndFoundScreen] 🌍 Loading regions...');
+      const response = await fetch(`${API_BASE_URL}/lost-found/regions`);
       const data = await response.json();
       
       if (data.success) {
+        console.log('[LostAndFoundScreen] ✅ Regions loaded:', data.data.length, 'regions');
+        console.log('[LostAndFoundScreen] 📋 First few regions:', data.data.slice(0, 3));
         setRegions(data.data);
+      } else {
+        console.error('[LostAndFoundScreen] ❌ Error loading regions:', data.message);
       }
     } catch (error) {
-      console.error('Error loading regions:', error);
+      console.error('[LostAndFoundScreen] ❌ Error loading regions:', error);
     }
   };
 
   const loadBusesForRoute = async (routeNumber: string) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/lost-found/routes/${routeNumber}/buses`);
+      const response = await fetch(`${API_BASE_URL}/lost-found/routes/${routeNumber}/buses`);
       const data = await response.json();
       
       if (data.success) {
@@ -230,6 +313,99 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
       }
     } catch (error) {
       console.error('Error loading buses:', error);
+    }
+  };
+
+  // Load user's own reports
+  const loadMyReports = async () => {
+    try {
+      const user = await storageAPI.getUserData();
+      const token = await storageAPI.getAuthToken();
+      
+      if (!user || !token) {
+        console.log('No user data or token available');
+        return;
+      }
+
+      console.log('📱 Loading my reports for user:', user.id);
+      setLoading(true);
+      
+      const response = await fetch(`${API_BASE_URL}/lost-found/users/${user.id}/reports`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+        }
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setMyReports(data.data);
+        console.log('✅ My reports loaded:', data.data.length);
+      } else {
+        console.error('Failed to load my reports:', data.message);
+      }
+    } catch (error) {
+      console.error('Error loading my reports:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Search routes with autocomplete
+  const searchRoutesAutocomplete = async (query: string) => {
+    if (!query || query.trim().length < 1) {
+      setRouteSearchResults([]);
+      return;
+    }
+
+    try {
+      setRouteSearchLoading(true);
+      const response = await fetch(`${API_BASE_URL}/lost-found/routes/search?q=${encodeURIComponent(query)}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setRouteSearchResults(data.data);
+      }
+    } catch (error) {
+      console.error('Error searching routes:', error);
+    } finally {
+      setRouteSearchLoading(false);
+    }
+  };
+
+  // Mark report as resolved
+  const markAsResolved = async (reportId: number) => {
+    try {
+      const user = await storageAPI.getUserData();
+      const token = await storageAPI.getAuthToken();
+      
+      if (!user || !token) {
+        Alert.alert('Error', 'Please login to mark reports as resolved');
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/lost-found/reports/${reportId}/resolve`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ passenger_id: user.id })
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        Alert.alert('Success', 'Report marked as resolved!');
+        // Refresh my reports list
+        await loadMyReports();
+      } else {
+        Alert.alert('Error', data.message || 'Failed to mark report as resolved');
+      }
+    } catch (error) {
+      console.error('Error marking report as resolved:', error);
+      Alert.alert('Error', 'Failed to mark report as resolved');
     }
   };
 
@@ -303,7 +479,10 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
     setErrors(newErrors);
     if (isValid) {
       if (reportStep === 3) {
-        submitReport();
+        // Prevent double submission
+        if (!submitting) {
+          submitReport();
+        }
       } else {
         setReportStep(s => s + 1);
       }
@@ -331,6 +510,28 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
       // Find region_id from region name
       const selectedRegion = regions.find(r => r.region_name === formData.region);
       const region_id = selectedRegion?.region_id || null;
+      
+      // Create approximate location string
+      let approximate_location = '';
+      if (formData.region) {
+        approximate_location = formData.region;
+        if (formData.routeNumber) {
+          approximate_location += ` - Route ${formData.routeNumber}`;
+        }
+      } else if (formData.routeNumber) {
+        approximate_location = `Route ${formData.routeNumber}`;
+      }
+
+      console.log('[LostAndFoundScreen] Location details:', {
+        region: formData.region,
+        regionId: region_id,
+        routeNumber: formData.routeNumber,
+        approximate_location,
+        regionsLength: regions.length,
+        selectedRegion: selectedRegion
+      });
+      
+      console.log('[LostAndFoundScreen] All form data before submission:', formData);
 
       // Prepare form data for file upload if photo exists
       let body;
@@ -342,21 +543,33 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
         body.append('item_category', formData.itemType ? formData.itemType.toLowerCase() : '');
         body.append('item_description', formData.description);
         body.append('route_number', formData.routeNumber || '');
-        body.append('region_id', region_id ? String(region_id) : '');
+        // Only append region_id if it's a valid number
+        if (region_id !== null && !isNaN(region_id)) {
+          body.append('region_id', String(region_id));
+        }
+        body.append('approximate_location', approximate_location);
         body.append('incident_date', formattedDate);
         body.append('incident_time', formData.time + ':00');
         body.append('contact_email', formData.email || '');
         body.append('contact_phone', formData.phone);
         body.append('reward_offered', formData.rewardOffered ? String(formData.rewardOffered) : '0');
-        // React Native FormData photo object
+        // React Native FormData photo object (Expo format)
         body.append('photo', {
           uri: formData.photo.uri,
           name: formData.photo.fileName || 'photo.jpg',
           type: formData.photo.type || 'image/jpeg',
         } as any);
+        
+        console.log('[LostAndFoundScreen] FormData photo object:', {
+          uri: formData.photo.uri,
+          name: formData.photo.fileName || 'photo.jpg',
+          type: formData.photo.type || 'image/jpeg',
+        });
+        
         headers = {
           'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
+          // Don't set Content-Type for FormData - let the browser/React Native set it
+          // 'Content-Type': 'multipart/form-data' // This is set automatically
         };
       } else {
         body = JSON.stringify({
@@ -366,6 +579,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
           item_description: formData.description,
           route_number: formData.routeNumber || null,
           region_id: region_id,
+          approximate_location: approximate_location,
           incident_date: formattedDate,
           incident_time: formData.time + ':00',
           contact_email: formData.email || null,
@@ -378,15 +592,30 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
         };
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/lost-found/reports`, {
+      console.log('[LostAndFoundScreen] Submitting with photo:', !!formData.photo);
+      if (formData.photo) {
+        console.log('[LostAndFoundScreen] Photo details:', {
+          uri: formData.photo.uri,
+          fileName: formData.photo.fileName,
+          type: formData.photo.type
+        });
+      }
+
+      const response = await fetch(`${API_BASE_URL}/lost-found/reports`, {
         method: 'POST',
         headers,
         body,
       });
 
+      console.log('[LostAndFoundScreen] Response status:', response.status);
+      console.log('[LostAndFoundScreen] Response headers:', response.headers);
+
       const result = await response.json();
+      console.log('[LostAndFoundScreen] Response body:', result);
       if (result.success) {
-        setReportStep(4); // Go to success screen
+        console.log('✅ Report submitted successfully:', result.data);
+        
+        // Clear form data first
         setFormData({
           reportType: 'lost',
           itemType: null,
@@ -401,6 +630,20 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
           phone: '',
           rewardOffered: '',
         });
+        
+        // Go to success screen
+        setReportStep(4);
+        
+        // Refresh reports list in the background after a delay
+        setTimeout(async () => {
+          try {
+            console.log('🔄 Refreshing reports list after submission...');
+            await loadReports();
+          } catch (error) {
+            console.error('Error refreshing reports:', error);
+          }
+        }, 3000); // 3 second delay to allow for database replication
+        
       } else {
         Alert.alert('Error', result.message || 'Failed to submit report');
       }
@@ -412,7 +655,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
     }
   };
 
-  const StyledTextInput = ({ icon, placeholder, value, onChangeText, multiline = false, keyboardType = 'default', error = null, maxLength, autoCapitalize = 'sentences', editable = true }: any) => (
+  const StyledTextInput = React.memo(({ icon, placeholder, value, onChangeText, multiline = false, keyboardType = 'default', error = null, maxLength, autoCapitalize = 'sentences', editable = true }: any) => (
     <View>
       <View style={[styles.inputContainer, error && styles.errorBorder]}>
         {icon && <Icon name={icon} size={20} color={AppColors.textSecondary} style={styles.inputIcon} />}
@@ -435,7 +678,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
       </View>
       {error && <Text style={styles.errorText}>{error}</Text>}
     </View>
-  );
+  ));
 
   // Date picker component
   const DateTimePicker = ({ type, visible, onClose, onSelect }: { type: 'date' | 'time', visible: boolean, onClose: () => void, onSelect: (value: string) => void }) => {
@@ -443,6 +686,10 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
 
     const currentDate = new Date();
     const [selectedDate, setSelectedDate] = useState(currentDate);
+    const [selectedHour, setSelectedHour] = useState(currentDate.getHours() % 12 || 12);
+    const [selectedMinute, setSelectedMinute] = useState(currentDate.getMinutes());
+    const [selectedPeriod, setSelectedPeriod] = useState(currentDate.getHours() >= 12 ? 'PM' : 'AM');
+    const [calendarMonth, setCalendarMonth] = useState(currentDate);
 
     const formatDate = (date: Date) => {
       const day = date.getDate().toString().padStart(2, '0');
@@ -451,39 +698,209 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
       return `${day}/${month}/${year}`;
     };
 
-    const formatTime = (date: Date) => {
-      const hours = date.getHours().toString().padStart(2, '0');
-      const minutes = date.getMinutes().toString().padStart(2, '0');
-      return `${hours}:${minutes}`;
+    const formatTime24Hour = (hour12: number, minute: number, period: string) => {
+      let hour24 = hour12;
+      if (period === 'AM' && hour12 === 12) hour24 = 0;
+      if (period === 'PM' && hour12 !== 12) hour24 = hour12 + 12;
+      return `${hour24.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
     };
 
-    const generateDateOptions = () => {
-      const options = [];
-      for (let i = 0; i < 30; i++) {
-        const date = new Date();
-        date.setDate(date.getDate() - i);
-        options.push({
-          label: formatDate(date),
-          value: formatDate(date),
-          date: date
+    // Generate calendar days for current and previous month
+    const generateCalendarDays = () => {
+      const today = new Date();
+      const firstDay = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1);
+      const lastDay = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 0);
+      const startDate = new Date(firstDay);
+      startDate.setDate(startDate.getDate() - firstDay.getDay()); // Start from Sunday
+
+      const days = [];
+      for (let i = 0; i < 42; i++) { // 6 weeks * 7 days
+        const date = new Date(startDate);
+        date.setDate(startDate.getDate() + i);
+        
+        // Allow selection from 30 days ago up to today
+        const diffTime = today.getTime() - date.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        const isSelectableDate = diffDays >= 0 && diffDays <= 30; // Today and up to 30 days ago
+        
+        days.push({
+          date: date,
+          day: date.getDate(),
+          isCurrentMonth: date.getMonth() === calendarMonth.getMonth(),
+          isToday: date.toDateString() === today.toDateString(),
+          isSelected: selectedDate.toDateString() === date.toDateString(),
+          isSelectable: isSelectableDate,
+          formatted: formatDate(date)
         });
       }
-      return options;
+      return days;
     };
 
-    const generateTimeOptions = () => {
-      const options = [];
-      for (let hour = 0; hour < 24; hour++) {
-        for (let minute = 0; minute < 60; minute += 15) {
-          const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-          options.push({
-            label: timeString,
-            value: timeString
-          });
-        }
-      }
-      return options;
+    const navigateToPreviousMonth = () => {
+      const prevMonth = new Date(calendarMonth);
+      prevMonth.setMonth(prevMonth.getMonth() - 1);
+      setCalendarMonth(prevMonth);
     };
+
+    const navigateToNextMonth = () => {
+      const nextMonth = new Date(calendarMonth);
+      nextMonth.setMonth(nextMonth.getMonth() + 1);
+      setCalendarMonth(nextMonth);
+    };
+
+    const handleDateSelect = (day: any) => {
+      if (!day.isSelectable) return; // Don't allow selection of invalid dates
+      setSelectedDate(day.date);
+      onSelect(formatDate(day.date));
+      onClose();
+    };
+
+    const handleTimeSelect = () => {
+      const timeString = formatTime24Hour(selectedHour, selectedMinute, selectedPeriod);
+      onSelect(timeString);
+      onClose();
+    };
+
+    const renderDatePicker = () => (
+      <View style={styles.calendarContainer}>
+        <View style={styles.calendarHeader}>
+          <TouchableOpacity onPress={navigateToPreviousMonth} style={styles.calendarNavButton}>
+            <Icon name="chevron-back" size={24} color={AppColors.primary} />
+          </TouchableOpacity>
+          <Text style={styles.calendarMonth}>
+            {calendarMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+          </Text>
+          <TouchableOpacity onPress={navigateToNextMonth} style={styles.calendarNavButton}>
+            <Icon name="chevron-forward" size={24} color={AppColors.primary} />
+          </TouchableOpacity>
+        </View>
+        
+        <View style={styles.calendarWeekDays}>
+          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+            <Text key={day} style={styles.calendarWeekDay}>{day}</Text>
+          ))}
+        </View>
+        
+        <View style={styles.calendarGrid}>
+          {generateCalendarDays().map((day, index) => (
+            <TouchableOpacity
+              key={index}
+              style={[
+                styles.calendarDay,
+                day.isToday && styles.calendarToday,
+                day.isSelected && styles.calendarSelected,
+                !day.isCurrentMonth && styles.calendarOtherMonth,
+                !day.isSelectable && styles.calendarDisabled
+              ]}
+              onPress={() => handleDateSelect(day)}
+              activeOpacity={day.isSelectable ? 0.7 : 1}
+              disabled={!day.isSelectable}
+            >
+              <Text style={[
+                styles.calendarDayText,
+                day.isToday && styles.calendarTodayText,
+                day.isSelected && styles.calendarSelectedText,
+                !day.isCurrentMonth && styles.calendarOtherMonthText,
+                !day.isSelectable && styles.calendarDisabledText
+              ]}>
+                {day.day}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+    );
+
+    const renderTimePicker = () => (
+      <View style={styles.timePickerContainer}>
+        <View style={styles.timePickerRow}>
+          {/* Hour Picker */}
+          <View style={styles.timePickerColumn}>
+            <Text style={styles.timePickerLabel}>Hour</Text>
+            <ScrollView style={styles.timeScrollView} showsVerticalScrollIndicator={false}>
+              {Array.from({length: 12}, (_, i) => i + 1).map(hour => (
+                <TouchableOpacity
+                  key={hour}
+                  style={[
+                    styles.timePickerOption,
+                    selectedHour === hour && styles.timePickerSelected
+                  ]}
+                  onPress={() => setSelectedHour(hour)}
+                >
+                  <Text style={[
+                    styles.timePickerOptionText,
+                    selectedHour === hour && styles.timePickerSelectedText
+                  ]}>
+                    {hour.toString().padStart(2, '0')}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+
+          <Text style={styles.timePickerSeparator}>:</Text>
+
+          {/* Minute Picker */}
+          <View style={styles.timePickerColumn}>
+            <Text style={styles.timePickerLabel}>Minute</Text>
+            <ScrollView style={styles.timeScrollView} showsVerticalScrollIndicator={false}>
+              {Array.from({length: 60}, (_, i) => i).map(minute => (
+                <TouchableOpacity
+                  key={minute}
+                  style={[
+                    styles.timePickerOption,
+                    selectedMinute === minute && styles.timePickerSelected
+                  ]}
+                  onPress={() => setSelectedMinute(minute)}
+                >
+                  <Text style={[
+                    styles.timePickerOptionText,
+                    selectedMinute === minute && styles.timePickerSelectedText
+                  ]}>
+                    {minute.toString().padStart(2, '0')}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+
+          {/* AM/PM Picker */}
+          <View style={styles.timePickerColumn}>
+            <Text style={styles.timePickerLabel}>Period</Text>
+            <ScrollView style={styles.timeScrollView} showsVerticalScrollIndicator={false}>
+              {['AM', 'PM'].map(period => (
+                <TouchableOpacity
+                  key={period}
+                  style={[
+                    styles.timePickerOption,
+                    selectedPeriod === period && styles.timePickerSelected
+                  ]}
+                  onPress={() => setSelectedPeriod(period)}
+                >
+                  <Text style={[
+                    styles.timePickerOptionText,
+                    selectedPeriod === period && styles.timePickerSelectedText
+                  ]}>
+                    {period}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+
+        <View style={styles.timePickerPreview}>
+          <Text style={styles.timePickerPreviewLabel}>Selected Time:</Text>
+          <Text style={styles.timePickerPreviewTime}>
+            {selectedHour.toString().padStart(2, '0')}:{selectedMinute.toString().padStart(2, '0')} {selectedPeriod}
+          </Text>
+        </View>
+
+        <TouchableOpacity style={styles.timePickerConfirmButton} onPress={handleTimeSelect}>
+          <Text style={styles.timePickerConfirmText}>Confirm Time</Text>
+        </TouchableOpacity>
+      </View>
+    );
 
     return (
       <View style={styles.pickerOverlay}>
@@ -495,35 +912,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
             </TouchableOpacity>
           </View>
           
-          <ScrollView style={styles.pickerScrollView}>
-            {type === 'date' ? (
-              generateDateOptions().map((option, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={styles.pickerOption}
-                  onPress={() => {
-                    onSelect(option.value);
-                    onClose();
-                  }}
-                >
-                  <Text style={styles.pickerOptionText}>{option.label}</Text>
-                </TouchableOpacity>
-              ))
-            ) : (
-              generateTimeOptions().map((option, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={styles.pickerOption}
-                  onPress={() => {
-                    onSelect(option.value);
-                    onClose();
-                  }}
-                >
-                  <Text style={styles.pickerOptionText}>{option.label}</Text>
-                </TouchableOpacity>
-              ))
-            )}
-          </ScrollView>
+          {type === 'date' ? renderDatePicker() : renderTimePicker()}
         </View>
       </View>
     );
@@ -532,11 +921,37 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
   const renderListView = () => (
     <>
       <View style={styles.topNav}>
-        <TouchableOpacity style={[styles.topNavButton, styles.activeTopNavButton]}>
-          <Text style={[styles.topNavButtonText, styles.activeTopNavButtonText]}>Search Items</Text>
+        <TouchableOpacity 
+          style={[styles.topNavButton, activeView === 'list' && styles.activeTopNavButton]}
+          onPress={() => setActiveView('list')}
+        >
+          <Text style={[styles.topNavButtonText, activeView === 'list' && styles.activeTopNavButtonText]}>Search Items</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.topNavButton, activeView === 'myreports' && styles.activeTopNavButton]}
+          onPress={async () => { 
+            setActiveView('myreports'); 
+            await loadMyReports();
+          }}
+        >
+          <Text style={[styles.topNavButtonText, activeView === 'myreports' && styles.activeTopNavButtonText]}>My Reports</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.topNavButton} onPress={() => { setActiveView('report'); setReportStep(1); setErrors({}); }}>
           <Text style={styles.topNavButtonText}>Report Item</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.headerRightAction} 
+          onPress={async () => {
+            console.log('🔄 Manual refresh requested');
+            if (activeView === 'list') {
+              await loadReports();
+            } else if (activeView === 'myreports') {
+              await loadMyReports();
+            }
+          }}
+          activeOpacity={0.7}
+        >
+          <Icon name="refresh-outline" size={20} color={AppColors.primary} />
         </TouchableOpacity>
       </View>
       
@@ -545,7 +960,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
           icon="search-outline"
           placeholder="Search for lost or found items"
           value={searchQuery}
-          onChangeText={setSearchQuery}
+          onChangeText={handleSearchChange}
           autoCapitalize="none"
         />
          <Dropdown
@@ -642,21 +1057,167 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
                 <Text style={styles.contactName}>
                   Contact: {report.first_name ? `${report.first_name} ${report.last_name?.charAt(0) || ''}.` : 'Anonymous'}
                 </Text>
+                {report.contact_email && (
+                  <Text style={styles.contactEmail}>
+                    📧 {report.contact_email}
+                  </Text>
+                )}
                 <Text style={styles.contactNote}>
                   {report.is_verified ? 'Verified user' : 'Unverified'} • Report ID: #{report.report_reference}
                 </Text>
               </View>
-              <TouchableOpacity 
-                style={styles.contactButton}
-                onPress={() => {
-                  if (report.contact_phone) {
-                    Linking.openURL(`tel:${report.contact_phone}`);
-                  }
-                }}
-              >
-                <Icon name="call-outline" size={16} color={AppColors.primary} />
-                <Text style={styles.contactButtonText}>Contact</Text>
-              </TouchableOpacity>
+              <View style={styles.contactButtons}>
+                {report.contact_phone && (
+                  <TouchableOpacity 
+                    style={styles.contactButton}
+                    onPress={() => {
+                      Linking.openURL(`tel:${report.contact_phone}`);
+                    }}
+                  >
+                    <Icon name="call-outline" size={16} color={AppColors.primary} />
+                    <Text style={styles.contactButtonText}>Call</Text>
+                  </TouchableOpacity>
+                )}
+                {report.contact_email && (
+                  <TouchableOpacity 
+                    style={styles.contactButton}
+                    onPress={() => {
+                      Linking.openURL(`mailto:${report.contact_email}`);
+                    }}
+                  >
+                    <Icon name="mail-outline" size={16} color={AppColors.primary} />
+                    <Text style={styles.contactButtonText}>Email</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          </View>
+        ))
+      )}
+    </>
+  );
+
+  const renderMyReportsView = () => (
+    <>
+      {activeView === 'myreports' && (
+        <View style={styles.searchSection}>
+          <Text style={styles.sectionTitle}>My Lost & Found Reports</Text>
+          <Text style={styles.sectionSubtitle}>
+            Manage your submitted reports and mark them as resolved when found.
+          </Text>
+        </View>
+      )}
+      
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={AppColors.primary} />
+          <Text style={styles.loadingText}>Loading your reports...</Text>
+        </View>
+      ) : myReports.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Icon name="document-outline" size={60} color={AppColors.textSecondary} />
+          <Text style={styles.emptyTitle}>No reports yet</Text>
+          <Text style={styles.emptyMessage}>
+            You haven't submitted any lost or found reports yet.
+          </Text>
+        </View>
+      ) : (
+        myReports.map((report) => (
+          <View key={report.report_id} style={styles.itemCard}>
+            <View style={styles.cardHeader}>
+              <View style={[styles.tag, report.report_type === 'lost' ? styles.lostTag : styles.foundTag]}>
+                <Text style={[styles.tagText, report.report_type === 'lost' ? styles.lostTagText : styles.foundTagText]}>
+                  {report.report_type === 'lost' ? 'Lost' : 'Found'}
+                </Text>
+              </View>
+              <View style={[styles.statusTag, report.status === 'resolved' ? styles.resolvedTag : styles.activeTag]}>
+                <Text style={[styles.statusTagText, report.status === 'resolved' ? styles.resolvedTagText : styles.activeTagText]}>
+                  {report.status === 'resolved' ? 'Resolved' : 'Active'}
+                </Text>
+              </View>
+              <Text style={styles.timeStamp}>{report.time_ago}</Text>
+            </View>
+            
+            <Text style={styles.itemTitle}>
+              {report.item_category.charAt(0).toUpperCase() + report.item_category.slice(1)} - {report.item_description.substring(0, 50)}
+              {report.item_description.length > 50 ? '...' : ''}
+            </Text>
+            <Text style={styles.itemDescription}>
+              {report.item_description}
+            </Text>
+            
+            <View style={styles.itemDetails}>
+              <View style={styles.detailRow}>
+                <Icon name="location-outline" size={18} color={AppColors.textSecondary} />
+                <Text style={styles.detailText}>
+                  {report.approximate_location || 'Location not specified'} 
+                  {report.route_number && ` - Route ${report.route_number}`}
+                  {report.route_name && ` (${report.route_name})`}
+                </Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Icon name="time-outline" size={18} color={AppColors.textSecondary} />
+                <Text style={styles.detailText}>
+                  {new Date(report.incident_date).toLocaleDateString()}, {report.incident_time}
+                </Text>
+              </View>
+              {report.reward_offered && report.reward_offered > 0 && (
+                <View style={styles.detailRow}>
+                  <Icon name="gift-outline" size={18} color={AppColors.success} />
+                  <Text style={[styles.detailText, { color: AppColors.success, fontWeight: '600' }]}>
+                    Reward: Rs. {report.reward_offered}
+                  </Text>
+                </View>
+              )}
+              {report.status === 'resolved' && report.resolved_date && (
+                <View style={styles.detailRow}>
+                  <Icon name="checkmark-circle-outline" size={18} color={AppColors.success} />
+                  <Text style={[styles.detailText, { color: AppColors.success }]}>
+                    Resolved on {new Date(report.resolved_date).toLocaleDateString()}
+                  </Text>
+                </View>
+              )}
+            </View>
+            
+            {report.item_photo_url && (
+              <Image 
+                source={{ uri: `${API_BASE_URL}${report.item_photo_url}` }} 
+                style={styles.itemImage}
+                resizeMode="cover"
+              />
+            )}
+            
+            <View style={styles.separator} />
+            
+            <View style={styles.myReportActions}>
+              <View style={styles.reportInfo}>
+                <Text style={styles.reportId}>Report ID: #{report.report_reference}</Text>
+                <Text style={styles.reportStatus}>
+                  Status: {report.status === 'resolved' ? '✅ Resolved' : '🔍 Active'}
+                </Text>
+              </View>
+              {report.status !== 'resolved' && (
+                <TouchableOpacity 
+                  style={styles.resolveButton}
+                  onPress={() => {
+                    Alert.alert(
+                      'Mark as Resolved',
+                      'Are you sure you want to mark this report as resolved? This action cannot be undone.',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        { 
+                          text: 'Yes, Mark Resolved', 
+                          onPress: () => markAsResolved(report.report_id),
+                          style: 'default'
+                        }
+                      ]
+                    );
+                  }}
+                >
+                  <Icon name="checkmark-circle-outline" size={16} color={AppColors.success} />
+                  <Text style={styles.resolveButtonText}>Mark Resolved</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         ))
@@ -833,14 +1394,50 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
             <View style={styles.modernInputContainer}>
               <Icon name="bus-outline" size={20} color={AppColors.textSecondary} style={styles.modernInputIcon} />
               <TextInput
-                placeholder="Route number (e.g. 254, 054)"
+                placeholder="Type route number (e.g. 254, 054)"
                 placeholderTextColor={AppColors.textSecondary}
                 style={styles.modernTextInput}
                 value={formData.routeNumber}
-                onChangeText={(v: string) => updateFormData('routeNumber', v)}
+                onChangeText={(v: string) => {
+                  updateFormData('routeNumber', v);
+                  // Trigger search for routes
+                  searchRoutesAutocomplete(v);
+                }}
                 autoCapitalize="none"
               />
             </View>
+            
+            {/* Route Autocomplete Results */}
+            {routeSearchResults.length > 0 && (
+              <View style={styles.autocompleteContainer}>
+                {routeSearchLoading ? (
+                  <View style={styles.autocompleteLoader}>
+                    <ActivityIndicator size="small" color={AppColors.primary} />
+                    <Text style={styles.autocompleteLoadingText}>Searching routes...</Text>
+                  </View>
+                ) : (
+                  routeSearchResults.map((route, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={styles.autocompleteItem}
+                      onPress={() => {
+                        updateFormData('routeNumber', route.route_number);
+                        setRouteSearchResults([]); // Clear results after selection
+                      }}
+                    >
+                      <View style={styles.autocompleteItemContent}>
+                        <Text style={styles.autocompleteRouteNumber}>Route {route.route_number}</Text>
+                        <Text style={styles.autocompleteRouteName}>{route.route_name}</Text>
+                        <Text style={styles.autocompleteRouteLocation}>
+                          {route.start_location} → {route.end_location}
+                        </Text>
+                      </View>
+                      <Icon name="chevron-forward" size={16} color={AppColors.textSecondary} />
+                    </TouchableOpacity>
+                  ))
+                )}
+              </View>
+            )}
           </View>
 
           {/* Region Dropdown */}
@@ -854,19 +1451,22 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
                 selectedTextStyle={styles.selectedTextStyle}
                 inputSearchStyle={styles.inputSearchStyle}
                 iconStyle={styles.iconStyle}
-                data={regions.length > 0 ? regions.map(r => ({ label: r.region_name, value: r.region_name })) : [{ label: 'No regions available', value: '' }]}
+                data={regions.length > 0 ? regions.map(r => ({ label: r.region_name, value: r.region_name })) : [{ label: 'Loading regions...', value: '' }]}
                 maxHeight={300}
                 labelField="label"
                 valueField="value"
-                placeholder={regions.length > 0 ? 'Select Region' : 'No regions available'}
+                placeholder={regions.length > 0 ? 'Select Region' : 'Loading regions...'}
                 value={formData.region}
                 onChange={item => {
-                  if (item.value) updateFormData('region', item.value);
+                  if (item.value) {
+                    console.log('[LostAndFoundScreen] 🎯 Region selected:', item.value);
+                    updateFormData('region', item.value);
+                  }
                 }}
                 disable={regions.length === 0}
               />
               {regions.length === 0 && (
-                <Text style={{ color: AppColors.error, marginTop: 8 }}>No regions available. Please try again later.</Text>
+                <Text style={{ color: AppColors.error, marginTop: 8 }}>Regions are loading... If this persists, please check your connection.</Text>
               )}
             </View>
             {errors.region && <Text style={styles.modernErrorText}>{errors.region}</Text>}
@@ -887,7 +1487,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
               <TouchableOpacity style={styles.dateTimeButton} onPress={() => setShowTimePicker(true)} activeOpacity={0.8}>
                 <Icon name="time-outline" size={20} color={AppColors.primary} />
                 <Text style={[styles.dateTimeText, !formData.time && styles.placeholderText]}>
-                  {formData.time || 'Select Time'}
+                  {formData.time ? formatTimeForDisplay(formData.time) : 'Select Time'}
                 </Text>
                 <Icon name="chevron-down" size={16} color={AppColors.textSecondary} />
               </TouchableOpacity>
@@ -943,18 +1543,97 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
               style={styles.modernPhotoUpload}
               activeOpacity={0.8}
               onPress={async () => {
-                const result = await launchImageLibrary({
-                  mediaType: 'photo',
-                  includeBase64: false,
-                  quality: 0.7,
-                });
-                if (!result.didCancel && result.assets && result.assets.length > 0) {
-                  const asset = result.assets[0];
-                  updateFormData('photo', {
-                    uri: asset.uri,
-                    fileName: asset.fileName || (asset.uri ? asset.uri.split('/').pop() : 'photo.jpg') || 'photo.jpg',
-                    type: asset.type || 'image/jpeg',
-                  });
+                try {
+                  console.log('📷 Opening image picker...');
+                  
+                  // Show action sheet to choose between camera and gallery
+                  Alert.alert(
+                    'Select Image',
+                    'Choose how you want to select an image',
+                    [
+                      {
+                        text: 'Camera',
+                        onPress: async () => {
+                          try {
+                            // Request camera permission
+                            const cameraPermission = await ImagePicker.requestCameraPermissionsAsync();
+                            
+                            if (cameraPermission.granted === false) {
+                              Alert.alert('Permission required', 'Permission to access camera is required!');
+                              return;
+                            }
+                            
+                            const result = await ImagePicker.launchCameraAsync({
+                              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                              allowsEditing: true,
+                              aspect: [4, 3],
+                              quality: 0.7,
+                              base64: false,
+                            });
+                            
+                            if (!result.canceled && result.assets && result.assets.length > 0) {
+                              const asset = result.assets[0];
+                              console.log('📷 Selected asset from camera:', asset);
+                              
+                              updateFormData('photo', {
+                                uri: asset.uri,
+                                fileName: asset.fileName || `camera_${Date.now()}.jpg`,
+                                type: asset.type || 'image/jpeg',
+                              });
+                            }
+                          } catch (error) {
+                            console.error('📷 Camera error:', error);
+                            Alert.alert('Error', 'Failed to take photo');
+                          }
+                        }
+                      },
+                      {
+                        text: 'Gallery',
+                        onPress: async () => {
+                          try {
+                            // Request media library permission
+                            const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+                            
+                            if (permissionResult.granted === false) {
+                              Alert.alert('Permission required', 'Permission to access photo gallery is required!');
+                              return;
+                            }
+                            
+                            const result = await ImagePicker.launchImageLibraryAsync({
+                              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                              allowsEditing: true,
+                              aspect: [4, 3],
+                              quality: 0.7,
+                              base64: false,
+                            });
+                            
+                            console.log('📷 Image picker result:', result);
+                            
+                            if (!result.canceled && result.assets && result.assets.length > 0) {
+                              const asset = result.assets[0];
+                              console.log('📷 Selected asset:', asset);
+                              
+                              updateFormData('photo', {
+                                uri: asset.uri,
+                                fileName: asset.fileName || asset.uri.split('/').pop() || 'photo.jpg',
+                                type: asset.type || 'image/jpeg',
+                              });
+                            }
+                          } catch (error) {
+                            console.error('📷 Gallery error:', error);
+                            Alert.alert('Error', 'Failed to select image from gallery');
+                          }
+                        }
+                      },
+                      {
+                        text: 'Cancel',
+                        style: 'cancel'
+                      }
+                    ]
+                  );
+                } catch (error) {
+                  console.error('📷 Image picker error:', error);
+                  Alert.alert('Error', 'Failed to open image picker');
                 }
               }}
             >
@@ -1038,8 +1717,15 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
               <Icon name="arrow-back" size={20} color={AppColors.text} />
               <Text style={styles.modernSecondaryButtonText}>Back</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.modernPrimaryButton} onPress={validateAndProceed} activeOpacity={0.8}>
-              <Text style={styles.modernButtonText}>Submit Report</Text>
+            <TouchableOpacity 
+              style={[styles.modernPrimaryButton, submitting && styles.disabledButton]} 
+              onPress={validateAndProceed} 
+              activeOpacity={0.8}
+              disabled={submitting}
+            >
+              <Text style={styles.modernButtonText}>
+                {submitting ? 'Submitting...' : 'Submit Report'}
+              </Text>
               <Icon name="checkmark" size={20} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
@@ -1056,7 +1742,10 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
           
           <Text style={styles.modernSuccessTitle}>Report Submitted!</Text>
           <Text style={styles.modernSuccessMessage}>
-            Thank you for your submission. We'll notify you via email if there are any potential matches for your {formData.reportType} item.
+            Your {formData.reportType} item report has been successfully submitted! We'll notify you via email if there are any potential matches.
+          </Text>
+          <Text style={styles.modernSuccessNote}>
+            Note: Your report may take a few moments to appear in the search results due to database synchronization.
           </Text>
 
           <View style={styles.successStats}>
@@ -1078,7 +1767,14 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
 
           <TouchableOpacity
             style={styles.modernPrimaryButton}
-            onPress={() => { setActiveView('list'); setReportStep(1); setErrors({}); }}
+            onPress={async () => { 
+              console.log('🔄 Returning to search and refreshing reports...');
+              setActiveView('list'); 
+              setReportStep(1); 
+              setErrors({});
+              // Refresh reports when returning to list view
+              await loadReports();
+            }}
             activeOpacity={0.8}
           >
             <Text style={styles.modernButtonText}>Back to Search</Text>
@@ -1121,9 +1817,11 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
       <ScrollView
         contentContainerStyle={styles.contentContainer}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="none"
         showsVerticalScrollIndicator={false}
       >
-        {activeView === 'list' ? renderListView() : (
+        {activeView === 'list' ? renderListView() : 
+         activeView === 'myreports' ? renderMyReportsView() : (
           <View style={styles.reportContainer}>
             {renderReportFlow()}
           </View>
@@ -2115,6 +2813,12 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
   },
   
+  disabledButton: {
+    backgroundColor: AppColors.textSecondary,
+    elevation: 2,
+    shadowOpacity: 0.1,
+  },
+  
   modernButtonText: {
     fontSize: 16,
     fontWeight: '600',
@@ -2294,6 +2998,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 24,
     paddingHorizontal: 32,
+    marginBottom: 16,
+  },
+  
+  modernSuccessNote: {
+    fontSize: 14,
+    color: AppColors.textSecondary,
+    textAlign: 'center',
+    fontStyle: 'italic',
+    paddingHorizontal: 32,
     marginBottom: 32,
   },
   
@@ -2334,5 +3047,341 @@ const styles = StyleSheet.create({
     height: 40,
     backgroundColor: AppColors.border,
     marginHorizontal: 16,
+  },
+
+  // New styles for enhanced functionality
+  sectionSubtitle: {
+    fontSize: 14,
+    color: AppColors.textSecondary,
+    marginBottom: 16,
+  },
+
+  contactEmail: {
+    fontSize: 14,
+    color: AppColors.primary,
+    marginTop: 4,
+    marginBottom: 4,
+  },
+
+  contactButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+
+  // My Reports specific styles
+  statusTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginLeft: 8,
+  },
+
+  resolvedTag: {
+    backgroundColor: AppColors.success + '20',
+  },
+
+  activeTag: {
+    backgroundColor: AppColors.primary + '20',
+  },
+
+  statusTagText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+
+  resolvedTagText: {
+    color: AppColors.success,
+  },
+
+  activeTagText: {
+    color: AppColors.primary,
+  },
+
+  myReportActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 12,
+  },
+
+  reportInfo: {
+    flex: 1,
+  },
+
+  reportId: {
+    fontSize: 14,
+    color: AppColors.text,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+
+  reportStatus: {
+    fontSize: 14,
+    color: AppColors.textSecondary,
+  },
+
+  resolveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: AppColors.success + '20',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 6,
+  },
+
+  resolveButtonText: {
+    fontSize: 14,
+    color: AppColors.success,
+    fontWeight: '600',
+  },
+
+  // Route autocomplete styles
+  autocompleteContainer: {
+    backgroundColor: AppColors.card,
+    borderRadius: 12,
+    marginTop: 8,
+    elevation: 4,
+    shadowColor: AppColors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    maxHeight: 200,
+  },
+
+  autocompleteLoader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    gap: 8,
+  },
+
+  autocompleteLoadingText: {
+    fontSize: 14,
+    color: AppColors.textSecondary,
+  },
+
+  autocompleteItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: AppColors.border,
+  },
+
+  autocompleteItemContent: {
+    flex: 1,
+  },
+
+  autocompleteRouteNumber: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: AppColors.text,
+    marginBottom: 4,
+  },
+
+  autocompleteRouteName: {
+    fontSize: 14,
+    color: AppColors.primary,
+    marginBottom: 2,
+  },
+
+  autocompleteRouteLocation: {
+    fontSize: 12,
+    color: AppColors.textSecondary,
+  },
+
+  // Calendar Picker Styles
+  calendarContainer: {
+    padding: 20,
+  },
+
+  calendarHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    paddingHorizontal: 10,
+  },
+
+  calendarNavButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: AppColors.primary + '10',
+  },
+
+  calendarMonth: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: AppColors.text,
+    flex: 1,
+    textAlign: 'center',
+  },
+
+  calendarWeekDays: {
+    flexDirection: 'row',
+    marginBottom: 12,
+  },
+
+  calendarWeekDay: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 14,
+    fontWeight: '600',
+    color: AppColors.textSecondary,
+    paddingVertical: 8,
+  },
+
+  calendarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+
+  calendarDay: {
+    width: '14.28%', // 100% / 7 days
+    aspectRatio: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 8,
+    marginBottom: 4,
+  },
+
+  calendarToday: {
+    backgroundColor: AppColors.primary + '20',
+  },
+
+  calendarSelected: {
+    backgroundColor: AppColors.primary,
+  },
+
+  calendarOtherMonth: {
+    opacity: 0.3,
+  },
+
+  calendarDisabled: {
+    opacity: 0.2,
+  },
+
+  calendarDayText: {
+    fontSize: 16,
+    color: AppColors.text,
+    fontWeight: '500',
+  },
+
+  calendarTodayText: {
+    color: AppColors.primary,
+    fontWeight: '700',
+  },
+
+  calendarSelectedText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+
+  calendarOtherMonthText: {
+    color: AppColors.textSecondary,
+  },
+
+  calendarDisabledText: {
+    color: AppColors.textSecondary,
+    opacity: 0.4,
+  },
+
+  // Time Picker Styles
+  timePickerContainer: {
+    padding: 20,
+  },
+
+  timePickerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+
+  timePickerColumn: {
+    flex: 1,
+    alignItems: 'center',
+    maxWidth: 80,
+  },
+
+  timePickerLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: AppColors.text,
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+
+  timePickerSeparator: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: AppColors.text,
+    marginHorizontal: 10,
+    marginTop: 35, // Align with the time options
+  },
+
+  timeScrollView: {
+    height: 120,
+    borderRadius: 8,
+    backgroundColor: AppColors.background,
+  },
+
+  timePickerOption: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    borderRadius: 6,
+    marginVertical: 2,
+    marginHorizontal: 4,
+  },
+
+  timePickerSelected: {
+    backgroundColor: AppColors.primary,
+  },
+
+  timePickerOptionText: {
+    fontSize: 18,
+    color: AppColors.text,
+    fontWeight: '500',
+  },
+
+  timePickerSelectedText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+
+  timePickerPreview: {
+    alignItems: 'center',
+    backgroundColor: AppColors.background,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 20,
+  },
+
+  timePickerPreviewLabel: {
+    fontSize: 14,
+    color: AppColors.textSecondary,
+    marginBottom: 4,
+  },
+
+  timePickerPreviewTime: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: AppColors.primary,
+  },
+
+  timePickerConfirmButton: {
+    backgroundColor: AppColors.primary,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+
+  timePickerConfirmText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });
