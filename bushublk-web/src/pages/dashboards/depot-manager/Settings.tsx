@@ -24,7 +24,7 @@ const Settings: React.FC = () => {
           <div><span className="font-medium">Contact Number:</span> {contactNumber}</div>
           <div><span className="font-medium">Email:</span> {email}</div>
           <div><span className="font-medium">Operating Hours:</span> {operatingHours}</div>
-          <div><span className="font-medium">Max Bus Capacity:</span> {busCapacity}</div>
+          <div><span className="font-medium"> Bus count:</span> {busCapacity}</div>
         </div>
       </div>
 
@@ -83,7 +83,7 @@ const Settings: React.FC = () => {
           </div>
 
           <div>
-            <label className="block font-medium text-gray-700">Max Bus Capacity</label>
+            <label className="block font-medium text-gray-700">Bus count</label>
             <input
               type="number"
               value={busCapacity}

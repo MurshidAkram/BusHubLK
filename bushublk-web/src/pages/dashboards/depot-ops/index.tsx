@@ -78,7 +78,7 @@ const DepotOperationsManagerDashboard = () => {
         <div className="bg-white rounded-lg shadow-sm">
           <div className="p-6 border-b border-gray-200">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Live Schedule Status</h2>
+              <h2 className="text-lg font-semibold text-gray-900"> Schedule Status</h2>
               <HiClock className="w-5 h-5 text-gray-400" />
             </div>
           </div>
@@ -119,129 +119,9 @@ const DepotOperationsManagerDashboard = () => {
         <div className="hidden lg:block" />
       </div>
 
-      {/* Operations Overview */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Active Incidents */}
-        <div className="bg-white rounded-lg shadow-sm">
-          <div className="p-6 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">Active Incidents</h2>
-          </div>
-          <div className="p-6 space-y-3">
-            {[
-              { type: "Traffic Delay", route: "Route 122", severity: "Medium", time: "15 min ago" },
-              { type: "Mechanical Issue", route: "Route 138", severity: "High", time: "32 min ago" },
-            ].map((incident, index) => (
-              <div key={index} className="flex items-start space-x-3 p-3 bg-red-50 rounded-lg">
-                <HiExclamationCircle className="w-5 h-5 text-red-600 mt-0.5" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-900">{incident.type}</p>
-                  <p className="text-xs text-gray-600">{incident.route}</p>
-                  <p className="text-xs text-gray-500">{incident.time}</p>
-                </div>
-                <span className={`text-xs px-2 py-1 rounded-full ${
-                  incident.severity === 'High' ? 'bg-red-100 text-red-800' : 'bg-orange-100 text-orange-800'
-                }`}>
-                  {incident.severity}
-                </span>
-              </div>
-            ))}
-          </div>
+      
         </div>
-
-        {/* Crew Status */}
-        <div className="bg-white rounded-lg shadow-sm">
-          <div className="p-6 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">Crew Status</h2>
-          </div>
-          <div className="p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">On Duty</span>
-              <span className="text-sm font-medium text-green-600">28 pairs</span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div className="bg-green-500 h-2 rounded-full" style={{width: '85%'}}></div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">On Break</span>
-              <span className="text-sm font-medium text-yellow-600">4 pairs</span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div className="bg-yellow-500 h-2 rounded-full" style={{width: '12%'}}></div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Off Duty</span>
-              <span className="text-sm font-medium text-gray-600">1 pair</span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div className="bg-gray-500 h-2 rounded-full" style={{width: '3%'}}></div>
-            </div>
-          </div>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="bg-white rounded-lg shadow-sm">
-          <div className="p-6 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">Quick Actions</h2>
-          </div>
-          <div className="p-6 space-y-3">
-            <button className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-              <HiUsers className="w-4 h-4 mr-2" />
-              Crew status
-            </button>
-            <button className="w-full flex items-center justify-center px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors">
-              <HiExclamationCircle className="w-4 h-4 mr-2" />
-              Report Incident
-            </button>
-            <button className="w-full flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
-              <HiClock className="w-4 h-4 mr-2" />
-              Adjust Schedule
-            </button>
-            <button className="w-full flex items-center justify-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
-              <HiChartBar className="w-4 h-4 mr-2" />
-              View Analytics
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Operations Log */}
-      <div className="bg-white rounded-lg shadow-sm">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Operations Log</h2>
-        </div>
-        <div className="p-6 space-y-4">
-          {[
-            { action: "Schedule adjustment", details: "Route 03B delayed by 15 minutes due to traffic", time: "2 minutes ago", type: "schedule", status: "resolved" },
-            { action: "Crew replacement", details: "Emergency crew assigned to Bus LH-9876", time: "18 minutes ago", type: "crew", status: "active" },
-            { action: "Route optimization", details: "Alternative route suggested for Route 05C", time: "35 minutes ago", type: "route", status: "completed" },
-            { action: "Incident response", details: "Breakdown assistance dispatched to Bus LH-3456", time: "1 hour ago", type: "incident", status: "resolved" },
-          ].map((log, index) => (
-            <div key={index} className="flex items-start space-x-4 py-3 border-b border-gray-100 last:border-b-0">
-              <div className={`w-2 h-2 rounded-full mt-2 ${
-                log.type === 'schedule' ? 'bg-blue-500' :
-                log.type === 'crew' ? 'bg-purple-500' :
-                log.type === 'route' ? 'bg-green-500' : 'bg-red-500'
-              }`}></div>
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium text-gray-900">{log.action}</p>
-                  <span className={`text-xs px-2 py-1 rounded-full ${
-                    log.status === 'active' ? 'bg-yellow-100 text-yellow-800' :
-                    log.status === 'resolved' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
-                  }`}>
-                    {log.status}
-                  </span>
-                </div>
-                <p className="text-sm text-gray-600">{log.details}</p>
-                <p className="text-xs text-gray-400 mt-1">{log.time}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
+    
   );
 };
 

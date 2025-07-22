@@ -61,8 +61,8 @@ const OperationsReports = () => {
               <XAxis dataKey={view === 'monthly' ? 'month' : 'year'} />
               <YAxis />
               <Tooltip />
-              <Bar dataKey="active" stackId="a" fill="#ef4444" name="Active" />
-              <Bar dataKey="inService" stackId="a" fill="#facc15" name="In Service" />
+              <Bar dataKey="active" stackId="a" fill="#1d25bdff" name="Active" />
+              <Bar dataKey="inService" stackId="a" fill="#3561f0ff" name="In Service" />
             </BarChart>
           </ResponsiveContainer>
         </div>

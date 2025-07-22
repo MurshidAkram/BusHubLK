@@ -122,7 +122,7 @@ try {
 const assignmentRoutes = require('./routes/assignmentRoutes');
 
 // Add this with your other app.use() routes
-app.use('/api/assignments', assignmentRoutes);
+// app.use('/api/assignments', assignmentRoutes);
 
 
 try {

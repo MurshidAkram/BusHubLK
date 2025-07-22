@@ -103,6 +103,76 @@ const mockBuses: Bus[] = [
     alerts: [
       { type: 'error', message: 'Under maintenance - ETA 2 days' }
     ]
+  },
+  // New buses added below
+  {
+    id: 'BUS-004',
+    registrationNumber: 'NP-3456',
+    model: 'Leyland Titan',
+    year: 2018,
+    capacity: 50,
+    status: 'Active',
+    lastService: '2024-06-28',
+    nextService: '2024-07-28',
+    mileage: 145000,
+    location: 'Colombo Fort Depot',
+    serviceHistory: [
+      { date: '2024-06-28', type: 'Regular Service', cost: 18000, description: 'Complete engine check, fluid replacements' },
+      { date: '2024-05-10', type: 'Repair', cost: 12000, description: 'Gearbox servicing and clutch replacement' },
+      { date: '2024-03-15', type: 'Regular Service', cost: 15000, description: 'Brake system overhaul' }
+    ],
+    partChanges: [
+      { date: '2024-06-28', part: 'Engine Oil', quantity: 1, cost: 4000 },
+      { date: '2024-05-10', part: 'Clutch Kit', quantity: 1, cost: 8500 },
+      { date: '2024-03-15', part: 'Brake Shoes', quantity: 4, cost: 7500 }
+    ],
+    alerts: []
+  },
+  {
+    id: 'BUS-005',
+    registrationNumber: 'NC-7890',
+    model: 'Tata Starbus',
+    year: 2022,
+    capacity: 42,
+    status: 'In Service',
+    lastService: '2024-06-22',
+    nextService: '2024-07-22',
+    mileage: 58000,
+    location: 'En Route',
+    serviceHistory: [
+      { date: '2024-06-22', type: 'Regular Service', cost: 16000, description: 'Electrical system check, AC servicing' },
+      { date: '2024-04-18', type: 'Repair', cost: 9500, description: 'Suspension alignment and shock absorber check' }
+    ],
+    partChanges: [
+      { date: '2024-06-22', part: 'AC Filter', quantity: 2, cost: 3000 },
+      { date: '2024-04-18', part: 'Shock Absorber', quantity: 2, cost: 6500 }
+    ],
+    alerts: [
+      { type: 'warning', message: 'AC system needs attention in next service' }
+    ]
+  },
+  {
+    id: 'BUS-006',
+    registrationNumber: 'NB-4567',
+    model: 'Ashok Leyland Cheetah',
+    year: 2017,
+    capacity: 40,
+    status: 'Out of Service',
+    lastService: '2024-05-30',
+    nextService: '2024-07-30',
+    mileage: 195000,
+    location: 'Colombo Central Workshop',
+    serviceHistory: [
+      { date: '2024-05-30', type: 'Major Repair', cost: 45000, description: 'Engine transmission replacement' },
+      { date: '2024-03-05', type: 'Regular Service', cost: 14000, description: 'Complete vehicle inspection' }
+    ],
+    partChanges: [
+      { date: '2024-05-30', part: 'Transmission Assembly', quantity: 1, cost: 35000 },
+      { date: '2024-03-05', part: 'Fuel Filter', quantity: 1, cost: 2500 }
+    ],
+    alerts: [
+      { type: 'error', message: 'Major engine failure - awaiting parts' }
+    ]
   }
 ];
 
@@ -160,12 +230,26 @@ const FleetManagement: React.FC = () => {
         <p className="text-gray-600">Manage your bus fleet, track vehicle status, and monitor performance.</p>
       </div>
 
-      {/* Fleet Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Total Buses" value={fleetStats.total} color="text-blue-600" />
-        <StatCard label="Active/In Service" value={fleetStats.active + fleetStats.inService} color="text-green-600" />
-        <StatCard label="In Maintenance" value={fleetStats.maintenance} color="text-yellow-600" />
-      </div>
+     {/* Fleet Summary */}
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+  {/* Total Buses */}
+  <div className="bg-white shadow-md rounded-lg p-6">
+    <p className="text-sm text-gray-500 mb-1">Total Buses</p>
+    <h2 className="text-2xl font-bold text-blue-600">{fleetStats.total}</h2>
+  </div>
+
+  {/* Active / In Service */}
+  <div className="bg-white shadow-md rounded-lg p-6">
+    <p className="text-sm text-gray-500 mb-1">Active / In Service</p>
+    <h2 className="text-2xl font-bold text-green-600">{fleetStats.active + fleetStats.inService}</h2>
+  </div>
+
+  {/* In Maintenance */}
+  <div className="bg-white shadow-md rounded-lg p-6">
+    <p className="text-sm text-gray-500 mb-1">In Maintenance</p>
+    <h2 className="text-2xl font-bold text-yellow-600">{fleetStats.maintenance}</h2>
+  </div>
+</div>
 
       {/* Search and Filter */}
       <div className="bg-white rounded-lg shadow-sm p-6">
@@ -216,7 +300,7 @@ const FleetManagement: React.FC = () => {
                       key={index}
                       className="flex items-center text-sm text-yellow-700 bg-yellow-50 p-2 rounded"
                     >
-                      <span className="mr-2">⚠️</span>
+                      <span className="mr-2"></span>
                       <span>{alert.message}</span>
                     </div>
                   ))}
@@ -225,11 +309,11 @@ const FleetManagement: React.FC = () => {
 
               <div className="space-y-2 mb-4 text-sm text-gray-600">
                 <div className="flex items-center">
-                  <span className="mr-2">📍</span>
+                  <span className="mr-2"></span>
                   {bus.location}
                 </div>
                 <div className="flex items-center">
-                  <span className="mr-2">📅</span>
+                  <span className="mr-2"></span>
                   Next Service: {bus.nextService}
                 </div>
               </div>

@@ -40,7 +40,7 @@ const DepotOperationsManagerSidebarContent = () => {
         }
       >
         <HiClipboardList className="mr-3 flex-shrink-0 h-5 w-5" />
-        Daily duty
+        Daily duties
       </NavLink>
 
       <NavLink
@@ -77,7 +77,7 @@ const DepotOperationsManagerSidebarContent = () => {
         }
       >
         <HiExclamationCircle className="mr-3 flex-shrink-0 h-5 w-5" />
-        Issues
+        Lost found portal
       </NavLink>
 
       <NavLink
@@ -89,7 +89,7 @@ const DepotOperationsManagerSidebarContent = () => {
         }
       >
         <HiPhone className="mr-3 flex-shrink-0 h-5 w-5" />
-       Contact
+       Community hub
       </NavLink>
 
       <NavLink

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Megaphone, Send, X } from 'lucide-react';
+import { Megaphone, Send, X, MessageSquare } from 'lucide-react';
 
 interface Message {
   id: number;
@@ -9,18 +9,29 @@ interface Message {
   title: string;
   message: string;
   date: string;
+  chatHistory?: ChatMessage[];
 }
 
-const CommunicationCenter = () => {
+interface ChatMessage {
+  sender: string;
+  message: string;
+  time: string;
+}
+
+const CommCenter = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 1,
       type: 'Received',
-      from: 'Regional operations Officer',
+      from: 'Regional Office',
       to: 'Depot Manager',
       title: 'Submit Weekly Report',
       message: 'Please submit the weekly operational report by 5 PM today.',
       date: '2025-07-03',
+      chatHistory: [
+        { sender: 'Regional Office', message: 'Can you confirm the submission?', time: '09:15' },
+        { sender: 'Depot Manager', message: 'Yes, I’ll send it shortly.', time: '09:17' },
+      ],
     },
     {
       id: 2,
@@ -30,6 +41,10 @@ const CommunicationCenter = () => {
       title: 'Depot Cleaning Drive',
       message: 'All staff are requested to participate in the depot-wide cleaning this Friday.',
       date: '2025-07-02',
+      chatHistory: [
+        { sender: 'Depot Staff', message: 'What time should we start?', time: '10:02' },
+        { sender: 'Depot Manager', message: 'Let’s begin by 9 AM sharp.', time: '10:04' },
+      ],
     },
     {
       id: 3,
@@ -39,6 +54,10 @@ const CommunicationCenter = () => {
       title: 'Staff Meeting',
       message: 'Reminder: Staff meeting scheduled for Monday at 9 AM.',
       date: '2025-06-30',
+      chatHistory: [
+        { sender: 'DGM(op)', message: 'Agenda for the meeting?', time: '08:40' },
+        { sender: 'Depot Manager', message: 'Performance review and planning.', time: '08:43' },
+      ],
     },
   ]);
 
@@ -49,6 +68,8 @@ const CommunicationCenter = () => {
   });
 
   const [showForm, setShowForm] = useState(false);
+  const [chatMessage, setChatMessage] = useState('');
+  const [activeChatId, setActiveChatId] = useState<number | null>(null);
 
   const handleSend = () => {
     const newItem: Message = {
@@ -59,10 +80,36 @@ const CommunicationCenter = () => {
       title: newMessage.title,
       message: newMessage.message,
       date: new Date().toISOString().slice(0, 10),
+      chatHistory: [],
     };
     setMessages([newItem, ...messages]);
     setNewMessage({ title: '', message: '', to: '' });
     setShowForm(false);
+  };
+
+  const handleChatSend = (messageId: number) => {
+    if (!chatMessage.trim()) return;
+
+    const currentTime = new Date().toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+
+    const updatedMessages = messages.map((msg) =>
+      msg.id === messageId
+        ? {
+            ...msg,
+            chatHistory: [
+              ...(msg.chatHistory || []),
+              { sender: 'Depot Manager', message: chatMessage, time: currentTime },
+            ],
+          }
+        : msg
+    );
+
+    setMessages(updatedMessages);
+    setChatMessage('');
   };
 
   return (
@@ -79,7 +126,7 @@ const CommunicationCenter = () => {
         </div>
       </div>
 
-      {/* Below header: Messages info + Send Message button */}
+      {/* Message Info + Send Button */}
       <div className="bg-white rounded-2xl shadow-md p-4 flex justify-between items-center">
         <div className="text-sm text-gray-600">
           Showing {messages.length} of {messages.length} messages
@@ -103,8 +150,9 @@ const CommunicationCenter = () => {
               onChange={(e) => setNewMessage({ ...newMessage, to: e.target.value })}
             >
               <option value="">Select Recipient</option>
-              <option value="Regional Operations Officer">ROO(Regional Operations Officer)</option>
-              <option value="Chief Executive Officer">CEO</option>
+              <option value="ROO">ROO (Regional Operational Officer)</option>
+              <option value="CEO ">CEO </option>
+           
             </select>
 
             <input
@@ -146,7 +194,7 @@ const CommunicationCenter = () => {
 
       {/* Recent Messages */}
       <div className="bg-white rounded-2xl shadow p-6">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">Recent Announcements</h2>
+        <h2 className="text-xl font-semibold text-gray-800 mb-4">Recent messages</h2>
         {messages.length === 0 ? (
           <p className="text-sm text-gray-500">No messages available.</p>
         ) : (
@@ -161,15 +209,65 @@ const CommunicationCenter = () => {
                     <h3 className="text-lg font-bold text-gray-800">{item.title}</h3>
                     <p className="text-sm text-gray-600 mt-1">{item.message}</p>
                   </div>
-                  <span className="text-xs text-gray-500 block text-right mt-1">
+                  <span className="text-xs text-gray-500">
                     {item.date} —{' '}
                     <span className={item.type === 'Sent' ? 'text-green-600' : 'text-blue-600'}>
                       {item.type}
                     </span>
-                    <br />
-                    <span className="text-gray-700 font-semibold">From: </span>{item.from}
                   </span>
                 </div>
+
+                {/* Toggle Chat Button */}
+                <div className="flex justify-end mt-2">
+                  <button
+                    onClick={() => setActiveChatId(activeChatId === item.id ? null : item.id)}
+                    className="text-blue-600 hover:text-blue-800 text-sm flex items-center space-x-1"
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                    <span>{activeChatId === item.id ? 'Hide Chat' : 'Chat'}</span>
+                  </button>
+                </div>
+
+                {/* Chat UI */}
+                {activeChatId === item.id && (
+                  <div className="mt-4 bg-white border rounded-lg p-3 shadow-sm">
+                    <div className="max-h-40 overflow-y-auto space-y-2 mb-2">
+                      {item.chatHistory && item.chatHistory.length > 0 ? (
+                        item.chatHistory.map((chat, idx) => (
+                          <div
+                            key={idx}
+                            className={`p-2 rounded-lg text-sm ${
+                              chat.sender === 'Depot Manager'
+                                ? 'bg-blue-100 text-right'
+                                : 'bg-gray-100 text-left'
+                            }`}
+                          >
+                            <p className="font-medium">{chat.sender === 'Depot Manager' ? 'You' : chat.sender}</p>
+                            <p>{chat.message}</p>
+                            <p className="text-xs text-gray-500">{chat.time}</p>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-gray-500 text-sm">No chat history yet.</p>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={chatMessage}
+                        onChange={(e) => setChatMessage(e.target.value)}
+                        placeholder="Type a message..."
+                        className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      />
+                      <button
+                        onClick={() => handleChatSend(item.id)}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg"
+                      >
+                        <Send className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </li>
             ))}
           </ul>
@@ -179,4 +277,4 @@ const CommunicationCenter = () => {
   );
 };
 
-export default CommunicationCenter;
+export default CommCenter;  

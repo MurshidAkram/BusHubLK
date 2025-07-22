@@ -1,559 +1,413 @@
-import React, { useState } from 'react';
-import {
-  Clock, AlertTriangle, CheckCircle, XCircle, MessageSquare,
-  MapPin, User, Filter, Search, Bell, Car, FileText, Send, ArrowUp, CheckSquare
-} from 'lucide-react';
+import { useState } from 'react';
+import { CheckCircle, AlertTriangle, Search, X } from 'lucide-react';
 
-interface EmergencyReport {
-  id: string;
-  type: string;
-  priority: string;
-  status: string;
-  driver: string;
-  driverPhone: string;
-  vehicle: string;
-  location: string;
-  description: string;
-  timestamp: string;
-  assignedTo: string;
-  estimatedResolution: string;
-  updates: number;
-  coordinates: { lat: number; lng: number };
-  escalatedToDM: boolean;
-  escalationReason?: string;
-  chatHistory: { sender: string; message: string; time: string }[];
+interface LostFoundReport {
+  id: number;
+  incident_date: string;
+  incident_time: string;
+  passenger_name: string;
+  report_type: 'Lost' | 'Found';
+  item_category: string;
+  item_description: string;
+  item_photo: string;
+  route_number: string;
+  contact_email: string;
+  contact_phone: string;
+  status: 'Pending' | 'Resolved';
 }
 
-const IncidentManagement = () => {
-  const [selectedIssue, setSelectedIssue] = useState<EmergencyReport | null>(null);
-  const [filterType, setFilterType] = useState('all');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [showChat, setShowChat] = useState(false);
-  const [chatMessage, setChatMessage] = useState('');
-  const [showPopup, setShowPopup] = useState(false);
-  const [showEscalateModal, setShowEscalateModal] = useState(false);
-  const [escalationReason, setEscalationReason] = useState('');
-
-  const [emergencyReports, setEmergencyReports] = useState<EmergencyReport[]>([
-    {
-      id: '31',
-      type: 'Traffic Jam',
-      priority: 'Medium',
-      status: 'In Progress',
-      driver: 'Tharindu',
-      driverPhone: '+94-77-456-7890',
-      vehicle: 'GA-8891',
-      location: 'Colombo Fort Junction',
-      description: 'Route 10 delayed by 30 mins due to heavy congestion near Colombo Fort',
-      timestamp: '2025-07-22 07:45:00',
-      assignedTo: 'Depot Operations manager',
-      estimatedResolution: '2025-07-22 09:00:00',
-      updates: 2,
-      coordinates: { lat: 6.9354, lng: 79.8428 },
-      escalatedToDM: false,
-      chatHistory: [
-        { sender: 'driver', message: 'Heavy traffic, stuck near Fort', time: '07:45' },
-        { sender: 'engineer', message: 'Noted. Inform if delay exceeds 30 mins', time: '07:47' },
-      ],
-    },
-    {
-      id: '32',
-      type: 'Road Closure',
-      priority: 'High',
-      status: 'Pending',
-      driver: 'Isuru',
-      driverPhone: '+94-77-567-8901',
-      vehicle: 'CB-1122',
-      location: 'Route 23 near Maradana',
-      description: 'Detour in effect on Route 23 due to roadworks – rerouting buses',
-      timestamp: '2025-07-22 08:10:00',
-      assignedTo: 'Depot Operations manager',
-      estimatedResolution: '2025-07-22 11:00:00',
-      updates: 1,
-      coordinates: { lat: 6.9278, lng: 79.8613 },
-      escalatedToDM: false,
-      chatHistory: [
-        { sender: 'driver', message: 'Road closed at Maradana, looking for alternate route', time: '08:10' },
-      ],
-    },
-    {
-      id: '33',
-      type: 'Accidents',
-      priority: 'Critical',
-      status: 'In Progress',
-      driver: 'Nimal',
-      driverPhone: '+94-77-678-9012',
-      vehicle: 'XY-5566',
-      location: 'Junction X, Borella',
-      description: 'Minor accident at junction X – no injuries, waiting for police report',
-      timestamp: '2025-07-22 08:45:00',
-      assignedTo: 'Depot Operations manager',
-      estimatedResolution: '2025-07-22 10:30:00',
-      updates: 3,
-      coordinates: { lat: 6.9123, lng: 79.8771 },
-      escalatedToDM: false,
-      chatHistory: [
-        { sender: 'driver', message: 'Minor accident, vehicle slightly damaged', time: '08:45' },
-        { sender: 'engineer', message: 'Call police and get report. Is everyone okay?', time: '08:46' },
-      ],
-    },
-  ]);
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Critical': return 'text-red-600 bg-red-100';
-      case 'High': return 'text-orange-600 bg-orange-100';
-      case 'Medium': return 'text-yellow-600 bg-yellow-100';
-      case 'Low':
-      case 'Resolved': return 'text-green-600 bg-green-100';
-      case 'In Progress': return 'text-blue-600 bg-blue-100';
-      case 'Pending': return 'text-gray-600 bg-gray-100';
-      case 'Escalated to DM': return 'text-purple-600 bg-purple-100';
-      default: return 'text-gray-600 bg-gray-100';
-    }
-  };
-
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'Fire': return <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center text-white text-sm">🔥</div>;
-      case 'Medical': return <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm">⚕️</div>;
-      case 'Breakdown': return <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center text-white text-sm">⚙️</div>;
-      case 'Accident': return <div className="w-8 h-8 bg-red-600 rounded-full flex items-center justify-center text-white text-sm">⚠️</div>;
-      case 'Passenger': return <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white text-sm">👥</div>;
-      case 'Other': return <div className="w-8 h-8 bg-gray-500 rounded-full flex items-center justify-center text-white text-sm">👥</div>;
-      default: return <div className="w-8 h-8 bg-gray-500 rounded-full flex items-center justify-center text-white text-sm">❓</div>;
-    }
-  };
-
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'Fire': return 'text-red-600 bg-red-100';
-      case 'Medical': return 'text-blue-600 bg-blue-100';
-      case 'Breakdown': return 'text-orange-600 bg-orange-100';
-      case 'Accident': return 'text-red-600 bg-red-100';
-      case 'Passenger': return 'text-purple-600 bg-purple-100';
-      case 'Other': return 'text-gray-600 bg-purple-100';
-      default: return 'text-gray-600 bg-gray-100';
-    }
-  };
-
-  const filteredReports = emergencyReports.filter((report: EmergencyReport) => {
-    const matchesSearch =
-      report.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      report.driver.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      report.vehicle.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      report.location.toLowerCase().includes(searchTerm.toLowerCase());
-
-    return filterType === 'all' ? matchesSearch : matchesSearch && report.type === filterType;
-  });
-
-  const stats = {
-    total: emergencyReports.length,
-    critical: emergencyReports.filter((r) => r.priority === 'Critical').length,
-    inProgress: emergencyReports.filter((r) => r.status === 'In Progress').length,
-    resolved: emergencyReports.filter((r) => r.status === 'Resolved').length,
-    pending: emergencyReports.filter((r) => r.status === 'Pending').length,
-    escalated: emergencyReports.filter((r) => r.escalatedToDM).length,
-  };
-
-  const sendMessage = () => {
-    if (chatMessage.trim() && selectedIssue) {
-      const currentTime = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
-      const updatedReports = emergencyReports.map((report) =>
-        report.id === selectedIssue.id
-          ? { ...report, chatHistory: [...report.chatHistory, { sender: 'engineer', message: chatMessage, time: currentTime }] }
-          : report
-      );
-      setEmergencyReports(updatedReports);
-      setSelectedIssue({
-        ...selectedIssue,
-        chatHistory: [...selectedIssue.chatHistory, { sender: 'engineer', message: chatMessage, time: currentTime }],
-      });
-      setChatMessage('');
-    }
-  };
-
-  const escalateToDM = () => {
-    if (escalationReason.trim() && selectedIssue) {
-      const updatedReports = emergencyReports.map((report) =>
-        report.id === selectedIssue.id
-          ? {
-              ...report,
-              status: 'Escalated to DM',
-              escalatedToDM: true,
-              escalationReason,
-              assignedTo: 'Depot Operations manager',
-            }
-          : report
-      );
-      setEmergencyReports(updatedReports);
-      setSelectedIssue({
-        ...selectedIssue,
-        status: 'Escalated to DM',
-        escalatedToDM: true,
-        escalationReason,
-        assignedTo: 'Depot Operations manager',
-      });
-      setShowEscalateModal(false);
-      setEscalationReason('');
-    }
-  };
-
-  const resolveIssue = () => {
-    if (selectedIssue) {
-      const updatedReports = emergencyReports.map((report) =>
-        report.id === selectedIssue.id ? { ...report, status: 'Resolved' } : report
-      );
-      setEmergencyReports(updatedReports);
-      setSelectedIssue({ ...selectedIssue, status: 'Resolved' });
-      setShowPopup(false);
-    }
-  };
-
+const ImageWithFallback = ({ src, alt, className }: { src: string; alt: string; className?: string }) => {
+  const [imgSrc, setImgSrc] = useState(src);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-
-      {/* Stats Cards */}
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
-          <div className="bg-white rounded-lg shadow-sm p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total Reports</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
-              </div>
-              <FileText className="w-8 h-8 text-gray-400" />
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">In Progress</p>
-                <p className="text-2xl font-bold text-blue-600">{stats.inProgress}</p>
-              </div>
-              <Clock className="w-8 h-8 text-blue-400" />
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Resolved</p>
-                <p className="text-2xl font-bold text-green-600">{stats.resolved}</p>
-              </div>
-              <CheckCircle className="w-8 h-8 text-green-400" />
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Pending</p>
-                <p className="text-2xl font-bold text-gray-600">{stats.pending}</p>
-              </div>
-              <XCircle className="w-8 h-8 text-gray-400" />
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Escalated</p>
-                <p className="text-2xl font-bold text-purple-600">{stats.escalated}</p>
-              </div>
-              <ArrowUp className="w-8 h-8 text-purple-400" />
-            </div>
-          </div>
-        </div>
-
-        {/* Filters and Search */}
-        <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
-            <div className="flex items-center space-x-4">
-              <div className="relative">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search reports..."
-                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-              <select
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={filterType}
-                onChange={(e) => setFilterType(e.target.value)}
-              >
-                <option value="all">All Types</option>
-                <option value="Fire">Fire</option>
-                <option value="Medical">Medical</option>
-                <option value="Breakdown">Breakdown</option>
-                <option value="Accident">Accident</option>
-                <option value="Passenger">Passenger</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Filter className="w-4 h-4 text-gray-400" />
-              <span className="text-sm text-gray-600">Showing {filteredReports.length} of {emergencyReports.length} reports</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Reports List with Increased Width */}
-        <div className="max-w-7xl mx-auto">
-          <div className="bg-white rounded-lg shadow-sm">
-            <div className="p-4 border-b">
-              <h2 className="text-lg font-semibold text-gray-900">Emergency Reports</h2>
-            </div>
-            <div className="divide-y">
-              {filteredReports.map((report: EmergencyReport) => (
-                <div
-                  key={report.id}
-                  className="p-4 hover:bg-gray-50 transition-colors"
-                >
-                  <div className="flex items-start space-x-3">
-                    {getTypeIcon(report.type)}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center space-x-2">
-                          <h3 className="text-sm font-semibold text-gray-900">{report.type}</h3>
-                          {report.escalatedToDM && (
-                            <span className="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-600">
-                              DM
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(report.status)}`}>
-                            {report.status}
-                          </span>
-                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${getTypeColor(report.type)}`}>
-                            {report.type}
-                          </span>
-                          <button
-                            className="text-blue-600 hover:text-blue-800 text-sm"
-                            onClick={() => {
-                              setSelectedIssue(report);
-                              setShowPopup(true);
-                            }}
-                          >
-                            View
-                          </button>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-4 text-sm text-gray-600 mb-2">
-                        <div className="flex items-center space-x-1">
-                          <User className="w-4 h-4" />
-                          <span>{report.driver}</span>
-                        </div>
-                        <div className="flex items-center space-x-1">
-                          <Car className="w-4 h-4" />
-                          <span>{report.vehicle}</span>
-                        </div>
-                        <div className="flex items-center space-x-1">
-                          <Clock className="w-4 h-4" />
-                          <span>{new Date(report.timestamp).toLocaleTimeString()}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-1 text-sm text-gray-600 mb-2">
-                        <MapPin className="w-4 h-4" />
-                        <span>{report.location}</span>
-                      </div>
-                      <p className="text-sm text-gray-700 mb-2 line-clamp-2">{report.description}</p>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-500">Assigned to: {report.assignedTo}</span>
-                        <button
-                          className="text-green-600 hover:text-green-800 text-sm flex items-center space-x-1"
-                          onClick={() => {
-                            setSelectedIssue(report);
-                            setShowChat(!showChat);
-                          }}
-                        >
-                          <MessageSquare className="w-4 h-4" />
-                          <span>Chat</span>
-                        </button>
-                      </div>
-                      {showChat && selectedIssue && selectedIssue.id === report.id && (
-                        <div className="mt-2 p-2 bg-gray-50 rounded-lg">
-                          <div className="max-h-60 overflow-y-auto mb-2 space-y-2">
-                            {report.chatHistory.map((chat: { sender: string; message: string; time: string }, index: number) => (
-                              <div
-                                key={index}
-                                className={`p-2 rounded-lg ${chat.sender === 'engineer' ? 'bg-blue-100 text-right' : 'bg-gray-200'}`}
-                              >
-                                <p className="text-sm font-medium">{chat.sender === 'engineer' ? 'You' : chat.sender}</p>
-                                <p className="text-sm">{chat.message}</p>
-                                <p className="text-xs text-gray-500">{chat.time}</p>
-                              </div>
-                            ))}
-                          </div>
-                          <div className="flex space-x-2">
-                            <input
-                              type="text"
-                              value={chatMessage}
-                              onChange={(e) => setChatMessage(e.target.value)}
-                              placeholder="Type a message..."
-                              className="flex-1 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                            <button
-                              onClick={sendMessage}
-                              className="bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700"
-                            >
-                              <Send className="w-5 h-5" />
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Popup for Issue Details with Scrollbar */}
-        {showPopup && selectedIssue && (
-<div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-2xl h-[70vh] overflow-y-auto">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900">Issue Details - {selectedIssue.id}</h2>
-                <button
-                  className="text-gray-400 hover:text-gray-600"
-                  onClick={() => setShowPopup(false)}
-                >
-                  <XCircle className="w-6 h-6" />
-                </button>
-              </div>
-              <div className="space-y-4">
-                <div className="flex items-center space-x-3 mb-3">
-                  {getTypeIcon(selectedIssue.type)}
-                  <div>
-                    <div className="flex items-center space-x-2">
-                      <h3 className="font-semibold text-gray-900">{selectedIssue.id}</h3>
-                      {selectedIssue.escalatedToDM && (
-                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-600">
-                          Escalated to DM
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-gray-600">{selectedIssue.type} Emergency</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wide">Priority</p>
-                    <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(selectedIssue.priority)}`}>
-                      {selectedIssue.priority}
-                    </span>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wide">Status</p>
-                    <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(selectedIssue.status)}`}>
-                      {selectedIssue.status}
-                    </span>
-                  </div>
-                </div>
-
-                <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Description</p>
-                  <p className="text-sm text-gray-700">{selectedIssue.description}</p>
-                </div>
-
-                {selectedIssue.escalatedToDM && selectedIssue.escalationReason && (
-                  <div className="bg-purple-50 p-3 rounded-lg">
-                    <p className="text-xs text-purple-600 uppercase tracking-wide mb-1">Escalation Reason</p>
-                    <p className="text-sm text-purple-800">{selectedIssue.escalationReason}</p>
-                  </div>
-                )}
-
-                <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">Details</p>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">Driver:</span>
-                      <span className="font-medium">{selectedIssue.driver}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">Vehicle:</span>
-                      <span className="font-medium">{selectedIssue.vehicle}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">Location:</span>
-                      <span className="font-medium">{selectedIssue.location}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">Reported:</span>
-                      <span className="font-medium">{new Date(selectedIssue.timestamp).toLocaleString()}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">Assigned to:</span>
-                      <span className="font-medium">{selectedIssue.assignedTo}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="border-t pt-4">
-                  {selectedIssue.status !== 'Resolved' && selectedIssue.status !== 'Escalated to DM' && (
-                    <div className="flex space-x-2">
-                      <button
-                        className="flex-1 bg-green-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-600 transition-colors flex items-center justify-center space-x-1"
-                        onClick={resolveIssue}
-                      >
-                        <CheckSquare className="w-4 h-4" />
-                        <span>Resolve</span>
-                      </button>
-                      <button
-                        className="flex-1 bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple-700 transition-colors flex items-center justify-center space-x-1"
-                        onClick={() => setShowEscalateModal(true)}
-                      >
-                        <ArrowUp className="w-4 h-4" />
-                        <span>Escalate</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Escalate Modal */}
-        {showEscalateModal && selectedIssue && (
-<div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Escalate to DM</h3>
-              <p className="text-sm text-gray-600 mb-4">Provide a reason for escalation:</p>
-              <textarea
-                value={escalationReason}
-                onChange={(e) => setEscalationReason(e.target.value)}
-                placeholder="e.g., Major component failure requiring specialized repair..."
-                className="w-full p-2 border border-gray-300 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                rows={4}
-              />
-              <div className="flex justify-end space-x-4">
-                <button
-                  onClick={() => setShowEscalateModal(false)}
-                  className="bg-gray-300 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-400"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={escalateToDM}
-                  className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700"
-                >
-                  Confirm Escalation
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+    <img
+      src={imgSrc}
+      alt={alt}
+      className={className}
+      onError={() => setImgSrc('/default-item.png')}
+    />
   );
 };
 
+const IncidentManagement = () => {
+  const [reports, setReports] = useState<LostFoundReport[]>([
+    {
+      id: 1,
+      incident_date: '2025-07-21',
+      incident_time: '08:30',
+      passenger_name: 'Fatima N.',
+      report_type: 'Lost',
+      item_category: 'Mobile',
+      item_description: 'Black Samsung Galaxy A52 with cracked screen',
+      item_photo: 'https://images.unsplash.com/photo-1601784551446-20c9e07cdbdb?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8cGhvbmV8ZW58MHx8MHx8fDA%3D&auto=format&fit=crop&w=100&q=60',
+      route_number: '138 - Colombo to Maharagama',
+      contact_email: 'fatima@gmail.com',
+      contact_phone: '+94771234567',
+      status: 'Pending',
+    },
+    {
+      id: 2,
+      incident_date: '2025-07-20',
+      incident_time: '16:45',
+      passenger_name: 'Nuwan P.',
+      report_type: 'Found',
+      item_category: 'Jewellery',
+      item_description: 'Gold chain with heart pendant',
+      item_photo: 'https://images.unsplash.com/photo-1605100804763-247f67b3557e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NXx8amV3ZWxyeXxlbnwwfHwwfHx8MA%3D%3D&auto=format&fit=crop&w=100&q=60',
+      route_number: '138 - Colombo to Maharagama',
+      contact_email: 'nuwan@gmail.com',
+      contact_phone: '+94778999999',
+      status: 'Pending',
+    },
+    {
+      id: 3,
+      incident_date: '2025-07-19',
+      incident_time: '12:15',
+      passenger_name: 'Rajesh K.',
+      report_type: 'Lost',
+      item_category: 'Wallet',
+      item_description: 'Brown leather wallet with credit cards',
+      item_photo: 'https://images.unsplash.com/photo-1547036967-23d11aacaee0?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NXx8d2FsbGV0fGVufDB8fDB8fHww&auto=format&fit=crop&w=100&q=60',
+      route_number: '100 - Colombo to Negombo',
+      contact_email: 'rajesh@gmail.com',
+      contact_phone: '+94771234568',
+      status: 'Resolved',
+    },
+    {
+  id: 4,
+  incident_date: '2025-07-18',
+  incident_time: '18:20',
+  passenger_name: 'Yasmin L.',
+  report_type: 'Found',
+  item_category: 'Bag',
+  item_description: 'Blue backpack with books and a water bottle',
+    item_photo: 'https://images.unsplash.com/photo-1601784551446-20c9e07cdbdb?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8cGhvbmV8ZW58MHx8MHx8fDA%3D&auto=format&fit=crop&w=100&q=60',
+  route_number: '99 - Colombo to Matara',
+  contact_email: 'yasmin@example.com',
+  contact_phone: '+94770000001',
+  status: 'Pending',
+},
+{
+  id: 5,
+  incident_date: '2025-07-17',
+  incident_time: '10:05',
+  passenger_name: 'Ahmed R.',
+  report_type: 'Lost',
+  item_category: 'Book',
+  item_description: 'Story in a black leather cover',
+  item_photo: 'https://images.unsplash.com/photo-1547036967-23d11aacaee0?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NXx8d2FsbGV0fGVufDB8fDB8fHww&auto=format&fit=crop&w=100&q=60',
+  route_number: '45 -  Colombo to Horana',
+  contact_email: 'ahmedr@gmail.com',
+  contact_phone: '+94775554433',
+  status: 'Pending',
+}
+
+  ]);
+
+  const [filter, setFilter] = useState<'All' | 'Lost' | 'Found'>('All');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedReport, setSelectedReport] = useState<LostFoundReport | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const resolveReport = (id: number) => {
+    setReports((prev) =>
+      prev.map((report) =>
+        report.id === id ? { ...report, status: 'Resolved' } : report
+      )
+    );
+  };
+
+  const openReportDetails = (report: LostFoundReport) => {
+    setSelectedReport(report);
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setSelectedReport(null);
+  };
+
+  const filteredReports = reports.filter((report) => {
+    const matchesFilter = filter === 'All' || report.report_type === filter;
+    const matchesSearch = 
+      report.passenger_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      report.item_description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      report.route_number.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesFilter && matchesSearch;
+  });
+
+  return (
+    <div className="space-y-6">
+      {/* Modal for viewing report details */}
+      {isModalOpen && selectedReport && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white p-4 border-b flex justify-between items-center">
+              <h2 className="text-xl font-bold text-gray-900">
+                {selectedReport.report_type} Item Details
+              </h2>
+              <button 
+                onClick={closeModal}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            <div className="p-6 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">Passenger Information</h3>
+                    <div className="mt-1 text-sm text-gray-900">
+                      {selectedReport.passenger_name}
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">Incident Date & Time</h3>
+                    <div className="mt-1 text-sm text-gray-900">
+                      {selectedReport.incident_date} at {selectedReport.incident_time}
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">Route Number</h3>
+                    <div className="mt-1 text-sm text-gray-900">
+                      {selectedReport.route_number}
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">Item Category</h3>
+                    <div className="mt-1 text-sm text-gray-900">
+                      {selectedReport.item_category}
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">Status</h3>
+                    <div className={`mt-1 inline-flex items-center ${
+                      selectedReport.status === 'Resolved' ? 'text-green-600' : 'text-yellow-600'
+                    }`}>
+                      {selectedReport.status === 'Resolved' ? (
+                        <CheckCircle className="h-4 w-4 mr-1" />
+                      ) : (
+                        <AlertTriangle className="h-4 w-4 mr-1" />
+                      )}
+                      <span className="text-sm">{selectedReport.status}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">Report Type</h3>
+                    <div className={`mt-1 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      selectedReport.report_type === 'Lost' 
+                        ? 'bg-red-100 text-red-800' 
+                        : 'bg-green-100 text-green-800'
+                    }`}>
+                      {selectedReport.report_type}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-medium text-gray-500">Item Description</h3>
+                <div className="mt-1 text-sm text-gray-900">
+                  {selectedReport.item_description}
+                </div>
+              </div>
+
+              <div className="flex flex-col items-center">
+                <h3 className="text-sm font-medium text-gray-500 mb-2">Item Photo</h3>
+                <ImageWithFallback
+                  src={selectedReport.item_photo}
+                  alt={selectedReport.item_description}
+                  className="w-48 h-48 rounded-lg object-cover border border-gray-200"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Contact Email</h3>
+                  <div className="mt-1 text-sm text-gray-900">
+                    {selectedReport.contact_email}
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Contact Phone</h3>
+                  <div className="mt-1 text-sm text-gray-900">
+                    {selectedReport.contact_phone}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="sticky bottom-0 bg-white p-4 border-t flex justify-end space-x-3">
+              <button
+                onClick={closeModal}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Close
+              </button>
+              {selectedReport.status !== 'Resolved' && (
+                <button
+                  onClick={() => {
+                    resolveReport(selectedReport.id);
+                    closeModal();
+                  }}
+                  className="px-4 py-2 bg-blue-600 rounded-md text-sm font-medium text-white hover:bg-blue-700"
+                >
+                  Mark as Resolved
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Main content */}
+      <div className="bg-white rounded-2xl shadow-md p-6">
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Lost and Found Items</h1>
+            <p className="text-sm text-gray-500">Manage items reported by passengers</p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-grow max-w-md">
+             
+            </div>
+            <div className="flex items-center bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={() => setFilter('All')}
+                className={`px-3 py-1 text-sm rounded-md ${filter === 'All' ? 'bg-white shadow-sm font-medium' : 'text-gray-600'}`}
+              >
+                All
+              </button>
+              <button
+                onClick={() => setFilter('Lost')}
+                className={`px-3 py-1 text-sm rounded-md ${filter === 'Lost' ? 'bg-white shadow-sm text-red-500 font-medium' : 'text-gray-600'}`}
+              >
+                Lost
+              </button>
+              <button
+                onClick={() => setFilter('Found')}
+                className={`px-3 py-1 text-sm rounded-md ${filter === 'Found' ? 'bg-white shadow-sm text-green-500 font-medium' : 'text-gray-600'}`}
+              >
+                Found
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-md overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Type
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Passenger & Details
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Item
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Contact
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+                <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredReports.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
+                    No reports found
+                  </td>
+                </tr>
+              ) : (
+                filteredReports.map((report) => (
+                  <tr key={report.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        report.report_type === 'Lost' 
+                          ? 'bg-red-100 text-red-800' 
+                          : 'bg-green-100 text-green-800'
+                      }`}>
+                        {report.report_type}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm font-medium text-gray-900">{report.passenger_name}</div>
+                      <div className="text-sm text-gray-500">{report.route_number}</div>
+                      <div className="text-xs text-gray-400 mt-1">
+                        {report.incident_date} at {report.incident_time}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center">
+                        <ImageWithFallback
+                          src={report.item_photo}
+                          alt={report.item_description}
+                          className="w-12 h-12 rounded-md object-cover mr-3 border border-gray-200 bg-gray-100"
+                        />
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">{report.item_category}</div>
+                          <div className="text-sm text-gray-500 line-clamp-1">{report.item_description}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm text-gray-900">{report.contact_email}</div>
+                      <div className="text-sm text-gray-500">{report.contact_phone}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className={`inline-flex items-center ${
+                        report.status === 'Resolved' ? 'text-green-600' : 'text-yellow-600'
+                      }`}>
+                        {report.status === 'Resolved' ? (
+                          <CheckCircle className="h-4 w-4 mr-1" />
+                        ) : (
+                          <AlertTriangle className="h-4 w-4 mr-1" />
+                        )}
+                        <span className="text-sm">{report.status}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      {report.status !== 'Resolved' && (
+                        <button
+                          onClick={() => resolveReport(report.id)}
+                          className="text-blue-600 hover:text-blue-900 mr-3"
+                        >
+                          Resolve
+                        </button>
+                      )}
+                      <button 
+                        onClick={() => openReportDetails(report)}
+                        className="text-gray-600 hover:text-gray-900"
+                      >
+                        View
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {filteredReports.length > 0 && (
+        <div className="text-sm text-gray-500 px-4">
+          Showing {filteredReports.length} of {reports.length} reports
+        </div>
+      )}
+    </div>
+  );
+};
 
 export default IncidentManagement;

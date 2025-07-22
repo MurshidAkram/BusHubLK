@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Megaphone, Send, X } from 'lucide-react';
+import { Megaphone, Send, X, MessageSquare } from 'lucide-react';
 
 interface Message {
   id: number;
@@ -9,6 +9,13 @@ interface Message {
   title: string;
   message: string;
   date: string;
+  chatHistory?: ChatMessage[];
+}
+
+interface ChatMessage {
+  sender: string;
+  message: string;
+  time: string;
 }
 
 const AnnouncementCenter = () => {
@@ -21,6 +28,10 @@ const AnnouncementCenter = () => {
       title: 'Submit Weekly Report',
       message: 'Please submit the weekly operational report by 5 PM today.',
       date: '2025-07-03',
+      chatHistory: [
+        { sender: 'Regional Office', message: 'Can you confirm the submission?', time: '09:15' },
+        { sender: 'Depot Manager', message: 'Yes, I’ll send it shortly.', time: '09:17' },
+      ],
     },
     {
       id: 2,
@@ -30,6 +41,10 @@ const AnnouncementCenter = () => {
       title: 'Depot Cleaning Drive',
       message: 'All staff are requested to participate in the depot-wide cleaning this Friday.',
       date: '2025-07-02',
+      chatHistory: [
+        { sender: 'Depot Staff', message: 'What time should we start?', time: '10:02' },
+        { sender: 'Depot Manager', message: 'Let’s begin by 9 AM sharp.', time: '10:04' },
+      ],
     },
     {
       id: 3,
@@ -39,30 +54,61 @@ const AnnouncementCenter = () => {
       title: 'Staff Meeting',
       message: 'Reminder: Staff meeting scheduled for Monday at 9 AM.',
       date: '2025-06-30',
+      chatHistory: [
+        { sender: 'DGM(op)', message: 'Agenda for the meeting?', time: '08:40' },
+        { sender: 'Depot Manager', message: 'Performance review and planning.', time: '08:43' },
+      ],
     },
   ]);
 
   const [newMessage, setNewMessage] = useState({
     title: '',
     message: '',
-    to: '',
   });
 
   const [showForm, setShowForm] = useState(false);
+  const [chatMessage, setChatMessage] = useState('');
+  const [activeChatId, setActiveChatId] = useState<number | null>(null);
 
   const handleSend = () => {
     const newItem: Message = {
       id: Date.now(),
       type: 'Sent',
       from: 'Depot Manager',
-      to: newMessage.to,
+      to: 'All Staff',
       title: newMessage.title,
       message: newMessage.message,
       date: new Date().toISOString().slice(0, 10),
+      chatHistory: [],
     };
     setMessages([newItem, ...messages]);
-    setNewMessage({ title: '', message: '', to: '' });
+    setNewMessage({ title: '', message: '' });
     setShowForm(false);
+  };
+
+  const handleChatSend = (messageId: number) => {
+    if (!chatMessage.trim()) return;
+
+    const currentTime = new Date().toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+
+    const updatedMessages = messages.map((msg) =>
+      msg.id === messageId
+        ? {
+            ...msg,
+            chatHistory: [
+              ...(msg.chatHistory || []),
+              { sender: 'Depot Manager', message: chatMessage, time: currentTime },
+            ],
+          }
+        : msg
+    );
+
+    setMessages(updatedMessages);
+    setChatMessage('');
   };
 
   return (
@@ -71,7 +117,6 @@ const AnnouncementCenter = () => {
       <div className="bg-white rounded-2xl shadow-md p-6 flex items-start justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
-         
             Communication hub
           </h1>
           <p className="text-sm text-gray-500 mt-1">
@@ -80,7 +125,7 @@ const AnnouncementCenter = () => {
         </div>
       </div>
 
-      {/* Below header: Messages info + Send Message button */}
+      {/* Message Info + Send Button */}
       <div className="bg-white rounded-2xl shadow-md p-4 flex justify-between items-center">
         <div className="text-sm text-gray-600">
           Showing {messages.length} of {messages.length} messages
@@ -98,17 +143,6 @@ const AnnouncementCenter = () => {
         <div className="bg-white rounded-2xl shadow p-6 space-y-5">
           <h2 className="text-xl font-semibold text-gray-800">Send New Message</h2>
           <div className="grid gap-4">
-            <select
-              className="w-full p-3 border border-gray-300 rounded-lg text-sm"
-              value={newMessage.to}
-              onChange={(e) => setNewMessage({ ...newMessage, to: e.target.value })}
-            >
-              <option value="">Select Recipient</option>
-              <option value="Depot Manager">DM(Depot Manager)</option>
-              <option value="Regional Operations Officer">ROO(Regional Operations Officer)</option>
-              
-            </select>
-
             <input
               type="text"
               placeholder="Message Title"
@@ -128,11 +162,11 @@ const AnnouncementCenter = () => {
             <div className="flex gap-3 justify-end">
               <button
                 onClick={handleSend}
-                disabled={!newMessage.title || !newMessage.message || !newMessage.to}
+                disabled={!newMessage.title || !newMessage.message}
                 className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium px-4 py-2 rounded-lg shadow disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Send className="w-4 h-4" />
-                Send
+                Send to Depot manager
               </button>
               <button
                 onClick={() => setShowForm(false)}
@@ -148,7 +182,7 @@ const AnnouncementCenter = () => {
 
       {/* Recent Messages */}
       <div className="bg-white rounded-2xl shadow p-6">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">Recent Announcements</h2>
+        <h2 className="text-xl font-semibold text-gray-800 mb-4">Recent messages</h2>
         {messages.length === 0 ? (
           <p className="text-sm text-gray-500">No messages available.</p>
         ) : (
@@ -163,15 +197,65 @@ const AnnouncementCenter = () => {
                     <h3 className="text-lg font-bold text-gray-800">{item.title}</h3>
                     <p className="text-sm text-gray-600 mt-1">{item.message}</p>
                   </div>
-                 <span className="text-xs text-gray-500">
-  {item.date} —{' '}
-  <span className={item.type === 'Sent' ? 'text-green-600' : 'text-blue-600'}>
-    {item.type}
-  </span>
-</span>
-
-                   
+                  <span className="text-xs text-gray-500">
+                    {item.date} —{' '}
+                    <span className={item.type === 'Sent' ? 'text-green-600' : 'text-blue-600'}>
+                      {item.type}
+                    </span>
+                  </span>
                 </div>
+
+                {/* Toggle Chat Button */}
+                <div className="flex justify-end mt-2">
+                  <button
+                    onClick={() => setActiveChatId(activeChatId === item.id ? null : item.id)}
+                    className="text-blue-600 hover:text-blue-800 text-sm flex items-center space-x-1"
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                    <span>{activeChatId === item.id ? 'Hide Chat' : 'Chat'}</span>
+                  </button>
+                </div>
+
+                {/* Chat UI */}
+                {activeChatId === item.id && (
+                  <div className="mt-4 bg-white border rounded-lg p-3 shadow-sm">
+                    <div className="max-h-40 overflow-y-auto space-y-2 mb-2">
+                      {item.chatHistory && item.chatHistory.length > 0 ? (
+                        item.chatHistory.map((chat, idx) => (
+                          <div
+                            key={idx}
+                            className={`p-2 rounded-lg text-sm ${
+                              chat.sender === 'Depot Manager'
+                                ? 'bg-blue-100 text-right'
+                                : 'bg-gray-100 text-left'
+                            }`}
+                          >
+                            <p className="font-medium">{chat.sender === 'Depot Manager' ? 'You' : chat.sender}</p>
+                            <p>{chat.message}</p>
+                            <p className="text-xs text-gray-500">{chat.time}</p>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-gray-500 text-sm">No chat history yet.</p>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={chatMessage}
+                        onChange={(e) => setChatMessage(e.target.value)}
+                        placeholder="Type a message..."
+                        className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      />
+                      <button
+                        onClick={() => handleChatSend(item.id)}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg"
+                      >
+                        <Send className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </li>
             ))}
           </ul>

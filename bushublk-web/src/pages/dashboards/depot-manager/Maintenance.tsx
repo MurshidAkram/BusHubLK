@@ -524,7 +524,7 @@ const Maintenance = () => {
         {showEscalateModal && selectedIssue && (
 <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-6 w-full max-w-md">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Escalate to DM</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Escalate to RTO</h3>
               <p className="text-sm text-gray-600 mb-4">Provide a reason for escalation:</p>
               <textarea
                 value={escalationReason}
