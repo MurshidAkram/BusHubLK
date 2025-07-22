@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   FaSearch, 
   FaCheckCircle, 
@@ -6,7 +7,8 @@ import {
   FaBus, 
   FaCheck,
   FaClock,
-  FaFilter
+  FaFilter,
+  FaTools
 } from 'react-icons/fa';
 
 interface Report {
@@ -22,6 +24,7 @@ interface Report {
 }
 
 const Autoforwardbusstatus = () => {
+  const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
@@ -47,7 +50,7 @@ const Autoforwardbusstatus = () => {
       driverName: 'Venukaran',
       priority: 'Medium',
       busStatus: 'Minor Issue',
-      issueDescription: 'head lights did not working',
+      issueDescription: 'Head lights not working',
       reviewed: false,
       reportedAt: '2023-06-15T11:20:00'
     },
@@ -58,7 +61,7 @@ const Autoforwardbusstatus = () => {
       driverName: 'Loganathan',
       priority: 'Low',
       busStatus: 'Good',
-      issueDescription: 'head lights did not working',
+      issueDescription: 'No issues reported',
       reviewed: false,
       reportedAt: '2023-06-15T11:20:00'
     }
@@ -127,6 +130,15 @@ const Autoforwardbusstatus = () => {
   const closeModal = () => {
     setIsModalOpen(false);
     setSelectedReport(null);
+  };
+
+  const handleUpdateStatus = () => {
+    navigate('/depot-engineer/Busavailability', { 
+      state: { 
+        busId: selectedReport?.busId,
+        currentStatus: selectedReport?.busStatus
+      } 
+    });
   };
 
   // Statistics
@@ -374,6 +386,23 @@ const Autoforwardbusstatus = () => {
                   <p className="mt-1 text-gray-900 whitespace-pre-line">{selectedReport.issueDescription}</p>
                 </div>
 
+                <div className="pt-4 border-t">
+                  <div className="flex flex-col sm:flex-row justify-end gap-3">
+                    <button
+                      onClick={closeModal}
+                      className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      Close
+                    </button>
+                    <button
+                      onClick={handleUpdateStatus}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <FaTools size={14} />
+                      <span>Update Status</span>
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

@@ -53,16 +53,19 @@ import Scheduling from './pages/dashboards/depot-engineer/Scheduling'
 import Spareparts from './pages/dashboards/depot-engineer/Spareparts'
 import Autoforwardbusstatus from './pages/dashboards/depot-engineer/Autoforwardbusstatus'
 import DepotEscalateissues from './pages/dashboards/depot-engineer/DepotEscalateissues'
+import Depotcommunityhub from './pages/dashboards/depot-engineer/Depotcommunityhub'
+import Depotinspection from './pages/dashboards/depot-engineer/Depotinspection'
 
 
 
 // Regional Technical Officer Components
 import RegionalTechnicalOfficerSidebarContent from './components/regional-tech/RegionalTechnicalOfficerSidebarContent'
 import RegionalTechnicalOfficerDashboard from './pages/dashboards/regional-tech/index'
-import Investigationlogs from './pages/dashboards/regional-tech/Investigationlogs'
 import Regionservicemonitor from './pages/dashboards/regional-tech/Regionservicemonitor'
 import Inspectionschedular from './pages/dashboards/regional-tech/Inspectionschedular'
 import Rtoissuetracker from './pages/dashboards/regional-tech/Rtoissuetracker'
+import Regioncommunityhub from './pages/dashboards/regional-tech/Regioncommunityhub'
+
 
 // Regional Operations Officer Components
 import RegionalOperationsOfficerSidebarContent from './components/regional-ops/RegionalOperationsOfficerSidebarContent'
@@ -201,9 +204,11 @@ const App = () => {
           <Route path="Busavailability" element={<Busavailability />} />
           <Route path="scheduling" element={<Scheduling />} />
           <Route path="Spareparts" element={<Spareparts />} />
+          <Route path="Depotinspection" element={<Depotinspection />} />
+         
           <Route path="Autoforwardbusstatus" element={<Autoforwardbusstatus />} />
           <Route path="DepotEscalateissues" element={<DepotEscalateissues />} />
-          
+          <Route path="Depotcommunityhub" element={<Depotcommunityhub />} />
           {/* Add individual pages later */}
         </Route>
         </Route>
@@ -213,9 +218,10 @@ const App = () => {
         <Route path="/regional-technical-officer" element={<DashboardLayout role="Regional Technical Officer" sidebarContent={<RegionalTechnicalOfficerSidebarContent />} />}>
           <Route index element={<RegionalTechnicalOfficerDashboard />} />
           <Route path="Inspectionschedular" element={<Inspectionschedular />} />
-          <Route path="Investigationlogs" element={<Investigationlogs />} />
+          
           <Route path="Regionservicemonitor" element={<Regionservicemonitor />} />
           <Route path="Rtoissuetracker" element={<Rtoissuetracker />} />
+          <Route path="Regioncommunityhub" element={<Regioncommunityhub />} />
           {/* Add individual pages later */}
         </Route>
         </Route>

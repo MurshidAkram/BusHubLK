@@ -8,7 +8,9 @@ import {
   HiChartBar,
   HiArrowUp,
   HiArrowRight,
-  HiArrowCircleRight
+  HiArrowCircleRight,
+  HiClipboardCheck,
+  HiUsers
 } from 'react-icons/hi';
 
 const DepotEngineerSidebarContent = () => {
@@ -99,6 +101,28 @@ const DepotEngineerSidebarContent = () => {
       >
         <HiChartBar className="mr-3 flex-shrink-0 h-5 w-5" />
         Spareparts
+      </NavLink>
+      <NavLink
+        to="/depot-engineer/Depotcommunityhub"
+        className={({ isActive }) =>
+          `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
+            ? 'bg-green-700 text-white' 
+            : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`
+        }
+      >
+         <HiUsers className="mr-3 flex-shrink-0 h-5 w-5" />
+      Communityhub
+      </NavLink>
+      <NavLink
+        to="/depot-engineer/Depotinspection"
+        className={({ isActive }) =>
+          `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
+            ? 'bg-green-700 text-white' 
+            : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`
+        }
+      >
+         <HiClipboardCheck className="mr-3 flex-shrink-0 h-5 w-5" />
+      Inspections
       </NavLink>
     </div>
   );

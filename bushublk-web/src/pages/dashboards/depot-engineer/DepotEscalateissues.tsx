@@ -17,7 +17,7 @@ interface EmergencyReport {
   estimatedResolution: string;
   updates: number;
   coordinates: { lat: number; lng: number };
-  escalatedToRTO: boolean;
+  escalatedToDepotManager: boolean;
   escalationReason?: string;
   chatHistory: { sender: string; message: string; time: string }[];
 }
@@ -47,7 +47,7 @@ const DepotEscalateIssues = () => {
       estimatedResolution: '2025-07-19 12:00:00',
       updates: 3,
       coordinates: { lat: 6.9271, lng: 79.8612 },
-      escalatedToRTO: false,
+      escalatedToDepotManager: false,
       chatHistory: [
         { sender: 'driver', message: 'Engine compartment showing smoke, passengers evacuated', time: '09:15' },
         { sender: 'engineer', message: 'Fire team dispatched. Are you at safe distance?', time: '09:17' },
@@ -68,7 +68,7 @@ const DepotEscalateIssues = () => {
       estimatedResolution: '2025-07-19 09:00:00',
       updates: 5,
       coordinates: { lat: 6.8649, lng: 79.8997 },
-      escalatedToRTO: false,
+      escalatedToDepotManager: false,
       chatHistory: [
         { sender: 'driver', message: 'Passenger collapsed, need ambulance urgently', time: '08:30' },
         { sender: 'engineer', message: 'Ambulance dispatched. Is passenger conscious?', time: '08:32' },
@@ -85,7 +85,7 @@ const DepotEscalateIssues = () => {
       case 'Resolved': return 'text-green-600 bg-green-100';
       case 'In Progress': return 'text-blue-600 bg-blue-100';
       case 'Pending': return 'text-gray-600 bg-gray-100';
-      case 'Escalated to RTO': return 'text-purple-600 bg-purple-100';
+      case 'Escalated to Depot Manager': return 'text-purple-600 bg-purple-100';
       default: return 'text-gray-600 bg-gray-100';
     }
   };
@@ -129,7 +129,7 @@ const DepotEscalateIssues = () => {
     inProgress: emergencyReports.filter((r: EmergencyReport) => r.status === 'In Progress').length,
     resolved: emergencyReports.filter((r: EmergencyReport) => r.status === 'Resolved').length,
     pending: emergencyReports.filter((r: EmergencyReport) => r.status === 'Pending').length,
-    escalated: emergencyReports.filter((r: EmergencyReport) => r.escalatedToRTO).length,
+    escalated: emergencyReports.filter((r: EmergencyReport) => r.escalatedToDepotManager).length,
   };
 
   const sendMessage = () => {
@@ -149,26 +149,26 @@ const DepotEscalateIssues = () => {
     }
   };
 
-  const escalateToRTO = () => {
+  const escalateToDepotManager = () => {
     if (escalationReason.trim() && selectedIssue) {
       const updatedReports = emergencyReports.map((report: EmergencyReport) =>
         report.id === selectedIssue.id
           ? {
               ...report,
-              status: 'Escalated to RTO',
-              escalatedToRTO: true,
+              status: 'Escalated to Depot Manager',
+              escalatedToDepotManager: true,
               escalationReason,
-              assignedTo: 'RTO Technical Division',
+              assignedTo: 'Depot Manager',
             }
           : report
       );
       setEmergencyReports(updatedReports);
       setSelectedIssue({
         ...selectedIssue,
-        status: 'Escalated to RTO',
-        escalatedToRTO: true,
+        status: 'Escalated to Depot Manager',
+        escalatedToDepotManager: true,
         escalationReason,
-        assignedTo: 'RTO Technical Division',
+        assignedTo: 'Depot Manager',
       });
       setShowEscalateModal(false);
       setEscalationReason('');
@@ -293,13 +293,16 @@ const DepotEscalateIssues = () => {
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center space-x-2">
                           <h3 className="text-sm font-semibold text-gray-900">Driverid:{report.id}</h3>
-                          {report.escalatedToRTO && (
+                          {report.escalatedToDepotManager && (
                             <span className="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-600">
-                              RTO
+                              Depot Manager
                             </span>
                           )}
                         </div>
                         <div className="flex items-center space-x-2">
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(report.status)}`}>
+                            {report.status}
+                          </span>
                           <span className={`px-2 py-1 text-xs font-medium rounded-full ${getTypeColor(report.type)}`}>
                             {report.type}
                           </span>
@@ -404,9 +407,9 @@ const DepotEscalateIssues = () => {
                   <div>
                     <div className="flex items-center space-x-2">
                       <h3 className="font-semibold text-gray-900">{selectedIssue.id}</h3>
-                      {selectedIssue.escalatedToRTO && (
+                      {selectedIssue.escalatedToDepotManager && (
                         <span className="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-600">
-                          Escalated to RTO
+                          Escalated to Depot Manager
                         </span>
                       )}
                     </div>
@@ -421,6 +424,12 @@ const DepotEscalateIssues = () => {
                       {selectedIssue.priority}
                     </span>
                   </div>
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-wide">Status</p>
+                    <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(selectedIssue.status)}`}>
+                      {selectedIssue.status}
+                    </span>
+                  </div>
                 </div>
 
                 <div>
@@ -428,7 +437,7 @@ const DepotEscalateIssues = () => {
                   <p className="text-sm text-gray-700">{selectedIssue.description}</p>
                 </div>
 
-                {selectedIssue.escalatedToRTO && selectedIssue.escalationReason && (
+                {selectedIssue.escalatedToDepotManager && selectedIssue.escalationReason && (
                   <div className="bg-purple-50 p-3 rounded-lg">
                     <p className="text-xs text-purple-600 uppercase tracking-wide mb-1">Escalation Reason</p>
                     <p className="text-sm text-purple-800">{selectedIssue.escalationReason}</p>
@@ -462,7 +471,7 @@ const DepotEscalateIssues = () => {
                 </div>
 
                 <div className="border-t pt-4">
-                  {selectedIssue.status !== 'Resolved' && selectedIssue.status !== 'Escalated to RTO' && (
+                  {selectedIssue.status !== 'Resolved' && selectedIssue.status !== 'Escalated to Depot Manager' && (
                     <div className="flex space-x-2">
                       <button
                         className="flex-1 bg-green-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-600 transition-colors flex items-center justify-center space-x-1"
@@ -476,7 +485,7 @@ const DepotEscalateIssues = () => {
                         onClick={() => setShowEscalateModal(true)}
                       >
                         <ArrowUp className="w-4 h-4" />
-                        <span>Escalate</span>
+                        <span>Escalate to Depot manager</span>
                       </button>
                     </div>
                   )}
@@ -490,12 +499,12 @@ const DepotEscalateIssues = () => {
         {showEscalateModal && selectedIssue && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-6 w-full max-w-md">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Escalate to RTO</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Escalate to Depot Manager</h3>
               <p className="text-sm text-gray-600 mb-4">Provide a reason for escalation:</p>
               <textarea
                 value={escalationReason}
                 onChange={(e) => setEscalationReason(e.target.value)}
-                placeholder="e.g., Major component failure requiring specialized repair..."
+                placeholder="e.g., Major component failure requiring manager approval..."
                 className="w-full p-2 border border-gray-300 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-purple-500"
                 rows={4}
               />
@@ -507,7 +516,7 @@ const DepotEscalateIssues = () => {
                   Cancel
                 </button>
                 <button
-                  onClick={escalateToRTO}
+                  onClick={escalateToDepotManager}
                   className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700"
                 >
                   Confirm Escalation

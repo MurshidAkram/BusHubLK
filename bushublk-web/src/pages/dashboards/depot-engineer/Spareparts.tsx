@@ -3,8 +3,8 @@ import { FaSearch, FaBoxes, FaTools, FaPlusCircle } from 'react-icons/fa';
 
 interface SparePart {
   id: string;
-  name: string;
-  inventoryId: string;
+  Partname: string;
+  PartId: string;
   currentStock: number;
   lastRestocked: string;
   unit: string;
@@ -16,30 +16,29 @@ const SparePartsInventory: React.FC = () => {
   const initialParts: SparePart[] = [
     {
       id: 'SP-1001',
-      name: 'Brake Pad Set',
-      inventoryId: 'INV-2025-001',
+      Partname: 'Brake Pad Set',
+      PartId: 'P-2025-001',
       currentStock: 24,
       lastRestocked: '2025-07-18',
       unit: 'set',
-      busId: 'BUS-001'
+      busId: 'NP-2345'
     },
     {
       id: 'SP-1002',
-      name: 'Engine Oil 5W-30',
-      inventoryId: 'INV-2025-002',
+      Partname: 'Engine Oil 5W-30',
+      PartId: 'P-2025-002',
       currentStock: 56,
       lastRestocked: '2025-07-17',
       unit: 'liter',
-      busId: 'BUS-002'
+      busId: 'NA-1234'
     }
   ];
 
-  // Sample bus data
+  // Sample bus data with updated format
   const buses = [
-    { id: 'BUS-001', name: 'City Bus 1' },
-    { id: 'BUS-002', name: 'City Bus 2' },
-    { id: 'BUS-003', name: 'School Bus 1' },
-    { id: 'BUS-004', name: 'Tour Bus 1' }
+    { id: '17', Reg_number: 'NC-1234' },
+    { id: '23', Reg_number: 'NP-3456' },
+    { id: '21', Reg_number: 'LA-9831' }
   ];
 
   // State management
@@ -52,10 +51,11 @@ const SparePartsInventory: React.FC = () => {
   const [showUseModal, setShowUseModal] = useState<boolean>(false);
   const [showRestockModal, setShowRestockModal] = useState<boolean>(false);
   const [restockQuantity, setRestockQuantity] = useState<number>(0);
+  const [restockUnit, setRestockUnit] = useState<string>('');
   const [showAddPartModal, setShowAddPartModal] = useState<boolean>(false);
   const [newPart, setNewPart] = useState<Omit<SparePart, 'id' | 'lastRestocked'>>({
-    name: '',
-    inventoryId: '',
+    Partname: '',
+    PartId: '',
     currentStock: 0,
     unit: ''
   });
@@ -63,8 +63,8 @@ const SparePartsInventory: React.FC = () => {
   // Filter parts based on search and low stock filter
   const filteredParts = parts.filter(part => {
     const matchesSearch = 
-      part.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      part.inventoryId.toLowerCase().includes(searchTerm.toLowerCase());
+      part.Partname.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      part.PartId.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesSearch;
   });
 
@@ -93,7 +93,7 @@ const SparePartsInventory: React.FC = () => {
 
   // Handle restocking a part
   const handleRestockPart = () => {
-    if (!selectedPart || restockQuantity <= 0) return;
+    if (!selectedPart || restockQuantity <= 0 || restockUnit !== selectedPart.unit) return;
     
     const updatedParts = parts.map(part => 
       part.id === selectedPart.id 
@@ -109,11 +109,12 @@ const SparePartsInventory: React.FC = () => {
     setShowRestockModal(false);
     setSelectedPart(null);
     setRestockQuantity(0);
+    setRestockUnit('');
   };
 
   // Handle adding a new part
   const handleAddPart = () => {
-    if (!newPart.name.trim() || !newPart.inventoryId.trim() || !newPart.unit.trim()) return;
+    if (!newPart.Partname.trim() || !newPart.unit.trim() || !newPart.PartId.trim()) return;
     
     const newPartData: SparePart = {
       id: `SP-${Date.now()}`,
@@ -124,8 +125,8 @@ const SparePartsInventory: React.FC = () => {
     setParts([...parts, newPartData]);
     setShowAddPartModal(false);
     setNewPart({
-      name: '',
-      inventoryId: '',
+      Partname: '',
+      PartId: '',
       currentStock: 0,
       unit: ''
     });
@@ -210,20 +211,20 @@ const SparePartsInventory: React.FC = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Part</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock ID</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Part ID</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Part Name</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Available Stock</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredParts.map((part) => (
                   <tr key={part.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="font-medium text-gray-900">{part.name}</div>
-                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {part.inventoryId}
+                      {part.PartId}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="font-medium text-gray-900">{part.Partname}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStockStatus(part)}`}>
@@ -244,6 +245,7 @@ const SparePartsInventory: React.FC = () => {
                       <button
                         onClick={() => {
                           setSelectedPart(part);
+                          setRestockUnit(part.unit);
                           setShowRestockModal(true);
                         }}
                         className="text-green-600 hover:text-green-900"
@@ -265,7 +267,7 @@ const SparePartsInventory: React.FC = () => {
               <div className="p-6">
                 <h3 className="text-lg font-medium text-gray-900 mb-4">
                   <FaTools className="inline mr-2 text-blue-500" />
-                  Use Part: {selectedPart.name}
+                  Use Part: {selectedPart.Partname}
                 </h3>
                 
                 <div className="mb-4">
@@ -280,7 +282,7 @@ const SparePartsInventory: React.FC = () => {
                     <option value="">Select a bus</option>
                     {buses.map(bus => (
                       <option key={bus.id} value={bus.id}>
-                        {bus.name} ({bus.id})
+                        {bus.Reg_number}
                       </option>
                     ))}
                   </select>
@@ -331,7 +333,7 @@ const SparePartsInventory: React.FC = () => {
               <div className="p-6">
                 <h3 className="text-lg font-medium text-gray-900 mb-4">
                   <FaPlusCircle className="inline mr-2 text-green-500" />
-                  Restock Part: {selectedPart.name}
+                  Restock Part: {selectedPart.Partname}
                 </h3>
                 
                 <div className="mb-4">
@@ -353,12 +355,25 @@ const SparePartsInventory: React.FC = () => {
                   />
                 </div>
                 
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Unit (Must match: {selectedPart.unit})
+                  </label>
+                  <input
+                    type="text"
+                    value={restockUnit}
+                    onChange={(e) => setRestockUnit(e.target.value)}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                
                 <div className="flex justify-end space-x-3 pt-4">
                   <button
                     onClick={() => {
                       setShowRestockModal(false);
                       setSelectedPart(null);
                       setRestockQuantity(0);
+                      setRestockUnit('');
                     }}
                     className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
                   >
@@ -366,8 +381,8 @@ const SparePartsInventory: React.FC = () => {
                   </button>
                   <button
                     onClick={handleRestockPart}
-                    disabled={restockQuantity <= 0}
-                    className={`px-4 py-2 rounded-md text-sm font-medium text-white ${restockQuantity <= 0 ? 'bg-green-300 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
+                    disabled={restockQuantity <= 0 || restockUnit !== selectedPart.unit}
+                    className={`px-4 py-2 rounded-md text-sm font-medium text-white ${restockQuantity <= 0 || restockUnit !== selectedPart.unit ? 'bg-green-300 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
                   >
                     Confirm Restock
                   </button>
@@ -388,36 +403,36 @@ const SparePartsInventory: React.FC = () => {
                 </h3>
                 
                 <div className="space-y-4">
+                  {/* <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Part ID</label>
+                    <input
+                      type="text"
+                      value={newPart.PartId}
+                      onChange={(e) => setNewPart({ ...newPart, PartId: e.target.value })}
+                      placeholder="Enter part ID"
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+                    />
+                  </div> */}
+                  
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Part Name</label>
                     <input
                       type="text"
-                      value={newPart.name}
-                      onChange={(e) => setNewPart({ ...newPart, name: e.target.value })}
+                      value={newPart.Partname}
+                      onChange={(e) => setNewPart({ ...newPart, Partname: e.target.value })}
                       placeholder="Enter part name"
                       className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-purple-500 focus:border-purple-500"
                     />
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Stock ID</label>
-                    <input
-                      type="text"
-                      value={newPart.inventoryId}
-                      onChange={(e) => setNewPart({ ...newPart, inventoryId: e.target.value })}
-                      placeholder="Enter stock ID"
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-purple-500 focus:border-purple-500"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Current Stock</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Initial Stock</label>
                     <input
                       type="number"
                       min="0"
                       value={newPart.currentStock}
                       onChange={(e) => setNewPart({ ...newPart, currentStock: Number(e.target.value) })}
-                      placeholder="Enter current stock"
+                      placeholder="Enter initial stock"
                       className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-purple-500 focus:border-purple-500"
                     />
                   </div>
@@ -439,8 +454,8 @@ const SparePartsInventory: React.FC = () => {
                     onClick={() => {
                       setShowAddPartModal(false);
                       setNewPart({
-                        name: '',
-                        inventoryId: '',
+                        Partname: '',
+                        PartId: '',
                         currentStock: 0,
                         unit: ''
                       });
@@ -451,8 +466,8 @@ const SparePartsInventory: React.FC = () => {
                   </button>
                   <button
                     onClick={handleAddPart}
-                    disabled={!newPart.name.trim() || !newPart.inventoryId.trim() || !newPart.unit.trim()}
-                    className={`px-4 py-2 rounded-md text-sm font-medium text-white ${!newPart.name.trim() || !newPart.inventoryId.trim() || !newPart.unit.trim() ? 'bg-purple-300 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700'}`}
+                    disabled={!newPart.Partname.trim() || !newPart.unit.trim() }
+                    className={`px-4 py-2 rounded-md text-sm font-medium text-white ${!newPart.Partname.trim() || !newPart.unit.trim() ? 'bg-purple-300 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700'}`}
                   >
                     Add Part
                   </button>
