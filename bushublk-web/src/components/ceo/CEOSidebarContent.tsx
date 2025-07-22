@@ -64,7 +64,7 @@ const CEOSidebarContent = () => {
       </NavLink>
 
       <NavLink
-        to="/ceo/depot-network"
+        to="/ceo/depot-overview"
         className={({ isActive }) =>
           `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
             ? 'bg-purple-700 text-white' 
@@ -72,7 +72,7 @@ const CEOSidebarContent = () => {
         }
       >
         <HiOfficeBuilding className="mr-3 flex-shrink-0 h-5 w-5" />
-        Depot Network
+        Depot Overview
       </NavLink>
 
       <NavLink
@@ -136,7 +136,7 @@ const CEOSidebarContent = () => {
       </NavLink>
 
       <NavLink
-        to="/ceo/compliance-governance"
+        to="/ceo/safety-compliance"
         className={({ isActive }) =>
           `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
             ? 'bg-purple-700 text-white' 
@@ -144,7 +144,7 @@ const CEOSidebarContent = () => {
         }
       >
         <HiFlag className="mr-3 flex-shrink-0 h-5 w-5" />
-        Compliance & Governance
+        Safety & Compliance
       </NavLink>
 
       <NavLink
