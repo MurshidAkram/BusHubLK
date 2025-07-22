@@ -3,8 +3,8 @@ import React from 'react';
 import {
   HiShieldCheck,
   HiExclamationCircle,
-  HiDocumentReport,
-  HiBadgeCheck,
+  HiCog,
+  HiChip,
 } from 'react-icons/hi';
 import {
   ResponsiveContainer,
@@ -21,10 +21,9 @@ import {
 // --- MOCK DATA ---
 
 // KPI values
-const totalIncidents = 42;
-const safetyScore = 91;       // out of 100
-const complianceScore = 88;   // out of 100
-const auditsCompleted = 15;   // last quarter
+const totalIncidents = 49;
+const breakdowns = 21;       // out of 100
+const accidents = 28;   // out of 100
 
 // Incident trend (last 6 months)
 const incidentTrend = [
@@ -49,8 +48,8 @@ const incidentsByRegion = [
 const recentIncidents = [
   { id: 301, date: '2025-07-15', number: 'NA-3401', depot: 'Galle', type: 'Breakdown', status: 'Resolved' },
   { id: 302, date: '2025-07-12', number: 'NE-9458', depot: 'Colombo', type: 'Accident', status: 'Under Investigation' },
-  { id: 303, date: '2025-07-10', number: 'NC-1903', depot: 'Kandy', type: 'Late Arrival', status: 'Resolved' },
-  { id: 304, date: '2025-07-08', number: 'NB-8207', depot: 'Matara', type: 'Safety Violation', status: 'Pending' },
+  { id: 303, date: '2025-07-10', number: 'NC-1903', depot: 'Kandy', type: 'Break Down', status: 'Resolved' },
+  { id: 304, date: '2025-07-08', number: 'NB-8207', depot: 'Matara', type: 'Accident', status: 'Pending' },
   { id: 305, date: '2025-07-05', number: 'ND-7004', depot: 'Gampaha', type: 'Breakdown', status: 'Resolved' },
 ];
 
@@ -62,15 +61,15 @@ const complianceCategories = [
   { name: 'Environmental Checks', pct: 88 },
 ];
 
-export default function SafetyCompliancePage() {
+export default function AccidentBreakdownPage() {
   return (
     <div className="p-6 space-y-8">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-semibold">Safety &amp; Compliance</h2>
+        <h2 className="text-2xl font-semibold">Accidents &amp; Breakdowns</h2>
         <div className="flex items-center space-x-4 text-gray-600">
           <HiShieldCheck className="h-6 w-6" />
-          <p>Overview of incidents, audits &amp; compliance</p>
+          <p>Overview of accidents &amp; breakdowns</p>
         </div>
       </div>
 
@@ -84,28 +83,18 @@ export default function SafetyCompliancePage() {
             <p className="text-xl font-bold text-gray-800">{totalIncidents}</p>
           </div>
         </div>
-        {/* Safety Score */}
         <div className="bg-white rounded-xl shadow p-6 flex items-center">
-          <HiBadgeCheck className="h-8 w-8 text-green-600 mr-4" />
+          <HiExclamationCircle className="h-8 w-8 text-red-600 mr-4" />
           <div>
-            <p className="text-sm text-gray-500">Safety Score</p>
-            <p className="text-xl font-bold text-gray-800">{safetyScore}%</p>
+            <p className="text-sm text-gray-500">Breakdowns</p>
+            <p className="text-xl font-bold text-gray-800">{breakdowns}</p>
           </div>
         </div>
-        {/* Compliance Score */}
         <div className="bg-white rounded-xl shadow p-6 flex items-center">
-          <HiShieldCheck className="h-8 w-8 text-blue-600 mr-4" />
+          <HiExclamationCircle className="h-8 w-8 text-red-600 mr-4" />
           <div>
-            <p className="text-sm text-gray-500">Compliance Score</p>
-            <p className="text-xl font-bold text-gray-800">{complianceScore}%</p>
-          </div>
-        </div>
-        {/* Audits Completed */}
-        <div className="bg-white rounded-xl shadow p-6 flex items-center">
-          <HiDocumentReport className="h-8 w-8 text-purple-600 mr-4" />
-          <div>
-            <p className="text-sm text-gray-500">Audits Completed</p>
-            <p className="text-xl font-bold text-gray-800">{auditsCompleted}</p>
+            <p className="text-sm text-gray-500">Accidents</p>
+            <p className="text-xl font-bold text-gray-800">{accidents}</p>
           </div>
         </div>
       </div>
@@ -182,26 +171,6 @@ export default function SafetyCompliancePage() {
         </div>
       </div>
 
-      {/* Compliance Progress */}
-      <div className="bg-white rounded-xl shadow p-6">
-        <h3 className="text-lg font-medium mb-4">Compliance Progress</h3>
-        <div className="space-y-4">
-          {complianceCategories.map(cat => (
-            <div key={cat.name}>
-              <div className="flex justify-between mb-1">
-                <span className="text-sm font-medium text-gray-700">{cat.name}</span>
-                <span className="text-sm font-medium text-gray-700">{cat.pct}%</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div
-                  className="bg-green-600 h-2 rounded-full"
-                  style={{ width: `${cat.pct}%` }}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }

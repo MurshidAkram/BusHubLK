@@ -4,11 +4,10 @@ import {
   HiTruck,
   HiUsers,
   HiUser,
-  HiCurrencyDollar,
   HiChevronRight,
   HiChevronDown,
 } from 'react-icons/hi';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { LineChart,Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 // …import other chart components as needed
 
 const allDepots = [
@@ -16,8 +15,8 @@ const allDepots = [
     id: 101,
     name: 'Colombo Depot',
     region: 'Western',
-    vehicles: 120,
-    revenue: 120_000_000,
+    totalFleet: 120,
+    activeFleet: 100,
     status: 'Active',
     coords: '6.9271, 79.8612',
     address: '123 Main St, Colombo',
@@ -25,40 +24,42 @@ const allDepots = [
     staffCount: 85,
     dailyPassengers: 4500,
     lastInspection: '2025-07-10',
-    efficiencyHistory: [
-      { date: 'Jan', efficiency: 88 },
-      { date: 'Feb', efficiency: 90 },
-      { date: 'Mar', efficiency: 89 },
-      { date: 'Apr', efficiency: 91 },
-      { date: 'May', efficiency: 92 },
+    ridershipHistory: [
+      { date: '2025-07-01', riders: 4000 },
+      { date: '2025-07-02', riders: 4380 },
+      { date: '2025-07-03', riders: 4500 },
+      { date: '2025-07-04', riders: 4400 },
+      { date: '2025-07-05', riders: 4550 },
     ],
   },
   {
     id: 102,
     name: 'Gampaha Depot',
     region: 'Western',
-    vehicles: 120,
+    totalFleet: 115,
+    activeFleet: 95,
     revenue: 120_000_000,
     status: 'Active',
     coords: '6.9271, 79.8612',
     address: '123 Main St, Colombo',
-    manager: 'Nimal Perera',
-    staffCount: 85,
+    manager: 'Priyantha Fernando',
+    staffCount: 65,
     dailyPassengers: 4500,
     lastInspection: '2025-07-10',
-    efficiencyHistory: [
-      { date: 'Jan', efficiency: 88 },
-      { date: 'Feb', efficiency: 90 },
-      { date: 'Mar', efficiency: 89 },
-      { date: 'Apr', efficiency: 91 },
-      { date: 'May', efficiency: 92 },
-    ],
+    ridershipHistory: [
+      { date: '2025-07-01', riders: 4200 },
+      { date: '2025-07-02', riders: 4380 },
+      { date: '2025-07-03', riders: 4500 },
+      { date: '2025-07-04', riders: 4600 },
+      { date: '2025-07-05', riders: 4450 },
+    ]
   },
   {
     id: 103,
     name: 'Kaluthara Depot',
     region: 'Western',
-    vehicles: 120,
+    totalFleet: 110,
+    activeFleet: 90,
     revenue: 120_000_000,
     status: 'Active',
     coords: '6.9271, 79.8612',
@@ -67,37 +68,76 @@ const allDepots = [
     staffCount: 85,
     dailyPassengers: 4500,
     lastInspection: '2025-07-10',
-    efficiencyHistory: [
-      { date: 'Jan', efficiency: 88 },
-      { date: 'Feb', efficiency: 90 },
-      { date: 'Mar', efficiency: 89 },
-      { date: 'Apr', efficiency: 91 },
-      { date: 'May', efficiency: 92 },
+    ridershipHistory: [
+      { date: '2025-07-01', riders: 4200 },
+      { date: '2025-07-02', riders: 4380 },
+      { date: '2025-07-03', riders: 4500 },
+      { date: '2025-07-04', riders: 4600 },
+      { date: '2025-07-05', riders: 4450 },
     ],
   },
   {
     id: 104,
     name: 'Galle Depot',
     region: 'Southern',
-    vehicles: 120,
+    totalFleet: 80,
+    activeFleet: 70,
     revenue: 120_000_000,
     status: 'Active',
     coords: '6.9271, 79.8612',
-    address: '123 Main St, Colombo',
+    address: '123 Main St, Galle',
     manager: 'Nimal Perera',
     staffCount: 85,
     dailyPassengers: 4500,
     lastInspection: '2025-07-10',
-    efficiencyHistory: [
-      { date: 'Jan', efficiency: 88 },
-      { date: 'Feb', efficiency: 90 },
-      { date: 'Mar', efficiency: 89 },
-      { date: 'Apr', efficiency: 91 },
-      { date: 'May', efficiency: 92 },
-    ],
+    ridershipHistory: [
+      { date: '2025-07-01', riders: 4200 },
+      { date: '2025-07-02', riders: 4380 },
+      { date: '2025-07-03', riders: 4500 },
+      { date: '2025-07-04', riders: 4600 },
+      { date: '2025-07-05', riders: 4450 },
+    ]
+  },
+  {
+    id: 104,
+    name: 'Kandy Depot',
+    region: 'Central',
+    totalFleet: 100,
+    activeFleet: 80,
+    revenue: 120_000_000,
+    status: 'Active',
+    coords: '6.9271, 79.8612',
+    address: '123 Main St, Galle',
+    manager: 'Nimal Perera',
+    staffCount: 85,
+    dailyPassengers: 4500,
+    lastInspection: '2025-07-10',
+    ridershipHistory: [
+      { date: '2025-07-01', riders: 2200 },
+      { date: '2025-07-02', riders: 2380 },
+      { date: '2025-07-03', riders: 2500 },
+      { date: '2025-07-04', riders: 2600 },
+      { date: '2025-07-05', riders: 2450 },
+    ]
   },
   
 ];
+
+const routeData: Record<
+  number,
+  { routeName: string; numberofbus: number; load: number; dailyRidership: number }[]
+> = {
+  101: [
+    { routeName: '120: Colombo – Horana', numberofbus: 12, load: 75, dailyRidership: 1500 },
+    { routeName: '100: Fort – Moratuwa',  numberofbus: 18, load: 68, dailyRidership: 1200 },
+    { routeName: '138: Pettah – Kottawa', numberofbus: 15, load: 80, dailyRidership: 1700 },
+  ],
+  102: [
+    { routeName: '15: Gampaha – Negombo', numberofbus: 10, load: 70, dailyRidership: 1100 },
+    { routeName: '39: Gampaha – Wattala', numberofbus: 7, load: 65, dailyRidership: 900  },
+  ],
+  // …other depot routes
+};
 
 const DepotNetworkPage: React.FC = () => {
   const [selectedId, setSelectedId] = useState<number|null>(null);
@@ -117,6 +157,7 @@ const DepotNetworkPage: React.FC = () => {
     <div className="flex h-full">
       {/* Left Pane: List */}
       <div className="w-1/3 border-r p-4 space-y-4">
+        <h2 className="text-2xl font-semibold">Depot Overview</h2>
         <input
           type="text"
           placeholder="Search..."
@@ -181,26 +222,26 @@ const DepotNetworkPage: React.FC = () => {
               <div className="p-4 bg-white shadow rounded flex items-center">
                 <HiTruck className="h-6 w-6 text-blue-600 mr-2" />
                 <div>
-                  <p className="text-xs text-gray-500">Vehicles</p>
-                  <p className="font-bold">{active.vehicles}</p>
+                  <p className="text-xs text-gray-500">Total Fleet</p>
+                  <p className="font-bold">{active.totalFleet}</p>
                 </div>
               </div>
               <div className="p-4 bg-white shadow rounded flex items-center">
-                <HiCurrencyDollar className="h-6 w-6 text-purple-600 mr-2" />
+                <HiTruck className="h-6 w-6 text-green-600 mr-2" />
                 <div>
-                  <p className="text-xs text-gray-500">Revenue</p>
-                  <p className="font-bold">Rs. {(active.revenue/1e6).toFixed(1)}M</p>
+                  <p className="text-xs text-gray-500">Active Fleet</p>
+                  <p className="font-bold">{active.activeFleet}</p>
                 </div>
               </div>
               <div className="p-4 bg-white shadow rounded flex items-center">
-                <HiUsers className="h-6 w-6 text-green-600 mr-2" />
+                <HiUsers className="h-6 w-6 text-orange-400 mr-2" />
                 <div>
                   <p className="text-xs text-gray-500">Staff Number</p>
                   <p className="font-bold">{active.staffCount}</p>
                 </div>
               </div>
               <div className="p-4 bg-white shadow rounded flex items-center">
-                <HiUser className="h-6 w-6 text-green-600 mr-2" />
+                <HiUser className="h-6 w-6 text-orange-600 mr-2" />
                 <div>
                   <p className="text-xs text-gray-500">Manager</p>
                   <p className="font-bold">{active.manager}</p>
@@ -208,25 +249,52 @@ const DepotNetworkPage: React.FC = () => {
               </div>
             </div>
 
+            <div title="Routes Overview">
+              {routeData[active.id]?.length ? (
+                <div className="overflow-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        <th className="px-4 py-2 text-left">Route</th>
+                        <th className="px-4 py-2 text-left">Number of Buses</th>
+                        <th className="px-4 py-2 text-left">Load %</th>
+                        <th className="px-4 py-2 text-left">Daily Riders</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {routeData[active.id].map((r, i) => (
+                        <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                          <td className="px-4 py-2">{r.routeName}</td>
+                          <td className="px-4 py-2">{r.numberofbus}</td>
+                          <td className="px-4 py-2">{r.load}%</td>
+                          <td className="px-4 py-2">{r.dailyRidership}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-gray-500">No route data available.</p>
+              )}
+            </div>
+
             {/* Mini-Chart Example */}
-            <div className="bg-white shadow rounded p-4 mb-6">
-              <h4 className="text-lg mb-2">Efficiency Trend</h4>
+            <div className="bg-white shadow rounded p-4 mb-6 mt-8">
+              <h4 className="text-lg mb-2">Daily Passengers</h4>
               <div className="h-48">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={active.efficiencyHistory /* array of {date, efficiency} */}
-                  >
-                    <XAxis dataKey="date" />
-                    <YAxis domain={[0,100]} />
-                    <Tooltip />
-                    <Bar dataKey="efficiency" fill="#10B981" />
-                  </BarChart>
+                  <LineChart data={active.ridershipHistory}>
+                    <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                    <YAxis />
+                    <Tooltip formatter={val => `${val} riders`} />
+                    <Line type="monotone" dataKey="riders" stroke="#3B82F6" strokeWidth={2} />
+                  </LineChart>
                 </ResponsiveContainer>
               </div>
             </div>
 
             {/* Map Embed */}
-            <div className="bg-white shadow rounded p-4">
+            <div className="mt-8 bg-white shadow rounded p-4">
               <h4 className="text-lg mb-2">Location</h4>
               <iframe
                 title="depot-map"

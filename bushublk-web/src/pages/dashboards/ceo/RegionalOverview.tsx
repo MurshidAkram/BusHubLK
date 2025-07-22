@@ -5,134 +5,136 @@ import {
   HiOfficeBuilding,
   HiCurrencyDollar,
   HiTrendingUp,
+  HiUsers,
 } from 'react-icons/hi';
 
 type Depot = {
   id: number;
   name: string;
+  staff: number;
+  effeciency: number,
   vehicles: number;
-  revenue: number;
-  efficiency: number;
 };
 
 // 1) Define your data: provinces → districts → depot arrays
 const data: Record<string, Record<string, Depot[]>> = {
   'Western Province': {
     'Colombo District': [
-      { id: 1, name: 'Colombo Depot',   vehicles: 120, revenue: 120_000_000, efficiency: 91 },
-      { id: 2, name: 'Homagama Depot',  vehicles: 80,  revenue:  90_000_000, efficiency: 88 },
-      { id: 3, name: 'Moratuwa Depot',  vehicles: 70,  revenue:  75_000_000, efficiency: 89 },
+      { id: 1, name: 'Colombo Depot',   vehicles: 120, staff: 100, effeciency:80 },
+      { id: 2, name: 'Homagama Depot',  vehicles: 80, staff: 80, effeciency:75 },
+      { id: 3, name: 'Moratuwa Depot',  vehicles: 70, staff: 70, effeciency:90},
     ],
     'Gampaha District': [
-      { id: 4, name: 'Gampaha Depot',   vehicles: 80,  revenue:  85_000_000, efficiency: 87 },
-      { id: 5, name: 'Negombo Depot',   vehicles: 60,  revenue:  65_000_000, efficiency: 82 },
+      { id: 4, name: 'Gampaha Depot',   vehicles: 70, staff: 50, effeciency:90 },
+      { id: 5, name: 'Negombo Depot',   vehicles: 65, staff: 45, effeciency:82 },
     ],
     'Kaluthara District': [
-      { id: 8, name: 'Matale Depot',     vehicles: 40, revenue:  50_000_000, efficiency: 82 },
+      { id: 8, name: 'Kaluthara Depot',  vehicles: 70, staff: 60, effeciency:90},
+      { id: 8, name: 'Panadura Depot',  vehicles: 60, staff: 50, effeciency:85},
     ],
   },
   'Central Province': {
     'Kandy District': [
-      { id: 6, name: 'Kandy North Depot', vehicles: 60, revenue:  70_000_000, efficiency: 85 },
-      { id: 7, name: 'Kandy South Depot', vehicles: 55, revenue:  60_000_000, efficiency: 83 },
+      { id: 6, name: 'Kandy North Depot', vehicles: 80, staff: 50, effeciency:75 },
+      { id: 7, name: 'Kandy South Depot', vehicles: 75, staff: 40, effeciency:70 },
     ],
     'Nuwara-Eliya District': [
-      { id: 8, name: 'Matale Depot',     vehicles: 40, revenue:  50_000_000, efficiency: 82 },
+      { id: 8, name: 'Nuwara-Eliya Depot', vehicles: 40, staff: 60, effeciency:80 },
     ],
     'Matale District': [
-      { id: 8, name: 'Matale Depot',     vehicles: 40, revenue:  50_000_000, efficiency: 82 },
+      { id: 8, name: 'Matale Depot', vehicles: 40, staff: 60, effeciency:80 },
     ],
   },
   'Southern Province': {
     'Galle District': [
-      { id: 1, name: 'Colombo Depot',   vehicles: 120, revenue: 120_000_000, efficiency: 91 },
-      { id: 2, name: 'Homagama Depot',  vehicles: 80,  revenue:  90_000_000, efficiency: 88 },
-      { id: 3, name: 'Moratuwa Depot',  vehicles: 70,  revenue:  75_000_000, efficiency: 89 },
+      { id: 1, name: 'Galle Depot',   vehicles: 120, staff: 60, effeciency:80 },
+      { id: 2, name: 'Koggala Depot',  vehicles: 80, staff: 60, effeciency:80},
+      { id: 3, name: 'Hikkadauwa Depot',  vehicles: 70, staff: 60, effeciency:80 },
     ],
     'Matara District': [
-      { id: 4, name: 'Gampaha Depot',   vehicles: 80,  revenue:  85_000_000, efficiency: 87 },
-      { id: 5, name: 'Negombo Depot',   vehicles: 60,  revenue:  65_000_000, efficiency: 82 },
+      { id: 4, name: 'Matara Depot',   vehicles: 80, staff: 60, effeciency:80 },
+      { id: 5, name: 'Weligama Depot',   vehicles: 60, staff: 60, effeciency:80 },
     ],
     'Hambantota District': [
-      { id: 8, name: 'Matale Depot',     vehicles: 40, revenue:  50_000_000, efficiency: 82 },
+      { id: 8, name: 'Tangalle Depot',     vehicles: 40, staff: 60, effeciency:80 },
     ],
   },
   'Northern Province': {
     'Jaffna District': [
-      { id: 1, name: 'Colombo Depot',   vehicles: 120, revenue: 120_000_000, efficiency: 91 },
-      { id: 2, name: 'Homagama Depot',  vehicles: 80,  revenue:  90_000_000, efficiency: 88 },
-      { id: 3, name: 'Moratuwa Depot',  vehicles: 70,  revenue:  75_000_000, efficiency: 89 },
+      { id: 1, name: 'Jaffna Depot',   vehicles: 120, staff: 60, effeciency:80 },
+      { id: 2, name: 'Kankesanthurei Depot',  vehicles: 80, staff: 60, effeciency:80},
+      { id: 3, name: 'Chavakachcheri Depot',  vehicles: 70, staff: 60, effeciency:80 },
     ],
     'Kilinochchi District': [
-      { id: 4, name: 'Gampaha Depot',   vehicles: 80,  revenue:  85_000_000, efficiency: 87 },
-      { id: 5, name: 'Negombo Depot',   vehicles: 60,  revenue:  65_000_000, efficiency: 82 },
+      { id: 4, name: 'Kilinochchi Depot',   vehicles: 80, staff: 60, effeciency:80 },
+      { id: 5, name: 'Punarin Depot',   vehicles: 60, staff: 60 , effeciency:80},
     ],
     'Vavuniya District': [
-      { id: 8, name: 'Matale Depot',     vehicles: 40, revenue:  50_000_000, efficiency: 82 },
+      { id: 8, name: 'Matale Depot',     vehicles: 40, staff: 60 , effeciency:80},
     ],
     'Mannar District': [
-      { id: 8, name: 'Matale Depot',     vehicles: 40, revenue:  50_000_000, efficiency: 82 },
+      { id: 8, name: 'Matale Depot',     vehicles: 40, staff: 60, effeciency:80 },
     ],
     'Mullativu District': [
-      { id: 8, name: 'Matale Depot',     vehicles: 40, revenue:  50_000_000, efficiency: 82 },
+      { id: 8, name: 'Matale Depot',     vehicles: 40, staff: 60, effeciency:80 },
     ],
   },
   'Eastern Province': {
     'Ampara District': [
-      { id: 1, name: 'Colombo Depot',   vehicles: 120, revenue: 120_000_000, efficiency: 91 },
-      { id: 2, name: 'Homagama Depot',  vehicles: 80,  revenue:  90_000_000, efficiency: 88 },
-      { id: 3, name: 'Moratuwa Depot',  vehicles: 70,  revenue:  75_000_000, efficiency: 89 },
+      { id: 1, name: 'Colombo Depot',   vehicles: 120, staff: 60, effeciency:80},
+      { id: 2, name: 'Homagama Depot',  vehicles: 80, staff: 60 , effeciency:80},
+      { id: 3, name: 'Moratuwa Depot',  vehicles: 70, staff: 60, effeciency:80},
     ],
     'Batticaloa District': [
-      { id: 4, name: 'Gampaha Depot',   vehicles: 80,  revenue:  85_000_000, efficiency: 87 },
-      { id: 5, name: 'Negombo Depot',   vehicles: 60,  revenue:  65_000_000, efficiency: 82 },
+      { id: 4, name: 'Gampaha Depot',   vehicles: 80, staff: 60, effeciency:80 },
+      { id: 5, name: 'Negombo Depot',   vehicles: 60, staff: 60, effeciency:80},
     ],
     'Trincomalee District': [
-      { id: 8, name: 'Matale Depot',     vehicles: 40, revenue:  50_000_000, efficiency: 82 },
+      { id: 8, name: 'Matale Depot',     vehicles: 40, staff: 60, effeciency:80 },
     ],
   },
   'North-Central Province': {
     'Anuradhapura District': [
-      { id: 1, name: 'Colombo Depot',   vehicles: 120, revenue: 120_000_000, efficiency: 91 },
-      { id: 2, name: 'Homagama Depot',  vehicles: 80,  revenue:  90_000_000, efficiency: 88 },
-      { id: 3, name: 'Moratuwa Depot',  vehicles: 70,  revenue:  75_000_000, efficiency: 89 },
+      { id: 1, name: 'Colombo Depot',   vehicles: 120, staff: 60, effeciency:80},
+      { id: 2, name: 'Homagama Depot',  vehicles: 8, staff: 600, effeciency:80 },
+      { id: 3, name: 'Moratuwa Depot',  vehicles: 70, staff: 60, effeciency:80 },
     ],
     'Polonnaruwa District': [
-      { id: 4, name: 'Gampaha Depot',   vehicles: 80,  revenue:  85_000_000, efficiency: 87 },
-      { id: 5, name: 'Negombo Depot',   vehicles: 60,  revenue:  65_000_000, efficiency: 82 },
+      { id: 4, name: 'Gampaha Depot',   vehicles: 80, staff: 60, effeciency:80 },
+      { id: 5, name: 'Negombo Depot',   vehicles: 60, staff: 60, effeciency:80},
     ],
   },
   'North-West Province': {
     'Kurunegala District': [
-      { id: 1, name: 'Colombo Depot',   vehicles: 120, revenue: 120_000_000, efficiency: 91 },
-      { id: 2, name: 'Homagama Depot',  vehicles: 80,  revenue:  90_000_000, efficiency: 88 },
-      { id: 3, name: 'Moratuwa Depot',  vehicles: 70,  revenue:  75_000_000, efficiency: 89 },
+      { id: 1, name: 'Colombo Depot',   vehicles: 120, staff: 60, effeciency:80 },
+      { id: 2, name: 'Homagama Depot',  vehicles: 80, staff: 60, effeciency:80},
+      { id: 3, name: 'Moratuwa Depot',  vehicles: 70, staff: 60, effeciency:80 },
     ],
     'Puttalam District': [
-      { id: 4, name: 'Gampaha Depot',   vehicles: 80,  revenue:  85_000_000, efficiency: 87 },
-      { id: 5, name: 'Negombo Depot',   vehicles: 60,  revenue:  65_000_000, efficiency: 82 },
+      { id: 4, name: 'Gampaha Depot',   vehicles: 80, staff: 60, effeciency:80 },
+      { id: 5, name: 'Negombo Depot',   vehicles: 60, staff: 60, effeciency:80 },
     ],
   },
   'Uva Province': {
     'Badulla District': [
-      { id: 1, name: 'Colombo Depot',   vehicles: 120, revenue: 120_000_000, efficiency: 91 },
-      { id: 2, name: 'Homagama Depot',  vehicles: 80,  revenue:  90_000_000, efficiency: 88 },
-      { id: 3, name: 'Moratuwa Depot',  vehicles: 70,  revenue:  75_000_000, efficiency: 89 },
+      { id: 1, name: 'Colombo Depot',   vehicles: 70, staff: 60, effeciency:80},
+      { id: 2, name: 'Homagama Depot',  vehicles: 80, staff: 60, effeciency:80},
+      { id: 3, name: 'Moratuwa Depot',  vehicles: 70, staff: 60, effeciency:80 },
     ],
     'Monaragala District': [
-      { id: 4, name: 'Gampaha Depot',   vehicles: 80,  revenue:  85_000_000, efficiency: 87 },
-      { id: 5, name: 'Negombo Depot',   vehicles: 60,  revenue:  65_000_000, efficiency: 82 },
+      { id: 4, name: 'Gampaha Depot',   vehicles: 80, staff: 60, effeciency:80},
+      { id: 5, name: 'Negombo Depot',   vehicles: 60, staff: 60, effeciency:80},
     ],
   },
   'Sabaragamuwa': {
     'Rathnapura District': [
-      { id: 1, name: 'Colombo Depot',   vehicles: 120, revenue: 120_000_000, efficiency: 91 },
-      { id: 2, name: 'Homagama Depot',  vehicles: 80,  revenue:  90_000_000, efficiency: 88 },
-      { id: 3, name: 'Moratuwa Depot',  vehicles: 70,  revenue:  75_000_000, efficiency: 89 },
+      { id: 1, name: 'Colombo Depot',   vehicles: 120, staff: 60, effeciency:80 },
+      { id: 2, name: 'Homagama Depot',  vehicles: 80, staff: 60, effeciency:80 },
+      { id: 3, name: 'Moratuwa Depot',  vehicles: 70, staff: 60, effeciency:80},
     ],
     'Kegalle District': [
-      { id: 4, name: 'Gampaha Depot',   vehicles: 80,  revenue:  85_000_000, efficiency: 87 },
-      { id: 5, name: 'Negombo Depot',   vehicles: 60,  revenue:  65_000_000, efficiency: 82 },
+      { id: 4, name: 'Gampaha Depot',   vehicles: 80, staff: 60, effeciency:80 },
+      { id: 5, name: 'Negombo Depot',   vehicles: 60, staff: 60, effeciency:80 },
     ],
   },
   
@@ -140,11 +142,6 @@ const data: Record<string, Record<string, Depot[]>> = {
 
 // helper lists
 const provinces = Object.keys(data);
-const formatCurrency = (amt: number) => {
-  if (amt >= 1e9)   return `Rs. ${(amt / 1e9).toFixed(1)}B`;
-  if (amt >= 1e6)   return `Rs. ${(amt / 1e6).toFixed(1)}M`;
-  return `Rs. ${amt.toLocaleString()}`;
-};
 
 const RegionalOverviewPage: React.FC = () => {
   const [activeProvince, setActiveProvince] = useState<string | null>(null);
@@ -217,25 +214,19 @@ const RegionalOverviewPage: React.FC = () => {
               className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-lg transition"
             >
               <h4 className="text-lg font-semibold mb-2">{depot.name}</h4>
-              <div className="text-sm text-gray-600 space-y-1 mb-3">
+              <div className="text-sm text-gray-600 space-y-2 mb-3">
                 <p>
                   <HiOfficeBuilding className="inline-block mr-1" />
-                  Vehicles: <span className="font-medium">{depot.vehicles}</span>
+                  Active Buses: <span className="font-medium">{depot.vehicles}</span>
                 </p>
                 <p>
-                  <HiCurrencyDollar className="inline-block mr-1" />
-                  Revenue: <span className="font-medium">{formatCurrency(depot.revenue)}</span>
+                  <HiUsers className="inline-block mr-1" />
+                  Staff: <span className="font-medium">{depot.staff}</span>
                 </p>
-              </div>
-              <div className="flex items-center">
-                <HiTrendingUp className="inline-block mr-1 text-gray-500" />
-                <span className="font-medium">{depot.efficiency}%</span>
-                {depot.efficiency < 85 && (
-                  <div className="flex items-center text-red-600 ml-2">
-                    <HiExclamationCircle className="h-4 w-4 mr-1" />
-                    <span className="text-xs">Low Efficiency</span>
-                  </div>
-                )}
+                <p>
+                  <HiTrendingUp className="inline-block mr-1" />
+                  Fleet Effeciency: <span className="font-medium">{depot.effeciency}%</span>
+                </p>
               </div>
             </div>
           ))}
