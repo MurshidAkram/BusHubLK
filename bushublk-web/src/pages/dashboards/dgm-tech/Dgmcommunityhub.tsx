@@ -11,13 +11,13 @@ interface Message {
   date: string;
 }
 
-const RegionCommunityHub = () => {
+const DgmCommunityHub = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 1,
       type: 'Received',
-      from: 'depot manager',
-      to: 'Regional Technical Officer',
+      from: 'CEO',
+      to: 'DGM technical',
       title: 'Technical Inspection Scheduled',
       message: 'Please prepare all buses for the quarterly technical inspection on July 15th.',
       date: '2025-07-03',
@@ -25,8 +25,8 @@ const RegionCommunityHub = () => {
     {
       id: 23,
       type: 'Sent',
-      from: 'Regional Technical Officer',
-      to: 'dgmtechnical',
+      from: 'DGM technical',
+      to: 'CEO',
       title: 'Spare Parts Request',
       message: 'Requesting approval for purchase of spare parts for bus maintenance.',
       date: '2025-07-02',
@@ -42,9 +42,9 @@ const RegionCommunityHub = () => {
   const [showForm, setShowForm] = useState(false);
 
   const recipientOptions = [
-    'depotmanager',
-    'depotengineer', 
-    'dgmtechnical'
+
+    'Regional technical officer', 
+    'ceo'
   ];
 
   const formatRecipientName = (recipient: string) => {
@@ -52,15 +52,18 @@ const RegionCommunityHub = () => {
     return recipient
       .replace(/([A-Z])/g, ' $1')
       .replace(/^./, (str) => str.toUpperCase())
-      .replace('dgm', 'DGM ')
-      .replace('DGM  ', 'DGM ');
+      .replace('ceo', 'CEO')
+      .replace('depotmanager', 'Depot Manager')
+      .replace('depotmanager', 'Depot Manager')
+      .replace('depotengineer', 'Depot Engineer')
+      .replace('regionalmanager', 'Regional Manager');
   };
 
   const handleSend = () => {
     const newItem: Message = {
       id: Date.now(),
       type: 'Sent',
-      from: 'Depot Manager',
+      from: 'Regional Technical Officer',
       to: newMessage.to,
       title: newMessage.title,
       message: newMessage.message,
@@ -78,11 +81,11 @@ const RegionCommunityHub = () => {
         <div>
           <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
             <Megaphone className="w-8 h-8 text-blue-600" />
-            Depot Communication Hub
+         Communication Hub
           </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Central messaging system for depot communications
-          </p>
+          
+        
+          
         </div>
       </div>
 
@@ -220,8 +223,11 @@ const RegionCommunityHub = () => {
                       </span>
                     </div>
                     <div className="mt-1 text-sm text-gray-600">
-                      <p><span className="font-medium">To:</span> {formatRecipientName(item.to)}</p>
-                      <p><span className="font-medium">From:</span> {item.from}</p>
+                      {item.type === 'Sent' ? (
+                        <p><span className="font-medium">To:</span> {formatRecipientName(item.to)}</p>
+                      ) : (
+                        <p><span className="font-medium">From:</span> {item.from}</p>
+                      )}
                     </div>
                     <p className="mt-2 text-gray-700">{item.message}</p>
                   </div>
@@ -238,4 +244,4 @@ const RegionCommunityHub = () => {
   );
 };
 
-export default RegionCommunityHub;
+export default DgmCommunityHub;

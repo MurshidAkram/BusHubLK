@@ -245,7 +245,7 @@ const Busmanagement: React.FC = () => {
           <StatCard label="Active" value={fleetStats.active} color="text-green-600" />
           <StatCard label="In Service" value={fleetStats.inService} color="text-blue-600" />
           <StatCard label="Maintenance" value={fleetStats.maintenance} color="text-yellow-600" />
-          <StatCard label="Avg Fuel Eff." value={`${fleetStats.avgFuelEfficiency} km/l`} color="text-gray-600" />
+         
         </div>
 
         <div className="bg-white rounded-lg shadow-sm p-6">
@@ -317,11 +317,7 @@ const Busmanagement: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
-                  <InfoPair label="Mileage" value={`${bus.mileage?.toLocaleString() || 0} km`} />
-                  <InfoPair label="Fuel Efficiency" value={`${bus.fuelEfficiency || 0} km/l`} />
-                  <InfoPair label="Capacity" value={`${bus.capacity || 0} seats`} />
-                </div>
+                
 
                 <button
                   onClick={() => handleViewDetails(bus)}
@@ -366,7 +362,6 @@ const Busmanagement: React.FC = () => {
 
                   <DetailsSection title="Performance" data={[
                     ['Total Mileage', `${selectedBus.mileage?.toLocaleString() || 0} km`],
-                    ['Fuel Efficiency', `${selectedBus.fuelEfficiency || 0} km/l`],
                     ['Last Service', selectedBus.lastService || 'N/A'],
                     ['Next Service', selectedBus.nextService || 'N/A'],
                     ['Status', <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(selectedBus.status)}`}>{selectedBus.status}</span>],

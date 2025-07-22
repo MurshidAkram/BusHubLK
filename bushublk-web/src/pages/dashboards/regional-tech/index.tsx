@@ -56,19 +56,7 @@ const MaintenanceDashboard = () => {
             </div>
           </div>
 
-          {/* Avg Repair Time */}
-          <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-orange-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center mb-2">
-                  <FaClock className="w-5 h-5 text-orange-500 mr-2" />
-                  <span className="text-gray-600 text-sm">Avg. Repair Time</span>
-                </div>
-                <div className="text-3xl font-bold text-gray-900">4.2h</div>
-                <div className="text-orange-500 text-sm mt-1">-0.5h from last week</div>
-              </div>
-            </div>
-          </div>
+         
         </div>
 
         {/* Main Content Grid */}

@@ -96,6 +96,7 @@ import Fleetmonitor from './pages/dashboards/dgm-tech/Fleetmonitor'
 import Servicehistoryexplorer from './pages/dashboards/dgm-tech/Servicehistoryexplorer'
 import GenerateReports from './pages/dashboards/dgm-tech/GenerateReports'
 import Dgmtechnicalissue from './pages/dashboards/dgm-tech/Dgmtechnicalissue'
+import Dgmcommunityhub from './pages/dashboards/dgm-tech/Dgmcommunityhub'
 
 
 // CEO Components
@@ -103,6 +104,7 @@ import CEOSidebarContent from './components/ceo/CEOSidebarContent'
 import CEODashboard from './pages/dashboards/ceo/index'
 import DepotAndRegions from './pages/dashboards/admin/DepotAndRegions'
 import BusManagement from './pages/dashboards/admin/BusManaging'
+//import Dgmcommunityhub from './pages/dashboards/dgm-tech/Dgmcommunityhub'
 //import Dgmtechnicalissue from './pages/dashboards/dgm-tech/Dgmtechnicalissue'
 //import Rtoissuetracker from './pages/dashboards/regional-tech/Rtoissuetracker'
 //import DepotEscalateissues from './pages/dashboards/depot-engineer/DepotEscalateissues'
@@ -265,7 +267,7 @@ const App = () => {
     <Route path="Servicehistoryexplorer" element={<Servicehistoryexplorer />} />
     <Route path="GenerateReports" element={<GenerateReports />} />
     <Route path="Dgmtechnicalissue" element={<Dgmtechnicalissue />} />
-
+    <Route path="Dgmcommunityhub" element={<Dgmcommunityhub />} />
   </Route>
 </Route>
 

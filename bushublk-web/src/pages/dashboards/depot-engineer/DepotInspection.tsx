@@ -1,334 +1,262 @@
-// File: DepotInspections.jsx
 import React, { useState } from 'react';
-import { 
-  FaCalendarAlt,
-  FaShieldAlt,
-  FaFileAlt,
-  FaExclamationTriangle,
-  FaCheckCircle,
-  FaTimes,
-  FaChevronUp,
-  FaChevronDown,
-  FaInfoCircle,
-  FaSearch
-} from 'react-icons/fa';
+import { FaSearch, FaFilter, FaInfoCircle } from 'react-icons/fa';
 
-const DepotInspections = () => {
-  // Inspection data
-  const [inspections, setInspections] = useState([
-    {
-      id: 'RTO-INS-2023-101',
-      depot: 'North Depot',
-      type: 'Quarterly Fleet Technical',
-      scheduledDate: '2023-07-25',
-      dueDate: '2023-07-30',
-      status: 'Pending',
-      priority: 'High',
-      checklist: [
-        'Brake system efficiency',
-        'Emission levels',
-        'Lighting systems',
-        'Safety equipment',
-        'Vehicle documentation'
-      ],
-      rtoReference: 'RTO-CIRCULAR-2023-05'
-    },
-    {
-      id: 'RTO-INS-2023-102',
-      depot: 'Central Depot',
-      type: 'Bi-Annual Comprehensive',
-      scheduledDate: '2023-08-15',
-      dueDate: '2023-08-20',
-      status: 'Pending',
-      priority: 'Critical',
-      checklist: [
-        'Structural integrity',
-        'Engine condition',
-        'Transmission system',
-        'Electrical systems',
-        'Fuel system'
-      ],
-      rtoReference: 'RTO-MEMO-2023-12'
-    }
-  ]);
+type StatusType = 'Pending' | 'In Progress' | 'Completed' | 'Cancelled';
 
-  // UI state
-  const [detailVisible, setDetailVisible] = useState(false);
-  const [currentInspection, setCurrentInspection] = useState(null);
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
-  const [filterType, setFilterType] = useState('all');
+interface Inspection {
+  id: string;
+  depot: string;
+  type: string;
+  scheduledDate: string;
+  dueDate: string;
+  status: StatusType;
+  buses: number;
+  description: string;
+  assignedBy: string;
+}
 
-  // Sorting function
-  const requestSort = (key) => {
-    let direction = 'asc';
-    if (sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc';
-    }
-    setSortConfig({ key, direction });
-  };
+const initialInspections: Inspection[] = [
+  {
+    id: 'INS-20',
+    depot: 'North Depot',
+    type: 'Quarterly Technical',
+    scheduledDate: '2025-06-05',
+    dueDate: '2023-07-21',
+    status: 'In Progress',
+    buses: 24,
+    description: 'Full technical inspection of all buses in the depot',
+    assignedBy: 'RTO Officer '
+  },
+  {
+    id: 'INS-22',
+    depot: 'South Depot',
+    type: 'Brake System Audit',
+    scheduledDate: '2025-06-10',
+    dueDate: '2025-08-15',
+    status: 'Pending',
+    buses: 30,
+    description: 'Comprehensive brake system inspection and testing',
+    assignedBy: 'RTO Officer'
+  },
+  {
+    id: 'INS-24',
+    depot: 'East Depot',
+    type: 'Electrical Systems',
+    scheduledDate: '2025-06-15',
+    dueDate: '2025-08-20',
+    status: 'Pending',
+    buses: 28,
+    description: 'Electrical systems check including wiring and lighting',
+    assignedBy: 'RTO Officer'
+  },
+];
 
-  // Filtering function
+const getStatusBadge = (status: StatusType): string => {
+  const base = 'px-3 py-1 rounded-full text-xs font-medium';
+  switch (status) {
+    case 'Pending':
+      return `${base} bg-yellow-100 text-yellow-800`;
+    case 'In Progress':
+      return `${base} bg-blue-100 text-blue-800`;
+    case 'Completed':
+      return `${base} bg-green-100 text-green-800`;
+    case 'Cancelled':
+      return `${base} bg-red-100 text-red-800`;
+    default:
+      return `${base} bg-gray-100 text-gray-800`;
+  }
+};
+
+const DepotInspections: React.FC = () => {
+  const [inspections] = useState<Inspection[]>(initialInspections);
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [selectedInspection, setSelectedInspection] = useState<Inspection | null>(null);
+
   const filteredInspections = inspections.filter(inspection => {
-    return filterType === 'all' || inspection.type.includes(filterType);
+    const matchesSearch = inspection.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         inspection.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         inspection.assignedBy.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesStatus = statusFilter === 'all' || inspection.status === statusFilter;
+    
+    return matchesSearch && matchesStatus;
   });
-
-  // Sorted items
-  const sortedInspections = [...filteredInspections].sort((a, b) => {
-    if (sortConfig.key) {
-      if (a[sortConfig.key] < b[sortConfig.key]) {
-        return sortConfig.direction === 'asc' ? -1 : 1;
-      }
-      if (a[sortConfig.key] > b[sortConfig.key]) {
-        return sortConfig.direction === 'asc' ? 1 : -1;
-      }
-    }
-    return 0;
-  });
-
-  const showDetails = (inspection) => {
-    setCurrentInspection(inspection);
-    setDetailVisible(true);
-  };
-
-  const startPreparation = (id) => {
-    setInspections(inspections.map(item => 
-      item.id === id ? {...item, status: 'In Preparation'} : item
-    ));
-    setDetailVisible(false);
-  };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'Completed': return 'bg-green-100 text-green-800';
-      case 'Overdue': return 'bg-red-100 text-red-800';
-      case 'In Preparation': return 'bg-blue-100 text-blue-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case 'High': return 'bg-orange-100 text-orange-800';
-      case 'Critical': return 'bg-red-100 text-red-800';
-      default: return 'bg-blue-100 text-blue-800';
-    }
-  };
 
   return (
-    <div className="container mx-auto p-4">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold flex items-center">
-          <FaCalendarAlt className="mr-2" /> Depot Inspections
-        </h1>
-       
-      </div>
-
-      {/* Alert */}
-      <div className="bg-blue-100 text-blue-800 p-3 rounded-md mb-6 flex items-center">
-        <FaInfoCircle className="mr-2" />
-        These are periodic technical inspections mandated by Regional Transport Office
-      </div>
-
-      {/* Filters */}
-      <div className="bg-white rounded-md shadow-sm p-4 mb-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="relative flex-1">
-            <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search inspections..."
-              className="pl-10 pr-4 py-2 border border-gray-300 rounded-md w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          <select
-            className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value)}
-          >
-            <option value="all">All Types</option>
-            <option value="Quarterly">Quarterly</option>
-            <option value="Annual">Annual</option>
-            <option value="Comprehensive">Comprehensive</option>
-          </select>
+    <div className="p-6 bg-gray-50 min-h-screen">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-gray-800">Assigned Inspections</h1>
+          <p className="text-gray-600">View all inspections assigned to you</p>
         </div>
-      </div>
 
-      {/* Inspections Table */}
-      <div className="bg-white rounded-md shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                  onClick={() => requestSort('id')}
-                >
-                  <div className="flex items-center">
-                    Inspection ID
-                    {sortConfig.key === 'id' && (
-                      sortConfig.direction === 'asc' ? <FaChevronUp className="ml-1" /> : <FaChevronDown className="ml-1" />
-                    )}
-                  </div>
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Type
-                </th>
-                <th 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                  onClick={() => requestSort('scheduledDate')}
-                >
-                  <div className="flex items-center">
-                    Scheduled Date
-                    {sortConfig.key === 'scheduledDate' && (
-                      sortConfig.direction === 'asc' ? <FaChevronUp className="ml-1" /> : <FaChevronDown className="ml-1" />
-                    )}
-                  </div>
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Due Date
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Action
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {sortedInspections.map((inspection) => (
-                <tr key={inspection.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-                      {inspection.id}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <FaShieldAlt className="mr-2 text-blue-500" />
-                      {inspection.type}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {inspection.scheduledDate}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={new Date(inspection.dueDate) < new Date() ? 'text-red-600 font-bold' : ''}>
-                      {inspection.dueDate}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(inspection.status)}`}>
-                      {inspection.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <button
-                      onClick={() => showDetails(inspection)}
-                      className="text-blue-600 hover:text-blue-800 flex items-center"
-                    >
-                      <FaFileAlt className="mr-1" /> Prepare
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Inspection Detail Modal */}
-      {detailVisible && currentInspection && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-start mb-4">
-                <h2 className="text-xl font-bold">
-                  Inspection Preparation - {currentInspection.id}
-                </h2>
-                <button 
-                  onClick={() => setDetailVisible(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <FaTimes />
-                </button>
+        {/* Filters */}
+        <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <FaSearch className="text-gray-400" />
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <div>
-                  <h3 className="font-semibold mb-2">Inspection Details</h3>
-                  <div className="space-y-2">
-                    <p><span className="font-medium">Type:</span> {currentInspection.type}</p>
-                    <p><span className="font-medium">Depot:</span> {currentInspection.depot}</p>
-                    <p><span className="font-medium">Reference:</span> {currentInspection.rtoReference}</p>
-                  </div>
-                </div>
-                <div>
-                  <h3 className="font-semibold mb-2">Timing & Priority</h3>
-                  <div className="space-y-2">
-                    <p><span className="font-medium">Scheduled:</span> {currentInspection.scheduledDate}</p>
-                    <p>
-                      <span className="font-medium">Due Date:</span> 
-                      <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
-                        new Date(currentInspection.dueDate) < new Date() ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
-                      }`}>
-                        {currentInspection.dueDate}
-                      </span>
-                    </p>
-                    <p>
-                      <span className="font-medium">Priority:</span> 
-                      <span className={`ml-2 px-2 py-1 text-xs rounded-full ${getPriorityColor(currentInspection.priority)}`}>
-                        {currentInspection.priority}
-                      </span>
-                    </p>
-                  </div>
-                </div>
+              <input
+                type="text"
+                placeholder="Search inspections..."
+                className="pl-10 pr-4 py-2 w-full border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <FaFilter className="text-gray-400" />
               </div>
-
-              <div className="mb-6">
-                <h3 className="font-semibold mb-3 pb-2 border-b">Mandatory Checklist</h3>
-                <ul className="space-y-2">
-                  {currentInspection.checklist.map((item, index) => (
-                    <li key={index} className="flex items-start">
-                      <FaExclamationTriangle className="mt-1 mr-2 text-yellow-500 flex-shrink-0" />
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div className="mb-6">
-                <h3 className="font-semibold mb-3 pb-2 border-b">Preparation Notes</h3>
-                <div className="bg-gray-50 p-4 rounded-md border border-dashed border-gray-300">
-                  <p className="mb-2">Document all preparation activities for this inspection:</p>
-                  <ul className="list-disc pl-5 space-y-1">
-                    <li>Ensure all vehicles are available on inspection day</li>
-                    <li>Prepare maintenance records for review</li>
-                    <li>Conduct pre-inspection checks</li>
-                    <li>Coordinate with inspection officials</li>
-                  </ul>
-                </div>
-              </div>
-
-              <div className="flex justify-end space-x-3 pt-4 border-t">
-                <button
-                  onClick={() => setDetailVisible(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
-                >
-                  Close
-                </button>
-                <button
-                  onClick={() => startPreparation(currentInspection.id)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center"
-                >
-                  <FaCheckCircle className="mr-2" /> Start Preparation
-                </button>
-              </div>
+              <select
+                className="pl-10 pr-4 py-2 w-full border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <option value="all">All Statuses</option>
+                <option value="Pending">Pending</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Completed">Completed</option>
+                <option value="Cancelled">Cancelled</option>
+              </select>
             </div>
           </div>
         </div>
-      )}
+
+        {/* Inspections Table */}
+        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Inspection ID</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Scheduled Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assigned By</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Details</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredInspections.length > 0 ? (
+                  filteredInspections.map((inspection) => (
+                    <tr key={inspection.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{inspection.id}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{inspection.type}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{inspection.scheduledDate}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{inspection.dueDate}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={getStatusBadge(inspection.status)}>
+                          {inspection.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{inspection.assignedBy}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <button
+                          onClick={() => setSelectedInspection(inspection)}
+                          className="text-blue-600 hover:text-blue-900 flex items-center gap-1"
+                        >
+                          <FaInfoCircle />
+                          View
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500">
+                      No inspections found matching your criteria
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Inspection Detail Modal */}
+        {selectedInspection && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-xl font-bold text-gray-800">
+                    Inspection Details - {selectedInspection.id}
+                  </h2>
+                  <button
+                    onClick={() => setSelectedInspection(null)}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500">Depot</h3>
+                      <p className="mt-1 text-gray-900">{selectedInspection.depot}</p>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500">Inspection Type</h3>
+                      <p className="mt-1 text-gray-900">{selectedInspection.type}</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500">Scheduled Date</h3>
+                      <p className="mt-1 text-gray-900">{selectedInspection.scheduledDate}</p>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500">Due Date</h3>
+                      <p className="mt-1 text-gray-900">{selectedInspection.dueDate}</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500">Status</h3>
+                      <span className={getStatusBadge(selectedInspection.status)}>
+                        {selectedInspection.status}
+                      </span>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500">Number of Buses</h3>
+                      <p className="mt-1 text-gray-900">{selectedInspection.buses}</p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">Assigned By</h3>
+                    <p className="mt-1 text-gray-900">{selectedInspection.assignedBy}</p>
+                  </div>
+
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">Description</h3>
+                    <p className="mt-1 text-gray-900 whitespace-pre-line">{selectedInspection.description}</p>
+                  </div>
+
+                  <div className="pt-4 border-t">
+                    <button
+                      onClick={() => setSelectedInspection(null)}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
