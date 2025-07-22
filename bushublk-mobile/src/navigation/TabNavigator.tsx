@@ -5,10 +5,10 @@ import Icon from "react-native-vector-icons/Ionicons";
 
 // Import your screens
 import HomeScreen from "../screens/HomeScreen";
-import LocationScreen from "../screens/BusTrackerScreen";
+import LocationScreen from "../screens/BusTrackingScreen";
 import ProfileScreen from "../screens/ProfileScreen";
 import SettingsScreen from "../screens/SettingsScreen";
-import BusTrackingScreen from "../screens/BusTrackerScreen";
+import BusTrackingScreen from "../screens/BusTrackingScreen";
 
 const Tab = createBottomTabNavigator();
 
