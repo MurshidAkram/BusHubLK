@@ -17,6 +17,8 @@ import MapView, { Marker, PROVIDER_GOOGLE, Circle } from 'react-native-maps';
 import { StackScreenProps } from '@react-navigation/stack';
 import * as Location from 'expo-location';
 import { HomeStackParamList } from '../navigation/navigationTypes';
+import { busLiveTrackingAPI } from '../services/busLiveTrackingAPI';
+import { API_BASE_URL } from '../config/api';
 
 type Props = StackScreenProps<HomeStackParamList, 'BusTracking'>;
 
@@ -37,14 +39,14 @@ interface BusLocation {
   busId: string;
   registrationNumber: string;
   routeNumber: string | null;
-  status: 'Active' | 'In Service' | 'Maintenance' | 'Out of Service' | 'Retired';
+  status: 'active' | 'inactive' | 'break' | 'offline';
   latitude: number;
   longitude: number;
   lastUpdated: Date;
   passengerCount: number;
-  capacity: number;
   occupancyLevel: string;
   confidence: number;
+  distanceKm: number;
 }
 
 interface BusRoute {
@@ -75,6 +77,7 @@ export default function BusTrackingScreen({ navigation }: Props) {
   });
 
   const mapRef = useRef<MapView>(null);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Request location permission
   const requestLocationPermission = async () => {
@@ -101,7 +104,7 @@ export default function BusTrackingScreen({ navigation }: Props) {
         distanceInterval: 10,
       });
       const { latitude, longitude } = location.coords;
-      console.log('User location:', { latitude, longitude }); // Debug
+      console.log('User location:', { latitude, longitude });
       setUserLocation({ latitude, longitude });
       setMapRegion({
         latitude,
@@ -119,89 +122,91 @@ export default function BusTrackingScreen({ navigation }: Props) {
     }
   };
 
-  // Calculate distance (in kilometers)
-  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-    const R = 6371; // Earth's radius in km
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-      Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  };
-
-  // Fetch routes
-  const fetchRoutes = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch('http://your-server:port/api/bus-tracking/routes'); // Update URL
-      const data = await response.json();
-      console.log('Fetched routes:', data); // Debug
-      setRoutes(data.map((item: any) => ({
-        routeNumber: item.route_number,
-        routeName: item.route_name,
-        startLocation: item.start_location,
-        endLocation: item.end_location,
-        activeBuses: item.active_buses || 0,
-        totalBuses: item.total_buses || 0,
-      })));
-    } catch (err) {
-      console.error('Error fetching routes:', err);
-      setError('Failed to fetch routes');
-    } finally {
-      setLoading(false);
+  
+const fetchRoutes = async () => {
+  try {
+    setLoading(true);
+    const response = await fetch(`${API_BASE_URL}/api/bus-tracking/routes`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
     }
-  };
+    const data = await response.json();
+    console.log('Fetched routes:', data);
+    setRoutes(data.map((item: any) => ({
+      routeNumber: item.route_number,
+      routeName: item.route_name,
+      startLocation: item.start_location,
+      endLocation: item.end_location,
+      activeBuses: item.active_buses || 0,
+      totalBuses: item.total_buses || 0,
+    })));
+  } catch (err: any) {
+    console.error('Error fetching routes:', err.message);
+    setError(`Failed to fetch routes: ${err.message}`);
+  } finally {
+    setLoading(false);
+  }
+};
 
-  // Fetch bus locations
+
+  // Fetch nearby buses from bus_live_tracking
   const fetchBusLocations = async () => {
+    if (!userLocation) return;
     try {
       setLoading(true);
-      const response = await fetch('http://your-server:port/api/bus-tracking'); // Update URL
-      const data = await response.json();
-      console.log('Fetched buses:', data); // Debug
+      const data = await busLiveTrackingAPI.getNearbyBuses(userLocation.latitude, userLocation.longitude, 5);
+      console.log('Fetched nearby buses:', data);
       setBusLocations(data.map((item: any) => ({
         busId: item.bus_id,
         registrationNumber: item.registration_number,
         routeNumber: item.route_number || null,
-        status: item.status,
-        latitude: parseFloat(item.latitude || 0),
-        longitude: parseFloat(item.longitude || 0),
-        lastUpdated: new Date(item.updated_at),
+        status: item.tracking_status,
+        latitude: parseFloat(item.latitude),
+        longitude: parseFloat(item.longitude),
+        lastUpdated: new Date(item.last_update),
         passengerCount: item.passenger_count,
-        capacity: item.capacity,
         occupancyLevel: item.occupancy_level || 'Unknown',
         confidence: item.confidence || 0.0,
+        distanceKm: parseFloat(item.distance_km),
       })));
-    } catch (err) {
-      console.error('Error fetching buses:', err);
-      setError('Failed to fetch bus locations');
+    } catch (err: any) {
+      console.error('Error fetching nearby buses:', err.message, err.response?.data);
+      setError(`Failed to fetch bus locations: ${err.message}`);
     } finally {
       setLoading(false);
     }
   };
 
-  // Initialize
+  // Initialize and set up polling
   useEffect(() => {
     const init = async () => {
       const hasPermission = await requestLocationPermission();
       if (hasPermission) {
         await getUserLocation();
       }
-      await Promise.all([fetchRoutes(), fetchBusLocations()]);
+      await fetchRoutes();
+      if (userLocation) {
+        await fetchBusLocations();
+      }
     };
     init();
-  }, []);
+
+    // Start polling for bus locations
+    pollingIntervalRef.current = setInterval(() => {
+      if (userLocation) {
+        fetchBusLocations();
+      }
+    }, 30000); // Poll every 30 seconds
+
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
+  }, [userLocation]);
 
   // Filter buses
   useEffect(() => {
-    if (!userLocation) {
-      setFilteredBuses(busLocations);
-      return;
-    }
-
     let filtered = busLocations.filter(bus => {
       if (selectedRoute && bus.routeNumber !== selectedRoute) {
         return false;
@@ -209,19 +214,13 @@ export default function BusTrackingScreen({ navigation }: Props) {
       if (searchQuery) {
         return bus.routeNumber && bus.routeNumber.toLowerCase().includes(searchQuery.toLowerCase());
       }
-      const distance = calculateDistance(
-        userLocation.latitude,
-        userLocation.longitude,
-        bus.latitude,
-        bus.longitude
-      );
-      return distance <= 5 && bus.status === 'Active';
+      return bus.status === 'active';
     });
 
-    console.log('Filtered buses:', filtered); // Debug
+    console.log('Filtered buses:', filtered);
     setFilteredBuses(filtered);
 
-    if (filtered.length > 0) {
+    if (filtered.length > 0 && userLocation) {
       const latitudes = [userLocation.latitude, ...filtered.map(bus => bus.latitude)];
       const longitudes = [userLocation.longitude, ...filtered.map(bus => bus.longitude)];
       const minLat = Math.min(...latitudes);
@@ -280,11 +279,10 @@ export default function BusTrackingScreen({ navigation }: Props) {
 
   const getBusStatusColor = (status: string) => {
     switch (status) {
-      case 'Active':
-      case 'In Service': return AppColors.success;
-      case 'Maintenance': return AppColors.warning;
-      case 'Out of Service': return AppColors.danger;
-      case 'Retired': return AppColors.textSecondary;
+      case 'active': return AppColors.success;
+      case 'inactive': return AppColors.textSecondary;
+      case 'break': return AppColors.warning;
+      case 'offline': return AppColors.danger;
       default: return AppColors.textSecondary;
     }
   };
@@ -324,11 +322,8 @@ export default function BusTrackingScreen({ navigation }: Props) {
   );
 
   const renderBusItem = ({ item }: { item: BusLocation }) => {
-    const occupancy = item.passengerCount / item.capacity;
+    const occupancy = item.passengerCount / 60; // Assume capacity is 60
     const timeSinceUpdate = Math.floor((Date.now() - item.lastUpdated.getTime()) / 60000);
-    const distance = userLocation
-      ? calculateDistance(userLocation.latitude, userLocation.longitude, item.latitude, item.longitude).toFixed(2)
-      : 'N/A';
 
     return (
       <TouchableOpacity
@@ -354,13 +349,13 @@ export default function BusTrackingScreen({ navigation }: Props) {
           <View style={styles.busDetailRow}>
             <Icon name="people-outline" size={16} color={getOccupancyColor(occupancy)} />
             <Text style={[styles.busDetailText, { color: getOccupancyColor(occupancy) }]}>
-              Occupancy: {item.passengerCount}/{item.capacity} ({Math.round(occupancy * 100)}%) {item.occupancyLevel}
+              Occupancy: {item.passengerCount}/60 ({Math.round(occupancy * 100)}%) {item.occupancyLevel}
             </Text>
           </View>
           <View style={styles.busDetailRow}>
             <Icon name="pin-outline" size={16} color={AppColors.textSecondary} />
             <Text style={styles.busDetailText}>
-              Distance: {distance} km
+              Distance: {item.distanceKm.toFixed(2)} km
             </Text>
           </View>
         </View>
@@ -563,9 +558,9 @@ export default function BusTrackingScreen({ navigation }: Props) {
                   </View>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Occupancy:</Text>
-                    <Text style={[styles.detailValue, { color: getOccupancyColor(selectedBus.passengerCount / selectedBus.capacity) }]}>
-                      {selectedBus.passengerCount}/{selectedBus.capacity}
-                      ({Math.round((selectedBus.passengerCount / selectedBus.capacity) * 100)}%) {selectedBus.occupancyLevel}
+                    <Text style={[styles.detailValue, { color: getOccupancyColor(selectedBus.passengerCount / 60) }]}>
+                      {selectedBus.passengerCount}/60
+                      ({Math.round((selectedBus.passengerCount / 60) * 100)}%) {selectedBus.occupancyLevel}
                     </Text>
                   </View>
                   <View style={styles.detailRow}>
@@ -575,9 +570,7 @@ export default function BusTrackingScreen({ navigation }: Props) {
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Distance:</Text>
                     <Text style={styles.detailValue}>
-                      {userLocation
-                        ? `${calculateDistance(userLocation.latitude, userLocation.longitude, selectedBus.latitude, selectedBus.longitude).toFixed(2)} km`
-                        : 'N/A'}
+                      {selectedBus.distanceKm.toFixed(2)} km
                     </Text>
                   </View>
                 </View>

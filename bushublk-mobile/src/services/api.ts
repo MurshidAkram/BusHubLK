@@ -1,6 +1,7 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_BASE_URL } from '../config/api';
+import { busLiveTrackingAPI } from '../services/busLiveTrackingAPI';
 
 // Create axios instance
 const api = axios.create({
@@ -34,9 +35,7 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response?.status === 401) {
-      // Token expired or invalid, clear storage
       await AsyncStorage.multiRemove(['authToken', 'userData']);
-      // You might want to redirect to login screen here
     }
     return Promise.reject(error);
   }
@@ -78,6 +77,7 @@ export const authAPI = {
     const response = await api.put('/passengers/profile', userData);
     return response.data;
   },
+
   logout: async () => {
     try {
       await storageAPI.clearStorage();
@@ -88,7 +88,6 @@ export const authAPI = {
     }
   },
 
-
   // Delete passenger account
   deletePassengerAccount: async () => {
     const response = await api.delete('/passengers/account');
@@ -96,7 +95,7 @@ export const authAPI = {
   },
 };
 
-// Additional API functions similar to driver-app pattern
+// Additional API functions
 export const submitLostAndFoundReport = async (reportData: any) => {
   const response = await fetch(`${API_BASE_URL}/lost-and-found`, {
     method: 'POST',
@@ -195,5 +194,7 @@ export const storageAPI = {
     }
   },
 };
+
+export { busLiveTrackingAPI, API_BASE_URL };
 
 export default api;

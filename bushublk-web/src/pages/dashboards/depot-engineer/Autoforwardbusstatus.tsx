@@ -1,19 +1,20 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
-  FaBell, 
   FaSearch, 
   FaCheckCircle, 
   FaExclamationTriangle, 
   FaBus, 
-  FaUser, 
   FaCheck,
   FaClock,
-  FaFilter
+  FaFilter,
+  FaTools
 } from 'react-icons/fa';
 
 interface Report {
-  id: number;
-  busId: string;
+  id: string;
+  busNum: string;
+  driverId: string;
   driverName: string;
   priority: 'Low' | 'Medium' | 'High';
   busStatus: 'Good' | 'Minor Issue' | 'Major Issue' | 'Out of Service';
@@ -23,6 +24,7 @@ interface Report {
 }
 
 const Autoforwardbusstatus = () => {
+  const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
@@ -31,42 +33,35 @@ const Autoforwardbusstatus = () => {
 
   const [reports, setReports] = useState<Report[]>([
     {
-      id: 1,
-      busId: 'BUS-001',
+      id: "1",
+      busNum: 'NC-1234',
+      driverId: '2',
       driverName: 'Nimal',
-      priority: 'Medium',
-      busStatus: 'Minor Issue',
+      priority: 'High',
+      busStatus: 'Major Issue',
       issueDescription: 'Engine making unusual noise during acceleration',
       reviewed: false,
       reportedAt: '2023-06-15T08:30:00'
     },
     {
-      id: 2,
-      busId: 'BUS-012',
+      id: "2",
+      busNum: 'NP-3456',
+      driverId: '4',
       driverName: 'Venukaran',
-      priority: 'High',
-      busStatus: 'Major Issue',
-      issueDescription: 'Brake pedal feels soft, might need fluid check',
-      reviewed: true,
-      reportedAt: '2023-06-15T09:45:00'
+      priority: 'Medium',
+      busStatus: 'Minor Issue',
+      issueDescription: 'Head lights not working',
+      reviewed: false,
+      reportedAt: '2023-06-15T11:20:00'
     },
     {
-      id: 3,
-      busId: 'BUS-025',
+      id: "3",
+      busNum: 'LA-9801',
+      driverId: '6',
       driverName: 'Loganathan',
       priority: 'Low',
       busStatus: 'Good',
-      issueDescription: 'Air conditioning not working properly',
-      reviewed: true,
-      reportedAt: '2023-06-15T10:15:00'
-    },
-    {
-      id: 4,
-      busId: 'BUS-008',
-      driverName: 'Sankar',
-      priority: 'High',
-      busStatus: 'Out of Service',
-      issueDescription: 'head lights did not working',
+      issueDescription: 'No issues reported',
       reviewed: false,
       reportedAt: '2023-06-15T11:20:00'
     }
@@ -105,27 +100,22 @@ const Autoforwardbusstatus = () => {
                          report.busStatus.toLowerCase() === statusFilter.toLowerCase();
     const matchesPriority = priorityFilter === 'all' || 
                            report.priority.toLowerCase() === priorityFilter.toLowerCase();
-    const matchesSearch = report.busId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const matchesSearch = report.busNum.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         report.driverId.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          report.driverName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          report.issueDescription.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesStatus && matchesPriority && matchesSearch;
   });
 
-  const markAsReviewed = (reportId: number) => {
+  const markAsReviewed = (reportId: string) => {
     setReports(reports.map(report => 
       report.id === reportId ? { ...report, reviewed: true } : report
     ));
   };
 
-  const markAsUnreviewed = (reportId: number) => {
+  const markAsUnreviewed = (reportId: string) => {
     setReports(reports.map(report => 
       report.id === reportId ? { ...report, reviewed: false } : report
-    ));
-  };
-
-  const markAllAsReviewed = () => {
-    setReports(reports.map(report => 
-      !report.reviewed ? { ...report, reviewed: true } : report
     ));
   };
 
@@ -140,6 +130,15 @@ const Autoforwardbusstatus = () => {
   const closeModal = () => {
     setIsModalOpen(false);
     setSelectedReport(null);
+  };
+
+  const handleUpdateStatus = () => {
+    navigate('/depot-engineer/Busavailability', { 
+      state: { 
+        busId: selectedReport?.busNum,
+        currentStatus: selectedReport?.busStatus
+      } 
+    });
   };
 
   // Statistics
@@ -161,7 +160,6 @@ const Autoforwardbusstatus = () => {
               <h1 className="text-2xl font-bold text-gray-800">Bus Status Reports</h1>
             </div>
           </div>
-         
         </div>
       </div>
 
@@ -268,8 +266,8 @@ const Autoforwardbusstatus = () => {
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bus ID</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Driver</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bus Number</th>
+                {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reported By</th> */}
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reported At</th>
@@ -284,11 +282,11 @@ const Autoforwardbusstatus = () => {
                     className={`hover:bg-gray-50 ${!report.reviewed ? 'bg-blue-50' : ''}`}
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="font-medium text-gray-900">{report.busId}</div>
+                      <div className="font-medium text-gray-900">{report.busNum}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-gray-900">{report.driverName}</div>
-                    </td>
+                    {/* <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-gray-900">{report.driverId}</div>
+                    </td> */}
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getPriorityColor(report.priority)}`}>
                         {report.priority}
@@ -355,7 +353,7 @@ const Autoforwardbusstatus = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <h3 className="text-sm font-medium text-gray-500">Bus ID</h3>
-                    <p className="mt-1 text-gray-900">{selectedReport.busId}</p>
+                    <p className="mt-1 text-gray-900">{selectedReport.busNum}</p>
                   </div>
                   <div>
                     <h3 className="text-sm font-medium text-gray-500">Driver</h3>
@@ -388,29 +386,21 @@ const Autoforwardbusstatus = () => {
                   <p className="mt-1 text-gray-900 whitespace-pre-line">{selectedReport.issueDescription}</p>
                 </div>
 
-                <div className="pt-4 border-t border-gray-200">
-                  <div className="flex justify-end space-x-3">
-                    {selectedReport.reviewed ? (
-                      <button
-                        onClick={() => {
-                          markAsUnreviewed(selectedReport.id);
-                          closeModal();
-                        }}
-                        className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg transition-colors"
-                      >
-                        Mark as Unreviewed
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => {
-                          markAsReviewed(selectedReport.id);
-                          closeModal();
-                        }}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-                      >
-                        Mark as Reviewed
-                      </button>
-                    )}
+                <div className="pt-4 border-t">
+                  <div className="flex flex-col sm:flex-row justify-end gap-3">
+                    <button
+                      onClick={closeModal}
+                      className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      Close
+                    </button>
+                    <button
+                      onClick={handleUpdateStatus}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <FaTools size={14} />
+                      <span>Update Status</span>
+                    </button>
                   </div>
                 </div>
               </div>

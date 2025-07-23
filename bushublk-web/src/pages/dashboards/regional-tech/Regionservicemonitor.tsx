@@ -3,7 +3,7 @@ import { FaSearch, FaEye, FaChevronDown, FaTimes } from 'react-icons/fa';
 
 interface DepotData {
   depot: string;
-  working: number;
+  Active: number;
   underRepair: number;
   breakdown: number;
   lastInspection: string;
@@ -12,28 +12,28 @@ interface DepotData {
 const initialData: DepotData[] = [
   {
     depot: 'Galle',
-    working: 35,
+    Active: 35,
     underRepair: 2,
     breakdown: 1,
     lastInspection: '2025-07-01'
   },
   {
     depot: 'Kandy',
-    working: 40,
+    Active: 40,
     underRepair: 0,
     breakdown: 3,
     lastInspection: '2025-07-03'
   },
   {
     depot: 'Colombo',
-    working: 52,
+    Active: 52,
     underRepair: 5,
     breakdown: 2,
     lastInspection: '2025-06-28'
   },
   {
     depot: 'Matara',
-    working: 28,
+    Active: 28,
     underRepair: 3,
     breakdown: 0,
     lastInspection: '2025-06-30'
@@ -110,7 +110,7 @@ const Regionservicemonitor: React.FC = () => {
                   Depot
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Working
+                Active
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Under Repair
@@ -135,7 +135,7 @@ const Regionservicemonitor: React.FC = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{item.working}</div>
+                    <div className="text-sm text-gray-900">{item.Active}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">{item.underRepair}</div>
@@ -180,7 +180,7 @@ const Regionservicemonitor: React.FC = () => {
             <div className="flex space-x-6">
               <span>
                 Total Working: <span className="font-medium text-green-600">
-                  {filteredData.reduce((sum, item) => sum + item.working, 0)}
+                  {filteredData.reduce((sum, item) => sum + item.Active, 0)}
                 </span>
               </span>
               <span>
@@ -217,7 +217,7 @@ const Regionservicemonitor: React.FC = () => {
               <div className="space-y-4">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Working Vehicles:</span>
-                  <span className="font-medium">{selectedDetail.working}</span>
+                  <span className="font-medium">{selectedDetail.Active}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Under Repair:</span>
@@ -234,7 +234,7 @@ const Regionservicemonitor: React.FC = () => {
                 <div className="flex justify-between">
                   <span className="text-gray-600">Total Vehicles:</span>
                   <span className="font-medium text-blue-600">
-                    {selectedDetail.working + selectedDetail.underRepair + selectedDetail.breakdown}
+                    {selectedDetail.Active + selectedDetail.underRepair + selectedDetail.breakdown}
                   </span>
                 </div>
               </div>
