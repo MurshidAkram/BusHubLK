@@ -73,10 +73,24 @@ const getAssignmentByDriver = async (req, res) => {
   }
 };
 
+// Get multiple assignments for a driver (upcoming schedules)
+const getUpcomingAssignmentsByDriver = async (req, res) => {
+  const { driver_id } = req.params;
+  const { days = 7 } = req.query; // Default to 7 days
+  try {
+    const assignments = await DailyAssignment.getUpcomingByDriverId(driver_id, days);
+    res.json(assignments);
+  } catch (err) {
+    console.error('Get upcoming assignments by driver error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
 module.exports = {
   getAssignmentsByDepot,
   createAssignment,
   updateAssignment,
   deleteAssignment,
-  getAssignmentByDriver
+  getAssignmentByDriver,
+  getUpcomingAssignmentsByDriver
 };

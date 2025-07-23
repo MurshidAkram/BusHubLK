@@ -1010,8 +1010,8 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
             </View>
             
             <Text style={styles.itemTitle}>
-              {report.item_category.charAt(0).toUpperCase() + report.item_category.slice(1)} - {report.item_description.substring(0, 50)}
-              {report.item_description.length > 50 ? '...' : ''}
+              {report.item_category ? (report.item_category.charAt(0).toUpperCase() + report.item_category.slice(1)) : 'UNKNOWN'} - {report.item_description ? report.item_description.substring(0, 50) : 'No description'}
+              {report.item_description && report.item_description.length > 50 ? '...' : ''}
             </Text>
             <Text style={styles.itemDescription}>
               {report.item_description}
@@ -1139,8 +1139,8 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
             </View>
             
             <Text style={styles.itemTitle}>
-              {report.item_category.charAt(0).toUpperCase() + report.item_category.slice(1)} - {report.item_description.substring(0, 50)}
-              {report.item_description.length > 50 ? '...' : ''}
+              {report.item_category ? (report.item_category.charAt(0).toUpperCase() + report.item_category.slice(1)) : 'UNKNOWN'} - {report.item_description ? report.item_description.substring(0, 50) : 'No description'}
+              {report.item_description && report.item_description.length > 50 ? '...' : ''}
             </Text>
             <Text style={styles.itemDescription}>
               {report.item_description}

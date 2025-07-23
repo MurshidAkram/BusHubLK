@@ -123,6 +123,19 @@ export const driverAPI = {
     return response.json();
   },
 
+  // Get driver's upcoming assignments for schedule view
+  getUpcomingAssignments: async (driverId: string, days: number = 7) => {
+    const token = await storageAPI.getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/dailyassignment/driver/${driverId}/upcoming?days=${days}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.json();
+  },
+
   // Send location update to live tracking system
   sendLocationUpdate: async (locationData: {
     latitude: number;
@@ -340,10 +353,10 @@ export const submitEmergencyReport = async (reportData: any) => {
   return response.json();
 };
 
-// Update the fetchBuses function
+// Update the fetchBuses function to use driver-specific endpoint
 export const fetchBuses = async () => {
   const token = await storageAPI.getAuthToken();
-  const response = await fetch(`${API_BASE_URL}/buses`, {
+  const response = await fetch(`${API_BASE_URL}/driver/buses`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -355,7 +368,10 @@ export const fetchBuses = async () => {
     throw new Error(`HTTP error! status: ${response.status}`);
   }
 
-  return response.json();
+  const result = await response.json();
+  
+  // Return the data array from the response
+  return result.data || [];
 };
 
 // Update the submitConditionReport function
@@ -427,5 +443,127 @@ export const busLiveTrackingAPI = {
       }
     );
     return response.json();
+  },
+};
+
+// ===============================================
+// BUS CONDITION REPORTS API
+// ===============================================
+
+export const conditionReportAPI = {
+  // Submit a new condition report
+  submitReport: async (reportData: any) => {
+    const token = await storageAPI.getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/bus-condition-reports`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(reportData),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const result = await response.json();
+    return result.data || result;
+  },
+
+  // Get all condition reports for a specific bus
+  getReportsByBusId: async (busId: string) => {
+    const token = await storageAPI.getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/bus-condition-reports/bus/${busId}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const result = await response.json();
+    return result.data || result;
+  },
+
+  // Get all condition reports by current driver
+  getMyReports: async (driverId: string) => {
+    const token = await storageAPI.getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/bus-condition-reports/driver/${driverId}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const result = await response.json();
+    return result.data || result;
+  },
+
+  // Get a specific condition report by ID
+  getReportById: async (reportId: string) => {
+    const token = await storageAPI.getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/bus-condition-reports/${reportId}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const result = await response.json();
+    return result.data || result;
+  },
+
+  // Update an existing condition report
+  updateReport: async (reportId: string, updateData: any) => {
+    const token = await storageAPI.getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/bus-condition-reports/${reportId}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(updateData),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const result = await response.json();
+    return result.data || result;
+  },
+
+  // Delete a condition report
+  deleteReport: async (reportId: string) => {
+    const token = await storageAPI.getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/bus-condition-reports/${reportId}`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const result = await response.json();
+    return result.data || result;
   },
 };

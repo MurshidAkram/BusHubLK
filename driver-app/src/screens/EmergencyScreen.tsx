@@ -172,14 +172,14 @@ const EmergencyScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: '#111827', // Dark background
+        backgroundColor: '#fff', // Dark background
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
         padding: 16,
-        backgroundColor: '#1f2937',
+        backgroundColor: '#1c5bb4ff',
         paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 16,
     },
     backButton: {
@@ -197,7 +197,7 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: 18,
         fontWeight: '600',
-        color: '#d1d5db',
+        color: '#000',
         marginBottom: 16,
     },
     incidentGrid: {
@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
     },
     incidentButton: {
         width: '48%',
-        backgroundColor: '#374151',
+        backgroundColor: '#adc6eeff',
         borderRadius: 12,
         padding: 16,
         alignItems: 'center',
@@ -222,7 +222,7 @@ const styles = StyleSheet.create({
     },
     incidentButtonText: {
         marginTop: 8,
-        color: '#f3f4f6',
+        color: '#020a1bff',
         fontWeight: '600',
         fontSize: 14,
     },
@@ -230,7 +230,7 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
     },
     input: {
-        backgroundColor: '#1f2937',
+        backgroundColor: '#b2caedff',
         color: '#FFFFFF',
         borderRadius: 12,
         padding: 16,
