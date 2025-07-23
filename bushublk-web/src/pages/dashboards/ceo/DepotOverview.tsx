@@ -13,7 +13,7 @@ import { LineChart,Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'rech
 const allDepots = [
   {
     id: 101,
-    name: 'Colombo Depot',
+    name: 'Colombo Central Depot',
     region: 'Western',
     totalFleet: 120,
     activeFleet: 100,

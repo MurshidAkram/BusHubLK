@@ -3,6 +3,7 @@
     "@react-navigation/bottom-tabs": "^7.4.2",
     "@react-navigation/native": "^7.1.14",
     "@react-navigation/stack": "^7.4.2",
+    "axios": "^1.10.0",
     "chart.js": "^4.5.0",
     "chartjs-adapter-date-fns": "^3.0.0",
     "lucide-react": "^0.525.0",
