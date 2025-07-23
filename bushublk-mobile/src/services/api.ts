@@ -56,25 +56,25 @@ export const authAPI = {
     emergency_contact_name?: string;
     emergency_contact_phone?: string;
   }) => {
-    const response = await api.post('/passengers/register', userData);
+    const response = await api.post('/api/passengers/register', userData);
     return response.data;
   },
 
   // Passenger login
   loginPassenger: async (credentials: { email: string; password: string }) => {
-    const response = await api.post('/passengers/login', credentials);
+    const response = await api.post('/api/passengers/login', credentials);
     return response.data;
   },
 
   // Get passenger profile
   getPassengerProfile: async () => {
-    const response = await api.get('/passengers/profile');
+    const response = await api.get('/api/passengers/profile');
     return response.data;
   },
 
   // Update passenger profile
   updatePassengerProfile: async (userData: any) => {
-    const response = await api.put('/passengers/profile', userData);
+    const response = await api.put('/api/passengers/profile', userData);
     return response.data;
   },
 
@@ -90,14 +90,14 @@ export const authAPI = {
 
   // Delete passenger account
   deletePassengerAccount: async () => {
-    const response = await api.delete('/passengers/account');
+    const response = await api.delete('/api/passengers/account');
     return response.data;
   },
 };
 
 // Additional API functions
 export const submitLostAndFoundReport = async (reportData: any) => {
-  const response = await fetch(`${API_BASE_URL}/lost-and-found`, {
+  const response = await fetch(`${API_BASE_URL}/api/lost-found`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -108,7 +108,7 @@ export const submitLostAndFoundReport = async (reportData: any) => {
 };
 
 export const submitEmergencyReport = async (reportData: any) => {
-  const response = await fetch(`${API_BASE_URL}/emergency-report`, {
+  const response = await fetch(`${API_BASE_URL}/api/emergency-report`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -119,7 +119,7 @@ export const submitEmergencyReport = async (reportData: any) => {
 };
 
 export const submitComplaintReport = async (reportData: any) => {
-  const response = await fetch(`${API_BASE_URL}/complaint-report`, {
+  const response = await fetch(`${API_BASE_URL}/api/complaint-report`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   StyleSheet,
   View,
@@ -61,7 +61,6 @@ interface BusRoute {
 export default function BusTrackingScreen({ navigation }: Props) {
   const [selectedRoute, setSelectedRoute] = useState<string | null>(null);
   const [busLocations, setBusLocations] = useState<BusLocation[]>([]);
-  const [filteredBuses, setFilteredBuses] = useState<BusLocation[]>([]);
   const [routes, setRoutes] = useState<BusRoute[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
@@ -153,7 +152,10 @@ const fetchRoutes = async () => {
   const fetchBusLocations = async () => {
     if (!userLocation) return;
     try {
-      setLoading(true);
+      // Only show loading on first fetch, not on polling updates
+      if (busLocations.length === 0) {
+        setLoading(true);
+      }
       const data = await busLiveTrackingAPI.getNearbyBuses(userLocation.latitude, userLocation.longitude, 5);
       console.log('Fetched nearby buses:', data);
       setBusLocations(data.map((item: any) => ({
@@ -163,17 +165,19 @@ const fetchRoutes = async () => {
         status: item.tracking_status,
         latitude: parseFloat(item.latitude),
         longitude: parseFloat(item.longitude),
-        lastUpdated: new Date(item.last_update),
+        lastUpdated: new Date(item.updated_at), // Fixed: use updated_at instead of last_update
         passengerCount: item.passenger_count,
         occupancyLevel: item.occupancy_level || 'Unknown',
         confidence: item.confidence || 0.0,
-        distanceKm: parseFloat(item.distance_km),
+        distanceKm: parseFloat(item.distance), // Fixed: use distance instead of distance_km
       })));
     } catch (err: any) {
       console.error('Error fetching nearby buses:', err.message, err.response?.data);
       setError(`Failed to fetch bus locations: ${err.message}`);
     } finally {
-      setLoading(false);
+      if (busLocations.length === 0) {
+        setLoading(false);
+      }
     }
   };
 
@@ -185,17 +189,30 @@ const fetchRoutes = async () => {
         await getUserLocation();
       }
       await fetchRoutes();
-      if (userLocation) {
-        await fetchBusLocations();
-      }
     };
     init();
 
-    // Start polling for bus locations
-    pollingIntervalRef.current = setInterval(() => {
-      if (userLocation) {
-        fetchBusLocations();
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
       }
+    };
+  }, []); // Remove userLocation dependency to prevent multiple initializations
+
+  // Separate effect for handling location-dependent bus fetching
+  useEffect(() => {
+    if (!userLocation) return;
+
+    // Initial fetch when location is available
+    fetchBusLocations();
+
+    // Start polling for bus locations
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+    }
+    
+    pollingIntervalRef.current = setInterval(() => {
+      fetchBusLocations();
     }, 30000); // Poll every 30 seconds
 
     return () => {
@@ -205,8 +222,8 @@ const fetchRoutes = async () => {
     };
   }, [userLocation]);
 
-  // Filter buses
-  useEffect(() => {
+  // Filter buses using useMemo to prevent unnecessary re-renders
+  const filteredBuses = useMemo(() => {
     let filtered = busLocations.filter(bus => {
       if (selectedRoute && bus.routeNumber !== selectedRoute) {
         return false;
@@ -218,47 +235,11 @@ const fetchRoutes = async () => {
     });
 
     console.log('Filtered buses:', filtered);
-    setFilteredBuses(filtered);
+    return filtered;
+  }, [busLocations, selectedRoute, searchQuery]);
 
-    if (filtered.length > 0 && userLocation) {
-      const latitudes = [userLocation.latitude, ...filtered.map(bus => bus.latitude)];
-      const longitudes = [userLocation.longitude, ...filtered.map(bus => bus.longitude)];
-      const minLat = Math.min(...latitudes);
-      const maxLat = Math.max(...latitudes);
-      const minLng = Math.min(...longitudes);
-      const maxLng = Math.max(...longitudes);
-      const region = {
-        latitude: (minLat + maxLat) / 2,
-        longitude: (minLng + maxLng) / 2,
-        latitudeDelta: Math.max((maxLat - minLat) * 1.5, 0.05),
-        longitudeDelta: Math.max((maxLng - minLng) * 1.5, 0.05),
-      };
-      setMapRegion(region);
-      mapRef.current?.animateToRegion(region, 1000);
-    }
-  }, [selectedRoute, searchQuery, busLocations, userLocation]);
-
-  const selectRoute = (routeNumber: string) => {
-    setSelectedRoute(selectedRoute === routeNumber ? null : routeNumber);
-  };
-
-  const focusOnBus = (bus: BusLocation) => {
-    setSelectedBus(bus);
-    setMapRegion({
-      latitude: bus.latitude,
-      longitude: bus.longitude,
-      latitudeDelta: 0.02,
-      longitudeDelta: 0.02,
-    });
-    mapRef.current?.animateToRegion({
-      latitude: bus.latitude,
-      longitude: bus.longitude,
-      latitudeDelta: 0.02,
-      longitudeDelta: 0.02,
-    }, 1000);
-  };
-
-  const showAllBuses = () => {
+  // Update map region when filtered buses change
+  useEffect(() => {
     if (filteredBuses.length > 0 && userLocation) {
       const latitudes = [userLocation.latitude, ...filteredBuses.map(bus => bus.latitude)];
       const longitudes = [userLocation.longitude, ...filteredBuses.map(bus => bus.longitude)];
@@ -275,7 +256,42 @@ const fetchRoutes = async () => {
       setMapRegion(region);
       mapRef.current?.animateToRegion(region, 1000);
     }
-  };
+  }, [filteredBuses, userLocation]);
+
+  const selectRoute = useCallback((routeNumber: string) => {
+    setSelectedRoute(prev => prev === routeNumber ? null : routeNumber);
+  }, []);
+
+  const focusOnBus = useCallback((bus: BusLocation) => {
+    setSelectedBus(bus);
+    const region = {
+      latitude: bus.latitude,
+      longitude: bus.longitude,
+      latitudeDelta: 0.02,
+      longitudeDelta: 0.02,
+    };
+    setMapRegion(region);
+    mapRef.current?.animateToRegion(region, 1000);
+  }, []);
+
+  const showAllBuses = useCallback(() => {
+    if (filteredBuses.length > 0 && userLocation) {
+      const latitudes = [userLocation.latitude, ...filteredBuses.map(bus => bus.latitude)];
+      const longitudes = [userLocation.longitude, ...filteredBuses.map(bus => bus.longitude)];
+      const minLat = Math.min(...latitudes);
+      const maxLat = Math.max(...latitudes);
+      const minLng = Math.min(...longitudes);
+      const maxLng = Math.max(...longitudes);
+      const region = {
+        latitude: (minLat + maxLat) / 2,
+        longitude: (minLng + maxLng) / 2,
+        latitudeDelta: Math.max((maxLat - minLat) * 1.5, 0.05),
+        longitudeDelta: Math.max((maxLng - minLng) * 1.5, 0.05),
+      };
+      setMapRegion(region);
+      mapRef.current?.animateToRegion(region, 1000);
+    }
+  }, [filteredBuses, userLocation]);
 
   const getBusStatusColor = (status: string) => {
     switch (status) {

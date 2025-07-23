@@ -50,7 +50,7 @@ export default function SignupScreen({ navigation }: any) {
     setIsLoading(true);
 
     try {
-      const apiUrl = `${API_BASE_URL}/passengers/register`;
+      const apiUrl = `${API_BASE_URL}/api/passengers/register`;
       console.log("Attempting registration to:", apiUrl);
 
       // Split full name into first and last name
