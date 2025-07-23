@@ -526,7 +526,7 @@ export default function BusTrackingScreen({ navigation }: Props) {
                       styles.detailValue,
                       { color: getBusStatusColor(selectedBus.status) }
                     ]}>
-                      {selectedBus.status.toUpperCase()}
+                      {selectedBus.status ? selectedBus.status.toUpperCase() : 'UNKNOWN'}
                     </Text>
                   </View>
                   <View style={styles.detailRow}>

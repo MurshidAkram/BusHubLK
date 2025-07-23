@@ -119,17 +119,74 @@ export default function TrackingScreen({ navigation }: any) {
   const loadAssignmentData = async () => {
     try {
       if (userData?.driver_id) {
-        const response = await driverAPI.getDailyAssignment(userData.driver_id.toString());
-        if (response && !response.error) {
-          setAssignmentData(response);
+        console.log('🔍 TrackingScreen: Loading assignment for driver:', userData.driver_id);
+        
+        let response;
+        let usedUpcomingEndpoint = false;
+        
+        try {
+          // Try the upcoming assignments endpoint first (same as ScheduleScreen)
+          console.log('🔍 TrackingScreen: Trying upcoming assignments endpoint');
+          const upcomingResponse = await driverAPI.getUpcomingAssignments(userData.driver_id.toString(), 7);
+          console.log('🔍 TrackingScreen: getUpcomingAssignments response:', JSON.stringify(upcomingResponse, null, 2));
           
-          // Set assignment data in location service for live tracking
-          locationService.setCurrentAssignment({
+          if (upcomingResponse && Array.isArray(upcomingResponse) && upcomingResponse.length > 0) {
+            // Find today's assignment from the upcoming assignments
+            const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+            const todayAssignment = upcomingResponse.find(assignment => 
+              assignment.assignment_date && assignment.assignment_date.startsWith(today)
+            );
+            
+            if (todayAssignment) {
+              console.log('✅ TrackingScreen: Found today\'s assignment from upcoming assignments');
+              response = todayAssignment;
+              usedUpcomingEndpoint = true;
+            } else {
+              console.log('⚠️ TrackingScreen: No today\'s assignment found in upcoming assignments, using first available');
+              response = upcomingResponse[0];
+              usedUpcomingEndpoint = true;
+            }
+          } else if (upcomingResponse && upcomingResponse.error) {
+            throw new Error(upcomingResponse.error);
+          } else {
+            throw new Error('No upcoming assignments found');
+          }
+        } catch (upcomingError) {
+          console.log('⚠️ TrackingScreen: Upcoming assignments failed, falling back to single assignment:', upcomingError);
+          
+          // Fallback to single assignment endpoint
+          response = await driverAPI.getDailyAssignment(userData.driver_id.toString());
+          console.log('🔍 TrackingScreen: getDailyAssignment fallback response:', JSON.stringify(response, null, 2));
+        }
+        
+        if (response && !response.error) {
+          console.log('🔍 TrackingScreen: Assignment field values:', {
+            assignment_id: response.assignment_id,
             bus_id: response.bus_id,
             route_id: response.route_id,
-            driver_id: userData.driver_id,
-            assignment_id: response.assignment_id,
+            driver_id: response.driver_id,
           });
+          
+          setAssignmentData(response);
+          
+          // Validate assignment data before setting in location service
+          if (response.assignment_id && response.bus_id && response.route_id) {
+            console.log('✅ TrackingScreen: Setting valid assignment data in location service');
+            // Set assignment data in location service for live tracking
+            locationService.setCurrentAssignment({
+              bus_id: response.bus_id,
+              route_id: response.route_id,
+              driver_id: userData.driver_id,
+              assignment_id: response.assignment_id,
+            });
+          } else {
+            console.error('❌ TrackingScreen: Invalid assignment data, not setting in location service:', {
+              assignment_id: response.assignment_id,
+              bus_id: response.bus_id,
+              route_id: response.route_id,
+              driver_id: userData.driver_id,
+            });
+          }
           
           // Update tracking status with assignment data
           setTrackingStatus(prev => ({
@@ -345,7 +402,7 @@ export default function TrackingScreen({ navigation }: any) {
                   }
                 ]}>
                   <Text style={styles.statusText}>
-                    {assignmentData.status.toUpperCase()}
+                    {assignmentData.status ? assignmentData.status.toUpperCase() : 'UNKNOWN'}
                   </Text>
                 </View>
               </View>

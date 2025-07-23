@@ -124,7 +124,7 @@ const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
     const [currentLongitude, setCurrentLongitude] = useState<number | null>(null);
     const [depotPhoneNumber, setDepotPhoneNumber] = useState<string | null>(null); // New state for depot phone
     // Police emergency number (common for many regions, adjust if needed for specific country)
-    const POLICE_PHONE_NUMBER = '911'; // Example for USA/Canada. Use '119' for Sri Lanka or relevant number.
+    const POLICE_PHONE_NUMBER = '112'; // Example for USA/Canada. Use '119' for Sri Lanka or relevant number.
     const [editContact, setEditContact] = useState<Contact | null>(null);
     const [deletingId, setDeletingId] = useState<number | null>(null);
     const [contacts, setContacts] = useState<Contact[]>([]);
@@ -185,7 +185,7 @@ const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
 
                 // --- Existing backend call for nearest depot (keep this) ---
                 if (passengerId) {
-                    const depotFetchUrl = `${API_BASE_URL}/passengers/${passengerId}/nearest-depot?latitude=${location.coords.latitude}&longitude=${location.coords.longitude}`;
+                    const depotFetchUrl = `${API_BASE_URL}/api/passengers/${passengerId}/nearest-depot?latitude=${location.coords.latitude}&longitude=${location.coords.longitude}`;
                     console.log("Frontend - Fetching nearest depot from URL:", depotFetchUrl);
                     try {
                         const response = await fetch(depotFetchUrl);
@@ -249,7 +249,7 @@ const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
         setContactsLoading(true);
         setError(null);
         try {
-            const response = await fetch(`${API_BASE_URL}/passengers/${passengerId}/contacts`);
+            const response = await fetch(`${API_BASE_URL}/api/passengers/${passengerId}/contacts`);
             const data = await response.json();
             setContacts(data.map(item => ({
                 id: item.id, name: item.emergency_contact_name, phone: item.emergency_contact_phone,
@@ -270,7 +270,7 @@ const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
         setStatus('loading');
         setError(null);
         try {
-            const response = await fetch(`${API_BASE_URL}/passengers/${passengerId}/alerts`);
+            const response = await fetch(`${API_BASE_URL}/api/passengers/${passengerId}/alerts`);
             if (!response.ok) {
                 const errorData = await response.json();
                 throw new Error(errorData.message || 'Failed to fetch alert history.');
@@ -318,7 +318,7 @@ const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
         }
         setAdding(true);
         try {
-            const response = await fetch(`${API_BASE_URL}/passengers/${passengerId}/contacts`, {
+            const response = await fetch(`${API_BASE_URL}/api/passengers/${passengerId}/contacts`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name: newName.trim(), phone: newPhone.trim(), relationship: newRelationship.trim(), email: newEmail.trim(), isPrimary: newIsPrimary }),
             });
@@ -341,7 +341,7 @@ const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
     const handleUpdateContact = async () => {
         if (!editContact || !passengerId) return;
         try {
-            const response = await fetch(`${API_BASE_URL}/passengers/${passengerId}/contacts/${editContact.id}`, {
+            const response = await fetch(`${API_BASE_URL}/api/passengers/${passengerId}/contacts/${editContact.id}`, {
                 method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(editContact),
             });
             if (!response.ok) {
@@ -360,7 +360,7 @@ const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
     const handleDeleteContact = async () => {
         if (!deletingId || !passengerId) return;
         try {
-            const response = await fetch(`${API_BASE_URL}/passengers/${passengerId}/contacts/${deletingId}`, { method: 'DELETE' });
+            const response = await fetch(`${API_BASE_URL}/api/passengers/${passengerId}/contacts/${deletingId}`, { method: 'DELETE' });
             if (!response.ok) {
                 const errorData = await response.json();
                 throw new Error(errorData.message || 'Failed to delete contact.');
@@ -377,7 +377,7 @@ const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
     const handleSetPrimaryContact = async (contactId: number) => {
         if (!passengerId) return;
         try {
-            const response = await fetch(`${API_BASE_URL}/passengers/${passengerId}/contacts/${contactId}/set-primary`, { method: 'PUT' });
+            const response = await fetch(`${API_BASE_URL}/api/passengers/${passengerId}/contacts/${contactId}/set-primary`, { method: 'PUT' });
             if (!response.ok) {
                 const errorData = await response.json();
                 throw new Error(errorData.message || 'Failed to set primary contact.');
@@ -459,7 +459,7 @@ const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
 
         try {
             // First, call the notify-contacts API to send SMS/Emails
-            const notifyResponse = await fetch(`${API_BASE_URL}/passengers/notify-contacts`, {
+            const notifyResponse = await fetch(`${API_BASE_URL}/api/passengers/notify-contacts`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     emergencyType: type,
@@ -488,7 +488,7 @@ const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
 
         try {
             // Second, create the alert record in the database
-            const alertResponse = await fetch(`${API_BASE_URL}/passengers/${passengerId}/alerts`, {
+            const alertResponse = await fetch(`${API_BASE_URL}/api/passengers/${passengerId}/alerts`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -846,8 +846,8 @@ const styles = StyleSheet.create({
     panicButton: { backgroundColor: AppColors.red },
     medicalButton: { backgroundColor: AppColors.orange },
     // New styles for police and depot call buttons
-    policeCallButton: { backgroundColor: '#3366ff' }, // A blue shade
-    depotCallButton: { backgroundColor: '#00BFFF' }, // Another blue shade
+    policeCallButton: { backgroundColor: '#0056b3' }, // A blue shade
+    depotCallButton: { backgroundColor: '#0056b3' }, // Another blue shade
     emergencyButtonText: { color: '#fff', fontSize: 17, fontWeight: '700' },
     emergencyOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(15, 23, 42, 0.85)', zIndex: 1000, justifyContent: 'center', alignItems: 'center', padding: 16 },
     emergencyModal: { backgroundColor: '#fff', padding: 36, borderRadius: 32, alignItems: 'center', width: '90%', maxWidth: 340 },

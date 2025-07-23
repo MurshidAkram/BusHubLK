@@ -4,7 +4,7 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createStackNavigator } from "@react-navigation/stack";
 import { Ionicons } from "@expo/vector-icons";
 
-// Import screens
+// --- Import all your screens ---
 import HomeScreen from "../screens/HomeScreen";
 import DashboardScreen from "../screens/DashboardScreen";
 import LostAndFoundScreen from "../screens/LostAndFoundScreen";
@@ -12,25 +12,17 @@ import EmergencyScreen from "../screens/EmergencyScreen";
 import ConditionScreen from "../screens/ConditionScreen";
 import TravelLogScreen from "../screens/TravelLogScreen";
 import TrackingScreen from "../screens/TrackingScreen";
-
 import ProfileScreen from "../screens/ProfileScreen";
 import SettingsScreen from "../screens/SettingScreen";
 import MapScreen from "../screens/MapScreen";
 import ScheduleScreen from "../screens/ScheduleScreen";
+import ChatScreen from "../screens/ChatScreen";
 
 // Create Stack Navigators for each tab
 const HomeStack = createStackNavigator();
 const ScheduleStack = createStackNavigator();
 const ProfileStack = createStackNavigator();
 const SettingsStack = createStackNavigator();
-
-// Placeholder screen (kept for future use)
-const PlaceholderScreen = ({ title }: { title: string }) => (
-  <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-    <Text style={{ fontSize: 18, fontWeight: "bold" }}>{title}</Text>
-    <Text style={{ marginTop: 10, color: "#666" }}>Coming Soon</Text>
-  </View>
-);
 
 // Home Stack Navigator
 const HomeStackNavigator = () => {
@@ -49,6 +41,7 @@ const HomeStackNavigator = () => {
       <HomeStack.Screen name="Tracking" component={TrackingScreen} />
       <HomeStack.Screen name="ProfileModal" component={ProfileScreen} />
       <HomeStack.Screen name="MapScreen" component={MapScreen} />
+      <HomeStack.Screen name="ChatScreen" component={ChatScreen} />
     </HomeStack.Navigator>
   );
 };

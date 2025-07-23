@@ -7,293 +7,277 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   FlatList,
-  Alert,
   Dimensions,
   Platform,
   StatusBar,
 } from "react-native";
-import apiService from '../services/apiService';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
-import Icon from 'react-native-vector-icons/Ionicons';
+import Icon from "react-native-vector-icons/Ionicons";
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
+import axios from "axios";
+
+const GOOGLE_MAPS_API_KEY = "AIzaSyAeXR9ct7HrHMCQXSWLrWQl5OlRYjNhbxo"; // <-- Replace with your key
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 const AppColors = {
-  primary: '#007AFF',
-  primaryLight: '#E6F2FF',
-  background: '#F8F9FA',
-  card: '#FFFFFF',
-  text: '#1C1C1E',
-  textSecondary: '#8E8E93',
-  border: '#E5E5EA',
-  shadow: '#000000',
-  success: '#34C759',
-  warning: '#FF9500',
+  background: "#F8F9FA",
+  card: "#FFFFFF",
+  primary: "#0056b3",
+  primaryLight: "#E3F2FD",
+  text: "#212529",
+  textSecondary: "#6C757D",
+  border: "#DEE2E6",
+  success: "#28a745",
+  warning: "#ffc107",
+  shadow: "#000000",
+  gradient: {
+    start: "#0056b3",
+    end: "#007bff",
+  },
 };
 
-interface BusRoute {
-  route_id: number;
-  route_number: string;
-  route_name: string;
-  start_location: string;
-  end_location: string;
-  distance: number;
-  registration_number: string;
-  bus_type: string;
-  operator: string;
-  bus_route_id: number;
-  intermediateStops?: Array<{
-    stop_name: string;
-    stop_order: number;
-    distance_from_start: number;
-  }>;
-  segment_distance?: number;
-  estimated_duration?: string;
-  google_maps_distance?: string;
-  polyline?: string;
-  fare?: number;
-}
+const BASE_STAGE_KM = 3.2;
+const FARE_STAGES: number[] = [
+  17, 23, 30, 36, 43, 50, 56, 62, 68, 75, 81, 88, 94, 100, 106, 113, 119, 126, 132, 139, 145, 152, 158, 165, 171, 178, 184, 191, 197, 204, 210, 217, 223, 230, 236, 243, 249, 256, 262, 269, 275, 282, 288, 295, 301, 308, 314, 321, 327, 334
+];
 
-interface RouteCoordinates {
-  latitude: number;
-  longitude: number;
-}
+const BUS_ROUTES = [
+  {
+    routeNumber: "138",
+    operator: "SLTB",
+    from: "Colombo",
+    to: "Kandy",
+    via: ["Kadawatha", "Gampaha", "Kegalle"],
+    frequency: "Every 30 mins",
+    operatingHours: "5:00 AM - 10:00 PM",
+    fare: 600,
+    estimatedDuration: "3.5 hours",
+  },
+  {
+    routeNumber: "1",
+    operator: "SLTB",
+    from: "Colombo",
+    to: "Galle",
+    via: ["Mount Lavinia", "Kalutara", "Bentota"],
+    frequency: "Every 20 mins",
+    operatingHours: "4:30 AM - 11:00 PM",
+    fare: 600,
+    estimatedDuration: "3 hours",
+  },
+  {
+    routeNumber: "4",
+    operator: "SLTB",
+    from: "Colombo",
+    to: "Matara",
+    via: ["Mount Lavinia", "Kalutara", "Galle", "Unawatuna"],
+    frequency: "Every 45 mins",
+    operatingHours: "5:00 AM - 9:30 PM",
+    fare: 700,
+    estimatedDuration: "4 hours",
+  },
+  {
+    routeNumber: "100",
+    operator: "Private",
+    from: "Colombo",
+    to: "Kandy",
+    frequency: "Every hour",
+    operatingHours: "6:00 AM - 8:00 PM",
+    fare: 620,
+    estimatedDuration: "2.5 hours",
+    via: ["Mawanella", "Peradeniya"],
+  },
+];
 
-interface MapRegion {
-  latitude: number;
-  longitude: number;
-  latitudeDelta: number;
-  longitudeDelta: number;
-}
-
-interface Place {
-  place_id: string;
-  description: string;
-}
-
-interface RouteProps {
-  params: {
-    from: Place;
-    to: Place;
-  };
-}
-
-interface ScreenProps {
-  route: RouteProps;
-  navigation: {
-    goBack: () => void;
-  };
-}
-
-// Function to decode Google Maps polyline
-function decodePolyline(encoded: string): [number, number][] {
-  const poly: [number, number][] = [];
-  let index = 0, len = encoded.length;
-  let lat = 0, lng = 0;
+function decodePolyline(encoded) {
+  const poly = [];
+  let index = 0,
+    len = encoded.length;
+  let lat = 0,
+    lng = 0;
 
   while (index < len) {
-    let shift = 0, result = 0;
-
+    let b,
+      shift = 0,
+      result = 0;
     do {
-      let b = encoded.charCodeAt(index++) - 63;
+      b = encoded.charCodeAt(index++) - 63;
       result |= (b & 0x1f) << shift;
       shift += 5;
-    } while (result >= 0x20);
-
-    let dlat = ((result & 1) ? ~(result >> 1) : (result >> 1));
+    } while (b >= 0x20);
+    const dlat = (result & 1) ? ~(result >> 1) : (result >> 1);
     lat += dlat;
 
     shift = 0;
     result = 0;
-
     do {
-      let b = encoded.charCodeAt(index++) - 63;
+      b = encoded.charCodeAt(index++) - 63;
       result |= (b & 0x1f) << shift;
       shift += 5;
-    } while (result >= 0x20);
-
-    let dlng = ((result & 1) ? ~(result >> 1) : (result >> 1));
+    } while (b >= 0x20);
+    const dlng = (result & 1) ? ~(result >> 1) : (result >> 1);
     lng += dlng;
 
     poly.push([lat / 1e5, lng / 1e5]);
   }
-
   return poly;
 }
 
-function BusRouteResultsScreen({ route, navigation }: ScreenProps) {
+export default function BusRouteResultsScreen({ route, navigation }) {
+  const { from, to } = route.params;
   const [loading, setLoading] = useState(true);
+  const [distance, setDistance] = useState(null);
+  const [duration, setDuration] = useState(null);
+  const [fare, setFare] = useState(null);
+  const [routeCoordinates, setRouteCoordinates] = useState([]);
+  const [mapRegion, setMapRegion] = useState(null);
+  const [availableRoutes, setAvailableRoutes] = useState([]);
   const [showMap, setShowMap] = useState(false);
-  const [availableRoutes, setAvailableRoutes] = useState<BusRoute[]>([]);
-  const [routeCoordinates, setRouteCoordinates] = useState<RouteCoordinates[]>([]);
-  const [mapRegion, setMapRegion] = useState<MapRegion | null>(null);
-  const [distance, setDistance] = useState<number | null>(0);
-  const [duration, setDuration] = useState<string | null>(null);
-  const [fare, setFare] = useState<number | null>(null);
-  const mapRef = useRef<MapView | null>(null);
 
-  // Add error state
-  const [error, setError] = useState<string | null>(null);
+  const mapRef = useRef(null);
 
-  // Safely extract route params with fallbacks
-  const fromPlace = route?.params?.from;
-  const toPlace = route?.params?.to;
-  const fromText = fromPlace?.description || "Unknown Location";
-  const toText = toPlace?.description || "Unknown Location";
-
-  console.log('BusRouteResultsScreen - Route params:', { fromPlace, toPlace });
+  const fromText = from?.description || "";
+  const toText = to?.description || "";
 
   // Helper: Get lat/lng from place_id
-  const getLatLng = async (place_id: string): Promise<{ lat: number; lng: number } | null> => {
+  const getLatLng = async (place_id) => {
     try {
-      console.log('Getting lat/lng for place_id:', place_id);
-      const placeDetails = await apiService.getPlaceDetails(place_id);
-      if (placeDetails && placeDetails.geometry && placeDetails.geometry.location) {
-        return placeDetails.geometry.location;
+      const res = await axios.get(
+        `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place_id}&key=${GOOGLE_MAPS_API_KEY}`
+      );
+      if (res.data.status === "OK") {
+        return res.data.result.geometry.location;
       }
       return null;
-    } catch (error) {
-      console.error('Error getting lat/lng:', error);
+    } catch {
       return null;
+    }
+  };
+
+  // Helper: Get route coordinates and duration from Google Directions API
+  const getRouteCoordinates = async (fromPlaceId, toPlaceId) => {
+    const fromLoc = await getLatLng(fromPlaceId);
+    const toLoc = await getLatLng(toPlaceId);
+    if (!fromLoc || !toLoc)
+      return { coordinates: [], distance: null, region: null, duration: null };
+
+    try {
+      const response = await axios.get(
+        `https://maps.googleapis.com/maps/api/directions/json?origin=${fromLoc.lat},${fromLoc.lng}&destination=${toLoc.lat},${toLoc.lng}&key=${GOOGLE_MAPS_API_KEY}`
+      );
+
+      if (response.data.routes.length > 0) {
+        const route = response.data.routes[0];
+        const meters = route.legs[0].distance.value;
+        const distance = meters / 1000;
+        const duration = route.legs[0].duration.text;
+
+        // Decode polyline
+        const points = decodePolyline(route.overview_polyline.points);
+        const coordinates = points.map((point) => ({
+          latitude: point[0],
+          longitude: point[1],
+        }));
+
+        // Calculate map region
+        const region = {
+          latitude: (fromLoc.lat + toLoc.lat) / 2,
+          longitude: (fromLoc.lng + toLoc.lng) / 2,
+          latitudeDelta: Math.abs(fromLoc.lat - toLoc.lat) * 1.5 || 0.2,
+          longitudeDelta: Math.abs(fromLoc.lng - toLoc.lng) * 1.5 || 0.2,
+        };
+
+        return { coordinates, distance, region, duration };
+      }
+      return { coordinates: [], distance: null, region: null, duration: null };
+    } catch {
+      return { coordinates: [], distance: null, region: null, duration: null };
     }
   };
 
   // Find available bus routes
-  const fetchAvailableRoutes = async (from: string, to: string): Promise<BusRoute[]> => {
-    try {
-      console.log('Fetching routes from:', from, 'to:', to);
-      const routes = await apiService.searchRoutes(from, to);
-      console.log('Fetched routes:', routes);
-      return routes || [];
-    } catch (error) {
-      console.error('Error fetching routes:', error);
-      setError('Failed to fetch available routes. Please try again.');
-      return [];
-    }
+  const findAvailableRoutes = (from, to) => {
+    const clean = (str) =>
+      str.toLowerCase().replace(/,? sri lanka/i, "").trim();
+    const fromClean = clean(from);
+    const toClean = clean(to);
+
+    return BUS_ROUTES.filter((route) => {
+      const routeFromClean = clean(route.from);
+      const routeToClean = clean(route.to);
+
+      return (
+        (fromClean.includes(routeFromClean) && toClean.includes(routeToClean)) ||
+        (fromClean.includes(routeToClean) && toClean.includes(routeFromClean)) ||
+        (route.via &&
+          route.via.some(
+            (via) =>
+              fromClean.includes(clean(via)) || toClean.includes(clean(via))
+          ))
+      );
+    });
   };
 
   useEffect(() => {
     async function fetchData() {
-      console.log('BusRouteResultsScreen - Starting data fetch');
       setLoading(true);
-      setError(null);
       setShowMap(false);
 
-      // Check if we have valid route params
-      if (!fromPlace || !toPlace) {
-        console.error('Missing route parameters:', { fromPlace, toPlace });
-        setError('Invalid route parameters. Please go back and try again.');
-        setLoading(false);
-        return;
-      }
+      // Find available routes
+      const routes = findAvailableRoutes(fromText, toText);
+      setAvailableRoutes(routes);
 
-      if (!fromText || !toText) {
-        console.error('Missing location descriptions');
-        setError('Invalid location data. Please go back and try again.');
-        setLoading(false);
-        return;
-      }
+      // Get route coordinates, distance, and duration
+      const { coordinates, distance: dist, region, duration: estDuration } =
+        await getRouteCoordinates(from.place_id, to.place_id);
 
-      try {
-        console.log('Fetching routes for:', fromText, 'to:', toText);
-        
-        // Fetch available routes from backend
-        const routes = await fetchAvailableRoutes(fromText, toText);
-        console.log('Routes fetched:', routes.length);
-        
-        setAvailableRoutes(routes);
+      if (dist !== null) {
+        setDistance(dist);
+        setRouteCoordinates(coordinates);
+        setMapRegion(region);
+        setShowMap(true);
+        setDuration(estDuration || null);
 
-        if (routes.length > 0) {
-          // Use the first route's polyline for the map
-          const firstRoute = routes[0];
-          console.log('First route:', firstRoute);
-          
-          if (firstRoute.polyline) {
-            try {
-              const points = decodePolyline(firstRoute.polyline);
-              const coordinates = points.map(point => ({
-                latitude: point[0],
-                longitude: point[1]
-              }));
-
-              setRouteCoordinates(coordinates);
-              
-              // Calculate map region from coordinates
-              if (coordinates.length > 0) {
-                const latitudes = coordinates.map(c => c.latitude);
-                const longitudes = coordinates.map(c => c.longitude);
-                
-                const region = {
-                  latitude: (Math.min(...latitudes) + Math.max(...latitudes)) / 2,
-                  longitude: (Math.min(...longitudes) + Math.max(...longitudes)) / 2,
-                  latitudeDelta: Math.max((Math.max(...latitudes) - Math.min(...latitudes)) * 1.5, 0.01),
-                  longitudeDelta: Math.max((Math.max(...longitudes) - Math.min(...longitudes)) * 1.5, 0.01)
-                };
-
-                setMapRegion(region);
-                setShowMap(true);
-              }
-            } catch (polylineError) {
-              console.error('Error decoding polyline:', polylineError);
-            }
-          }
-          
-          setDistance(firstRoute.segment_distance || 0);
-          setDuration(firstRoute.estimated_duration || null);
-          setFare(firstRoute.fare || null);
+        // Calculate fare based on distance if no specific route found
+        if (routes.length === 0) {
+          const stageCount = Math.ceil(dist / BASE_STAGE_KM);
+          const cappedStage = Math.min(stageCount, FARE_STAGES.length);
+          let calculatedFare = Math.round(FARE_STAGES[cappedStage - 1] * 1.6);
+          setFare(calculatedFare);
         } else {
-          console.log('No routes found');
-          setShowMap(false);
-          setDistance(null);
-          setDuration(null);
-          setFare(null);
+          // Use the fare from the first available route
+          setFare(routes[0].fare);
         }
-      } catch (error) {
-        console.error('Error in fetchData:', error);
-        setError('An error occurred while fetching route data. Please try again.');
-        setShowMap(false);
+      } else {
         setDistance(null);
-        setDuration(null);
         setFare(null);
+        setShowMap(false);
+        setDuration(null);
       }
-
       setLoading(false);
     }
 
-    fetchData();
-  }, [fromText, toText]);
-
-  const getBusTypeColor = (busType: string): string => {
-    switch (busType) {
-      case "Luxury":
-        return AppColors.success;
-      case "Semi-Luxury":
-        return AppColors.primary;
-      case "Express":
-        return AppColors.warning;
-      default:
-        return AppColors.textSecondary;
+    if (from && to && from.place_id && to.place_id) {
+      fetchData();
     }
-  };
+    // eslint-disable-next-line
+  }, [from, to]);
 
-  const renderBusRoute = ({ item }: { item: BusRoute }) => (
+  
+
+  const renderBusRoute = ({ item }) => (
     <View style={styles.routeCard}>
       <View style={styles.routeHeader}>
         <View style={styles.routeNumberContainer}>
           <View style={styles.routeNumberBadge}>
-            <Text style={styles.routeNumber}>{item.route_number}</Text>
+            <Text style={styles.routeNumber}>{item.routeNumber}</Text>
           </View>
-          <View style={[styles.busTypeBadge, { backgroundColor: getBusTypeColor(item.bus_type) + '20' }]}>
-            <Text style={[styles.busType, { color: getBusTypeColor(item.bus_type) }]}>
-              {item.bus_type}
-            </Text>
-          </View>
+          
         </View>
         <View style={styles.operatorContainer}>
-          <Text style={styles.operator}>Bus: {item.registration_number}</Text>
+          <Text style={styles.operator}>{item.operator}</Text>
           <View style={styles.fareContainer}>
             <Text style={styles.fareLabel}>Fare</Text>
-            <Text style={styles.fare}>Rs. {item.fare || 'N/A'}</Text>
+            <Text style={styles.fare}>Rs. {item.fare}</Text>
           </View>
         </View>
       </View>
@@ -301,80 +285,35 @@ function BusRouteResultsScreen({ route, navigation }: ScreenProps) {
       <View style={styles.routeDetails}>
         <View style={styles.routeInfo}>
           <View style={styles.iconContainer}>
-            <Icon name="map-outline" size={18} color={AppColors.primary} />
-          </View>
-          <Text style={styles.routeText}>{item.route_name}</Text>
-        </View>
-        <View style={styles.routeInfo}>
-          <View style={styles.iconContainer}>
-            <Icon name="navigate-outline" size={18} color={AppColors.primary} />
-          </View>
-          <Text style={styles.routeText}>{item.google_maps_distance || `${item.segment_distance?.toFixed(1)} km`}</Text>
-        </View>
-        <View style={styles.routeInfo}>
-          <View style={styles.iconContainer}>
             <Icon name="time-outline" size={18} color={AppColors.primary} />
           </View>
-          <Text style={styles.routeText}>{item.estimated_duration || 'Duration N/A'}</Text>
+          <Text style={styles.routeText}>{item.frequency}</Text>
+        </View>
+        <View style={styles.routeInfo}>
+          <View style={styles.iconContainer}>
+            <Icon name="clock-outline" size={18} color={AppColors.primary} />
+          </View>
+          <Text style={styles.routeText}>{item.operatingHours}</Text>
+        </View>
+        <View style={styles.routeInfo}>
+          <View style={styles.iconContainer}>
+            <Icon name="speedometer-outline" size={18} color={AppColors.primary} />
+          </View>
+          <Text style={styles.routeText}>{item.estimatedDuration}</Text>
         </View>
       </View>
 
-      {item.intermediateStops && item.intermediateStops.length > 0 && (
+      {item.via && item.via.length > 0 && (
         <View style={styles.viaContainer}>
           <View style={styles.viaHeader}>
             <Icon name="trail-sign-outline" size={16} color={AppColors.primary} />
-            <Text style={styles.viaLabel}>Stops</Text>
+            <Text style={styles.viaLabel}>Route Via</Text>
           </View>
-          <Text style={styles.viaText}>
-            {item.intermediateStops.map(stop => stop.stop_name).join(" → ")}
-          </Text>
+          <Text style={styles.viaText}>{item.via.join(" → ")}</Text>
         </View>
       )}
     </View>
   );
-
-  // Show error state
-  if (error) {
-    return (
-      <View style={styles.container}>
-        <StatusBar 
-          barStyle={Platform.OS === 'ios' ? 'dark-content' : 'light-content'} 
-          backgroundColor={AppColors.primary} 
-        />
-        
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            style={styles.backButton}
-          >
-            <Icon name="arrow-back" size={24} color={AppColors.card} />
-          </TouchableOpacity>
-          <View style={styles.headerContent}>
-            <Text style={styles.headerTitle}>Route Results</Text>
-            <Text style={styles.headerSubtitle}>BusHubLK</Text>
-          </View>
-        </View>
-
-        <View style={styles.errorContainer}>
-          <View style={styles.errorIcon}>
-            <Icon name="alert-circle-outline" size={48} color={AppColors.warning} />
-          </View>
-          <Text style={styles.errorTitle}>Oops! Something went wrong</Text>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity 
-            style={styles.retryButton}
-            onPress={() => {
-              setError(null);
-              // Trigger useEffect to refetch data
-              setLoading(true);
-            }}
-          >
-            <Text style={styles.retryButtonText}>Try Again</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
 
   return (
     <View style={styles.container}>
@@ -400,7 +339,7 @@ function BusRouteResultsScreen({ route, navigation }: ScreenProps) {
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.contentContainer}>
           {/* Route Summary Card */}
-                    <View style={styles.summaryCard}>
+          <View style={styles.summaryCard}>
             <View style={styles.locationContainer}>
               <View style={styles.locationItem}>
                 <View style={[styles.locationDot, { backgroundColor: AppColors.success }]} />
@@ -412,152 +351,152 @@ function BusRouteResultsScreen({ route, navigation }: ScreenProps) {
                 <Text style={styles.locationText} numberOfLines={2}>{toText}</Text>
               </View>
             </View>
-          </View>
-
-          {loading && (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={AppColors.primary} />
-              <Text style={styles.loadingText}>Finding best routes...</Text>
             </View>
-          )}
 
-          {/* Map View */}
-          {showMap && mapRegion && routeCoordinates.length > 0 && (
-            <View style={styles.mapContainer}>
-              <View style={styles.mapHeader}>
-                <Icon name="map-outline" size={20} color={AppColors.primary} />
-                <Text style={styles.mapTitle}>Route Map</Text>
-              </View>
-              <View style={styles.mapWrapper}>
-                <MapView
-                  ref={mapRef}
-                  provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
-                  style={styles.map}
-                  initialRegion={mapRegion}
-                  showsUserLocation={true}
-                  showsMyLocationButton={true}
-                  showsCompass={true}
-                  showsScale={true}
-                  mapType="standard"
-                  loadingEnabled={true}
-                  loadingIndicatorColor={AppColors.primary}
-                  loadingBackgroundColor={AppColors.background}
-                >
-                  <Marker
-                    coordinate={routeCoordinates[0]}
-                    title="Start Location"
-                    description={fromText}
-                    pinColor="green"
-                  >
-                    <View style={styles.customMarker}>
-                      <Icon name="location" size={24} color={AppColors.success} />
-                    </View>
-                  </Marker>
-                  <Marker
-                    coordinate={routeCoordinates[routeCoordinates.length - 1]}
-                    title="Destination"
-                    description={toText}
-                    pinColor="red"
-                  >
-                    <View style={styles.customMarker}>
-                      <Icon name="flag" size={24} color={AppColors.warning} />
-                    </View>
-                  </Marker>
-                  <Polyline
-                    coordinates={routeCoordinates}
-                    strokeColor={AppColors.primary}
-                    strokeWidth={4}
-                    lineDashPattern={[1]}
-                  />
-                </MapView>
-              </View>
-            </View>
-          )}
+{loading && (
+  <View style={styles.loadingContainer}>
+    <ActivityIndicator size="large" color={AppColors.primary} />
+    <Text style={styles.loadingText}>Finding best routes...</Text>
+  </View>
+)}
 
-          {/* Route Information */}
-          {distance !== null && !loading && (
-            <View style={styles.infoGrid}>
-              <View style={styles.infoCard}>
-                <View style={styles.infoIconContainer}>
-                  <Icon name="navigate-outline" size={24} color={AppColors.primary} />
-                </View>
-                <Text style={styles.infoLabel}>Distance</Text>
-                <Text style={styles.infoValue}>{distance?.toFixed(1)} km</Text>
-              </View>
-              
-              {fare !== null && (
-                <View style={styles.infoCard}>
-                  <View style={styles.infoIconContainer}>
-                    <Icon name="cash-outline" size={24} color={AppColors.success} />
-                  </View>
-                  <Text style={styles.infoLabel}>Est. Fare</Text>
-                  <Text style={styles.infoValue}>Rs. {fare}</Text>
-                </View>
-              )}
-              
-              {duration && (
-                <View style={styles.infoCard}>
-                  <View style={styles.infoIconContainer}>
-                    <Icon name="time-outline" size={24} color={AppColors.warning} />
-                  </View>
-                  <Text style={styles.infoLabel}>Duration</Text>
-                  <Text style={styles.infoValue}>{duration}</Text>
-                </View>
-              )}
-            </View>
-          )}
-
-          {/* Available Bus Routes */}
-          {availableRoutes.length > 0 && (
-            <View style={styles.routesContainer}>
-              <View style={styles.sectionHeader}>
-                <Icon name="bus-outline" size={24} color={AppColors.primary} />
-                <Text style={styles.sectionTitle}>Available Bus Routes</Text>
-                <View style={styles.routeCount}>
-                  <Text style={styles.routeCountText}>{availableRoutes.length}</Text>
-                </View>
-              </View>
-              <FlatList
-                data={availableRoutes}
-                keyExtractor={(item, index) => `${item.route_number}-${index}`}
-                renderItem={renderBusRoute}
-                scrollEnabled={false}
-                showsVerticalScrollIndicator={false}
-              />
-            </View>
-          )}
-
-          {availableRoutes.length === 0 && fare !== null && !loading && (
-            <View style={styles.noRoutesCard}>
-              <View style={styles.noRoutesIcon}>
-                <Icon
-                  name="information-circle-outline"
-                  size={32}
-                  color={AppColors.warning}
-                />
-              </View>
-              <Text style={styles.noRoutesTitle}>No Direct Routes Found</Text>
-              <Text style={styles.noRoutesText}>
-                Fare has been calculated based on distance. You may need to take connecting buses or alternative transport.
-              </Text>
-            </View>
-          )}
-
-          {fare === null && !loading && (
-            <View style={styles.errorCard}>
-              <View style={styles.errorIcon}>
-                <Icon name="alert-circle-outline" size={32} color={AppColors.warning} />
-              </View>
-              <Text style={styles.errorTitle}>Route Not Found</Text>
-              <Text style={styles.errorText}>
-                No route found between the selected locations. Please try different locations.
-              </Text>
-            </View>
-          )}
-        </View>
-      </ScrollView>
+{/* Map View */}
+{showMap && mapRegion && routeCoordinates.length > 0 && (
+  <View style={styles.mapContainer}>
+    <View style={styles.mapHeader}>
+      <Icon name="map-outline" size={20} color={AppColors.primary} />
+      <Text style={styles.mapTitle}>Route Map</Text>
     </View>
-  );
+    <View style={styles.mapWrapper}>
+      <MapView
+        ref={mapRef}
+        provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+        style={styles.map}
+        initialRegion={mapRegion}
+        showsUserLocation={true}
+        showsMyLocationButton={true}
+        showsCompass={true}
+        showsScale={true}
+        mapType="standard"
+        loadingEnabled={true}
+        loadingIndicatorColor={AppColors.primary}
+        loadingBackgroundColor={AppColors.background}
+      >
+        <Marker
+          coordinate={routeCoordinates[0]}
+          title="Start Location"
+          description={fromText}
+          pinColor="green"
+        >
+          <View style={styles.customMarker}>
+            <Icon name="location" size={24} color={AppColors.success} />
+          </View>
+        </Marker>
+        <Marker
+          coordinate={routeCoordinates[routeCoordinates.length - 1]}
+          title="Destination"
+          description={toText}
+          pinColor="red"
+        >
+          <View style={styles.customMarker}>
+            <Icon name="flag" size={24} color={AppColors.warning} />
+          </View>
+        </Marker>
+        <Polyline
+          coordinates={routeCoordinates}
+          strokeColor={AppColors.primary}
+          strokeWidth={4}
+          lineDashPattern={[1]}
+        />
+      </MapView>
+    </View>
+  </View>
+)}
+
+{/* Route Information */}
+{distance !== null && !loading && (
+  <View style={styles.infoGrid}>
+    <View style={styles.infoCard}>
+      <View style={styles.infoIconContainer}>
+        <Icon name="navigate-outline" size={24} color={AppColors.primary} />
+      </View>
+      <Text style={styles.infoLabel}>Distance</Text>
+      <Text style={styles.infoValue}>{distance?.toFixed(1)} km</Text>
+    </View>
+    
+    {fare !== null && (
+      <View style={styles.infoCard}>
+        <View style={styles.infoIconContainer}>
+          <Icon name="cash-outline" size={24} color={AppColors.success} />
+        </View>
+        <Text style={styles.infoLabel}>Est. Fare</Text>
+        <Text style={styles.infoValue}>Rs. {fare}</Text>
+      </View>
+    )}
+    
+    {duration && (
+      <View style={styles.infoCard}>
+        <View style={styles.infoIconContainer}>
+          <Icon name="time-outline" size={24} color={AppColors.warning} />
+        </View>
+        <Text style={styles.infoLabel}>Duration</Text>
+        <Text style={styles.infoValue}>{duration}</Text>
+      </View>
+    )}
+  </View>
+)}
+
+{/* Available Bus Routes */}
+{availableRoutes.length > 0 && (
+  <View style={styles.routesContainer}>
+    <View style={styles.sectionHeader}>
+      <Icon name="bus-outline" size={24} color={AppColors.primary} />
+      <Text style={styles.sectionTitle}>Available Bus Routes</Text>
+      <View style={styles.routeCount}>
+        <Text style={styles.routeCountText}>{availableRoutes.length}</Text>
+      </View>
+    </View>
+    <FlatList
+      data={availableRoutes}
+      keyExtractor={(item, index) => `${item.routeNumber}-${index}`}
+      renderItem={renderBusRoute}
+      scrollEnabled={false}
+      showsVerticalScrollIndicator={false}
+    />
+  </View>
+)}
+
+{availableRoutes.length === 0 && fare !== null && !loading && (
+  <View style={styles.noRoutesCard}>
+    <View style={styles.noRoutesIcon}>
+      <Icon
+        name="information-circle-outline"
+        size={32}
+        color={AppColors.warning}
+      />
+    </View>
+    <Text style={styles.noRoutesTitle}>No Direct Routes Found</Text>
+    <Text style={styles.noRoutesText}>
+      Fare has been calculated based on distance. You may need to take connecting buses or alternative transport.
+    </Text>
+  </View>
+)}
+
+{fare === null && !loading && (
+  <View style={styles.errorCard}>
+    <View style={styles.errorIcon}>
+      <Icon name="alert-circle-outline" size={32} color={AppColors.warning} />
+    </View>
+    <Text style={styles.errorTitle}>Route Not Found</Text>
+    <Text style={styles.errorText}>
+      No route found between the selected locations. Please try different locations.
+    </Text>
+  </View>
+)}
+</View>
+</ScrollView>
+</View>
+);
 }
 
 const styles = StyleSheet.create({
@@ -677,43 +616,6 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontWeight: "500",
   },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
-  },
-  errorIcon: {
-    backgroundColor: AppColors.warning + "20",
-    borderRadius: 40,
-    padding: 20,
-    marginBottom: 20,
-  },
-  errorTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: AppColors.text,
-    marginBottom: 12,
-    textAlign: "center",
-  },
-  errorText: {
-    fontSize: 16,
-    color: AppColors.textSecondary,
-    textAlign: "center",
-    lineHeight: 24,
-    marginBottom: 24,
-  },
-  retryButton: {
-    backgroundColor: AppColors.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    color: AppColors.card,
-    fontSize: 16,
-    fontWeight: "600",
-  },
   mapContainer: {
     marginBottom: 20,
   },
@@ -744,7 +646,7 @@ const styles = StyleSheet.create({
     }),
   },
   map: {
-    height: screenHeight * 0.45,
+    height: screenHeight * 0.45, // Increased map size to 45% of screen height
     width: "100%",
   },
   customMarker: {
@@ -873,16 +775,8 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: AppColors.card,
   },
-  busTypeBadge: {
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    alignSelf: "flex-start",
-  },
-  busType: {
-    fontSize: 12,
-    fontWeight: "600",
-  },
+
+ 
   operatorContainer: {
     alignItems: "flex-end",
   },
@@ -1004,6 +898,23 @@ const styles = StyleSheet.create({
       },
     }),
   },
+  errorIcon: {
+    backgroundColor: AppColors.warning + "20",
+    borderRadius: 30,
+    padding: 16,
+    marginBottom: 16,
+  },
+  errorTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: AppColors.text,
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  errorText: {
+    fontSize: 14,
+    color: AppColors.textSecondary,
+    textAlign: "center",
+    lineHeight: 20,
+  },
 });
-
-export default BusRouteResultsScreen;

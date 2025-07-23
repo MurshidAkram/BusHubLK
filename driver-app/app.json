@@ -1,11 +1,12 @@
 {
   "expo": {
     "name": "BusHub Driver",
-    "slug": "driver-app", 
+    "slug": "driver-app",
     "scheme": "bushublk",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/logowithoutbg_blue.png",
+    "userInterfaceStyle": "light",
     "splash": {
       "image": "./assets/logowithoutbg_blue.png",
       "resizeMode": "contain",
@@ -61,22 +62,17 @@
             "BROWSABLE",
             "DEFAULT"
           ]
-        },
-        {
-          "action": "VIEW",
-          "autoVerify": true,
-          "data": [
-            {
-              "scheme": "bushublk"
-            }
-          ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
         }
       ],
-      "package": "com.anonymous.driverapp"
+      "package": "com.anonymous.driverapp",
+      "androidStatusBar": {
+        "barStyle": "dark-content",
+        "backgroundColor": "#FFFFFF"
+      },
+      "androidNavigationBar": {
+        "barStyle": "dark-content",
+        "backgroundColor": "#FFFFFF"
+      }
     }
   }
 }
