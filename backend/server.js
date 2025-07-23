@@ -144,9 +144,12 @@ try {
 }
 
 const assignmentRoutes = require('./routes/assignmentRoutes');
+const dailyAssignmentRoutes = require('./routes/dailyAssignmentRoutes');
 
 // Add this with your other app.use() routes
 app.use('/api/assignments', assignmentRoutes);
+app.use('/api/dailyassignment', dailyAssignmentRoutes);
+console.log('✅ dailyAssignmentRoutes loaded');
 
 
 try {
