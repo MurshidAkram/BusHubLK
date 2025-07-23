@@ -1,4 +1,35 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
+import { AppContext } from '../../../context/AppContext';
+import axios, { AxiosError } from 'axios';
+
+// Matches the backend model properties
+type BusFromAPI = {
+  bus_id: string;
+  registration_number: string;
+  model: string;
+  year: number;
+  mileage: number;
+  status: string;
+  depot_name: string;
+  class: string;
+  manufacturer: string;
+  purchase_date: string;
+};
+
+// Extended type with dummy data
+type Bus = BusFromAPI & {
+  capacity?: number;
+  currentRoute?: string;
+  nextService?: string;
+  lastService?: string;
+  fuelEfficiency?: number;
+  driver?: string;
+  conductor?: string;
+  location?: string;
+  serviceHistory: ServiceHistory[];
+  partChanges: PartChange[];
+  alerts: Alert[];
+};
 
 type ServiceHistory = {
   date: string;
@@ -19,116 +50,143 @@ type Alert = {
   message: string;
 };
 
-type Bus = {
-  id: string;
-  registrationNumber: string;
-  model: string;
-  year: number;
-  capacity: number;
-  currentRoute: string;
-  status: string;
-  lastService: string;
-  nextService: string;
-  mileage: number;
-  fuelEfficiency: number;
-  driver: string;
-  conductor: string;
-  location: string;
-  serviceHistory: ServiceHistory[];
-  partChanges: PartChange[];
-  alerts: Alert[];
-};
+interface BusResponse {
+  message: string;
+  buses: BusFromAPI[];
+}
 
-const mockBuses: Bus[] =  [
-  {
-    id: 'BUS-001',
-    registrationNumber: 'NC-1234',
-    model: 'A',
-    year: 2020,
-    capacity: 45,
-    currentRoute: 'Pettah - Dehiwala',
-    status: 'Active',
-    lastService: '2024-06-15',
-    nextService: '2024-07-15',
-    mileage: 125000,
-    fuelEfficiency: 8.5,
-    driver: 'Kasun Perera',
-    conductor: 'Saman Silva',
-    location: 'Pettah Depot',
-    serviceHistory: [
-      { date: '2024-06-15', type: 'Regular Service', cost: 15000, description: 'Oil change, brake inspection' },
-      { date: '2024-05-20', type: 'Repair', cost: 8500, description: 'Engine cooling system repair' },
-      { date: '2024-04-10', type: 'Regular Service', cost: 12000, description: 'Tire rotation, air filter change' }
-    ],
-    partChanges: [
-      { date: '2024-06-15', part: 'Engine Oil', quantity: 1, cost: 3500 },
-      { date: '2024-05-20', part: 'Radiator', quantity: 1, cost: 6500 },
-      { date: '2024-04-10', part: 'Air Filter', quantity: 2, cost: 2000 }
-    ],
-    alerts: [
-      { type: 'warning', message: 'Service due in 5 days' }
-    ]
-  },
-  {
-    id: 'BUS-002',
-    registrationNumber: 'NC-5678',
-    model: 'B',
-    year: 2019,
-    capacity: 52,
-    currentRoute: 'Pettah - Wellawatte',
-    status: 'In Service',
-    lastService: '2024-06-20',
-    nextService: '2024-07-20',
-    mileage: 98000,
-    fuelEfficiency: 9.2,
-    driver: 'Nimal Fernando',
-    conductor: 'Priya Jayawardena',
-    location: 'En Route',
-    serviceHistory: [
-      { date: '2024-06-20', type: 'Regular Service', cost: 14000, description: 'Complete inspection, brake pad replacement' },
-      { date: '2024-05-15', type: 'Repair', cost: 5500, description: 'Transmission fluid change' }
-    ],
-    partChanges: [
-      { date: '2024-06-20', part: 'Brake Pads', quantity: 4, cost: 8000 },
-      { date: '2024-05-15', part: 'Transmission Fluid', quantity: 1, cost: 2500 }
-    ],
-    alerts: []
-  },
-  {
-    id: 'BUS-003',
-    registrationNumber: 'NC-9012',
-    model: 'A',
-    year: 2021,
-    capacity: 38,
-    currentRoute: 'Colombo - Panadura',
-    status: 'Maintenance',
-    lastService: '2024-06-25',
-    nextService: '2024-07-25',
-    mileage: 67000,
-    fuelEfficiency: 10.1,
-    driver: 'Chamara Rathnayake',
-    conductor: 'Dilani Perera',
-    location: 'Maintenance Bay',
-    serviceHistory: [
-      { date: '2024-06-25', type: 'Major Service', cost: 25000, description: 'Engine overhaul, suspension check' }
-    ],
-    partChanges: [
-      { date: '2024-06-25', part: 'Engine Gaskets', quantity: 1, cost: 12000 },
-      { date: '2024-06-25', part: 'Shock Absorbers', quantity: 4, cost: 8000 }
-    ],
-    alerts: [
-      { type: 'error', message: 'Under maintenance - ETA 2 days' }
-    ]
+interface AppContextType {
+  user: { role: string; userId: string; depot_id?: string; region_id?: string; } | undefined;
+  token: string | null;
+}
+
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: string | null }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
   }
-];
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error: error.message };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return <div className="text-center py-8 text-red-600">Error: {this.state.error}</div>;
+    }
+    return this.props.children;
+  }
+}
 
 const Busmanagement: React.FC = () => {
+  const context = useContext(AppContext) as AppContextType | undefined;
+  const [buses, setBuses] = useState<Bus[]>([]);
   const [selectedBus, setSelectedBus] = useState<Bus | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [showDetails, setShowDetails] = useState(false);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const filteredBuses = mockBuses.filter((bus) => {
+  const token = context?.token;
+
+  const fetchBuses = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      if (!token) {
+        setError('Authentication token is missing. Please log in.');
+        setLoading(false);
+        return;
+      }
+
+      let apiUrl = 'http://localhost:5000/api/depot-engineer/buses';
+      // No need to append 'role' as a query parameter.
+      // The backend should derive the user's role from the JWT token.
+      if (context?.user?.role === 'depot_manager' || context?.user?.role === 'depot_operations') {
+        if (!context?.user?.depot_id) {
+          setError('Depot ID is required for this user role.');
+          setLoading(false);
+          return;
+        }
+        apiUrl = `http://localhost:5000/api/buses/depot/${context.user.depot_id}`;
+      }
+      
+      console.log('Fetching from:', apiUrl); // Debug log
+
+      const response = await axios.get<BusResponse>(apiUrl, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.data.buses) {
+        const fetchedBuses = response.data.buses.map(bus => ({
+          id: bus.bus_id,
+          registrationNumber: bus.registration_number,
+          model: bus.model,
+          year: bus.year,
+          mileage: bus.mileage,
+          status: bus.status,
+          location: bus.depot_name,
+          capacity: 50,
+          currentRoute: 'N/A',
+          lastService: '2024-06-15',
+          nextService: '2024-08-15',
+          fuelEfficiency: 4.5,
+          driver: 'John Doe',
+          conductor: 'Jane Smith',
+          serviceHistory: [
+            { date: '2024-06-15', type: 'Regular Service', cost: 15000, description: 'Oil change, brake inspection' },
+            { date: '2024-05-20', type: 'Repair', cost: 8500, description: 'Engine cooling system repair' },
+          ],
+          partChanges: [
+            { date: '2024-06-15', part: 'Engine Oil', quantity: 1, cost: 3500 },
+            { date: '2024-05-20', part: 'Radiator', quantity: 1, cost: 6500 },
+          ],
+          alerts: bus.status === 'Maintenance' ? [{ type: 'error', message: 'Under maintenance - ETA 2 days' }] : [],
+        }));
+        setBuses(fetchedBuses);
+      } else {
+        setError(`Failed to fetch buses: ${response.data.message}`);
+      }
+    } catch (err) {
+      const axiosError = err as AxiosError;
+      console.error('API Error:', axiosError);
+      if (axiosError.response) {
+        // If it's a 403, provide a more specific message if possible
+        if (axiosError.response.status === 403) {
+            setError(`Permission Denied: You do not have access to view this information. Please check your user role with an administrator.`);
+        } else {
+            setError(`Failed to fetch buses: ${axiosError.response.status} - ${axiosError.response.data?.message || axiosError.response.statusText}. Please verify the API endpoint with the backend team.`);
+        }
+      } else if (axiosError.request) {
+        setError('Failed to fetch buses. The API endpoint might be down or unreachable.');
+      } else {
+        setError(`Error setting up request: ${axiosError.message}`);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    // Only fetch if token is present and user role is defined.
+    // The specific access check for "Depot Engineers" should be handled by the backend.
+    if (token && context?.user?.role) {
+      fetchBuses();
+    } else if (!token) {
+      setError('Please log in to view this page.');
+      setLoading(false);
+    } else {
+      // This else block might be redundant if the above `if` and `else if` cover all cases.
+      // If the context.user.role is null/undefined for some reason, this message will show.
+      setError('User role not identified. Please log in again.');
+      setLoading(false);
+    }
+  }, [token, context?.user?.role, context?.user?.depot_id]); // Added depot_id to dependency array
+
+  const filteredBuses = buses.filter((bus) => {
     const matchesSearch =
       bus.registrationNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
       bus.model.toLowerCase().includes(searchTerm.toLowerCase());
@@ -136,7 +194,7 @@ const Busmanagement: React.FC = () => {
     return matchesSearch && matchesStatus;
   });
 
-  function getStatusColor(status: string): string {
+  const getStatusColor = (status: string): string => {
     switch (status) {
       case 'Active':
         return 'bg-green-100 text-green-800';
@@ -149,7 +207,7 @@ const Busmanagement: React.FC = () => {
       default:
         return 'bg-gray-100 text-gray-800';
     }
-  }
+  };
 
   const handleViewDetails = (bus: Bus) => {
     setSelectedBus(bus);
@@ -162,180 +220,170 @@ const Busmanagement: React.FC = () => {
   };
 
   const fleetStats = {
-    total: mockBuses.length,
-    active: mockBuses.filter((b) => b.status === 'Active').length,
-    inService: mockBuses.filter((b) => b.status === 'In Service').length,
-    maintenance: mockBuses.filter((b) => b.status === 'Maintenance').length,
+    total: buses.length,
+    active: buses.filter((b) => b.status === 'Active').length,
+    inService: buses.filter((b) => b.status === 'In Service').length,
+    maintenance: buses.filter((b) => b.status === 'Maintenance').length,
     avgFuelEfficiency: (
-      mockBuses.reduce((sum, b) => sum + b.fuelEfficiency, 0) / mockBuses.length
+      buses.reduce((sum, b) => sum + (b.fuelEfficiency || 0), 0) / (buses.length || 1)
     ).toFixed(1),
   };
 
+  if (loading) {
+    return <div className="text-center py-8">Loading buses...</div>;
+  }
+
+  if (error) {
+    return <div className="text-center py-8 text-red-600">Error: {error}</div>;
+  }
+
   return (
-    <div className="space-y-6">
-     
-
-      {/* Fleet Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Total Buses" value={fleetStats.total} color="text-blue-600" />
-        <StatCard label="Active/In Service" value={fleetStats.active + fleetStats.inService} color="text-green-600" />
-        <StatCard label="In Maintenance" value={fleetStats.maintenance} color="text-yellow-600" />
-        <StatCard label="Avg Fuel Efficiency" value={`${fleetStats.avgFuelEfficiency} km/l`} color="text-purple-600" />
-      </div>
-
-      {/* Search and Filter */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <div className="flex flex-col md:flex-row gap-4 mb-6">
-          <input
-            type="text"
-            placeholder="Search by model"
-            className="w-full pl-4 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-          <div className="flex items-center gap-2">
-            <span className="text-gray-600">Filter:</span>
-            <select
-              className="px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="All">All Status</option>
-              <option value="Active">Active</option>
-              <option value="In Service">In Service</option>
-              <option value="Maintenance">Maintenance</option>
-              <option value="Out of Service">Out of Service</option>
-            </select>
-          </div>
+    <ErrorBoundary>
+      <div className="space-y-6">
+        <div className="bg-white rounded-lg shadow-sm p-6 grid grid-cols-1 md:grid-cols-5 gap-6">
+          <StatCard label="Total Buses" value={fleetStats.total} color="text-blue-600" />
+          <StatCard label="Active" value={fleetStats.active} color="text-green-600" />
+          <StatCard label="In Service" value={fleetStats.inService} color="text-blue-600" />
+          <StatCard label="Maintenance" value={fleetStats.maintenance} color="text-yellow-600" />
+         
         </div>
 
-        {/* Bus Cards */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-          {filteredBuses.map((bus) => (
-            <div key={bus.id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">{bus.registrationNumber}</h3>
-                  <p className="text-sm text-gray-600">
-                    {bus.model} ({bus.year})
-                  </p>
-                </div>
-                <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(bus.status)}`}>
-                  {bus.status}
-                </span>
-              </div>
-
-              {bus.alerts.length > 0 && (
-                <div className="mb-4">
-                  {bus.alerts.map((alert, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center text-sm text-yellow-700 bg-yellow-50 p-2 rounded"
-                    >
-                      <span className="mr-2">⚠️</span>
-                      <span>{alert.message}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div className="space-y-2 mb-4 text-sm text-gray-600">
-                <div className="flex items-center">
-                  <span className="mr-2">📍</span>
-                  {bus.location}
-                </div>
-                <div className="flex items-center">
-                  <span className="mr-2">🛣️</span>
-                  Route: {bus.currentRoute}
-                </div>
-                <div className="flex items-center">
-                  <span className="mr-2">📅</span>
-                  Next Service: {bus.nextService}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
-                <InfoPair label="Mileage" value={`${bus.mileage.toLocaleString()} km`} />
-                <InfoPair label="Fuel Efficiency" value={`${bus.fuelEfficiency} km/l`} />
-                <InfoPair label="Capacity" value={`${bus.capacity} seats`} />
-                
-              </div>
-
-              <button
-                onClick={() => handleViewDetails(bus)}
-                className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+        <div className="bg-white rounded-lg shadow-sm p-6">
+          <div className="flex flex-col md:flex-row gap-4 mb-6">
+            <input
+              type="text"
+              placeholder="Search by Registration No. or Model"
+              className="w-full pl-4 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            <div className="flex items-center gap-2">
+              <span className="text-gray-600">Filter:</span>
+              <select
+                className="px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
               >
-                View Details
-              </button>
+                <option value="All">All Status</option>
+                <option value="Active">Active</option>
+                <option value="In Service">In Service</option>
+                <option value="Maintenance">Maintenance</option>
+                <option value="Out of Service">Out of Service</option>
+              </select>
             </div>
-          ))}
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            {filteredBuses.map((bus) => (
+              <div key={bus.id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">{bus.registrationNumber}</h3>
+                    <p className="text-sm text-gray-600">
+                      {bus.model} ({bus.year})
+                    </p>
+                  </div>
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(bus.status)}`}>
+                    {bus.status}
+                  </span>
+                </div>
+
+                {bus.alerts.length > 0 && (
+                  <div className="mb-4">
+                    {bus.alerts.map((alert, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center text-sm text-yellow-700 bg-yellow-50 p-2 rounded"
+                      >
+                        <span className="mr-2">⚠</span>
+                        <span>{alert.message}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="space-y-2 mb-4 text-sm text-gray-600">
+                  <div className="flex items-center">
+                    <span className="mr-2">📍</span>
+                    {bus.location || 'N/A'}
+                  </div>
+                  <div className="flex items-center">
+                    <span className="mr-2">🛣</span>
+                    Route: {bus.currentRoute || 'N/A'}
+                  </div>
+                  <div className="flex items-center">
+                    <span className="mr-2">📅</span>
+                    Next Service: {bus.nextService || 'N/A'}
+                  </div>
+                </div>
+
+                
+
+                <button
+                  onClick={() => handleViewDetails(bus)}
+                  className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  View Details
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {filteredBuses.length === 0 && (
+            <div className="text-center py-12">
+              <p className="text-gray-500">No buses found matching your criteria.</p>
+            </div>
+          )}
         </div>
 
-        {filteredBuses.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-gray-500">No buses found matching your criteria.</p>
+        {showDetails && selectedBus && (
+          <div className="fixed inset-0 backdrop-blur-sm bg-white/10 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                <div className="flex justify-between items-start mb-6">
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900">{selectedBus.registrationNumber}</h2>
+                    <p className="text-gray-600">
+                      {selectedBus.model} ({selectedBus.year})
+                    </p>
+                  </div>
+                  <button onClick={closeDetails} className="text-gray-400 hover:text-gray-600 text-2xl">
+                    ×
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                  <DetailsSection title="Basic Information" data={[
+                    ['Registration', selectedBus.registrationNumber],
+                    ['Model', selectedBus.model],
+                    ['Year', selectedBus.year],
+                    ['Capacity', `${selectedBus.capacity || 0} seats`],
+                  ]} />
+
+                  <DetailsSection title="Performance" data={[
+                    ['Total Mileage', `${selectedBus.mileage?.toLocaleString() || 0} km`],
+                    ['Last Service', selectedBus.lastService || 'N/A'],
+                    ['Next Service', selectedBus.nextService || 'N/A'],
+                    ['Status', <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(selectedBus.status)}`}>{selectedBus.status}</span>],
+                  ]} />
+                </div>
+
+                <TableSection title="🔧 Service History" columns={['Date', 'Type', 'Description', 'Cost (LKR)']} rows={
+                  selectedBus.serviceHistory.map(item => [item.date, item.type, item.description, item.cost.toLocaleString()])
+                } />
+
+                <TableSection title="⚙ Recent Part Changes" columns={['Date', 'Part', 'Quantity', 'Cost (LKR)']} rows={
+                  selectedBus.partChanges.map(item => [item.date, item.part, item.quantity, item.cost.toLocaleString()])
+                } />
+              </div>
+            </div>
           </div>
         )}
       </div>
-
-      {/* Modal */}
-      {showDetails && selectedBus && (
-        <div className="fixed inset-0 backdrop-blur-sm bg-white/10 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              {/* Modal Header */}
-              <div className="flex justify-between items-start mb-6">
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900">{selectedBus.registrationNumber}</h2>
-                  <p className="text-gray-600">
-                    {selectedBus.model} ({selectedBus.year})
-                  </p>
-                </div>
-                <button onClick={closeDetails} className="text-gray-400 hover:text-gray-600 text-2xl">
-                  ×
-                </button>
-              </div>
-
-              {/* Basic and Performance Info */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                <DetailsSection title="Basic Information" data={[
-                  ['Registration', selectedBus.registrationNumber],
-                  ['Model', selectedBus.model],
-                  ['Year', selectedBus.year],
-                  ['Capacity', `${selectedBus.capacity} seats`],
-                 
-                ]} />
-
-                <DetailsSection title="Performance" data={[
-                  ['Total Mileage', `${selectedBus.mileage.toLocaleString()} km`],
-                  ['Fuel Efficiency', `${selectedBus.fuelEfficiency} km/l`],
-                  ['Last Service', selectedBus.lastService],
-                  ['Next Service', selectedBus.nextService],
-                  ['Status', (
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(selectedBus.status)}`}>
-                      {selectedBus.status}
-                    </span>
-                  )]
-                ]} />
-              </div>
-
-              {/* Tables */}
-              <TableSection title="🔧 Service History" columns={['Date', 'Type', 'Description', 'Cost (LKR)']} rows={
-                selectedBus.serviceHistory.map(item => [item.date, item.type, item.description, item.cost.toLocaleString()])
-              } />
-
-              <TableSection title="⚙️ Recent Part Changes" columns={['Date', 'Part', 'Quantity', 'Cost (LKR)']} rows={
-                selectedBus.partChanges.map(item => [item.date, item.part, item.quantity, item.cost.toLocaleString()])
-              } />
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+    </ErrorBoundary>
   );
 };
 
-// Reusable Components
 const StatCard = ({ label, value, color }: { label: string; value: string | number; color: string }) => (
   <div className="bg-white rounded-lg shadow-sm p-6">
     <div className="flex items-center">

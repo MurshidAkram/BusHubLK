@@ -192,6 +192,14 @@ app.use('/api/lost-found', lostFoundRoutes);
 console.log('✅ lostFoundRoutes loaded');
 
 
+try {
+  const depotEngineerRoutes = require('./routes/depotEngineerRoutes');
+  app.use('/api/depot-engineer', depotEngineerRoutes); // Mount at /api/depot-engineer
+  console.log('✅ depotEngineerRoutes loaded');
+} catch (error) {
+  console.log('❌ depotEngineerRoutes error:', error.message);
+}
+
 
 app.get('/resetPassword.js', (req, res) => {
   res.setHeader('Content-Type', 'application/javascript');

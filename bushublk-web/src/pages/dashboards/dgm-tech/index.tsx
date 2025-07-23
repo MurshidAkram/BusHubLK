@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FaBus, FaCheckCircle, FaCalendarCheck, FaTools, FaExclamationTriangle, FaFlag, FaFileExport, FaSearch } from 'react-icons/fa';
+import { FaBus, FaCheckCircle, FaTools, FaExclamationTriangle, FaFlag, FaFileExport, FaSearch, FaCalendarCheck } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 
 interface StatusBadgeProps {
@@ -13,24 +13,36 @@ interface StatusIndicatorProps {
 }
 
 const MaintenanceDashboard = () => {
-  // State for the time period filter (will be used in future map implementation)
   const [timePeriod, setTimePeriod] = useState('Last 7 Days');
   const navigate = useNavigate();
   
-  // Mock data - in a real app, this would come from an API
   const fleetData = {
     totalBuses: 2346,
     activeBuses: 1892,
     maintenanceBuses: 327,
     inactiveBuses: 127,
-    availability: 87,
-    northernAvailability: 92,
-    easternAvailability: 85,
-    westernAvailability: 89,
-    serviceCompliance: 78,
-    targetCompliance: 95,
-    mttr: 2.8,
-    mttrChange: -0.5,
+    inServiceBreakdown: {
+      northern: 756,
+      eastern: 662,
+      western: 474,
+      onRoute: 1421,
+      atDepot: 471
+    },
+    underMaintenanceBreakdown: {
+      scheduled: 196,
+      unscheduled: 131,
+      northern: 131,
+      eastern: 114,
+      western: 82
+    },
+    outOfServiceBreakdown: {
+      awaitingParts: 64,
+      majorRepairs: 38,
+      other: 25,
+      northern: 51,
+      eastern: 44,
+      western: 32
+    },
     alerts: [
       {
         id: 1,
@@ -156,88 +168,48 @@ const MaintenanceDashboard = () => {
           </div>
           <div className="p-4">
             <h2 className="text-3xl font-bold mb-4">{fleetData.totalBuses.toLocaleString()}</h2>
-            <div className="flex justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Active</p>
-                <p className="font-medium">{fleetData.activeBuses.toLocaleString()} <span className="text-green-600">(80%)</span></p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Maintenance</p>
-                <p className="font-medium">{fleetData.maintenanceBuses.toLocaleString()} <span className="text-yellow-600">(14%)</span></p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Inactive</p>
-                <p className="font-medium">{fleetData.inactiveBuses.toLocaleString()} <span className="text-red-600">(6%)</span></p>
-              </div>
-            </div>
+            
           </div>
         </div>
 
-        {/* Fleet Availability Card */}
+        {/* In Service Card */}
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">
           <div className="p-4 border-b border-gray-200 flex justify-between items-center">
-            <h3 className="font-semibold text-gray-800">Fleet Availability</h3>
-            <FaCheckCircle className="text-gray-500" />
+            <h3 className="font-semibold text-gray-800">In Service</h3>
+            <FaCheckCircle className="text-green-500" />
           </div>
           <div className="p-4">
-            <div className="h-32 flex items-center justify-center">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-green-600">{fleetData.availability}%</div>
-                <p className="text-sm text-gray-500">Overall Availability</p>
-              </div>
-            </div>
-            <div className="flex justify-between mt-4">
-              <span className="text-sm">Northern: {fleetData.northernAvailability}%</span>
-              <span className="text-sm">Eastern: {fleetData.easternAvailability}%</span>
-              <span className="text-sm">Western: {fleetData.westernAvailability}%</span>
-            </div>
+            <div className="text-3xl font-bold text-green-600 mb-2">{fleetData.activeBuses.toLocaleString()}</div>
+            
           </div>
         </div>
 
-        {/* Service Compliance Card */}
+        {/* Under Maintenance Card */}
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">
           <div className="p-4 border-b border-gray-200 flex justify-between items-center">
-            <h3 className="font-semibold text-gray-800">Service Compliance</h3>
-            <FaCalendarCheck className="text-gray-500" />
+            <h3 className="font-semibold text-gray-800">Under Maintenance</h3>
+            <FaTools className="text-yellow-500" />
           </div>
           <div className="p-4">
-            <div className="h-32 flex items-center justify-center">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-blue-600">{fleetData.serviceCompliance}%</div>
-                <p className="text-sm text-gray-500">On-Time Maintenance</p>
-              </div>
-            </div>
-            <div className="mt-4">
-              <div className="flex justify-between text-sm">
-                <span>Target: {fleetData.targetCompliance}%</span>
-                <span>{fleetData.serviceCompliance}%</span>
-              </div>
-              <div className="bg-gray-200 h-2 rounded-full mt-1">
-                <div 
-                  className="bg-blue-600 h-full rounded-full" 
-                  style={{ width: `${(fleetData.serviceCompliance / fleetData.targetCompliance) * 100}%` }}
-                ></div>
-              </div>
-            </div>
+            <div className="text-3xl font-bold text-red-600 mb-2">{fleetData.maintenanceBuses.toLocaleString()}</div>
+            <p className="text-sm text-gray-500 mb-4">Not available for service</p>
+            
+            
           </div>
+         
         </div>
 
-        {/* MTTR Card */}
+        {/* Out of Service Card */}
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">
           <div className="p-4 border-b border-gray-200 flex justify-between items-center">
-            <h3 className="font-semibold text-gray-800">MTTR</h3>
-            <FaTools className="text-gray-500" />
+            <h3 className="font-semibold text-gray-800">Out of Service</h3>
+            <FaExclamationTriangle className="text-red-500" />
           </div>
           <div className="p-4">
-            <div className="h-32 flex items-center justify-center">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-yellow-600">{fleetData.mttr}</div>
-                <p className="text-sm text-gray-500">Mean Time To Repair (days)</p>
-              </div>
-            </div>
-            <div className="text-sm mt-4">
-              <span className="text-green-600">▼ {Math.abs(fleetData.mttrChange)} days</span> from last month
-            </div>
+            <div className="text-3xl font-bold text-red-600 mb-2">{fleetData.inactiveBuses.toLocaleString()}</div>
+            <p className="text-sm text-gray-500 mb-4">Not available for service</p>
+            
+            
           </div>
         </div>
       </div>
