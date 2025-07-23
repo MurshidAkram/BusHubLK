@@ -28,7 +28,6 @@ import DepotManagerDashboard from './pages/dashboards/depot-manager'
 import FleetManagement from './pages/dashboards/depot-manager/FleetManagement'
 import ChecklistVerification from './pages/dashboards/depot-manager/ChecklistVerification'
 import DriverManagement from './pages/dashboards/depot-manager/DriverManagement'
-import Schedules from './pages/dashboards/depot-manager/Schedules'
 import Assignments from './pages/dashboards/depot-manager/Assignments'
 import Maintenance from './pages/dashboards/depot-manager/Maintenance'
 import Announcements from './pages/dashboards/depot-manager/Announcements'
@@ -40,12 +39,10 @@ import DepotOperationsManagerSidebarContent from './components/depot-ops/DepotOp
 import DepotOperationsManagerDashboard from './pages/dashboards/depot-ops'
 import DailyOperations from './pages/dashboards/depot-ops/DailyOperations'
 import ScheduleMonitoring from './pages/dashboards/depot-ops/ScheduleMonitoring'
-import RouteOptimization from './pages/dashboards/depot-ops/RouteOptimization'
 import CrewManagement from './pages/dashboards/depot-ops/CrewManagement'
 import IncidentManagement from './pages/dashboards/depot-ops/IncidentManagement'  
 import AnnouncementCenter from './pages/dashboards/depot-ops/AnnouncementCenter'
 import OperationsReports from './pages/dashboards/depot-ops/OperationsReports'
-import OperationsSettings from './pages/dashboards/depot-ops/OperationsSettings'
 
 // Depot Engineer Components  
 import DepotEngineerSidebarContent from './components/depot-engineer/DepotEngineerSidebarContent'
@@ -57,7 +54,7 @@ import Spareparts from './pages/dashboards/depot-engineer/Spareparts'
 import Autoforwardbusstatus from './pages/dashboards/depot-engineer/Autoforwardbusstatus'
 import DepotEscalateissues from './pages/dashboards/depot-engineer/DepotEscalateissues'
 import Depotcommunityhub from './pages/dashboards/depot-engineer/Depotcommunityhub'
-import Depotinspection from './pages/dashboards/depot-engineer/Depotinspection'
+import Depotinspection from './pages/dashboards/depot-engineer/DepotInspection'
 
 
 
@@ -78,10 +75,8 @@ import FleetCoordination from './pages/dashboards/regional-ops/FleetCoordination
 import ScheduleOversight from './pages/dashboards/regional-ops/ScheduleOversight'
 import CrewOverview from './pages/dashboards/regional-ops/CrewOverview'
 import IncidentTracking from './pages/dashboards/regional-ops/IncidentTracking'
-import AssetDistribution from './pages/dashboards/regional-ops/AssetDistribution'
 import CommCenter from './pages/dashboards/regional-ops/CommCenter'
 import OpsReports from './pages/dashboards/regional-ops/OpsReports'
-import OpsSettings from './pages/dashboards/regional-ops/OpsSettings'
 
 // DGM Operations Components
 import DGMOperationsSidebarContent from './components/dgm-ops/DGMOperationsSidebarContent'
@@ -90,7 +85,7 @@ import NationalOverview from './pages/dashboards/dgm-ops/NationalOverview'
 import CommunicationCenter from './pages/dashboards/dgm-ops/CommunicationCenter'
 import Feedback from './pages/dashboards/dgm-ops/Feedback'
 import ExecutiveSettings from './pages/dashboards/dgm-ops/ExecutiveSettings'
-
+import CrewOversight from './pages/dashboards/dgm-ops/CrewOversight'
 
 // DGM Technical Components
 import DGMTechnicalSidebarContent from './components/dgm-tech/DGMTechnicalSidebarContent'
@@ -107,6 +102,13 @@ import CEOSidebarContent from './components/ceo/CEOSidebarContent'
 import CEODashboard from './pages/dashboards/ceo/index'
 import DepotAndRegions from './pages/dashboards/admin/DepotAndRegions'
 import BusManagement from './pages/dashboards/admin/BusManaging'
+import RegionalOverviewPage from './pages/dashboards/ceo/RegionalOverview';
+import WorkforceAnalyticsPage from './pages/dashboards/ceo/Workforce';
+import DepotOverviewPage from './pages/dashboards/ceo/DepotOverview';
+import RoutePerformancePage from './pages/dashboards/ceo/RoutePerformance';
+import OperationalOverviewPage from './pages/dashboards/ceo/OperationalOverview';
+import AnnouncementCenterPage from './pages/dashboards/ceo/AnnouncementCenter';
+import AccidentBreakdownPage from './pages/dashboards/ceo/AccidentBreakdowns'
 //import Dgmcommunityhub from './pages/dashboards/dgm-tech/Dgmcommunityhub'
 //import Dgmtechnicalissue from './pages/dashboards/dgm-tech/Dgmtechnicalissue'
 //import Rtoissuetracker from './pages/dashboards/regional-tech/Rtoissuetracker'
@@ -177,7 +179,6 @@ const App = () => {
           <Route path="fleet-management" element={<FleetManagement />} />
           <Route path="checklist-verification" element={<ChecklistVerification />} />
           <Route path="driver-management" element={<DriverManagement />} /> 
-          <Route path="schedules" element={<Schedules />} />
           <Route path="assignments" element={<Assignments />} />
           <Route path="maintenance" element={<Maintenance />} />
           <Route path="announcements" element={<Announcements />} />
@@ -194,11 +195,9 @@ const App = () => {
           <Route path="daily-operations" element={<DailyOperations />} />
           <Route path="schedule-monitoring" element={<ScheduleMonitoring />} />
           <Route path="crew-management" element={<CrewManagement />} />
-          <Route path="route-optimization" element={<RouteOptimization />} /> 
           <Route path="incident-management" element={<IncidentManagement />} />
           <Route path="announcement-center" element={<AnnouncementCenter />} />
           <Route path="operations-reports" element={<OperationsReports />} />
-          <Route path="operations-settings" element={<OperationsSettings />} />
           </Route>
         </Route>
 
@@ -241,11 +240,9 @@ const App = () => {
     <Route path="schedule-oversight" element={<ScheduleOversight />} />
     <Route path="crew-overview" element={<CrewOverview />} />
     <Route path="incident-tracking" element={<IncidentTracking />} />
-    <Route path="asset-distribution" element={<AssetDistribution />} />
     <Route path="comm-center" element={<CommCenter />} />
     <Route path="ops-reports" element={<OpsReports />} />
-    <Route path="ops-settings" element={<OpsSettings />} />
-
+    
             {/* Add individual pages later */}
           </Route>
         </Route>
@@ -258,6 +255,7 @@ const App = () => {
     <Route path="communication-center" element={<CommunicationCenter />} />
     <Route path="feedback" element={<Feedback />} />
     <Route path="executive-settings" element={<ExecutiveSettings />} />
+     <Route path="crew-oversight" element={<CrewOversight />} />
     {/* Add individual pages later */}
   </Route>
 </Route>
@@ -279,7 +277,13 @@ const App = () => {
         <Route element={<ProtectedRoute requiredRole="ceo" />}>
         <Route path="/ceo" element={<DashboardLayout role="CEO" sidebarContent={<CEOSidebarContent />} />}>
           <Route index element={<CEODashboard />} />
-          {/* Add individual pages later */}
+          <Route path="regional-overview" element={<RegionalOverviewPage />} />
+          <Route path="workforce-analytics" element={<WorkforceAnalyticsPage />} />
+          <Route path="depot-overview" element={<DepotOverviewPage />} />
+          <Route path="accident-breakdowns" element={<AccidentBreakdownPage/>} />
+          <Route path="route-performance" element={<RoutePerformancePage />} />
+          <Route path="operational-overview" element={<OperationalOverviewPage />} />
+          <Route path="announcement-center" element={<AnnouncementCenterPage />} />
         </Route>
         </Route>
 

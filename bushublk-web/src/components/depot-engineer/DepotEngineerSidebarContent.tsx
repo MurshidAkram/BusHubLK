@@ -74,7 +74,7 @@ const DepotEngineerSidebarContent = () => {
         }
       >
         <HiArrowCircleRight className="mr-3 flex-shrink-0 h-5 w-5" />
-        BusCondition Reports
+        Bus Condition Reports
       </NavLink>
 
       <NavLink
@@ -101,7 +101,7 @@ const DepotEngineerSidebarContent = () => {
         }
       >
         <HiChartBar className="mr-3 flex-shrink-0 h-5 w-5" />
-        Spareparts
+        Spare Parts
       </NavLink>
       <NavLink
         to="/depot-engineer/Depotcommunityhub"

@@ -72,9 +72,9 @@ const DepotManagerDashboard = () => {
               </div>
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Routes Covered</p>
+              <p className="text-sm font-medium text-gray-500">Spare Parts</p>
               <p className="text-2xl font-semibold text-gray-900">12</p>
-              <p className="text-sm text-green-600">100% coverage</p>
+              <p className="text-sm text-green-600">Total in stock</p>
             </div>
           </div>
         </div>
@@ -93,17 +93,17 @@ const DepotManagerDashboard = () => {
           <div className="p-6">
             <div className="space-y-4">
               {[
-                { route: "Route 01", time: "06:00 AM", driver: "John Silva", status: "On Time" },
-                { route: "Route 03", time: "06:30 AM", driver: "Priya Perera", status: "Delayed" },
-                { route: "Route 05", time: "07:00 AM", driver: "Kasun Fernando", status: "On Time" },
-                { route: "Route 07", time: "07:30 AM", driver: "Nimal Raj", status: "On Time" },
+                { route: "Route 101", time: "06:00 AM", bus : " Bus NC-110", status: "On Time" },
+                { route: "Route 133", time: "06:30 AM", bus : "Bus NP-101", status: "Delayed" },
+                { route: "Route 138", time: "07:00 AM", bus : "Bus NC-782", status: "On Time" },
+                { route: "Route 125", time: "07:30 AM", bus : "Bus NC-103", status: "On Time" },
               ].map((schedule, index) => (
                 <div key={index} className="flex items-center justify-between py-2">
                   <div className="flex items-center space-x-3">
                     <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                     <div>
                       <p className="text-sm font-medium text-gray-900">{schedule.route}</p>
-                      <p className="text-xs text-gray-500">{schedule.driver}</p>
+                      <p className="text-xs text-gray-500">{schedule.bus}</p>
                     </div>
                   </div>
                   <div className="text-right">

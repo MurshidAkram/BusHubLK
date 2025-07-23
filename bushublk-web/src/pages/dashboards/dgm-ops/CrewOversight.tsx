@@ -11,11 +11,19 @@ interface CrewMember {
   depot: string;
 }
 
-const CrewOverview = () => {
+const depotToRegion: { [depot: string]: string } = {
+  'Colombo Depot': 'Western',
+  'Kandy Depot': 'Central',
+  'Galle Depot': 'Southern',
+};
+
+const CrewOversight = () => {
   const [filterRole, setFilterRole] = useState<'All' | 'Driver' | 'Conductor'>('All');
   const [filterDepot, setFilterDepot] = useState<'All' | string>('All');
+  const [filterRegion, setFilterRegion] = useState<'All' | string>('All');
 
-  const depots = ['Colombo Depot', 'Kandy Depot', 'Galle Depot'];
+  const depots = Object.keys(depotToRegion);
+  const regions = Array.from(new Set(Object.values(depotToRegion)));
 
   const [crewList] = useState<CrewMember[]>([
     { id: 1, name: 'Nimal Perera', contact: '+94771234567', role: 'Driver', status: 'On Duty', depot: 'Colombo Depot' },
@@ -45,7 +53,10 @@ const CrewOverview = () => {
   const filteredCrew = crewList.filter((member) => {
     const roleMatch = filterRole === 'All' || member.role === filterRole;
     const depotMatch = filterDepot === 'All' || member.depot === filterDepot;
-    return roleMatch && depotMatch;
+    const regionMatch =
+      filterRegion === 'All' || depotToRegion[member.depot] === filterRegion;
+
+    return roleMatch && depotMatch && regionMatch;
   });
 
   return (
@@ -60,7 +71,7 @@ const CrewOverview = () => {
           <h2 className="text-xl font-semibold text-gray-900">Crew List</h2>
 
           {/* Filters */}
-          <div className="flex gap-4">
+          <div className="flex flex-wrap gap-4">
             {/* Role Filter */}
             <select
               className="border border-gray-300 rounded p-2 text-sm"
@@ -76,12 +87,26 @@ const CrewOverview = () => {
             <select
               className="border border-gray-300 rounded p-2 text-sm"
               value={filterDepot}
-              onChange={(e) => setFilterDepot(e.target.value as 'All' | string)}
+              onChange={(e) => setFilterDepot(e.target.value)}
             >
               <option value="All">All Depots</option>
               {depots.map((depot) => (
                 <option key={depot} value={depot}>
                   {depot}
+                </option>
+              ))}
+            </select>
+
+            {/* Region Filter */}
+            <select
+              className="border border-gray-300 rounded p-2 text-sm"
+              value={filterRegion}
+              onChange={(e) => setFilterRegion(e.target.value)}
+            >
+              <option value="All">All Regions</option>
+              {regions.map((region) => (
+                <option key={region} value={region}>
+                  {region}
                 </option>
               ))}
             </select>
@@ -125,4 +150,4 @@ const CrewOverview = () => {
   );
 };
 
-export default CrewOverview;
+export default CrewOversight;

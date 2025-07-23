@@ -142,13 +142,11 @@ try {
 } catch (error) {
   console.log('❌ passengerRoutes error:', error.message);
 }
-try {
-  const dailyAssignmentRoutes = require('./routes/dailyAssignmentRoutes');
-  app.use('/api/dailyassignment', dailyAssignmentRoutes);
-  console.log('✅ dailyAssignmentRoutes loaded');
-} catch (error) {
-  console.log('❌ dailyAssignmentRoutes error:', error.message);
-}
+
+const assignmentRoutes = require('./routes/assignmentRoutes');
+
+// Add this with your other app.use() routes
+app.use('/api/assignments', assignmentRoutes);
 
 
 try {

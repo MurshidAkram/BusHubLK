@@ -7,13 +7,13 @@ const {
   updateRoute,
   deactivateRoute
 } = require('../controllers/routeController');
-const { authenticateJWT, authorizeAdmin } = require('../middlewares/authMiddleware');
+const { authenticateJWT, authorizeAdmin, authorizeDepotStaff} = require('../middlewares/authMiddleware');
 
 // GET /api/routes - Get all routes
-router.get('/', authenticateJWT, authorizeAdmin, getAllRoutes);
+router.get('/', authenticateJWT,  getAllRoutes);
 
 // GET /api/routes/depots - Get all depots for dropdown
-router.get('/depots', authenticateJWT, authorizeAdmin, getDepots);
+router.get('/depots', authenticateJWT, getDepots);
 
 // POST /api/routes - Create new route
 router.post('/', authenticateJWT, authorizeAdmin, createRoute);
