@@ -3,7 +3,7 @@ const express = require('express');
 const router = express.Router();
 const {
   createBusOccupancy,
-  getAllBusOccupancies, // New function to fetch all occupancies
+  getAllBusOccupancies,
   getBusOccupancy,
   updateBusOccupancy,
   deleteBusOccupancy,
@@ -14,6 +14,9 @@ router.get('/', getAllBusOccupancies);
 
 // GET /api/bus-occupancy/:busId - Fetch occupancy records for a specific bus
 router.get('/:busId', getBusOccupancy);
+
+// POST /api/bus-occupancy - Create a new occupancy record
+router.post('/', createBusOccupancy);
 
 // POST /api/bus-occupancy/:busId - Create a new occupancy record for a specific bus
 router.post('/:busId', createBusOccupancy);
