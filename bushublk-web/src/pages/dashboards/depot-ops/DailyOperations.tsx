@@ -340,4 +340,4 @@ const DailyOperations: React.FC = () => {
   );
 };
 
-export default DailyOperations;
+export default DailyOperations

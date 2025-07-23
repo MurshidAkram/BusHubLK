@@ -1,94 +1,98 @@
-import React from 'react';
+import React, { useState } from 'react';
 
-const mockDrivers = [
-  {
-    id: 'DRV-001',
-    name: 'Kasun Perera',
-    role: 'Driver',
-    contact: '0771234567',
-    assignedBus: 'NC-1234',
-    status: 'Active',
-    experience: 5,
-  },
-  {
-    id: 'DRV-002',
-    name: 'Saman Silva',
-    role: 'Conductor',
-    contact: '0779876543',
-    assignedBus: 'NC-1234',
-    status: 'On Leave',
-    experience: 3,
-  },
-  {
-    id: 'DRV-003',
-    name: 'Nimal Fernando',
-    role: 'Driver',
-    contact: '0711122233',
-    assignedBus: 'NC-5678',
-    status: 'Active',
-    experience: 7,
-  },
-  {
-    id: 'DRV-004',
-    name: 'Priya Jayawardena',
-    role: 'Conductor',
-    contact: '0769988776',
-    assignedBus: 'NC-5678',
-    status: 'Inactive',
-    experience: 2,
-  },
-];
+type CrewStatus = 'Off Duty' | 'On Duty' | 'On Break';
+
+interface CrewMember {
+  id: number;
+  name: string;
+  contact: string;
+  role: 'Driver' | 'Conductor';
+  status: CrewStatus;
+}
 
 const DriverManagement = () => {
-  const getStatusBadge = (status: string) => {
+  const [filterRole, setFilterRole] = useState<'All' | 'Driver' | 'Conductor'>('All');
+
+  const [crewList] = useState<CrewMember[]>([
+    { id: 1, name: 'Nimal Perera', contact: '+94771234567', role: 'Driver', status: 'On Duty' },
+    { id: 2, name: 'Sunil Silva', contact: '+94769876543', role: 'Conductor', status: 'On Break' },
+    { id: 3, name: 'Kamal Fernando', contact: '+94712345678', role: 'Driver', status: 'Off Duty' },
+    { id: 4, name: 'Mohamed Rizwan', contact: '+94751234567', role: 'Conductor', status: 'On Duty' },
+    { id: 5, name: 'Nawas Ameer', contact: '+94784561230', role: 'Driver', status: 'On Break' },
+    { id: 6, name: 'Thilina Jayasooriya', contact: '+94711122233', role: 'Driver', status: 'On Duty' },
+    { id: 7, name: 'Sahan Bandara', contact: '+94779988776', role: 'Conductor', status: 'Off Duty' },
+    { id: 8, name: 'Siththi Lebbe Faiz', contact: '+94761122445', role: 'Driver', status: 'On Duty' },
+    { id: 9, name: 'Ramesh Sivalingam', contact: '+94723344556', role: 'Conductor', status: 'On Break' },
+  ]);
+
+  const getStatusColor = (status: CrewStatus) => {
     switch (status) {
-      case 'Active': return 'bg-green-100 text-green-800';
-      case 'Inactive': return 'bg-gray-200 text-gray-700';
-      case 'On Leave': return 'bg-yellow-100 text-yellow-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'On Duty':
+        return 'bg-green-100 text-green-700';
+      case 'On Break':
+        return 'bg-yellow-100 text-yellow-700';
+      case 'Off Duty':
+        return 'bg-red-100 text-red-700';
+      default:
+        return '';
     }
   };
 
+  const filteredCrew = crewList.filter(member =>
+    filterRole === 'All' ? true : member.role === filterRole
+  );
+
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="bg-white rounded-lg shadow-sm p-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Driver & Conductor Management</h1>
-        <p className="text-gray-600">View driver and conductor assignments and performance.</p>
+        <h1 className="text-2xl font-bold text-gray-900 mb-1">Crew</h1>
+        <p className="text-sm text-gray-600">Today's bus crew assignments</p>
       </div>
 
-      {/* Driver Table */}
-      <div className="bg-white rounded-lg shadow-sm p-6 overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-4 py-2 text-left">ID</th>
-              <th className="px-4 py-2 text-left">Name</th>
-              <th className="px-4 py-2 text-left">Role</th>
-              <th className="px-4 py-2 text-left">Contact</th>
-              <th className="px-4 py-2 text-left">Assigned Bus</th>
-              <th className="px-4 py-2 text-left">Experience</th>
-              <th className="px-4 py-2 text-left">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {mockDrivers.map((driver) => (
-              <tr key={driver.id} className="border-b">
-                <td className="px-4 py-2">{driver.id}</td>
-                <td className="px-4 py-2">{driver.name}</td>
-                <td className="px-4 py-2">{driver.role}</td>
-                <td className="px-4 py-2">{driver.contact}</td>
-                <td className="px-4 py-2">{driver.assignedBus}</td>
-                <td className="px-4 py-2">{driver.experience} yrs</td>
-                <td className="px-4 py-2">
-                  <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusBadge(driver.status)}`}>
-                    {driver.status}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="bg-white rounded-lg shadow-sm p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold text-gray-900">Crew List</h2>
+          <select
+            className="border border-gray-300 rounded p-2 text-sm"
+            value={filterRole}
+            onChange={(e) => setFilterRole(e.target.value as 'All' | 'Driver' | 'Conductor')}
+          >
+            <option value="All">All</option>
+            <option value="Driver">Driver</option>
+            <option value="Conductor">Conductor</option>
+          </select>
+        </div>
+
+        {filteredCrew.length === 0 ? (
+          <p className="text-sm text-gray-500">No crew members match the selected role.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 text-sm">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left font-medium text-gray-500 uppercase">Name</th>
+                  <th className="px-6 py-3 text-left font-medium text-gray-500 uppercase">Contact Number</th>
+                  <th className="px-6 py-3 text-left font-medium text-gray-500 uppercase">Role</th>
+                  <th className="px-6 py-3 text-left font-medium text-gray-500 uppercase">Status</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredCrew.map((member) => (
+                  <tr key={member.id}>
+                    <td className="px-6 py-4 whitespace-nowrap">{member.name}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">{member.contact}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">{member.role}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(member.status)}`}>
+                        {member.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

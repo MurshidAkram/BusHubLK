@@ -28,7 +28,6 @@ import DepotManagerDashboard from './pages/dashboards/depot-manager'
 import FleetManagement from './pages/dashboards/depot-manager/FleetManagement'
 import ChecklistVerification from './pages/dashboards/depot-manager/ChecklistVerification'
 import DriverManagement from './pages/dashboards/depot-manager/DriverManagement'
-import Schedules from './pages/dashboards/depot-manager/Schedules'
 import Assignments from './pages/dashboards/depot-manager/Assignments'
 import Maintenance from './pages/dashboards/depot-manager/Maintenance'
 import Announcements from './pages/dashboards/depot-manager/Announcements'
@@ -40,12 +39,10 @@ import DepotOperationsManagerSidebarContent from './components/depot-ops/DepotOp
 import DepotOperationsManagerDashboard from './pages/dashboards/depot-ops'
 import DailyOperations from './pages/dashboards/depot-ops/DailyOperations'
 import ScheduleMonitoring from './pages/dashboards/depot-ops/ScheduleMonitoring'
-import RouteOptimization from './pages/dashboards/depot-ops/RouteOptimization'
 import CrewManagement from './pages/dashboards/depot-ops/CrewManagement'
 import IncidentManagement from './pages/dashboards/depot-ops/IncidentManagement'  
 import AnnouncementCenter from './pages/dashboards/depot-ops/AnnouncementCenter'
 import OperationsReports from './pages/dashboards/depot-ops/OperationsReports'
-import OperationsSettings from './pages/dashboards/depot-ops/OperationsSettings'
 
 // Depot Engineer Components  
 import DepotEngineerSidebarContent from './components/depot-engineer/DepotEngineerSidebarContent'
@@ -75,10 +72,8 @@ import FleetCoordination from './pages/dashboards/regional-ops/FleetCoordination
 import ScheduleOversight from './pages/dashboards/regional-ops/ScheduleOversight'
 import CrewOverview from './pages/dashboards/regional-ops/CrewOverview'
 import IncidentTracking from './pages/dashboards/regional-ops/IncidentTracking'
-import AssetDistribution from './pages/dashboards/regional-ops/AssetDistribution'
 import CommCenter from './pages/dashboards/regional-ops/CommCenter'
 import OpsReports from './pages/dashboards/regional-ops/OpsReports'
-import OpsSettings from './pages/dashboards/regional-ops/OpsSettings'
 
 // DGM Operations Components
 import DGMOperationsSidebarContent from './components/dgm-ops/DGMOperationsSidebarContent'
@@ -87,7 +82,7 @@ import NationalOverview from './pages/dashboards/dgm-ops/NationalOverview'
 import CommunicationCenter from './pages/dashboards/dgm-ops/CommunicationCenter'
 import Feedback from './pages/dashboards/dgm-ops/Feedback'
 import ExecutiveSettings from './pages/dashboards/dgm-ops/ExecutiveSettings'
-
+import CrewOversight from './pages/dashboards/dgm-ops/CrewOversight'
 
 // DGM Technical Components
 import DGMTechnicalSidebarContent from './components/dgm-tech/DGMTechnicalSidebarContent'
@@ -179,7 +174,6 @@ const App = () => {
           <Route path="fleet-management" element={<FleetManagement />} />
           <Route path="checklist-verification" element={<ChecklistVerification />} />
           <Route path="driver-management" element={<DriverManagement />} /> 
-          <Route path="schedules" element={<Schedules />} />
           <Route path="assignments" element={<Assignments />} />
           <Route path="maintenance" element={<Maintenance />} />
           <Route path="announcements" element={<Announcements />} />
@@ -196,11 +190,9 @@ const App = () => {
           <Route path="daily-operations" element={<DailyOperations />} />
           <Route path="schedule-monitoring" element={<ScheduleMonitoring />} />
           <Route path="crew-management" element={<CrewManagement />} />
-          <Route path="route-optimization" element={<RouteOptimization />} /> 
           <Route path="incident-management" element={<IncidentManagement />} />
           <Route path="announcement-center" element={<AnnouncementCenter />} />
           <Route path="operations-reports" element={<OperationsReports />} />
-          <Route path="operations-settings" element={<OperationsSettings />} />
           </Route>
         </Route>
 
@@ -240,11 +232,9 @@ const App = () => {
     <Route path="schedule-oversight" element={<ScheduleOversight />} />
     <Route path="crew-overview" element={<CrewOverview />} />
     <Route path="incident-tracking" element={<IncidentTracking />} />
-    <Route path="asset-distribution" element={<AssetDistribution />} />
     <Route path="comm-center" element={<CommCenter />} />
     <Route path="ops-reports" element={<OpsReports />} />
-    <Route path="ops-settings" element={<OpsSettings />} />
-
+    
             {/* Add individual pages later */}
           </Route>
         </Route>
@@ -257,6 +247,7 @@ const App = () => {
     <Route path="communication-center" element={<CommunicationCenter />} />
     <Route path="feedback" element={<Feedback />} />
     <Route path="executive-settings" element={<ExecutiveSettings />} />
+     <Route path="crew-oversight" element={<CrewOversight />} />
     {/* Add individual pages later */}
   </Route>
 </Route>
