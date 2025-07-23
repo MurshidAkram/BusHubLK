@@ -859,7 +859,7 @@ export default function BusOccupancyScreen() {
               style={[styles.updateButton, styles.disabledButton]}
               onPress={() => Alert.alert('Error', 'You can only update occupancy when you are inside a bus.')}
             >
-              <Text style={styles.updateButtonText}>Update Occupancy (Modal)</Text>
+              <Text style={styles.updateButtonText}>Update Occupancy</Text>
             </TouchableOpacity>
           </>
         )}

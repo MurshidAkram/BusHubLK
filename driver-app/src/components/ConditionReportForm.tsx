@@ -535,7 +535,7 @@ const styles = StyleSheet.create({
     marginTop: Platform.OS === "ios" ? 40 : 20,
   },
   headerGradient: {
-    backgroundColor: "#4F46E5",
+    backgroundColor: "#1335dfc2",
     paddingTop: Platform.OS === "ios" ? 60 : 40,
     paddingBottom: screenHeight * 0.05,
     paddingHorizontal: screenWidth * 0.05,
