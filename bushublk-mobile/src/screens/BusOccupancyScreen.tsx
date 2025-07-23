@@ -7,7 +7,6 @@ import {
   FlatList,
   Alert,
   SafeAreaView,
-  ScrollView,
   ActivityIndicator,
   Modal,
   Switch,
@@ -15,6 +14,7 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import * as Location from 'expo-location';
 import { API_BASE_URL } from '../config/api'; // Import dynamic API base URL
+import { storageAPI } from '../services/api'; // Import storage API for user data
 
 // Enhanced detection constants
 const MOVEMENT_HISTORY_SIZE = 10;
@@ -776,175 +776,179 @@ export default function BusOccupancyScreen() {
     );
   }
 
-  return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-        <View style={styles.demoToggleContainer}>
-          <Text style={styles.demoToggleLabel}>Demo Mode</Text>
-          <Switch
-            value={demoMode}
-            onValueChange={(value) => {
-              setDemoMode(value);
-              if (!value) {
-                setSelectedDemoBus(null);
-                setCurrentBus(null);
-                setShowBusSelector(false);
-              } else {
-                setShowBusSelector(true);
-              }
-            }}
-          />
-        </View>
+  const renderHeader = () => (
+    <>
+      <View style={styles.demoToggleContainer}>
+        <Text style={styles.demoToggleLabel}>Demo Mode</Text>
+        <Switch
+          value={demoMode}
+          onValueChange={(value) => {
+            setDemoMode(value);
+            if (!value) {
+              setSelectedDemoBus(null);
+              setCurrentBus(null);
+              setShowBusSelector(false);
+            } else {
+              setShowBusSelector(true);
+            }
+          }}
+        />
+      </View>
 
-        <Text style={styles.title}>🚍 SLTB Bus Occupancy Monitor</Text>
+      <Text style={styles.title}>🚍 SLTB Bus Occupancy Monitor</Text>
 
-        <View style={styles.card}>
-          <Text style={styles.label}>🚌 Bus Detection Status</Text>
-          {currentBus ? (
-            <View style={styles.currentBusCard}>
-              <View style={styles.currentBusHeader}>
-                <Icon name="bus" size={20} color="#007bff" />
-                <Text style={styles.currentBusTitle}>Bus {currentBus.number}</Text>
-              </View>
-              <Text style={styles.currentBusRoute}>{currentBus.route} ({currentBus.direction})</Text>
-              <View style={styles.confidenceContainer}>
-                <Text style={[styles.confidenceText, { color: getConfidenceColor(confidence) }]}>
-                  {getConfidenceText(confidence)}: {confidence}%
-                </Text>
-                <Text style={styles.detectionReason}>{detectionReason}</Text>
-              </View>
-              {busStatuses[currentBus.id]?.occupancy && (
-                <View style={styles.currentOccupancy}>
-                  <Text style={[
-                    styles.currentOccupancyText,
-                    { color: OCCUPANCY_LEVELS.find(l => l.value === busStatuses[currentBus.id].occupancy)?.color }
-                  ]}>
-                    Current: {OCCUPANCY_LEVELS.find(l => l.value === busStatuses[currentBus.id].occupancy)?.label.toUpperCase()}
-                  </Text>
-                  <Text style={styles.currentOccupancyTime}>Updated at {busStatuses[currentBus.id].updatedAt}</Text>
-                </View>
-              )}
-              <View style={styles.occupancyButtonsContainer}>
-                {OCCUPANCY_LEVELS.map((level) => (
-                  <TouchableOpacity
-                    key={level.value}
-                    style={[styles.occupancyButton, { backgroundColor: level.color }]}
-                    onPress={() => updateOccupancy(level.value)}
-                  >
-                    <Text style={styles.occupancyButtonText}>{level.label}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              <TouchableOpacity
-                style={[styles.updateButton]}
-                onPress={() => setShowOccupancyModal(true)}
-              >
-                <Text style={styles.updateButtonText}>Update Occupancy</Text>
-              </TouchableOpacity>
+      <View style={styles.card}>
+        <Text style={styles.label}>🚌 Bus Detection Status</Text>
+        {currentBus ? (
+          <View style={styles.currentBusCard}>
+            <View style={styles.currentBusHeader}>
+              <Icon name="bus" size={20} color="#007bff" />
+              <Text style={styles.currentBusTitle}>Bus {currentBus.number}</Text>
             </View>
-          ) : (
-            <>
-              <Text style={styles.noBusText}>No bus detected. {demoMode ? 'Please select a bus for demo.' : 'Please wait while we track your location.'}</Text>
-              <View style={styles.occupancyButtonsContainer}>
-                {OCCUPANCY_LEVELS.map((level) => (
-                  <TouchableOpacity
-                    key={level.value}
-                    style={[styles.occupancyButton, styles.disabledButton]}
-                    onPress={() => Alert.alert('Error', 'You can only update occupancy when you are inside a bus.')}
-                  >
-                    <Text style={styles.occupancyButtonText}>{level.label}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              <TouchableOpacity
-                style={[styles.updateButton, styles.disabledButton]}
-                onPress={() => Alert.alert('Error', 'You can only update occupancy when you are inside a bus.')}
-              >
-                <Text style={styles.updateButtonText}>Update Occupancy (Modal)</Text>
-              </TouchableOpacity>
-            </>
-          )}
-          {demoMode && (
-            <TouchableOpacity
-              style={styles.selectBusButton}
-              onPress={() => setShowBusSelector(true)}
-            >
-              <Text style={styles.selectBusButtonText}>Select Bus for Demo</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.label}>📍 Your Location & Movement</Text>
-          {userLocation ? (
-            <>
-              <Text style={styles.value}>
-                Lat: {userLocation.latitude.toFixed(6)}, Lng: {userLocation.longitude.toFixed(6)}
+            <Text style={styles.currentBusRoute}>{currentBus.route} ({currentBus.direction})</Text>
+            <View style={styles.confidenceContainer}>
+              <Text style={[styles.confidenceText, { color: getConfidenceColor(confidence) }]}>
+                {getConfidenceText(confidence)}: {confidence}%
               </Text>
-              {userLocation.accuracy && (
-                <Text style={styles.subValue}>Accuracy: ±{Math.round(userLocation.accuracy)}m</Text>
-              )}
-              {movementHistory.length > 0 && !demoMode && (
-                <View style={styles.movementInfo}>
-                  <Text style={styles.subValue}>
-                    Speed: {movementHistory[movementHistory.length - 1]?.speed?.toFixed(1) || 0} km/h
-                  </Text>
-                  <Text style={styles.subValue}>
-                    Direction: {movementHistory[movementHistory.length - 1]?.direction?.toFixed(0) || 0}°
-                  </Text>
-                  <Text style={styles.subValue}>
-                    Movement Points: {movementHistory.length}/{MOVEMENT_HISTORY_SIZE}
-                  </Text>
-                </View>
-              )}
-            </>
-          ) : (
-            <Text style={styles.noBusText}>Waiting for location data...</Text>
-          )}
-        </View>
-
-        <View style={styles.card}>
-          <View style={styles.occupancyHeader}>
-            <Text style={styles.label}>📊 All Bus Occupancy Updates</Text>
-            <TouchableOpacity style={styles.refreshButton} onPress={fetchAllOccupancies}>
-              <Icon name="refresh" size={20} color="#007bff" />
+              <Text style={styles.detectionReason}>{detectionReason}</Text>
+            </View>
+            {busStatuses[currentBus.id]?.occupancy && (
+              <View style={styles.currentOccupancy}>
+                <Text style={[
+                  styles.currentOccupancyText,
+                  { color: OCCUPANCY_LEVELS.find(l => l.value === busStatuses[currentBus.id].occupancy)?.color }
+                ]}>
+                  Current: {OCCUPANCY_LEVELS.find(l => l.value === busStatuses[currentBus.id].occupancy)?.label.toUpperCase()}
+                </Text>
+                <Text style={styles.currentOccupancyTime}>Updated at {busStatuses[currentBus.id].updatedAt}</Text>
+              </View>
+            )}
+            <View style={styles.occupancyButtonsContainer}>
+              {OCCUPANCY_LEVELS.map((level) => (
+                <TouchableOpacity
+                  key={level.value}
+                  style={[styles.occupancyButton, { backgroundColor: level.color }]}
+                  onPress={() => updateOccupancy(level.value)}
+                >
+                  <Text style={styles.occupancyButtonText}>{level.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TouchableOpacity
+              style={[styles.updateButton]}
+              onPress={() => setShowOccupancyModal(true)}
+            >
+              <Text style={styles.updateButtonText}>Update Occupancy</Text>
             </TouchableOpacity>
           </View>
-          {status === 'loading' && (
-            <ActivityIndicator size="large" color="#007bff" />
-          )}
-          {status === 'failed' && (
-            <Text style={styles.errorText}>Error: {error}</Text>
-          )}
-          {status === 'succeeded' && allOccupancies.length > 0 && (
-            <FlatList
-              data={allOccupancies}
-              keyExtractor={(item) => item.occupancy_id.toString()}
-              renderItem={({ item }) => {
-                const bus = buses.find(b => b.id === `bus_${item.bus_id}`);
-                return (
-                  <View style={styles.statusItem}>
-                    <Text style={styles.statusBusNumber}>Bus {item.registration_number}</Text>
-                    <Text style={styles.statusRoute}>{bus ? `${bus.route} (${bus.direction})` : `Bus ID: ${item.bus_id}`}</Text>
-                    <View style={styles.statusOccupancy}>
-                      <Text style={[
-                        styles.statusOccupancyText,
-                        { color: OCCUPANCY_LEVELS.find(l => l.value === item.occupancy_level)?.color }
-                      ]}>
-                        {OCCUPANCY_LEVELS.find(l => l.value === item.occupancy_level)?.label.toUpperCase()}
-                      </Text>
-                      <Text style={styles.statusTime}>Updated at {new Date(item.updated_at).toLocaleTimeString()}</Text>
-                    </View>
-                  </View>
-                );
-              }}
-            />
-          )}
-          {status === 'succeeded' && allOccupancies.length === 0 && (
-            <Text style={styles.noBusText}>No occupancy updates available.</Text>
-          )}
+        ) : (
+          <>
+            <Text style={styles.noBusText}>No bus detected. {demoMode ? 'Please select a bus for demo.' : 'Please wait while we track your location.'}</Text>
+            <View style={styles.occupancyButtonsContainer}>
+              {OCCUPANCY_LEVELS.map((level) => (
+                <TouchableOpacity
+                  key={level.value}
+                  style={[styles.occupancyButton, styles.disabledButton]}
+                  onPress={() => Alert.alert('Error', 'You can only update occupancy when you are inside a bus.')}
+                >
+                  <Text style={styles.occupancyButtonText}>{level.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TouchableOpacity
+              style={[styles.updateButton, styles.disabledButton]}
+              onPress={() => Alert.alert('Error', 'You can only update occupancy when you are inside a bus.')}
+            >
+              <Text style={styles.updateButtonText}>Update Occupancy (Modal)</Text>
+            </TouchableOpacity>
+          </>
+        )}
+        {demoMode && (
+          <TouchableOpacity
+            style={styles.selectBusButton}
+            onPress={() => setShowBusSelector(true)}
+          >
+            <Text style={styles.selectBusButtonText}>Select Bus for Demo</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.label}>📍 Your Location & Movement</Text>
+        {userLocation ? (
+          <>
+            <Text style={styles.value}>
+              Lat: {userLocation.latitude.toFixed(6)}, Lng: {userLocation.longitude.toFixed(6)}
+            </Text>
+            {userLocation.accuracy && (
+              <Text style={styles.subValue}>Accuracy: ±{Math.round(userLocation.accuracy)}m</Text>
+            )}
+            {movementHistory.length > 0 && !demoMode && (
+              <View style={styles.movementInfo}>
+                <Text style={styles.subValue}>
+                  Speed: {movementHistory[movementHistory.length - 1]?.speed?.toFixed(1) || 0} km/h
+                </Text>
+                <Text style={styles.subValue}>
+                  Direction: {movementHistory[movementHistory.length - 1]?.direction?.toFixed(0) || 0}°
+                </Text>
+                <Text style={styles.subValue}>
+                  Movement Points: {movementHistory.length}/{MOVEMENT_HISTORY_SIZE}
+                </Text>
+              </View>
+            )}
+          </>
+        ) : (
+          <Text style={styles.noBusText}>Waiting for location data...</Text>
+        )}
+      </View>
+
+      <View style={styles.card}>
+        <View style={styles.occupancyHeader}>
+          <Text style={styles.label}>📊 All Bus Occupancy Updates</Text>
+          <TouchableOpacity style={styles.refreshButton} onPress={fetchAllOccupancies}>
+            <Icon name="refresh" size={20} color="#007bff" />
+          </TouchableOpacity>
         </View>
-      </ScrollView>
+        {status === 'loading' && (
+          <ActivityIndicator size="large" color="#007bff" />
+        )}
+        {status === 'failed' && (
+          <Text style={styles.errorText}>Error: {error}</Text>
+        )}
+        {status === 'succeeded' && allOccupancies.length === 0 && (
+          <Text style={styles.noBusText}>No occupancy updates available.</Text>
+        )}
+      </View>
+    </>
+  );
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <FlatList
+        data={status === 'succeeded' && allOccupancies.length > 0 ? allOccupancies : []}
+        keyExtractor={(item, index) => item ? item.occupancy_id.toString() : `empty-${index}`}
+        contentContainerStyle={styles.scrollContent}
+        ListHeaderComponent={renderHeader}
+        renderItem={({ item }) => {
+          if (!item) return null;
+          const bus = buses.find(b => b.id === `bus_${item.bus_id}`);
+          return (
+            <View style={styles.statusItem}>
+              <Text style={styles.statusBusNumber}>Bus {item.registration_number}</Text>
+              <Text style={styles.statusRoute}>{bus ? `${bus.route} (${bus.direction})` : `Bus ID: ${item.bus_id}`}</Text>
+              <View style={styles.statusOccupancy}>
+                <Text style={[
+                  styles.statusOccupancyText,
+                  { color: OCCUPANCY_LEVELS.find(l => l.value === item.occupancy_level)?.color }
+                ]}>
+                  {OCCUPANCY_LEVELS.find(l => l.value === item.occupancy_level)?.label.toUpperCase()}
+                </Text>
+                <Text style={styles.statusTime}>Updated at {new Date(item.updated_at).toLocaleTimeString()}</Text>
+              </View>
+            </View>
+          );
+        }}
+      />
 
       <Modal
         animationType="slide"
@@ -1047,9 +1051,6 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#f8f9fa',
-  },
-  container: {
-    flex: 1,
   },
   scrollContent: {
     padding: 16,

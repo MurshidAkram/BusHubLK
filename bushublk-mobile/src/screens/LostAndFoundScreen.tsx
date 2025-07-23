@@ -1793,24 +1793,16 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
       {/* Enhanced Header */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
-          {activeView === 'report' ? (
-            <TouchableOpacity onPress={handleBackPress} style={styles.backButton} activeOpacity={0.7}>
-              <Icon name="arrow-back" size={24} color={AppColors.text} />
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity style={styles.headerLeftAction} activeOpacity={0.7}>
-              <Icon name="menu-outline" size={24} color={AppColors.textSecondary} />
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton} activeOpacity={0.7}>
+            <Icon name="arrow-back" size={24} color={AppColors.text} />
+          </TouchableOpacity>
           
           <View style={styles.headerTitleContainer}>
             <Text style={styles.headerTitle}>Lost & Found</Text>
-            <Text style={styles.headerSubtitle}>Bus Transport Service</Text>
+            
           </View>
           
-          <TouchableOpacity style={styles.headerRightAction} activeOpacity={0.7}>
-            <Icon name="notifications-outline" size={24} color={AppColors.textSecondary} />
-          </TouchableOpacity>
+          
         </View>
       </View>
       
