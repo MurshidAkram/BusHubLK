@@ -436,7 +436,7 @@ export default function BusOccupancyScreen() {
     const levelInfo = OCCUPANCY_LEVELS.find(l => l.value === level);
     Alert.alert(
       'Updated! ✅', 
-      `Occupancy set to ${levelInfo?.label.toUpperCase()} with ${confidence}% confidence`
+      `Occupancy set to ${levelInfo?.label?.toUpperCase() || 'UNKNOWN'} with ${confidence}% confidence`
     );
 
     setStatus('loading');
@@ -818,7 +818,7 @@ export default function BusOccupancyScreen() {
                   styles.currentOccupancyText,
                   { color: OCCUPANCY_LEVELS.find(l => l.value === busStatuses[currentBus.id].occupancy)?.color }
                 ]}>
-                  Current: {OCCUPANCY_LEVELS.find(l => l.value === busStatuses[currentBus.id].occupancy)?.label.toUpperCase()}
+                  Current: {OCCUPANCY_LEVELS.find(l => l.value === busStatuses[currentBus.id].occupancy)?.label?.toUpperCase() || 'UNKNOWN'}
                 </Text>
                 <Text style={styles.currentOccupancyTime}>Updated at {busStatuses[currentBus.id].updatedAt}</Text>
               </View>
@@ -941,7 +941,7 @@ export default function BusOccupancyScreen() {
                   styles.statusOccupancyText,
                   { color: OCCUPANCY_LEVELS.find(l => l.value === item.occupancy_level)?.color }
                 ]}>
-                  {OCCUPANCY_LEVELS.find(l => l.value === item.occupancy_level)?.label.toUpperCase()}
+                  {OCCUPANCY_LEVELS.find(l => l.value === item.occupancy_level)?.label?.toUpperCase() || 'UNKNOWN'}
                 </Text>
                 <Text style={styles.statusTime}>Updated at {new Date(item.updated_at).toLocaleTimeString()}</Text>
               </View>
