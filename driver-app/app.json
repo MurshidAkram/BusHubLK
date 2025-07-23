@@ -1,23 +1,77 @@
 {
   "expo": {
-    "name": "driver-app",
+    "name": "BusHub Driver",
     "slug": "driver-app",
+    "scheme": "bushublk",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/logoblue.png",
+    "icon": "./assets/logowithoutbg_blue.png",
+    "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/logoblue.png",
+      "image": "./assets/logowithoutbg_blue.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "This app needs access to location when open and in the background to track bus position for passengers.",
+          "locationAlwaysPermission": "This app needs access to location when in the background to continuously track bus position for passengers.",
+          "locationWhenInUsePermission": "This app needs access to location to track bus position for passengers.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ]
+    ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs access to location when open and in the background to track bus position for passengers.",
+        "NSLocationWhenInUseUsageDescription": "This app needs access to location to track bus position for passengers.",
+        "NSLocationAlwaysUsageDescription": "This app needs access to location when in the background to continuously track bus position for passengers.",
+        "UIBackgroundModes": ["location"]
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/logoblue.png",
         "backgroundColor": "#ffffff"
+      },
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "bushublk"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ],
+      "package": "com.anonymous.driverapp",
+      "androidStatusBar": {
+        "barStyle": "dark-content",
+        "backgroundColor": "#FFFFFF"
+      },
+      "androidNavigationBar": {
+        "barStyle": "dark-content",
+        "backgroundColor": "#FFFFFF"
       }
     }
   }

@@ -6,7 +6,12 @@ import {
   HiCog,
   HiCalendar,
   HiChartBar,
-  HiArrowUp
+  HiArrowUp,
+  HiArrowRight,
+  HiArrowCircleRight,
+  HiClipboardCheck,
+  HiUsers,
+  HiRefresh
 } from 'react-icons/hi';
 
 const DepotEngineerSidebarContent = () => {
@@ -26,7 +31,7 @@ const DepotEngineerSidebarContent = () => {
       </NavLink>
 
       <NavLink
-        to="/depot-engineer/assigned-buses"
+        to="/depot-engineer/Busmanagement"
         className={({ isActive }) =>
           `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
             ? 'bg-green-700 text-white' 
@@ -34,19 +39,19 @@ const DepotEngineerSidebarContent = () => {
         }
       >
         <HiTruck className="mr-3 flex-shrink-0 h-5 w-5" />
-        Assigned Buses
+        Bus Management
       </NavLink>
 
       <NavLink
-        to="/depot-engineer/repairs"
+        to="/depot-engineer/Busavailability"
         className={({ isActive }) =>
           `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
             ? 'bg-green-700 text-white' 
             : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`
         }
       >
-        <HiCog className="mr-3 flex-shrink-0 h-5 w-5" />
-        Repairs
+        <HiRefresh className="mr-3 flex-shrink-0 h-5 w-5" />
+        Bus Availability
       </NavLink>
 
       <NavLink
@@ -59,6 +64,17 @@ const DepotEngineerSidebarContent = () => {
       >
         <HiCalendar className="mr-3 flex-shrink-0 h-5 w-5" />
         Schedule
+      </NavLink>
+      <NavLink
+        to="/depot-engineer/Autoforwardbusstatus"
+        className={({ isActive }) =>
+          `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
+            ? 'bg-green-700 text-white' 
+            : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`
+        }
+      >
+        <HiArrowCircleRight className="mr-3 flex-shrink-0 h-5 w-5" />
+        Bus Condition Reports
       </NavLink>
 
       <NavLink
@@ -77,7 +93,7 @@ const DepotEngineerSidebarContent = () => {
 
 
       <NavLink
-        to="/depot-engineer/performance"
+        to="/depot-engineer/Spareparts"
         className={({ isActive }) =>
           `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
             ? 'bg-green-700 text-white' 
@@ -85,7 +101,29 @@ const DepotEngineerSidebarContent = () => {
         }
       >
         <HiChartBar className="mr-3 flex-shrink-0 h-5 w-5" />
-        Performance
+        Spare Parts
+      </NavLink>
+      <NavLink
+        to="/depot-engineer/Depotcommunityhub"
+        className={({ isActive }) =>
+          `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
+            ? 'bg-green-700 text-white' 
+            : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`
+        }
+      >
+         <HiUsers className="mr-3 flex-shrink-0 h-5 w-5" />
+      Contact
+      </NavLink>
+      <NavLink
+        to="/depot-engineer/Depotinspection"
+        className={({ isActive }) =>
+          `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
+            ? 'bg-green-700 text-white' 
+            : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`
+        }
+      >
+         <HiClipboardCheck className="mr-3 flex-shrink-0 h-5 w-5" />
+      Inspections
       </NavLink>
     </div>
   );

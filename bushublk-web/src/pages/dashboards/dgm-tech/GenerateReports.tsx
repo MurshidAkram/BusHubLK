@@ -1,309 +1,96 @@
-import { useState } from 'react';
-import { 
-  FaFileAlt, 
-  FaCog, 
-  FaHeartbeat, 
-  FaChartBar, 
-  FaCheckCircle, 
-  FaDollarSign,
-  FaChevronDown
-} from 'react-icons/fa';
+import React from 'react';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from 'recharts';
 
-interface FormData {
-  fromDate: string;
-  toDate: string;
+interface DepotReport {
   region: string;
   depot: string;
-  busModel: string;
-  reportType: string;
-  outputFormat: string;
-  metrics: {
-    fleetAvailability: boolean;
-    breakdownData: boolean;
-    mttr: boolean;
-    maintenanceCost: boolean;
-    serviceCompliance: boolean;
-    inspectionResults: boolean;
-  };
+  totalBuses: number;
+  totalCrew: number;
+  fleetUtilizationPercent: number;
+  routesCovered: number;
+  totalRoutes: number;
 }
 
-type MetricKey = keyof FormData['metrics'];
+const depotReports: DepotReport[] = [
+  { region: 'Western', depot: 'Colombo Depot', totalBuses: 120, totalCrew: 250, fleetUtilizationPercent: 85, routesCovered: 30, totalRoutes: 32 },
+  { region: 'Western', depot: 'Pettah', totalBuses: 80, totalCrew: 160, fleetUtilizationPercent: 72, routesCovered: 22, totalRoutes: 25 },
+  { region: 'Western', depot: 'Nugegoda', totalBuses: 70, totalCrew: 150, fleetUtilizationPercent: 77, routesCovered: 20, totalRoutes: 21 },
+  { region: 'Southern', depot: 'Kotte', totalBuses: 65, totalCrew: 140, fleetUtilizationPercent: 79, routesCovered: 18, totalRoutes: 20 },
+  { region: 'Southern', depot: 'Dehiwala', totalBuses: 90, totalCrew: 180, fleetUtilizationPercent: 80, routesCovered: 25, totalRoutes: 27 },
+];
+
+const groupByRegion = (reports: DepotReport[]) => {
+  const grouped: { [region: string]: DepotReport[] } = {};
+  for (const report of reports) {
+    if (!grouped[report.region]) {
+      grouped[report.region] = [];
+    }
+    grouped[report.region].push(report);
+  }
+  return grouped;
+};
+
+const calculateRegionStats = (depots: DepotReport[]) => {
+  const totalBuses = depots.reduce((sum, d) => sum + d.totalBuses, 0);
+  const totalCrew = depots.reduce((sum, d) => sum + d.totalCrew, 0);
+  const avgUtil = depots.reduce((sum, d) => sum + d.fleetUtilizationPercent, 0) / depots.length;
+  const totalRoutes = depots.reduce((sum, d) => sum + d.totalRoutes, 0);
+  const coveredRoutes = depots.reduce((sum, d) => sum + d.routesCovered, 0);
+  const coveragePercent = (coveredRoutes / totalRoutes) * 100;
+
+  return {
+    totalBuses,
+    totalCrew,
+    avgUtil: parseFloat(avgUtil.toFixed(2)),
+    coveragePercent: parseFloat(coveragePercent.toFixed(2)),
+  };
+};
 
 const GenerateReports = () => {
-  const [formData, setFormData] = useState<FormData>({
-    fromDate: '',
-    toDate: '',
-    region: 'All Regions',
-    depot: 'All Depots',
-    busModel: 'All Models',
-    reportType: 'Summary Report',
-    outputFormat: 'PDF',
-    metrics: {
-      fleetAvailability: true,
-      breakdownData: true,
-      mttr: true,
-      maintenanceCost: false,
-      serviceCompliance: false,
-      inspectionResults: false
-    }
-  });
-
-  const handleInputChange = (field: keyof FormData, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
-  const handleMetricChange = (metric: MetricKey) => {
-    setFormData(prev => ({
-      ...prev,
-      metrics: {
-        ...prev.metrics,
-        [metric]: !prev.metrics[metric]
-      }
-    }));
-  };
-
-  const generateReport = () => {
-    console.log('Generating report with data:', formData);
-    // Report generation logic would go here
-    alert('Report generation initiated!');
-  };
-
-  const reportCards = [
-    {
-      icon: <FaChartBar className="w-8 h-8 text-blue-500" />,
-      title: "Regional Performance Reports",
-      description: "Generate reports on regional metrics including average repair time, breakdown rates, and service compliance across all depots in each region."
-    },
-    {
-      icon: <FaCog className="w-8 h-8 text-blue-500" />,
-      title: "Depot Maintenance Reports",
-      description: "Detailed reports on depot-level maintenance activities, service logs, inspection status, and maintenance expenses for each depot."
-    },
-    {
-      icon: <FaHeartbeat className="w-8 h-8 text-blue-500" />,
-      title: "Fleet Health Reports",
-      description: "Comprehensive reports on fleet health including vehicle age analysis, maintenance cost per bus, and reliability metrics by bus models."
-    },
-    {
-      icon: <FaFileAlt className="w-8 h-8 text-blue-500" />,
-      title: "Breakdown Analysis",
-      description: "Reports analyzing breakdown patterns, most frequent issues, mean time between failures, and cost of repairs by component type."
-    },
-    {
-      icon: <FaCheckCircle className="w-8 h-8 text-blue-500" />,
-      title: "Compliance Reports",
-      description: "Reports on maintenance and inspection compliance rates, overdue services, and comparison against regulatory requirements."
-    },
-    {
-      icon: <FaDollarSign className="w-8 h-8 text-blue-500" />,
-      title: "Cost Analysis Reports",
-      description: "Reports analyzing maintenance costs by region, depot, bus type, and component. Includes cost trends and budget variance analysis."
-    }
-  ];
+  const regions = groupByRegion(depotReports);
 
   return (
-    <div className="max-w-7xl mx-auto p-6 bg-gray-50 min-h-screen">
-      {/* Report Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-        {reportCards.map((card, index) => (
-          <div key={index} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
-            <div className="flex items-start space-x-4">
-              <div className="flex-shrink-0">
-                {card.icon}
-              </div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-gray-900 mb-2">{card.title}</h3>
-                <p className="text-sm text-gray-600 leading-relaxed">{card.description}</p>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+    <div className="bg-white rounded-lg shadow-sm p-6 space-y-12">
+      <h1 className="text-2xl font-bold text-gray-900 mb-4">Region-wise Depot Reports</h1>
+      <p className="text-gray-600 mb-6">
+        Summarized operational reports by region including fleet stats and visual comparison between depots.
+      </p>
 
-      {/* Custom Report Generator */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Custom Report Generator</h2>
-        </div>
-        
-        <div className="p-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Left Column */}
-            <div className="space-y-6">
-              {/* Date Range */}
-              <div>
-                <h3 className="font-medium text-gray-900 mb-4">Date Range</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">From Date</label>
-                    <div className="relative">
-                      <input
-                        type="date"
-                        value={formData.fromDate}
-                        onChange={(e) => handleInputChange('fromDate', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="dd/mm/yyyy"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">To Date</label>
-                    <div className="relative">
-                      <input
-                        type="date"
-                        value={formData.toDate}
-                        onChange={(e) => handleInputChange('toDate', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="dd/mm/yyyy"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
+      {Object.entries(regions).map(([regionName, depots]) => {
+        const stats = calculateRegionStats(depots);
 
-              {/* Bus Model */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Bus Model</label>
-                <div className="relative">
-                  <select
-                    value={formData.busModel}
-                    onChange={(e) => handleInputChange('busModel', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none"
-                  >
-                    <option>All Models</option>
-                    <option>Volvo B7RLE</option>
-                    <option>Mercedes Citaro</option>
-                    <option>Scania Omnicity</option>
-                    <option>MAN Lion's City</option>
-                  </select>
-                  <FaChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                </div>
-              </div>
-
-              {/* Metrics to Include */}
-              <div>
-                <label className="block text-sm font-medium text-gray-900 mb-4">Metrics to Include</label>
-                <div className="space-y-3">
-                  {[
-                    { key: 'fleetAvailability' as MetricKey, label: 'Fleet Availability', checked: formData.metrics.fleetAvailability },
-                    { key: 'breakdownData' as MetricKey, label: 'Breakdown Data', checked: formData.metrics.breakdownData },
-                    { key: 'mttr' as MetricKey, label: 'MTTR', checked: formData.metrics.mttr },
-                    { key: 'maintenanceCost' as MetricKey, label: 'Maintenance Cost', checked: formData.metrics.maintenanceCost },
-                    { key: 'serviceCompliance' as MetricKey, label: 'Service Compliance', checked: formData.metrics.serviceCompliance },
-                    { key: 'inspectionResults' as MetricKey, label: 'Inspection Results', checked: formData.metrics.inspectionResults }
-                  ].map((metric) => (
-                    <label key={metric.key} className="flex items-center space-x-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={metric.checked}
-                        onChange={() => handleMetricChange(metric.key)}
-                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                      />
-                      <span className="text-sm text-gray-700">{metric.label}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
+        return (
+          <section key={regionName} className="border rounded-lg p-4 shadow-sm">
+            <h2 className="text-xl font-bold mb-2 text-blue-800">{regionName} Region Overview</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4 text-gray-700">
+              <div className="bg-gray-100 p-3 rounded-lg">Total Buses: <strong>{stats.totalBuses}</strong></div>
+              <div className="bg-gray-100 p-3 rounded-lg">Total Crew: <strong>{stats.totalCrew}</strong></div>
+              <div className="bg-gray-100 p-3 rounded-lg">Fleet Utilization: <strong>{stats.avgUtil}%</strong></div>
+              <div className="bg-gray-100 p-3 rounded-lg">Route Coverage: <strong>{stats.coveragePercent}%</strong></div>
             </div>
 
-            {/* Right Column */}
-            <div className="space-y-6">
-              {/* Report Scope */}
-              <div>
-                <h3 className="font-medium text-gray-900 mb-4">Report Scope</h3>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Region</label>
-                    <div className="relative">
-                      <select
-                        value={formData.region}
-                        onChange={(e) => handleInputChange('region', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none"
-                      >
-                        <option>All Regions</option>
-                        <option>North Region</option>
-                        <option>South Region</option>
-                        <option>East Region</option>
-                        <option>West Region</option>
-                      </select>
-                      <FaChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Depot</label>
-                    <div className="relative">
-                      <select
-                        value={formData.depot}
-                        onChange={(e) => handleInputChange('depot', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none"
-                      >
-                        <option>All Depots</option>
-                        <option>Central Depot</option>
-                        <option>North Depot</option>
-                        <option>South Depot</option>
-                        <option>East Depot</option>
-                        <option>West Depot</option>
-                      </select>
-                      <FaChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Report Type */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Report Type</label>
-                <div className="relative">
-                  <select
-                    value={formData.reportType}
-                    onChange={(e) => handleInputChange('reportType', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none"
-                  >
-                    <option>Summary Report</option>
-                    <option>Detailed Report</option>
-                    <option>Executive Summary</option>
-                    <option>Technical Report</option>
-                  </select>
-                  <FaChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                </div>
-              </div>
-
-              {/* Output Format */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-4">Output Format</label>
-                <div className="flex space-x-6">
-                  {['PDF', 'Excel', 'CSV'].map((format) => (
-                    <label key={format} className="flex items-center space-x-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="outputFormat"
-                        value={format}
-                        checked={formData.outputFormat === format}
-                        onChange={(e) => handleInputChange('outputFormat', e.target.value)}
-                        className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                      />
-                      <span className="text-sm text-gray-700">{format}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Generate Button */}
-              <div className="pt-4">
-                <button
-                  onClick={generateReport}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                >
-                  Generate Report
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart data={depots} margin={{ top: 10, right: 20, left: 0, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="depot" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="fleetUtilizationPercent" fill="#3182CE" name="Fleet Utilization (%)" />
+              </BarChart>
+            </ResponsiveContainer>
+          </section>
+        );
+      })}
     </div>
   );
 };

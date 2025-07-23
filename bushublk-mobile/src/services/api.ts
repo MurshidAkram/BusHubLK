@@ -1,6 +1,7 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_BASE_URL } from '../config/api';
+import { busLiveTrackingAPI } from '../services/busLiveTrackingAPI';
 
 // Create axios instance
 const api = axios.create({
@@ -34,9 +35,7 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response?.status === 401) {
-      // Token expired or invalid, clear storage
       await AsyncStorage.multiRemove(['authToken', 'userData']);
-      // You might want to redirect to login screen here
     }
     return Promise.reject(error);
   }
@@ -57,27 +56,28 @@ export const authAPI = {
     emergency_contact_name?: string;
     emergency_contact_phone?: string;
   }) => {
-    const response = await api.post('/passengers/register', userData);
+    const response = await api.post('/api/passengers/register', userData);
     return response.data;
   },
 
   // Passenger login
   loginPassenger: async (credentials: { email: string; password: string }) => {
-    const response = await api.post('/passengers/login', credentials);
+    const response = await api.post('/api/passengers/login', credentials);
     return response.data;
   },
 
   // Get passenger profile
   getPassengerProfile: async () => {
-    const response = await api.get('/passengers/profile');
+    const response = await api.get('/api/passengers/profile');
     return response.data;
   },
 
   // Update passenger profile
   updatePassengerProfile: async (userData: any) => {
-    const response = await api.put('/passengers/profile', userData);
+    const response = await api.put('/api/passengers/profile', userData);
     return response.data;
   },
+
   logout: async () => {
     try {
       await storageAPI.clearStorage();
@@ -88,17 +88,16 @@ export const authAPI = {
     }
   },
 
-
   // Delete passenger account
   deletePassengerAccount: async () => {
-    const response = await api.delete('/passengers/account');
+    const response = await api.delete('/api/passengers/account');
     return response.data;
   },
 };
 
-// Additional API functions similar to driver-app pattern
+// Additional API functions
 export const submitLostAndFoundReport = async (reportData: any) => {
-  const response = await fetch(`${API_BASE_URL}/lost-and-found`, {
+  const response = await fetch(`${API_BASE_URL}/api/lost-found`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -109,7 +108,7 @@ export const submitLostAndFoundReport = async (reportData: any) => {
 };
 
 export const submitEmergencyReport = async (reportData: any) => {
-  const response = await fetch(`${API_BASE_URL}/emergency-report`, {
+  const response = await fetch(`${API_BASE_URL}/api/emergency-report`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -120,7 +119,7 @@ export const submitEmergencyReport = async (reportData: any) => {
 };
 
 export const submitComplaintReport = async (reportData: any) => {
-  const response = await fetch(`${API_BASE_URL}/complaint-report`, {
+  const response = await fetch(`${API_BASE_URL}/api/complaint-report`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -174,7 +173,9 @@ export const storageAPI = {
   getUserData: async (): Promise<any | null> => {
     try {
       const userData = await AsyncStorage.getItem('userData');
-      return userData ? JSON.parse(userData) : null;
+      const parsed = userData ? JSON.parse(userData) : null;
+      console.log('[storageAPI.getUserData] userData raw:', userData, 'parsed:', parsed);
+      return parsed;
     } catch (error) {
       console.error('Error getting user data:', error);
       return null;
@@ -193,5 +194,7 @@ export const storageAPI = {
     }
   },
 };
+
+export { busLiveTrackingAPI, API_BASE_URL };
 
 export default api;

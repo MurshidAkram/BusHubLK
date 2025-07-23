@@ -18,6 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from '@react-navigation/native';
 import { CommonActions } from '@react-navigation/native';
 import { driverAPI, storageAPI } from "../services/api";
+import { locationService } from "../services/locationService";
 
 const { width, height } = Dimensions.get("window");
 
@@ -49,11 +50,61 @@ export default function DriverLoginScreen() {
       if (response.success) {
         // Store the token and user data using storageAPI
         await storageAPI.storeAuthToken(response.token);
-        await storageAPI.storeUserData(response.user);
+
+        // Fetch assigned bus and route info from daily assignment
+        let userData = response.user;
+        
+        try {
+          console.log("Fetching daily assignment for driver:", userData.driver_id);
+          const assignmentResponse = await driverAPI.getDailyAssignment(userData.driver_id.toString());
+          
+          if (assignmentResponse && assignmentResponse.bus_id && assignmentResponse.route_id) {
+            console.log("Daily assignment found:", {
+              bus_id: assignmentResponse.bus_id,
+              route_id: assignmentResponse.route_id,
+              assignment_id: assignmentResponse.assignment_id
+            });
+            
+            userData = { 
+              ...userData, 
+              busId: assignmentResponse.bus_id.toString(), 
+              routeId: assignmentResponse.route_id.toString(),
+              assignmentId: assignmentResponse.assignment_id,
+              busRegistration: assignmentResponse.bus_registration
+            };
+            
+            // Also set assignment data in location service
+            locationService.setCurrentAssignment({
+              bus_id: assignmentResponse.bus_id,
+              route_id: assignmentResponse.route_id,
+              driver_id: userData.driver_id,
+              assignment_id: assignmentResponse.assignment_id
+            });
+          } else {
+            console.warn("No active daily assignment found for driver:", userData.driver_id);
+          }
+        } catch (error) {
+          console.error("Failed to fetch daily assignment:", error);
+        }
+
+        await storageAPI.storeUserData(userData);
+
+        // Start location tracking after storing user data
+        if (userData.busId && userData.routeId) {
+          console.log("Starting location tracking with assignment data");
+          locationService.startSmartLocationTracking(userData.busId, userData.routeId, userData.busRegistration);
+        } else {
+          console.warn("Bus ID or Route ID missing - no active daily assignment found");
+          Alert.alert(
+            "No Assignment Found", 
+            "You don't have an active daily assignment. Please contact your depot manager to assign you to a bus and route.",
+            [{ text: "OK" }]
+          );
+        }
 
         setIsLoading(false);
         
-        Alert.alert("Success", `Welcome ${response.user.first_name}!`);
+        Alert.alert("Success", `Welcome ${userData.first_name}!`);
       } else {
         setIsLoading(false);
         Alert.alert(
@@ -94,7 +145,6 @@ export default function DriverLoginScreen() {
                 style={styles.logo}
                 resizeMode="contain"
               />
-              <Text style={styles.appName}>BusHubLK</Text>
               <Text style={styles.tagline}>Driver Portal</Text>
               <Text style={styles.subtitle}>
                 Manage Your Routes Efficiently
@@ -109,9 +159,8 @@ export default function DriverLoginScreen() {
                   <Text style={styles.welcomeText}>Driver Login</Text>
                 </View>
                 <Text style={styles.loginSubtitle}>
-                  Enter your credentials to access the driver portal
+                  Enter your credentials to access the portal
                 </Text>
-
                 {/* Email Input */}
                 <View style={styles.inputContainer}>
                   <View style={styles.inputWrapper}>
@@ -133,7 +182,6 @@ export default function DriverLoginScreen() {
                     />
                   </View>
                 </View>
-
                 {/* Password Input */}
                 <View style={styles.inputContainer}>
                   <View style={styles.inputWrapper}>
@@ -164,7 +212,6 @@ export default function DriverLoginScreen() {
                     </TouchableOpacity>
                   </View>
                 </View>
-
                 {/* Login Button */}
                 <TouchableOpacity
                   style={[
@@ -191,57 +238,14 @@ export default function DriverLoginScreen() {
                     </View>
                   </LinearGradient>
                 </TouchableOpacity>
-
                 {/* Forgot Password */}
                 <TouchableOpacity
-                  onPress={() =>
-                    Alert.alert(
-                      "Contact Admin",
-                      "Please contact your administrator to reset your password."
-                    )
-                  }
+                  onPress={() => navigation.navigate("ForgotPassword")}
                   style={styles.forgotPasswordContainer}
                 >
                   <Text style={styles.forgotPasswordText}>
                     Forgot Password?
                   </Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Help Section */}
-              <View style={styles.helpContainer}>
-                <View style={styles.helpCard}>
-                  <Ionicons
-                    name="help-circle-outline"
-                    size={24}
-                    color="rgba(255, 255, 255, 0.8)"
-                  />
-                  <Text style={styles.helpText}>
-                    Need help? Contact support
-                  </Text>
-                  <TouchableOpacity style={styles.helpButton}>
-                    <Text style={styles.helpButtonText}>Get Help</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* Divider */}
-              <View style={styles.dividerContainer}>
-                <View style={styles.divider} />
-                <Text style={styles.dividerText}>or</Text>
-                <View style={styles.divider} />
-              </View>
-
-              {/* Social Login Buttons */}
-              <View style={styles.socialContainer}>
-                <TouchableOpacity style={styles.socialButton}>
-                  <Ionicons name="logo-google" size={20} color="#ea4335" />
-                  <Text style={styles.socialButtonText}>Google</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.socialButton}>
-                  <Ionicons name="logo-facebook" size={20} color="#1877f2" />
-                  <Text style={styles.socialButtonText}>Facebook</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -269,32 +273,25 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     alignItems: "center",
-    marginBottom: 5,
+    marginBottom: 35,
   },
   logo: {
     width: 180,
     height: 180,
-    marginBottom: 1,
-    marginTop: 40,
+    marginBottom: -8,
+    marginTop: 20,
   },
-  appName: {
-    fontSize: 32,
-    fontWeight: "bold",
-    color: "#ffffff",
-    marginBottom: 8,
-    textShadowColor: "rgba(0, 0, 0, 0.3)",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
-  },
+
   tagline: {
-    fontSize: 16,
+    fontSize: 25,
     color: "rgba(255, 255, 255, 0.8)",
     textAlign: "center",
-    fontWeight: "600",
+    fontWeight: "800",
     marginBottom: 4,
+    marginTop: -8,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 19,
     color: "rgba(255, 255, 255, 0.7)",
     textAlign: "center",
   },
@@ -401,35 +398,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-  helpContainer: {
-    marginTop: 16,
-  },
-  helpCard: {
-    backgroundColor: "rgba(255, 255, 255, 0.15)",
-    borderRadius: 16,
-    padding: 20,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.2)",
-  },
-  helpText: {
-    color: "rgba(255, 255, 255, 0.8)",
-    fontSize: 16,
-    marginVertical: 8,
-    textAlign: "center",
-  },
-  helpButton: {
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 12,
-    marginTop: 8,
-  },
-  helpButtonText: {
-    color: "#ffffff",
-    fontSize: 14,
-    fontWeight: "600",
-  },
+  
   dividerContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -445,11 +414,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginHorizontal: 16,
   },
-  socialContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 12,
-  },
+  
   socialButton: {
     flex: 1,
     flexDirection: "row",

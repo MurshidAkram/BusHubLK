@@ -39,10 +39,11 @@ router.post(
     body('last_name')
       .isLength({ min: 1, max: 50 })
       .withMessage('Last name is required and must be less than 50 characters'),
-    body('phone')
-      .optional()
-      .matches(/^\+?[1-9]\d{1,14}$/)
-      .withMessage('Valid phone number required'),
+    // Replace the phone validation in your authRoutes.js with this:
+body('phone')
+  .optional()
+  .matches(/^[\+]?[(]?[\d\s\-\(\)]{10,15}$/)
+  .withMessage('Phone number must be 10-15 digits and can include +, (), -, and spaces'),
     body('role_name')
       .isIn([
         'ceo', 'dgm_technical', 'dgm_operations', 'regional_tech', 
@@ -91,10 +92,11 @@ router.put(
       .optional()
       .isLength({ min: 1, max: 50 })
       .withMessage('Last name must be less than 50 characters'),
-    body('phone')
-      .optional()
-      .matches(/^\+?[1-9]\d{1,14}$/)
-      .withMessage('Valid phone number required')
+    // Replace the phone validation in your authRoutes.js with this:
+body('phone')
+  .optional()
+  .matches(/^[\+]?[(]?[\d\s\-\(\)]{10,15}$/)
+  .withMessage('Phone number must be 10-15 digits and can include +, (), -, and spaces')
   ],
   updateProfile
 );

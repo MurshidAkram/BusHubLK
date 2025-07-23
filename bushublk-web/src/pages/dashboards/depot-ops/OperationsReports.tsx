@@ -37,10 +37,10 @@ const OperationsReports = () => {
       <div className="bg-white rounded-lg shadow-sm p-6 flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 mb-1">Operations Report</h1>
-          <p className="text-gray-600">View operations data and trends.</p>
+          <p className="text-sm text-gray-600">View operations data and trends.</p>
         </div>
         <select
-          className="border rounded px-3 py-2"
+          className="border rounded px-3 py-2 text-sm"
           value={view}
           onChange={e => setView(e.target.value as 'monthly' | 'yearly')}
         >
@@ -61,8 +61,8 @@ const OperationsReports = () => {
               <XAxis dataKey={view === 'monthly' ? 'month' : 'year'} />
               <YAxis />
               <Tooltip />
-              <Bar dataKey="active" stackId="a" fill="#ef4444" name="Active" />
-              <Bar dataKey="inService" stackId="a" fill="#facc15" name="In Service" />
+              <Bar dataKey="active" stackId="a" fill="#1d25bdff" name="Active" />
+              <Bar dataKey="inService" stackId="a" fill="#3561f0ff" name="In Service" />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -92,9 +92,9 @@ const OperationsReports = () => {
       {/* New Buses */}
       <div className="bg-white rounded-lg shadow-sm p-6">
         <h2 className="text-xl font-semibold text-gray-800 mb-4">New Buses Assigned</h2>
-        <ul className="text-gray-700 space-y-1 list-disc pl-5">
-          <li>Bus 78K – Added on 2025-07-08</li>
-          <li>Bus 79M – Added on 2025-07-07</li>
+        <ul className="text-sm text-gray-700 space-y-1 list-disc pl-5">
+          <li>Bus NP-1256 – Added on 2025-07-08</li>
+          <li>Bus NM-8764 – Added on 2025-07-07</li>
         </ul>
       </div>
     </div>

@@ -78,9 +78,9 @@ const RegionalOperationsOfficerDashboard = () => {
               </div>
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Regional OTP</p>
-              <p className="text-2xl font-semibold text-gray-900">84%</p>
-              <p className="text-sm text-orange-600">Target: 85%</p>
+              <p className="text-sm font-medium text-gray-500">Total Buses</p>
+              <p className="text-2xl font-semibold text-gray-900">4</p>
+              <p className="text-sm text-orange-600">247 buses active</p>
             </div>
           </div>
         </div>

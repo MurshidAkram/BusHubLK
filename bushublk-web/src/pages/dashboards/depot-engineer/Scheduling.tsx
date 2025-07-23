@@ -22,39 +22,34 @@ const ServiceScheduleApp: React.FC = () => {
     {
       id: 1,
       serviceType: 'Oil Change',
-      busId: '#12',
+      busId: '23',
       scheduledDate: '2024-07-05',
       status: 'Pending'
     },
     {
       id: 2,
       serviceType: 'Brake Inspection',
-      busId: '#07',
+      busId: '17',
       scheduledDate: '2024-07-10',
       status: 'Pending'
     },
     {
       id: 3,
       serviceType: 'Tire Rotation',
-      busId: '#15',
+      busId: '21',
       scheduledDate: '2024-07-15',
       status: 'Completed'
-    },
-    {
-      id: 4,
-      serviceType: 'Engine Check',
-      busId: '#23',
-      scheduledDate: '2024-07-20',
-      status: 'In Progress'
     }
   ]);
   const [showNewScheduleModal, setShowNewScheduleModal] = useState<boolean>(false);
+  const [showEditModal, setShowEditModal] = useState<boolean>(false);
   const [newService, setNewService] = useState<NewService>({
     serviceType: '',
     busId: '',
     scheduledDate: '',
     status: 'Pending'
   });
+  const [editingService, setEditingService] = useState<Service | null>(null);
 
   const months = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -73,12 +68,10 @@ const ServiceScheduleApp: React.FC = () => {
 
     const days: (number | null)[] = [];
     
-    // Add empty cells for days before the first day of the month
     for (let i = 0; i < startingDayOfWeek; i++) {
       days.push(null);
     }
     
-    // Add days of the month
     for (let day = 1; day <= daysInMonth; day++) {
       days.push(day);
     }
@@ -135,7 +128,7 @@ const ServiceScheduleApp: React.FC = () => {
   const handleAddService = (): void => {
     if (newService.serviceType && newService.busId && newService.scheduledDate) {
       const service = {
-        id: services.length + 1,
+        id: services.length > 0 ? Math.max(...services.map(s => s.id)) + 1 : 1,
         ...newService
       };
       setServices([...services, service]);
@@ -149,12 +142,40 @@ const ServiceScheduleApp: React.FC = () => {
     }
   };
 
+  const handleEditService = (service: Service): void => {
+    setEditingService(service);
+    setShowEditModal(true);
+  };
+
+  const handleUpdateService = (): void => {
+    if (editingService) {
+      setServices(services.map(service => 
+        service.id === editingService.id ? editingService : service
+      ));
+      setShowEditModal(false);
+      setEditingService(null);
+    }
+  };
+
   const handleDeleteService = (id: number): void => {
     setServices(services.filter(service => service.id !== id));
   };
 
+  const handleMarkAsCompleted = (id: number): void => {
+    setServices(services.map(service => 
+      service.id === id ? {...service, status: 'Completed'} : service
+    ));
+  };
+
   const calendarDays = getDaysInMonth(currentDate);
   const today = new Date();
+
+  // Available buses under the depot (hardcoded based on context)
+  const availableBuses = [
+    { id: '17', number: 'NC-1234' },
+    { id: '21', number: 'NP-3456' },
+    { id: '23', number: 'NY-3891' },
+  ];
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -278,9 +299,21 @@ const ServiceScheduleApp: React.FC = () => {
                       </td>
                       <td className="py-4 px-4">
                         <div className="flex gap-2">
-                          <button className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                          <button 
+                            onClick={() => handleEditService(service)}
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          >
                             <span className="text-sm">✏️</span>
                           </button>
+                          {service.status !== 'Completed' && (
+                            <button
+                              onClick={() => handleMarkAsCompleted(service.id)}
+                              className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                              title="Mark as completed"
+                            >
+                              <span className="text-sm">✓</span>
+                            </button>
+                          )}
                           <button
                             onClick={() => handleDeleteService(service.id)}
                             className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
@@ -299,36 +332,36 @@ const ServiceScheduleApp: React.FC = () => {
 
         {/* New Schedule Modal */}
         {showNewScheduleModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="fixed inset-0 backdrop-blur-sm bg-white/10 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg p-6 w-full max-w-md">
               <h3 className="text-lg font-semibold mb-4">Schedule New Service</h3>
               
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Service Type</label>
-                  <select
+                  <input
+                    type="text"
                     value={newService.serviceType}
-                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setNewService({...newService, serviceType: e.target.value})}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewService({...newService, serviceType: e.target.value})}
+                    placeholder="e.g., Oil Change"
                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">Select service type</option>
-                    <option value="Oil Change">Oil Change</option>
-                    <option value="Brake Inspection">Brake Inspection</option>
-                    <option value="Tire Rotation">Tire Rotation</option>
-                    <option value="Engine Check">Engine Check</option>
-                    <option value="Transmission Service">Transmission Service</option>
-                  </select>
+                  />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Bus ID</label>
-                  <input
-                    type="text"
+                  <select
                     value={newService.busId}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewService({...newService, busId: e.target.value})}
-                    placeholder="e.g., #12"
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setNewService({...newService, busId: e.target.value})}
                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
+                  >
+                    <option value="">Select a bus</option>
+                    {availableBuses.map((bus) => (
+                      <option key={bus.id} value={bus.id}>
+                        {bus.number} ({bus.id})
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
@@ -366,7 +399,91 @@ const ServiceScheduleApp: React.FC = () => {
                   onClick={handleAddService}
                   className="flex-1 py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
-                  Add Service
+                  Add schedule
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Schedule Modal */}
+        {showEditModal && editingService && (
+          <div className="fixed inset-0 backdrop-blur-sm bg-white/10 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+              <h3 className="text-lg font-semibold mb-4">Edit Service</h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Service Type</label>
+                  <input
+                    type="text"
+                    value={editingService.serviceType}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+                      setEditingService({...editingService, serviceType: e.target.value})
+                    }
+                    placeholder="e.g., Oil Change"
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Bus ID</label>
+                  <select
+                    value={editingService.busId}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => 
+                      setEditingService({...editingService, busId: e.target.value})
+                    }
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Select a bus</option>
+                    {availableBuses.map((bus) => (
+                      <option key={bus.id} value={bus.id}>
+                        {bus.number} ({bus.id})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Scheduled Date</label>
+                  <input
+                    type="date"
+                    value={editingService.scheduledDate}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+                      setEditingService({...editingService, scheduledDate: e.target.value})
+                    }
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                  <select
+                    value={editingService.status}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => 
+                      setEditingService({...editingService, status: e.target.value})
+                    }
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="Pending">Pending</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Completed">Completed</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => setShowEditModal(false)}
+                  className="flex-1 py-2 px-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleUpdateService}
+                  className="flex-1 py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Update schedule
                 </button>
               </div>
             </div>

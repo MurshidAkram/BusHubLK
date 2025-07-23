@@ -28,7 +28,7 @@ const DepotOperationsManagerSidebarContent = () => {
         }
       >
         <HiHome className="mr-3 flex-shrink-0 h-5 w-5" />
-        Dashboard Overview
+        Dashboard
       </NavLink>
 
       <NavLink
@@ -40,7 +40,7 @@ const DepotOperationsManagerSidebarContent = () => {
         }
       >
         <HiClipboardList className="mr-3 flex-shrink-0 h-5 w-5" />
-        Daily Operations
+        Daily duties
       </NavLink>
 
       <NavLink
@@ -52,7 +52,7 @@ const DepotOperationsManagerSidebarContent = () => {
         }
       >
         <HiClock className="mr-3 flex-shrink-0 h-5 w-5" />
-        Schedule Monitoring
+        Schedule
       </NavLink>
 
       <NavLink
@@ -64,19 +64,7 @@ const DepotOperationsManagerSidebarContent = () => {
         }
       >
         <HiUsers className="mr-3 flex-shrink-0 h-5 w-5" />
-        Crew Management
-      </NavLink>
-
-      <NavLink
-        to="/depot-operations-manager/route-optimization"
-        className={({ isActive }) =>
-          `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
-            ? 'bg-indigo-700 text-white' 
-            : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`
-        }
-      >
-        <HiLocationMarker className="mr-3 flex-shrink-0 h-5 w-5" />
-        Route Optimization
+        Crew 
       </NavLink>
 
       
@@ -89,7 +77,7 @@ const DepotOperationsManagerSidebarContent = () => {
         }
       >
         <HiExclamationCircle className="mr-3 flex-shrink-0 h-5 w-5" />
-        Incident Management
+        Lost found portal
       </NavLink>
 
       <NavLink
@@ -101,7 +89,7 @@ const DepotOperationsManagerSidebarContent = () => {
         }
       >
         <HiPhone className="mr-3 flex-shrink-0 h-5 w-5" />
-       Announcement Center
+       Community hub
       </NavLink>
 
       <NavLink
@@ -113,20 +101,10 @@ const DepotOperationsManagerSidebarContent = () => {
         }
       >
         <HiDocumentReport className="mr-3 flex-shrink-0 h-5 w-5" />
-        Operations Reports
+        Reports
       </NavLink>
 
-      <NavLink
-        to="/depot-operations-manager/operations-settings"
-        className={({ isActive }) =>
-          `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
-            ? 'bg-indigo-700 text-white' 
-            : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`
-        }
-      >
-        <HiCog className="mr-3 flex-shrink-0 h-5 w-5" />
-        Operations Settings
-      </NavLink>
+  
     </div>
   );
 };

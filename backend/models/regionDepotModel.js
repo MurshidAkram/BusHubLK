@@ -1,4 +1,4 @@
-const db = require('./db');
+const db = require('../config/db'); // Adjust the path as necessary
 
 class RegionDepot {
   // Region operations

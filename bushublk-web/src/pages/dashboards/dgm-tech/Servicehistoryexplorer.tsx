@@ -3,17 +3,16 @@ import { HiEye, HiPencil, HiFilter, HiSearch, HiChevronDown, HiChevronUp, HiX } 
 
 interface ServiceRecord {
   serviceId: string;
-  busId: string;
+  busnum: string;
   serviceDate: string;
   serviceType: string;
   dataCharged: string;
   cost: number;
-  taxization: string;
 }
 
 const Servicehistoryexplorer = () => {
   const [filters, setFilters] = useState({
-    busId: '',
+    busnum: '',
     serviceType: '',
     startDate: '',
     endDate: '',
@@ -25,16 +24,15 @@ const Servicehistoryexplorer = () => {
   const [selectedRecord, setSelectedRecord] = useState<ServiceRecord | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
 
-  // Sample data with TypeScript interface
+  // Updated sample data with two-digit bus IDs and no taxization
   const serviceData: ServiceRecord[] = [
-    { serviceId: 'INC 2021-2017', busId: 'R21-0015', serviceDate: '19 May 2023', serviceType: 'Standard Information', dataCharged: 'Offline Air Star', cost: 10000, taxization: 'Main Event' },
-    { serviceId: 'INC 2021-2017', busId: 'R21-0015', serviceDate: '15 July 2023', serviceType: 'Installation Repair', dataCharged: 'Asteroids library', cost: 30750, taxization: 'Water Supply' },
-    { serviceId: 'INC 2021-2017', busId: 'R21-0015', serviceDate: '22 May 2023', serviceType: 'AC Service', dataCharged: 'Compenses, designers', cost: 10500, taxization: 'Anti-Drones' },
-    { serviceId: 'INC 2021-2017', busId: 'R21-0015', serviceDate: '25 May 2023', serviceType: 'Transmission Overhaul', dataCharged: 'Quick price, data oil', cost: 40000, taxization: 'Equity Final' },
-    { serviceId: 'INC 2021-2017', busId: 'R21-0015', serviceDate: '11 May 2023', serviceType: 'Smart Service', dataCharged: 'Extra parts, letters', cost: 10000, taxization: 'Maintenance All' }
+    { serviceId: 'SRV-001', busnum: '01', serviceDate: '15 Jan 2023', serviceType: 'Oil Change', dataCharged: 'Synthetic oil, filter replacement', cost: 12000 },
+    { serviceId: 'SRV-002', busnum: '02', serviceDate: '22 Feb 2023', serviceType: 'Brake Service', dataCharged: 'Brake pads, fluid replacement', cost: 25000 },
+    { serviceId: 'SRV-003', busnum: '01', serviceDate: '10 Mar 2023', serviceType: 'Tire Rotation', dataCharged: 'Tire rotation, balancing', cost: 8000 },
+    { serviceId: 'SRV-004', busnum: '03', serviceDate: '05 Apr 2023', serviceType: 'Engine Tune-up', dataCharged: 'Spark plugs, air filter', cost: 18000 }
+   
   ];
 
-  // Typed event handler
   const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFilters(prev => ({
@@ -43,10 +41,9 @@ const Servicehistoryexplorer = () => {
     }));
   };
 
-  // Fixed filter logic with proper parentheses
   const filteredData = serviceData.filter(service => {
     return (
-      (filters.busId === '' || service.busId.includes(filters.busId)) &&
+      (filters.busnum === '' || service.busnum.includes(filters.busnum)) &&
       (filters.serviceType === '' || service.serviceType.toLowerCase().includes(filters.serviceType.toLowerCase())) &&
       (filters.startDate === '' || new Date(service.serviceDate) >= new Date(filters.startDate)) &&
       (filters.endDate === '' || new Date(service.serviceDate) <= new Date(filters.endDate)) &&
@@ -94,7 +91,84 @@ const Servicehistoryexplorer = () => {
         
         {showFilters && (
           <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* Filter inputs remain the same */}
+            <div>
+              <label htmlFor="busId" className="block text-sm font-medium text-gray-700 mb-1">Bus ID</label>
+              <input
+                type="text"
+                id="busId"
+                name="busId"
+                value={filters.busnum}
+                onChange={handleFilterChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Filter by Bus ID"
+              />
+            </div>
+            
+            <div>
+              <label htmlFor="serviceType" className="block text-sm font-medium text-gray-700 mb-1">Service Type</label>
+              <select
+                id="serviceType"
+                name="serviceType"
+                value={filters.serviceType}
+                onChange={handleFilterChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">All Service Types</option>
+                {serviceTypes.map((type, index) => (
+                  <option key={index} value={type}>{type}</option>
+                ))}
+              </select>
+            </div>
+            
+            <div>
+              <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+              <input
+                type="date"
+                id="startDate"
+                name="startDate"
+                value={filters.startDate}
+                onChange={handleFilterChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            
+            <div>
+              <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+              <input
+                type="date"
+                id="endDate"
+                name="endDate"
+                value={filters.endDate}
+                onChange={handleFilterChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            
+            <div>
+              <label htmlFor="minCost" className="block text-sm font-medium text-gray-700 mb-1">Min Cost (£)</label>
+              <input
+                type="number"
+                id="minCost"
+                name="minCost"
+                value={filters.minCost}
+                onChange={handleFilterChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Minimum cost"
+              />
+            </div>
+            
+            <div>
+              <label htmlFor="maxCost" className="block text-sm font-medium text-gray-700 mb-1">Max Cost (£)</label>
+              <input
+                type="number"
+                id="maxCost"
+                name="maxCost"
+                value={filters.maxCost}
+                onChange={handleFilterChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Maximum cost"
+              />
+            </div>
           </div>
         )}
       </div>
@@ -136,14 +210,9 @@ const Servicehistoryexplorer = () => {
                   Service Type
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Data Charged
+                  Description
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Cost (£)
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Taxization
-                </th>
+                
                 <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
@@ -157,7 +226,7 @@ const Servicehistoryexplorer = () => {
                       {service.serviceId}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {service.busId}
+                      {service.busnum}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {service.serviceDate}
@@ -168,12 +237,7 @@ const Servicehistoryexplorer = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {service.dataCharged}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {service.cost.toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {service.taxization}
-                    </td>
+                   
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end gap-2">
                         <button
@@ -189,7 +253,7 @@ const Servicehistoryexplorer = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={8} className="px-6 py-4 text-center text-sm text-gray-500">
+                  <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500">
                     No service records found matching your criteria
                   </td>
                 </tr>
@@ -201,7 +265,7 @@ const Servicehistoryexplorer = () => {
         {/* Pagination */}
         <div className="px-6 py-4 border-t border-gray-200 flex justify-between items-center">
           <span className="text-sm text-gray-700">
-            Primary 1-5 of 12 weeks
+            Showing {Math.min(filteredData.length, 8)} of {filteredData.length} records
           </span>
           <div className="flex gap-2">
             <button className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
@@ -216,7 +280,10 @@ const Servicehistoryexplorer = () => {
 
       {/* View Record Modal */}
       {isViewModalOpen && selectedRecord && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div
+          className="fixed inset-0 flex items-center justify-center p-4 z-50"
+          style={{ backgroundColor: 'rgba(15, 23, 42, 0.85)' }}
+        >
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex justify-between items-start">
@@ -238,7 +305,7 @@ const Servicehistoryexplorer = () => {
                   <div className="space-y-4">
                     <div>
                       <p className="text-sm text-gray-500">Bus ID</p>
-                      <p className="text-gray-800">{selectedRecord.busId}</p>
+                      <p className="text-gray-800">{selectedRecord.busnum}</p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-500">Service Date</p>
@@ -257,10 +324,6 @@ const Servicehistoryexplorer = () => {
                     <div>
                       <p className="text-sm text-gray-500">Cost</p>
                       <p className="text-gray-800">£{selectedRecord.cost.toLocaleString()}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Taxization</p>
-                      <p className="text-gray-800">{selectedRecord.taxization}</p>
                     </div>
                   </div>
                 </div>

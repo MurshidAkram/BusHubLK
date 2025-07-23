@@ -52,7 +52,6 @@ const BUS_ROUTES = [
     operatingHours: "5:00 AM - 10:00 PM",
     fare: 600,
     estimatedDuration: "3.5 hours",
-    busType: "Semi-Luxury",
   },
   {
     routeNumber: "1",
@@ -64,7 +63,6 @@ const BUS_ROUTES = [
     operatingHours: "4:30 AM - 11:00 PM",
     fare: 600,
     estimatedDuration: "3 hours",
-    busType: "Normal",
   },
   {
     routeNumber: "4",
@@ -76,18 +74,17 @@ const BUS_ROUTES = [
     operatingHours: "5:00 AM - 9:30 PM",
     fare: 700,
     estimatedDuration: "4 hours",
-    busType: "Normal",
   },
   {
-    routeNumber: "E01",
+    routeNumber: "100",
     operator: "Private",
     from: "Colombo",
     to: "Kandy",
     frequency: "Every hour",
     operatingHours: "6:00 AM - 8:00 PM",
-    fare: 800,
+    fare: 620,
     estimatedDuration: "2.5 hours",
-    busType: "Luxury",
+    via: ["Mawanella", "Peradeniya"],
   },
 ];
 
@@ -265,18 +262,7 @@ export default function BusRouteResultsScreen({ route, navigation }) {
     // eslint-disable-next-line
   }, [from, to]);
 
-  const getBusTypeColor = (busType) => {
-    switch (busType) {
-      case "Luxury":
-        return AppColors.success;
-      case "Semi-Luxury":
-        return AppColors.primary;
-      case "Express":
-        return AppColors.warning;
-      default:
-        return AppColors.textSecondary;
-    }
-  };
+  
 
   const renderBusRoute = ({ item }) => (
     <View style={styles.routeCard}>
@@ -285,11 +271,7 @@ export default function BusRouteResultsScreen({ route, navigation }) {
           <View style={styles.routeNumberBadge}>
             <Text style={styles.routeNumber}>{item.routeNumber}</Text>
           </View>
-          <View style={[styles.busTypeBadge, { backgroundColor: getBusTypeColor(item.busType) + '20' }]}>
-            <Text style={[styles.busType, { color: getBusTypeColor(item.busType) }]}>
-              {item.busType}
-            </Text>
-          </View>
+          
         </View>
         <View style={styles.operatorContainer}>
           <Text style={styles.operator}>{item.operator}</Text>
@@ -793,16 +775,8 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: AppColors.card,
   },
-  busTypeBadge: {
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    alignSelf: "flex-start",
-  },
-  busType: {
-    fontSize: 12,
-    fontWeight: "600",
-  },
+
+ 
   operatorContainer: {
     alignItems: "flex-end",
   },
