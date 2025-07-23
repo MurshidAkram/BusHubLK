@@ -5,6 +5,7 @@ const { validationResult } = require('express-validator');
 // Fix the import path to match your existing structure
 const User = require('../models/userModel');
 const Driver = require('../models/Driver');
+const DailyAssignment = require('../models/DailyAssignmentModel');
 
 const driverLogin = async (req, res) => {
   const errors = validationResult(req);
@@ -159,7 +160,88 @@ const getDriverProfile = async (req, res) => {
   }
 };
 
+const getDriverAssignedBuses = async (req, res) => {
+  try {
+    // Get driver ID from authenticated user
+    const userId = req.user.userId;
+    console.log('🔍 Getting buses for user ID:', userId);
+    
+    // Get driver information
+    const driver = await Driver.findByUserId(userId);
+    if (!driver) {
+      console.log('❌ Driver profile not found for user ID:', userId);
+      return res.status(404).json({ 
+        success: false,
+        error: 'Driver profile not found' 
+      });
+    }
+
+    console.log('✅ Driver found:', { 
+      driver_id: driver.driver_id, 
+      depot_id: driver.depot_id 
+    });
+
+    // Get current assignments for the driver
+    const assignments = await DailyAssignment.getByDriverId(driver.driver_id);
+    console.log('📋 Assignments found:', assignments?.length || 0);
+    
+    if (!assignments || assignments.length === 0) {
+      console.log('📭 No assignments found for driver:', driver.driver_id);
+      return res.status(200).json({
+        success: true,
+        message: 'No bus assignments found',
+        data: []
+      });
+    }
+
+    // Log assignment details for debugging
+    assignments.forEach((assignment, index) => {
+      console.log(`   Assignment ${index + 1}:`, {
+        bus_id: assignment.bus_id,
+        registration_number: assignment.registration_number,
+        status: assignment.status
+      });
+    });
+
+    // Extract unique buses from assignments (in case driver has multiple assignments)
+    const uniqueBuses = [];
+    const busIds = new Set();
+    
+    assignments.forEach(assignment => {
+      if (assignment.bus_id && !busIds.has(assignment.bus_id)) {
+        busIds.add(assignment.bus_id);
+        uniqueBuses.push({
+          bus_id: assignment.bus_id,
+          registration_number: assignment.registration_number,
+          class: assignment.bus_class,
+          manufacturer: assignment.manufacturer,
+          model: assignment.model,
+          status: assignment.bus_status,
+          depot_id: assignment.depot_id,
+          depot_name: assignment.depot_name
+        });
+      }
+    });
+
+    console.log('🚌 Unique buses extracted:', uniqueBuses.length);
+
+    res.json({
+      success: true,
+      message: 'Assigned buses retrieved successfully',
+      data: uniqueBuses
+    });
+  } catch (err) {
+    console.error('❌ Get driver assigned buses error:', err);
+    res.status(500).json({ 
+      success: false,
+      error: 'Server error while fetching assigned buses',
+      details: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+};
+
 module.exports = {
   driverLogin,
-  getDriverProfile
+  getDriverProfile,
+  getDriverAssignedBuses
 };

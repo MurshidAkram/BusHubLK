@@ -82,6 +82,41 @@ class DailyAssignment {
     const result = await db.query(
       `SELECT da.assignment_id, da.depot_id, da.bus_id, da.route_id, da.driver_id, da.conductor_id,
               da.assignment_date, da.shift_start_time, da.shift_end_time, da.status,
+              b.registration_number,
+              b.class AS bus_class,
+              b.manufacturer,
+              b.model,
+              b.status AS bus_status,
+              r.route_number,
+              r.route_name,
+              r.start_location,
+              r.end_location,
+              d.depot_name,
+              CONCAT(udriver.first_name, ' ', udriver.last_name) AS driver_name,
+              CASE 
+                WHEN uconductor.user_id IS NOT NULL 
+                THEN CONCAT(uconductor.first_name, ' ', uconductor.last_name)
+                ELSE NULL
+              END AS conductor_name,
+              da.created_at, da.updated_at
+       FROM dailyassignment da
+       JOIN buses b ON da.bus_id = b.bus_id
+       JOIN routes r ON da.route_id = r.route_id
+       JOIN depots d ON da.depot_id = d.depot_id
+       JOIN users udriver ON da.driver_id = udriver.user_id
+       LEFT JOIN users uconductor ON da.conductor_id = uconductor.user_id
+       WHERE da.driver_id = $1 AND da.is_active = true
+       ORDER BY da.assignment_date DESC, da.shift_start_time DESC`,
+      [driver_id]
+    );
+    return result.rows;
+  }
+
+  // Get upcoming assignments for a driver
+  static async getUpcomingByDriverId(driver_id, days = 7) {
+    const result = await db.query(
+      `SELECT da.assignment_id, da.depot_id, da.bus_id, da.route_id, da.driver_id, da.conductor_id,
+              da.assignment_date, da.shift_start_time, da.shift_end_time, da.status,
               b.registration_number AS bus_registration,
               b.class AS bus_class,
               b.manufacturer AS bus_manufacturer,
@@ -104,12 +139,14 @@ class DailyAssignment {
        JOIN depots d ON da.depot_id = d.depot_id
        JOIN users udriver ON da.driver_id = udriver.user_id
        LEFT JOIN users uconductor ON da.conductor_id = uconductor.user_id
-       WHERE da.driver_id = $1 AND da.is_active = true
-       ORDER BY da.assignment_date DESC, da.shift_start_time DESC
-       LIMIT 1`,
-      [driver_id]
+       WHERE da.driver_id = $1 
+         AND da.is_active = true 
+         AND da.assignment_date >= CURRENT_DATE 
+         AND da.assignment_date <= CURRENT_DATE + $2::integer
+       ORDER BY da.assignment_date ASC, da.shift_start_time ASC`,
+      [driver_id, days]
     );
-    return result.rows[0];
+    return result.rows;
   }
 }
 

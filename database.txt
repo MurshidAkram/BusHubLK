@@ -376,7 +376,18 @@ CREATE INDEX idx_buses_depot ON buses(depot_id);
 CREATE INDEX idx_buses_status ON buses(status);
 CREATE INDEX idx_buses_class ON buses(class);
 
-
+-- Creating the bus_occupancy table
+CREATE TABLE bus_occupancy (
+    occupancy_id SERIAL PRIMARY KEY,
+    bus_id INTEGER NOT NULL REFERENCES buses(bus_id) ON DELETE CASCADE,
+    passenger_id INTEGER NOT NULL REFERENCES passengers(passenger_id) ON DELETE SET NULL,
+    occupancy_level VARCHAR(20) NOT NULL CHECK (occupancy_level IN ('not_crowded', 'not_too_crowded', 'crowded', 'very_crowded')),
+    latitude DOUBLE PRECISION NOT NULL CHECK (latitude BETWEEN -90 AND 90),
+    longitude DOUBLE PRECISION NOT NULL CHECK (longitude BETWEEN -180 AND 180),
+    confidence DOUBLE PRECISION CHECK (confidence BETWEEN 0 AND 100),
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
 
 CREATE TABLE routes (

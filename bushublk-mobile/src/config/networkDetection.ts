@@ -70,7 +70,7 @@ export const discoverApiBaseUrl = async (): Promise<NetworkConfig> => {
   if (expoIP) {
     console.log('🎯 Testing Expo debugger IP:', expoIP);
     if (await testEndpoint(expoIP, API_PORT)) {
-      const apiBaseUrl = `http://${expoIP}:${API_PORT}/api`;
+      const apiBaseUrl = `http://${expoIP}:${API_PORT}`;
       console.log('✅ Found working API at:', apiBaseUrl);
       return { apiBaseUrl, isReachable: true };
     }
@@ -81,7 +81,7 @@ export const discoverApiBaseUrl = async (): Promise<NetworkConfig> => {
   for (const ip of POTENTIAL_HOSTS) {
     console.log(`⏳ Testing ${ip}:${API_PORT}...`);
     if (await testEndpoint(ip, API_PORT)) {
-      const apiBaseUrl = `http://${ip}:${API_PORT}/api`;
+      const apiBaseUrl = `http://${ip}:${API_PORT}`;
       console.log('✅ Found working API at:', apiBaseUrl);
       return { apiBaseUrl, isReachable: true };
     }
@@ -89,7 +89,7 @@ export const discoverApiBaseUrl = async (): Promise<NetworkConfig> => {
   
   // If nothing works, fall back to Expo IP or localhost
   const fallbackIP = expoIP || 'localhost';
-  const apiBaseUrl = `http://${fallbackIP}:${API_PORT}/api`;
+  const apiBaseUrl = `http://${fallbackIP}:${API_PORT}`;
   console.log('⚠️  No working API found, using fallback:', apiBaseUrl);
   
   return { apiBaseUrl, isReachable: false };

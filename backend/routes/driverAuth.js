@@ -1,6 +1,6 @@
 const express = require('express');
 const { body } = require('express-validator');
-const { driverLogin, getDriverProfile } = require('../controllers/driverAuthController');
+const { driverLogin, getDriverProfile, getDriverAssignedBuses } = require('../controllers/driverAuthController');
 
 // Import the correct auth middleware function
 const { authenticateJWT } = require('../middlewares/authMiddleware');
@@ -24,6 +24,11 @@ router.post('/login', [
 // @desc    Get driver profile
 // @access  Private (Driver only)
 router.get('/profile', authenticateJWT, getDriverProfile);
+
+// @route   GET /api/driver/buses
+// @desc    Get buses assigned to the authenticated driver
+// @access  Private (Driver only)
+router.get('/buses', authenticateJWT, getDriverAssignedBuses);
 
 // @route   GET /api/driver/test
 // @desc    Test route to verify driver routes are working

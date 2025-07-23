@@ -4,6 +4,7 @@ const {
   getAllBusTrackings,
   getBusTracking,
   getAllRoutes,
+  getBusesByRouteNumber,
 } = require('../controllers/BusTrackingController');
 
 // GET /api/bus-tracking - Fetch all nearby bus records
@@ -19,12 +20,6 @@ router.get('/routes', getAllRoutes);
 router.get('/:busId', getBusTracking);
 
 // GET /api/bus-tracking/route/:routeNumber - Fetch buses by route number
-router.get('/route/:routeNumber', (req, res) => {
-  // This is a placeholder - you'll need to implement this controller function
-  const { routeNumber } = req.params;
-  // Call the appropriate controller method
-  // For now, return an empty array
-  res.status(200).json([]);
-});
+router.get('/route/:routeNumber', getBusesByRouteNumber);
 
 module.exports = router;
