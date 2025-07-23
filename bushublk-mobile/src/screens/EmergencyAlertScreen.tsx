@@ -124,7 +124,7 @@ const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
     const [currentLongitude, setCurrentLongitude] = useState<number | null>(null);
     const [depotPhoneNumber, setDepotPhoneNumber] = useState<string | null>(null); // New state for depot phone
     // Police emergency number (common for many regions, adjust if needed for specific country)
-    const POLICE_PHONE_NUMBER = '911'; // Example for USA/Canada. Use '119' for Sri Lanka or relevant number.
+    const POLICE_PHONE_NUMBER = '112'; // Example for USA/Canada. Use '119' for Sri Lanka or relevant number.
     const [editContact, setEditContact] = useState<Contact | null>(null);
     const [deletingId, setDeletingId] = useState<number | null>(null);
     const [contacts, setContacts] = useState<Contact[]>([]);
@@ -846,8 +846,8 @@ const styles = StyleSheet.create({
     panicButton: { backgroundColor: AppColors.red },
     medicalButton: { backgroundColor: AppColors.orange },
     // New styles for police and depot call buttons
-    policeCallButton: { backgroundColor: '#3366ff' }, // A blue shade
-    depotCallButton: { backgroundColor: '#00BFFF' }, // Another blue shade
+    policeCallButton: { backgroundColor: '#0056b3' }, // A blue shade
+    depotCallButton: { backgroundColor: '#0056b3' }, // Another blue shade
     emergencyButtonText: { color: '#fff', fontSize: 17, fontWeight: '700' },
     emergencyOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(15, 23, 42, 0.85)', zIndex: 1000, justifyContent: 'center', alignItems: 'center', padding: 16 },
     emergencyModal: { backgroundColor: '#fff', padding: 36, borderRadius: 32, alignItems: 'center', width: '90%', maxWidth: 340 },
