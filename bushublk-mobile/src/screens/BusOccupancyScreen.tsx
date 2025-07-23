@@ -459,7 +459,7 @@ export default function BusOccupancyScreen() {
       // If no passenger ID found, we'll use a default value in the backend
       console.log(`Updating occupancy for bus ID: ${numericBusId}, passenger ID: ${passengerId || 'default'}`);
       
-      console.log('Request URL:', `${API_BASE_URL}/bus-occupancy/${numericBusId}`);
+      console.log('Request URL:', `${API_BASE_URL}/api/bus-occupancy/${numericBusId}`);
       console.log('Request payload:', {
         busId: parseInt(numericBusId, 10),
         passengerId: passengerId,
@@ -469,7 +469,7 @@ export default function BusOccupancyScreen() {
         confidence: demoMode ? 100 : confidence,
       });
       
-      const response = await fetch(`${API_BASE_URL}/bus-occupancy/${numericBusId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/bus-occupancy/${numericBusId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -517,8 +517,8 @@ export default function BusOccupancyScreen() {
     setStatus('loading');
     setError(null);
     try {
-      console.log('Fetching occupancies from:', `${API_BASE_URL}/bus-occupancy`);
-      const response = await fetch(`${API_BASE_URL}/bus-occupancy`, {
+      console.log('Fetching occupancies from:', `${API_BASE_URL}/api/bus-occupancy`);
+      const response = await fetch(`${API_BASE_URL}/api/bus-occupancy`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',

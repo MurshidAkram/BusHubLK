@@ -79,7 +79,7 @@ const discoverApiEndpoint = async (): Promise<string> => {
   if (expoIP) {
     console.log('⏳ Testing Expo IP:', expoIP);
     if (await testApiEndpoint(expoIP, API_PORT)) {
-      const apiUrl = `http://${expoIP}:${API_PORT}/api`;
+      const apiUrl = `http://${expoIP}:${API_PORT}`;
       console.log('✅ Found working API via Expo:', apiUrl);
       cachedApiBaseUrl = apiUrl;
       return apiUrl;
@@ -94,7 +94,7 @@ const discoverApiEndpoint = async (): Promise<string> => {
     
     console.log(`⏳ Testing ${ip}:${API_PORT}...`);
     if (await testApiEndpoint(ip, API_PORT)) {
-      const apiUrl = `http://${ip}:${API_PORT}/api`;
+      const apiUrl = `http://${ip}:${API_PORT}`;
       console.log('✅ Found working API at:', apiUrl);
       cachedApiBaseUrl = apiUrl;
       return apiUrl;
@@ -103,7 +103,7 @@ const discoverApiEndpoint = async (): Promise<string> => {
 
   // Fallback to Expo IP or localhost
   const fallbackIP = expoIP || (Platform.OS === 'android' ? '10.0.2.2' : 'localhost');
-  const fallbackUrl = `http://${fallbackIP}:${API_PORT}/api`;
+  const fallbackUrl = `http://${fallbackIP}:${API_PORT}`;
   console.log('⚠️  No working API found, using fallback:', fallbackUrl);
   
   cachedApiBaseUrl = fallbackUrl;
@@ -121,13 +121,13 @@ const getApiBaseUrl = (): string => {
     // In development, we'll use the discovery mechanism
     // But for initial load, use the network info as fallback
     const { ip, port } = getNetworkInfo();
-    const baseUrl = `http://${ip}:${port}/api`;
+    const baseUrl = `http://${ip}:${port}`;
     console.log('🌐 Initial Development API Base URL:', baseUrl);
     return baseUrl;
   }
   
   // Production URL
-  const productionUrl = 'https://your-production-api.com/api';
+  const productionUrl = 'https://your-production-api.com';
   console.log('🚀 Production API Base URL:', productionUrl);
   return productionUrl;
 };
@@ -148,11 +148,11 @@ export const initializeApiConnection = async (): Promise<string> => {
 
 // Export individual endpoints for better organization
 export const getApiEndpoints = () => ({
-  AUTH: `${API_BASE_URL}/auth`,
-  PASSENGERS: `${API_BASE_URL}/passengers`,
-  LOST_FOUND: `${API_BASE_URL}/lost-found`,
-  ROUTES: `${API_BASE_URL}/routes`,
-  REGIONS: `${API_BASE_URL}/regions`,
+  AUTH: `${API_BASE_URL}/api/auth`,
+  PASSENGERS: `${API_BASE_URL}/api/passengers`,
+  LOST_FOUND: `${API_BASE_URL}/api/lost-found`,
+  ROUTES: `${API_BASE_URL}/api/routes`,
+  REGIONS: `${API_BASE_URL}/api/regions`,
 });
 
 // Health check function

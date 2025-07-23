@@ -43,9 +43,8 @@ const getAllRoutes = async (req, res) => {
 const getBusesByRouteNumber = async (req, res) => {
   try {
     const { routeNumber } = req.params;
-    // Implement the logic to fetch buses by route number
-    // For now, return an empty array
-    res.status(200).json([]);
+    const buses = await BusTracking.getBusesByRouteNumber(routeNumber);
+    res.status(200).json(buses);
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error: error.message });
   }

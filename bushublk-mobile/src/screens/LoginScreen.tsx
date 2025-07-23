@@ -35,7 +35,7 @@ export default function LoginScreen({ navigation }: any) {
     setIsLoading(true);
 
     try {
-      const apiUrl = `${API_BASE_URL}/passengers/login`;
+      const apiUrl = `${API_BASE_URL}/api/passengers/login`;
       console.log("Attempting login to:", apiUrl);
 
       const response = await fetch(apiUrl, {

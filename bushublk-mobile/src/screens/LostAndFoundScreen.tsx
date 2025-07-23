@@ -201,7 +201,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
       if (selectedCategory !== 'all') params.append('item_category', selectedCategory);
       if (debouncedSearchQuery.trim()) params.append('search', debouncedSearchQuery.trim());
       
-      const url = `${API_BASE_URL}/lost-found/reports?${params}`;
+      const url = `${API_BASE_URL}/api/lost-found/reports?${params}`;
       console.log('📡 API Request URL:', url);
       console.log('🔍 Filters:', { selectedCategory, searchQuery: debouncedSearchQuery });
       
@@ -274,7 +274,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
 
   const loadRoutes = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/lost-found/routes`);
+      const response = await fetch(`${API_BASE_URL}/api/lost-found/routes`);
       const data = await response.json();
       
       if (data.success) {
@@ -288,7 +288,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
   const loadRegions = async () => {
     try {
       console.log('[LostAndFoundScreen] 🌍 Loading regions...');
-      const response = await fetch(`${API_BASE_URL}/lost-found/regions`);
+      const response = await fetch(`${API_BASE_URL}/api/lost-found/regions`);
       const data = await response.json();
       
       if (data.success) {
@@ -305,7 +305,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
 
   const loadBusesForRoute = async (routeNumber: string) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/lost-found/routes/${routeNumber}/buses`);
+      const response = await fetch(`${API_BASE_URL}/api/lost-found/routes/${routeNumber}/buses`);
       const data = await response.json();
       
       if (data.success) {
@@ -330,7 +330,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
       console.log('📱 Loading my reports for user:', user.id);
       setLoading(true);
       
-      const response = await fetch(`${API_BASE_URL}/lost-found/users/${user.id}/reports`, {
+      const response = await fetch(`${API_BASE_URL}/api/lost-found/users/${user.id}/reports`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Accept': 'application/json',
@@ -361,7 +361,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
 
     try {
       setRouteSearchLoading(true);
-      const response = await fetch(`${API_BASE_URL}/lost-found/routes/search?q=${encodeURIComponent(query)}`);
+      const response = await fetch(`${API_BASE_URL}/api/lost-found/routes/search?q=${encodeURIComponent(query)}`);
       const data = await response.json();
       
       if (data.success) {
