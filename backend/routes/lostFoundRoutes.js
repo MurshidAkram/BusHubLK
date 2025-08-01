@@ -35,4 +35,10 @@ router.get('/reports/:report_id/matches', lostFoundController.getMatches);
 // Update match status
 router.put('/matches/:match_id', lostFoundController.updateMatchStatus);
 
+router.get(
+    '/driver/:driverId',
+    authenticateJWT,
+    lostFoundController.getDriverReports
+);
+
 module.exports = router;

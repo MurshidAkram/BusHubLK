@@ -7,271 +7,402 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
-  ScrollView,
+  FlatList,
+  Pressable,
   ActivityIndicator,
   Platform,
   StatusBar,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
+import { API_BASE_URL } from '../config/api';
 
-// --- Reusable Button Component for Incident Types ---
-const IncidentButton = ({ icon, text, isSelected, onPress }) => (
-  <TouchableOpacity
-    style={[styles.incidentButton, isSelected && styles.incidentButtonSelected]}
-    onPress={onPress}
-  >
-    <MaterialCommunityIcons 
-      name={icon} 
-      size={32} 
-      color={isSelected ? '#FFFFFF' : '#ef4444'} 
-    />
-    <Text style={[styles.incidentButtonText, isSelected && styles.incidentButtonTextSelected]}>
-      {text}
-    </Text>
-  </TouchableOpacity>
-);
+// History Item Component
+const HistoryItem = ({ item, onPress }) => {
+  const getStatusInfo = (status) => {
+    switch (status) {
+      case 'Resolved': return { color: '#22c55e', icon: 'checkmark-circle' };
+      case 'Acknowledged': return { color: '#f59e0b', icon: 'eye' };
+      default: return { color: '#ef4444', icon: 'alert-circle' };
+    }
+  };
+
+  const getIncidentIcon = (incidentType) => {
+    switch (incidentType) {
+      case 'Accident': return 'car-emergency';
+      case 'Medical': return 'medical-bag';
+      case 'Fire': return 'fire-truck';
+      case 'Breakdown': return 'engine-off-outline';
+      case 'Theft': return 'lock-alert';
+      case 'Hazard': return 'alert-decagram';
+      default: return 'shield-alert-outline';
+    }
+  };
+
+  const statusInfo = getStatusInfo(item.status);
+  const incidentIcon = getIncidentIcon(item.incident_type);
+
+  return (
+    <Pressable style={({ pressed }) => [styles.historyItem, pressed && styles.historyItemPressed]} onPress={onPress}>
+      <LinearGradient colors={['#fef2f2', '#fee2e2']} style={styles.historyIconContainer}>
+        <MaterialCommunityIcons name={incidentIcon} size={28} color="#b91c1c" />
+      </LinearGradient>
+      <View style={styles.historyDetails}>
+        <Text style={styles.historyTitle} numberOfLines={1}>{item.incident_type}</Text>
+        <View style={styles.historyStatus}>
+          <Ionicons name={statusInfo.icon} size={16} color={statusInfo.color} />
+          <Text style={[styles.historyStatusText, { color: statusInfo.color }]}>{item.status}</Text>
+        </View>
+      </View>
+      <View style={styles.historyActions}>
+        <Text style={styles.historyDate}>
+          {new Date(item.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+        </Text>
+        <Ionicons name="chevron-forward" size={24} color="#6b7280" />
+      </View>
+    </Pressable>
+  );
+};
 
 const EmergencyScreen = ({ navigation }) => {
   const [selectedIncident, setSelectedIncident] = useState(null);
   const [description, setDescription] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [location, setLocation] = useState(null);
   const [locationError, setLocationError] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [driverId, setDriverId] = useState(null);
+  const [activeTab, setActiveTab] = useState('new');
+  const [history, setHistory] = useState([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const [isInputFocused, setIsInputFocused] = useState(false);
 
-  // --- Effect to get location on screen load ---
   useEffect(() => {
-    (async () => {
-      let { status } = await Location.requestForegroundPermissionsAsync();
+    const initialize = async () => {
+      const storedDriverData = await AsyncStorage.getItem("driverUser");
+      if (storedDriverData) {
+        const driver = JSON.parse(storedDriverData);
+        if (driver && driver.driver_id) {
+          setDriverId(driver.driver_id);
+          fetchHistory(driver.driver_id);
+        }
+      } else {
+        Alert.alert("Authentication Error", "Could not find your Driver ID.");
+        setIsLoadingHistory(false);
+      }
+      const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
         setLocationError('Permission to access location was denied.');
-        Alert.alert(
-          'Location Permission Required',
-          'Please grant location access in your device settings to report emergencies accurately.',
-        );
-        return;
+      } else {
+        try {
+          const locationData = await Location.getCurrentPositionAsync({});
+          setLocation(locationData);
+        } catch (error) {
+          setLocationError('Could not fetch location.');
+        }
       }
-
-      try {
-        setLocationError(''); // Clear previous errors
-        let locationData = await Location.getCurrentPositionAsync({});
-        setLocation(locationData);
-      } catch (error) {
-        console.error(error);
-        setLocationError('Could not fetch location. Please try again.');
-        Alert.alert('Location Error', 'Failed to get current location. Please make sure your GPS is enabled.');
-      }
-    })();
+    };
+    initialize();
   }, []);
 
-  // --- Submit Handler ---
+  const fetchHistory = async (id) => {
+    if (!id) return;
+    setIsLoadingHistory(true);
+    try {
+      const token = await AsyncStorage.getItem("driverToken");
+      const response = await fetch(`${API_BASE_URL}/emergency/driver/${id}`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error(`Server error: ${response.status}`);
+      const reports = await response.json();
+      setHistory(reports || []);
+    } catch (error) {
+      console.error("Error during direct fetch:", error);
+      Alert.alert("Error", "Could not load your report history.");
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+
   const handleSubmit = async () => {
-    if (!selectedIncident) {
-      Alert.alert('Incomplete Report', 'Please select an incident type.');
+    if (!selectedIncident || !location || !driverId) {
+      Alert.alert('Incomplete Report', 'Please select an incident and ensure location is available.');
       return;
     }
-    if (!location) {
-        Alert.alert('Location Unknown', 'Cannot submit report without location data. Please wait or check GPS.');
-        return;
-    }
-
     setIsSubmitting(true);
-    
-    const reportData = {
-      incidentType: selectedIncident,
-      description,
-      location: {
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-        timestamp: location.timestamp,
-      },
-    };
-
-    console.log('Submitting Emergency Report:', reportData);
-    
-    // Navigate to Chat Screen after a short delay
-    setTimeout(() => {
+    try {
+      const reportData = {
+        driver_id: driverId,
+        incidentType: selectedIncident,
+        description,
+        location: { latitude: location.coords.latitude, longitude: location.coords.longitude },
+      };
+      const response = await fetch(`${API_BASE_URL}/emergency`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await AsyncStorage.getItem("driverToken")}` },
+        body: JSON.stringify(reportData),
+      });
+      const newReport = await response.json();
+      if (!response.ok) throw new Error(newReport.message || 'Failed to submit report.');
+      Alert.alert("Success", "Your report has been submitted.");
+      navigation.replace('ChatScreen', { report: newReport });
+    } catch (error) {
+      Alert.alert('Submission Failed', error.message);
+    } finally {
       setIsSubmitting(false);
-      // Replace the current screen with the ChatScreen
-      navigation.replace('ChatScreen', { report: reportData });
-    }, 1000); 
+    }
+  };
+
+  const IncidentButton = ({ icon, text, isSelected, onPress }) => (
+    <TouchableOpacity style={[styles.incidentButton, isSelected && styles.incidentButtonSelected]} onPress={onPress} activeOpacity={0.7}>
+      <LinearGradient
+        colors={isSelected ? ['#3b82f6', '#2563eb'] : ['#ffffff', '#f8fafc']}
+        style={styles.incidentButtonGradient}>
+        <MaterialCommunityIcons name={icon} size={48} color={isSelected ? '#ffffff' : '#1e40af'} />
+        <Text style={[styles.incidentButtonText, isSelected && styles.incidentButtonTextSelected]}>{text}</Text>
+      </LinearGradient>
+    </TouchableOpacity>
+  );
+
+  const renderNewReport = () => (
+    <View style={styles.container}>
+      <Text style={styles.sectionTitle}>Select Incident Type</Text>
+      <View style={styles.incidentGrid}>
+        <IncidentButton icon="car-emergency" text="Accident" isSelected={selectedIncident === 'Accident'} onPress={() => setSelectedIncident('Accident')} />
+        <IncidentButton icon="medical-bag" text="Medical" isSelected={selectedIncident === 'Medical'} onPress={() => setSelectedIncident('Medical')} />
+        <IncidentButton icon="fire-truck" text="Fire" isSelected={selectedIncident === 'Fire'} onPress={() => setSelectedIncident('Fire')} />
+        <IncidentButton icon="engine-off-outline" text="Breakdown" isSelected={selectedIncident === 'Breakdown'} onPress={() => setSelectedIncident('Breakdown')} />
+        <IncidentButton icon="lock-alert" text="Theft" isSelected={selectedIncident === 'Theft'} onPress={() => setSelectedIncident('Theft')} />
+        <IncidentButton icon="alert-decagram" text="Hazard" isSelected={selectedIncident === 'Hazard'} onPress={() => setSelectedIncident('Hazard')} />
+      </View>
+      <Text style={styles.sectionTitle}>Additional Details (Optional)</Text>
+      <TextInput
+        style={[styles.input, isInputFocused && styles.inputFocused]}
+        value={description}
+        onChangeText={setDescription}
+        placeholder="e.g., Two vehicles involved, minor damage..."
+        placeholderTextColor="#9ca3af"
+        multiline
+        onFocus={() => setIsInputFocused(true)}
+        onBlur={() => setIsInputFocused(false)}
+      />
+      <Text style={styles.sectionTitle}>Location Status</Text>
+      <LinearGradient colors={['#f0fdf4', '#dcfce7']} style={styles.locationBox}>
+        {location ? (
+          <>
+            <Ionicons name="location" size={20} color="#15803d" />
+            <Text style={[styles.locationText, { color: '#166534' }]}>Location captured successfully.</Text>
+          </>
+        ) : (
+          <>
+            <ActivityIndicator color="#b45309" />
+            <Text style={[styles.locationText, { color: '#92400e' }]}>{locationError || 'Fetching GPS coordinates...'}</Text>
+          </>
+        )}
+      </LinearGradient>
+      <TouchableOpacity style={styles.submitButtonWrapper} onPress={handleSubmit} disabled={isSubmitting}>
+        <LinearGradient
+          colors={isSubmitting ? ['#d1d5db', '#9ca3af'] : ['#dc2626', '#b91c1c']}
+          style={styles.submitButton}>
+          {isSubmitting ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.submitButtonText}>Send Emergency Report</Text>}
+        </LinearGradient>
+      </TouchableOpacity>
+    </View>
+  );
+
+  const renderHistory = () => {
+    if (isLoadingHistory) {
+      return <ActivityIndicator size="large" color="#3b82f6" style={styles.loader} />;
+    }
+    if (history.length === 0) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="receipt-outline" size={64} color="#d1d5db" />
+          <Text style={styles.emptyText}>No Past Reports Found</Text>
+          <Text style={styles.emptySubText}>New reports you submit will appear here.</Text>
+        </View>
+      );
+    }
+    return (
+      <FlatList
+        data={history}
+        keyExtractor={(item) => item.id.toString()}
+        renderItem={({ item }) => <HistoryItem item={item} onPress={() => navigation.navigate('ChatScreen', { report: item })} />}
+        contentContainerStyle={styles.historyList}
+        showsVerticalScrollIndicator={false}
+      />
+    );
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" />
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="white" />
+      <StatusBar barStyle="light-content" backgroundColor={styles.header.backgroundColor} />
+      <LinearGradient colors={['#1e3a8a', '#3b82f6']} style={styles.header}>
+        <View style={styles.headerTitleContainer}>
+          <MaterialCommunityIcons name="shield-car" size={32} color="#ffffff" />
+          <Text style={styles.headerTitle}>Emergency Center</Text>
+        </View>
+      </LinearGradient>
+      <View style={styles.tabContainer}>
+        <TouchableOpacity style={[styles.tab, activeTab === 'new' && styles.tabActive]} onPress={() => setActiveTab('new')} activeOpacity={0.7}>
+          <Text style={[styles.tabText, activeTab === 'new' && styles.tabTextActive]}>New Report</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Emergency Report</Text>
-        <View style={{ width: 24 }} /> 
+        <TouchableOpacity style={[styles.tab, activeTab === 'history' && styles.tabActive]} onPress={() => { setActiveTab('history'); fetchHistory(driverId); }} activeOpacity={0.7}>
+          <Text style={[styles.tabText, activeTab === 'history' && styles.tabTextActive]}>History</Text>
+        </TouchableOpacity>
       </View>
-      
-      <ScrollView style={styles.container}>
-        {/* --- Step 1: Incident Type Selection --- */}
-        <Text style={styles.sectionTitle}>1. What is the emergency?</Text>
-        <View style={styles.incidentGrid}>
-          {/* --- UPDATED ICONS --- */}
-          <IncidentButton icon="car-emergency" text="Accident" isSelected={selectedIncident === 'Accident'} onPress={() => setSelectedIncident('Accident')} />
-          <IncidentButton icon="medical-bag" text="Medical" isSelected={selectedIncident === 'Medical'} onPress={() => setSelectedIncident('Medical')} />
-          {/* --- END OF UPDATES --- */}
-          <IncidentButton icon="fire-truck" text="Fire" isSelected={selectedIncident === 'Fire'} onPress={() => setSelectedIncident('Fire')} />
-          <IncidentButton icon="engine-off-outline" text="Breakdown" isSelected={selectedIncident === 'Breakdown'} onPress={() => setSelectedIncident('Breakdown')} />
-          <IncidentButton icon="account-alert" text="Passenger" isSelected={selectedIncident === 'Passenger'} onPress={() => setSelectedIncident('Passenger')} />
-          <IncidentButton icon="dots-horizontal-circle-outline" text="Other" isSelected={selectedIncident === 'Other'} onPress={() => setSelectedIncident('Other')} />
-        </View>
-
-        {/* --- Step 2: Description --- */}
-        <Text style={styles.sectionTitle}>2. Add a brief description (optional)</Text>
-        <TextInput
-          style={styles.input}
-          value={description}
-          onChangeText={setDescription}
-          placeholder="e.g., Two vehicles involved, minor injuries..."
-          placeholderTextColor="#9ca3af"
-          multiline
-        />
-
-        {/* --- Step 3: Location Status --- */}
-        <Text style={styles.sectionTitle}>3. Your Location</Text>
-        <View style={styles.locationBox}>
-            <Ionicons name="location-sharp" size={24} color="#34d399" />
-            {location ? (
-                <Text style={styles.locationText}>Location captured successfully.</Text>
-            ) : (
-                <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                    <ActivityIndicator color="#f59e0b" style={{marginRight: 8}}/>
-                    <Text style={[styles.locationText, {color: '#f59e0b'}]}>
-                        {locationError || 'Fetching GPS coordinates...'}
-                    </Text>
-                </View>
-            )}
-        </View>
-      </ScrollView>
-
-      {/* --- Submit Button --- */}
-      <View style={styles.submitContainer}>
-        <TouchableOpacity 
-            style={[styles.submitButton, (!selectedIncident || isSubmitting) && styles.submitButtonDisabled]} 
-            onPress={handleSubmit}
-            disabled={!selectedIncident || isSubmitting}
-        >
-          {isSubmitting ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.submitButtonText}>Send Emergency Report</Text>
-          )}
-        </TouchableOpacity>
+      <View style={styles.content}>
+        {activeTab === 'new' ? renderNewReport() : renderHistory()}
       </View>
     </SafeAreaView>
   );
 };
 
-// --- Styles remain unchanged ---
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: "#fff", // Dark background
-  },
+  safeArea: { flex: 1, backgroundColor: '#f3f4f6' },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: 16,
-    backgroundColor: "#1c5bb4ff",
-    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight + 10 : 16,
+    paddingTop: Platform.OS === 'android' ? 40 : 60,
+    paddingBottom: 24,
+    paddingHorizontal: 24,
   },
-  backButton: {
-    padding: 4,
+  headerTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#FFFFFF",
+    fontSize: 26,
+    fontWeight: '700',
+    color: '#ffffff',
+    letterSpacing: 0.5,
   },
-  container: {
-    flex: 1,
-    padding: 20,
+  content: { flex: 1 },
+  tabContainer: {
+    flexDirection: 'row',
+    padding: 8,
+    marginHorizontal: 24,
+    marginVertical: 16,
+    backgroundColor: '#e5e7eb',
+    borderRadius: 99,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#000",
-    marginBottom: 16,
+  tab: { flex: 1, paddingVertical: 12, borderRadius: 99, alignItems: 'center' },
+  tabActive: {
+    backgroundColor: '#ffffff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 6,
   },
-  incidentGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    marginBottom: 24,
-  },
+  tabText: { fontSize: 15, fontWeight: '600', color: '#4b5563' },
+  tabTextActive: { color: '#0056b3' , fontWeight: '700' },
+  container: { flex: 1, paddingHorizontal: 24 },
+  sectionTitle: { fontSize: 18, fontWeight: '600', color: '#1f2937', marginBottom: 12, marginTop: 12 },
+  incidentGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 12 },
   incidentButton: {
-    width: "48%",
-    backgroundColor: "#adc6eeff",
-    borderRadius: 12,
-    padding: 16,
-    alignItems: "center",
+    width: '30%',
+    borderRadius: 16,
     marginBottom: 12,
-    borderWidth: 2,
-    borderColor: "transparent",
+    overflow: 'hidden',
   },
-  incidentButtonSelected: {
-    backgroundColor: "#ef4444",
-    borderColor: "#fca5a5",
+  incidentButtonGradient: {
+    paddingVertical: 20,
+    alignItems: 'center',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
   },
-  incidentButtonText: {
-    marginTop: 8,
-    color: "#020a1bff",
-    fontWeight: "600",
-    fontSize: 14,
-  },
-  incidentButtonTextSelected: {
-    color: "#FFFFFF",
-  },
+  incidentButtonSelected: { borderColor: '#1e40af' },
+  incidentButtonText: { marginTop: 8, color: '#1f2937', fontWeight: '600', fontSize: 13, textAlign: 'center' },
+  incidentButtonTextSelected: { color: '#ffffff' },
   input: {
-    backgroundColor: "#b2caedff",
-    color: "#FFFFFF",
-    borderRadius: 12,
+    backgroundColor: '#ffffff',
+    color: '#1f2937',
+    borderRadius: 16,
     padding: 16,
-    fontSize: 16,
-    minHeight: 100,
-    textAlignVertical: "top",
-    marginBottom: 24,
+    fontSize: 15,
+    height: 90,
+    textAlignVertical: 'top',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  inputFocused: {
+    borderColor: '#3b82f6',
+    shadowColor: '#3b82f6',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 6,
   },
   locationBox: {
-    backgroundColor: "#b2caedff",
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+    marginTop: 8,
   },
-  locationText: {
-    color: "#03080eff",
-    marginLeft: 12,
-    fontSize: 15,
-    fontWeight: "500",
+  locationText: { marginLeft: 8, fontSize: 15, fontWeight: '500' },
+  submitButtonWrapper: {
+    marginVertical: 20,
+    borderRadius: 16,
+    shadowColor: '#dc2626',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
-  submitContainer: {
-    padding: 20,
-    borderTopWidth: 1,
-    borderTopColor: "#374151",
-    backgroundColor: "#1f2937",
-  },
-  submitButton: {
-    backgroundColor: "#ef4444",
+  submitButton: { paddingVertical: 18, borderRadius: 16, alignItems: 'center' },
+  submitButtonText: { color: '#ffffff', fontSize: 16, fontWeight: '700', letterSpacing: 0.5 },
+  loader: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  historyList: { paddingHorizontal: 24, paddingTop: 8 },
+  historyItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
     padding: 16,
-    borderRadius: 12,
-    alignItems: "center",
+    borderRadius: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
   },
-  submitButtonDisabled: {
-    backgroundColor: "#4b5563",
+  historyItemPressed: { transform: [{ scale: 0.98 }], backgroundColor: '#f9fafb' },
+  historyIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
-  submitButtonText: {
-    color: "#FFFFFF",
-    fontSize: 18,
-    fontWeight: "bold",
-  },
+  historyDetails: { flex: 1 },
+  historyTitle: { fontSize: 16, fontWeight: '700', color: '#1f2937' },
+  historyStatus: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
+  historyStatusText: { marginLeft: 6, fontSize: 13, fontWeight: '600' },
+  historyActions: { alignItems: 'flex-end' },
+  historyDate: { fontSize: 12, color: '#6b7280', marginBottom: 4 },
+  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+  emptyText: { fontSize: 20, fontWeight: '600', color: '#4b5563', marginTop: 16 },
+  emptySubText: { fontSize: 14, color: '#6b7280', marginTop: 4, textAlign: 'center' },
 });
 
 export default EmergencyScreen;
