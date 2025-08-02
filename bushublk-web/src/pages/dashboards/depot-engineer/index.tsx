@@ -17,6 +17,16 @@ import { useState, useEffect, useContext } from 'react';
 import { AppContext } from '../../../context/AppContext';
 import axios, { AxiosError } from 'axios';
 
+interface PendingReport {
+  report_id: string;
+  registration_number: string;
+  condition_status: string;
+  description: string;
+  report_time: string;
+  driver_first_name: string;
+  driver_last_name: string;
+}
+
 interface EmergencyReport {
   id: string;
   depotid: string;
@@ -83,17 +93,11 @@ const DepotEngineerDashboard = () => {
     complianceRate: 92
   });
   const [depotInfo, setDepotInfo] = useState<DepotInfo | null>(null);
+  const [pendingReports, setPendingReports] = useState<PendingReport[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
   const token = context?.token;
-  const user = context?.user;
-
-  const pendingApprovals = [
-    { id: 17, reg_num: 'NC_1234', priority: 'High', status: 'Major issue' },
-    { id: 23, reg_num: 'NP_8901', priority: 'Medium', status: 'Minor issue' },
-    { id: 21, reg_num: 'NY_9871', priority: 'Low', status: 'Good' }
-  ];
 
   const emergencyReports: EmergencyReport[] = [
     { 
@@ -183,9 +187,52 @@ const DepotEngineerDashboard = () => {
     }
   };
 
+  const fetchPendingReports = async () => {
+    try {
+      const apiUrl = `http://localhost:5000/api/depot-engineer/condition-reports/pending`;
+      const response = await axios.get(apiUrl, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.data.success) {
+        setPendingReports(response.data.reports);
+        // Update stats with pending reports count
+        setStats(prevStats => ({
+          ...prevStats,
+          criticalIssues: response.data.reports.filter((r: PendingReport) => 
+            r.condition_status === 'Major Issues' || r.condition_status === 'Out of Service'
+          ).length,
+        }));
+      } else {
+        console.error('Failed to fetch pending reports:', response.data.message);
+      }
+    } catch (err) {
+      const axiosError = err as AxiosError;
+      console.error('Error fetching pending reports:', axiosError);
+    }
+  };
+
+  // Helper function to determine priority based on condition status
+  const getPriorityFromStatus = (status: string) => {
+    switch (status) {
+      case 'Out of Service':
+      case 'Major Issues':
+        return { level: 'High', color: 'bg-red-100 text-red-800' };
+      case 'Minor Issues':
+        return { level: 'Medium', color: 'bg-yellow-100 text-yellow-800' };
+      case 'Good':
+        return { level: 'Low', color: 'bg-green-100 text-green-800' };
+      default:
+        return { level: 'Medium', color: 'bg-yellow-100 text-yellow-800' };
+    }
+  };
+
   useEffect(() => {
     if (token && context?.user?.role === 'depot_engineer') {
       fetchBuses();
+      fetchPendingReports();
     }
   }, [token, context?.user?.role]);
 
@@ -321,9 +368,18 @@ const DepotEngineerDashboard = () => {
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 flex-1">
             <div className="p-4 border-b border-gray-200 flex justify-between items-center">
               <h3 className="text-lg font-semibold text-gray-700">Pending Bus Condition Review</h3>
-              <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
-                {pendingApprovals.length} awaiting action
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
+                  {pendingReports.length} awaiting action
+                </span>
+                <button
+                  onClick={fetchPendingReports}
+                  className="text-blue-600 hover:text-blue-800 p-1"
+                  title="Refresh pending reports"
+                >
+                  <HiCog className="w-4 h-4" />
+                </button>
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -336,29 +392,32 @@ const DepotEngineerDashboard = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {pendingApprovals.map((approval) => (
-                    <tr key={approval.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{approval.reg_num}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                        <span className={`px-2 py-1 rounded-full text-xs ${
-                          approval.priority === 'High' ? 'bg-red-100 text-red-800' :
-                          approval.priority === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-green-100 text-green-800'
-                        }`}>
-                          {approval.priority}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{approval.status}</td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <button 
-                          className="text-blue-600 hover:text-blue-900 text-sm font-medium flex items-center gap-1" 
-                          onClick={() => navigate('/depot-engineer/Autoforwardbusstatus')}
-                        >
-                          Review <HiEye className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {pendingReports.map((report) => {
+                    const priority = getPriorityFromStatus(report.condition_status);
+                    return (
+                      <tr key={report.report_id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {report.registration_number}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                          <span className={`px-2 py-1 rounded-full text-xs ${priority.color}`}>
+                            {priority.level}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                          {report.condition_status}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <button 
+                            className="text-blue-600 hover:text-blue-900 text-sm font-medium flex items-center gap-1" 
+                            onClick={() => navigate('/depot-engineer/Autoforwardbusstatus')}
+                          >
+                            Review <HiEye className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

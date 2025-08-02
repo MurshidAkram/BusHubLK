@@ -368,12 +368,12 @@ const Busmanagement: React.FC = () => {
                   ]} />
                 </div>
 
-                <TableSection title="🔧 Service History" columns={['Date', 'Type', 'Description', 'Cost (LKR)']} rows={
-                  selectedBus.serviceHistory.map(item => [item.date, item.type, item.description, item.cost.toLocaleString()])
+                <TableSection title="🔧 Service History" columns={['Date', 'Type', 'Description']} rows={
+                  selectedBus.serviceHistory.map(item => [item.date, item.type, item.description])
                 } />
 
-                <TableSection title="⚙ Recent Part Changes" columns={['Date', 'Part', 'Quantity', 'Cost (LKR)']} rows={
-                  selectedBus.partChanges.map(item => [item.date, item.part, item.quantity, item.cost.toLocaleString()])
+                <TableSection title="⚙ Recent Part Changes" columns={['Date', 'Part', 'Quantity']} rows={
+                  selectedBus.partChanges.map(item => [item.date, item.part, item.quantity.toString()])
                 } />
               </div>
             </div>
@@ -433,7 +433,7 @@ const TableSection = ({ title, columns, rows }: {
           {rows.map((row, i) => (
             <tr key={i} className="border-b">
               {row.map((cell, j) => (
-                <td key={j} className={`px-4 py-2 ${j === row.length - 1 ? 'text-right' : ''}`}>{cell}</td>
+                <td key={j} className="px-4 py-2">{cell}</td>
               ))}
             </tr>
           ))}
