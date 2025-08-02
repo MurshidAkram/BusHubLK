@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const depotEngineerController = require('../controllers/depotEngineerController');
+const { getUsageHistoryByBus } = require('../controllers/sparePartsController');
 const { authenticateJWT, authorizeDepotEngineer, authorizeTechnical } = require('../middlewares/authMiddleware');
 const { body, param, query } = require('express-validator');
 
@@ -21,6 +22,16 @@ router.put('/buses/:bus_id/status',
             .withMessage('Invalid status')
     ],
     depotEngineerController.updateBusStatus
+);
+
+// GET /api/depot-engineer/buses/:bus_id/spare-parts-usage - Get spare parts usage history for a bus
+router.get('/buses/:bus_id/spare-parts-usage',
+    authenticateJWT,
+    authorizeTechnical,
+    [
+        param('bus_id').isInt().withMessage('Bus ID must be an integer')
+    ],
+    getUsageHistoryByBus
 );
 
 

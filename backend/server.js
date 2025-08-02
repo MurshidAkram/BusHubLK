@@ -192,6 +192,14 @@ const lostFoundRoutes = require('./routes/lostFoundRoutes');
 app.use('/api/lost-found', lostFoundRoutes);
 console.log('✅ lostFoundRoutes loaded');
 
+// Spare Parts Routes
+try {
+  const sparePartsRoutes = require('./routes/sparePartsRoutes');
+  app.use('/api/depot-engineer/spare-parts', sparePartsRoutes);
+  console.log('✅ sparePartsRoutes loaded');
+} catch (error) {
+  console.error('❌ Error loading sparePartsRoutes:', error.message);
+}
 
 try {
   const depotEngineerRoutes = require('./routes/depotEngineerRoutes');
