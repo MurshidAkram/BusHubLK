@@ -8,7 +8,8 @@ import {
   FaCheck,
   FaClock,
   FaFilter,
-  FaTools
+  FaTools,
+  FaEye
 } from 'react-icons/fa';
 import { AppContext } from '../../../context/AppContext';
 import axios, { AxiosError } from 'axios';
@@ -221,6 +222,11 @@ const Autoforwardbusstatus = () => {
     setIsModalOpen(true);
   };
 
+  const handleViewDetails = (report: Report) => {
+    setSelectedReport(report);
+    setIsModalOpen(true);
+  };
+
   const closeModal = () => {
     setIsModalOpen(false);
     setSelectedReport(null);
@@ -389,7 +395,7 @@ const Autoforwardbusstatus = () => {
                       {formatDateTime(report.report_time)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                      <div className="flex justify-center">
+                      <div className="flex justify-center gap-2">
                         {report.review_status === 'pending' ? (
                           <button
                             onClick={() => handleReviewClick(report)}
@@ -399,10 +405,20 @@ const Autoforwardbusstatus = () => {
                             <span>Review</span>
                           </button>
                         ) : (
-                          <span className="px-4 py-2 bg-green-100 text-green-800 rounded-lg inline-flex items-center gap-1.5">
-                            <FaCheck size={12} />
-                            <span>Reviewed</span>
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="px-3 py-1 bg-green-100 text-green-800 rounded-lg inline-flex items-center gap-1.5 text-xs">
+                              <FaCheck size={10} />
+                              <span>Reviewed</span>
+                            </span>
+                            <button
+                              onClick={() => handleViewDetails(report)}
+                              className="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg flex items-center gap-1.5 transition-colors text-xs"
+                              title="View Details"
+                            >
+                              <FaEye size={10} />
+                              <span>View</span>
+                            </button>
+                          </div>
                         )}
                       </div>
                     </td>
@@ -479,9 +495,20 @@ const Autoforwardbusstatus = () => {
                   )}
                 </div>
 
+                {selectedReport.review_status === 'reviewed' && (selectedReport.reviewer_first_name || selectedReport.reviewer_last_name) && (
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">Reviewed By</h3>
+                    <p className="mt-1 text-gray-900">
+                      {selectedReport.reviewer_first_name} {selectedReport.reviewer_last_name}
+                    </p>
+                  </div>
+                )}
+
                 <div>
                   <h3 className="text-sm font-medium text-gray-500">Issue Description</h3>
-                  <p className="mt-1 text-gray-900 whitespace-pre-line">{selectedReport.description}</p>
+                  <div className="mt-1 p-3 bg-gray-50 rounded-lg max-h-32 overflow-y-auto">
+                    <p className="text-gray-900 whitespace-pre-line break-words">{selectedReport.description}</p>
+                  </div>
                 </div>
 
                 <div className="pt-4 border-t">

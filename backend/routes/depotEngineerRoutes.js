@@ -2,12 +2,12 @@ const express = require('express');
 const router = express.Router();
 const depotEngineerController = require('../controllers/depotEngineerController');
 const { authenticateJWT, authorizeDepotEngineer, authorizeTechnical } = require('../middlewares/authMiddleware');
-const { body, param } = require('express-validator');
+const { body, param, query } = require('express-validator');
 
 // GET /api/depot-engineer/buses - Get buses for depot engineer
-router.get('/buses', 
-    authenticateJWT, 
-    authorizeTechnical, 
+router.get('/buses',
+    authenticateJWT,
+    authorizeTechnical,
     depotEngineerController.getBusesForDepotEngineer
 );
 
@@ -21,6 +21,43 @@ router.put('/buses/:bus_id/status',
             .withMessage('Invalid status')
     ],
     depotEngineerController.updateBusStatus
+);
+
+
+
+// GET /api/depot-engineer/condition-reports - Get reports for depot
+router.get('/condition-reports',
+    authenticateJWT,
+    authorizeTechnical,
+    [
+        query('status').optional().isIn(['pending', 'reviewed'])
+            .withMessage('Invalid status filter')
+    ],
+    depotEngineerController.getConditionReportsForDepot
+);
+
+// PUT /api/depot-engineer/condition-reports/:reportId/review - Review a report
+router.put('/condition-reports/:reportId/review',
+    authenticateJWT,
+    authorizeTechnical,
+    [
+        param('reportId').isInt().withMessage('Report ID must be an integer')
+    ],
+    depotEngineerController.reviewConditionReport
+);
+
+// GET /api/depot-engineer/condition-reports/pending - Get pending reports
+router.get('/condition-reports/pending',
+    authenticateJWT,
+    authorizeTechnical,
+    depotEngineerController.getPendingReports
+);
+
+// GET /api/depot-engineer/condition-reports/stats - Get statistics
+router.get('/condition-reports/stats',
+    authenticateJWT,
+    authorizeTechnical,
+    depotEngineerController.getReportStatistics
 );
 
 module.exports = router;

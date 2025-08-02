@@ -698,3 +698,8 @@ CREATE TABLE bus_condition_reports (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+-- Add review columns to bus_condition_reports table
+ALTER TABLE bus_condition_reports 
+ADD COLUMN review_status VARCHAR(20) DEFAULT 'pending',
+ADD COLUMN reviewed_by INTEGER REFERENCES depot_engineers(depot_engineer_id) ON DELETE SET NULL,
+ADD COLUMN reviewed_at TIMESTAMP NULL;
