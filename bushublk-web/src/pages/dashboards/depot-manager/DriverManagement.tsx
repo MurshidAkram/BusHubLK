@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 type CrewStatus = 'Off Duty' | 'On Duty' | 'On Break';
 
@@ -12,18 +12,46 @@ interface CrewMember {
 
 const DriverManagement = () => {
   const [filterRole, setFilterRole] = useState<'All' | 'Driver' | 'Conductor'>('All');
+  const [crewList, setCrewList] = useState<CrewMember[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const [crewList] = useState<CrewMember[]>([
-    { id: 1, name: 'Nimal Perera', contact: '+94771234567', role: 'Driver', status: 'On Duty' },
-    { id: 2, name: 'Sunil Silva', contact: '+94769876543', role: 'Conductor', status: 'On Break' },
-    { id: 3, name: 'Kamal Fernando', contact: '+94712345678', role: 'Driver', status: 'Off Duty' },
-    { id: 4, name: 'Mohamed Rizwan', contact: '+94751234567', role: 'Conductor', status: 'On Duty' },
-    { id: 5, name: 'Nawas Ameer', contact: '+94784561230', role: 'Driver', status: 'On Break' },
-    { id: 6, name: 'Thilina Jayasooriya', contact: '+94711122233', role: 'Driver', status: 'On Duty' },
-    { id: 7, name: 'Sahan Bandara', contact: '+94779988776', role: 'Conductor', status: 'Off Duty' },
-    { id: 8, name: 'Siththi Lebbe Faiz', contact: '+94761122445', role: 'Driver', status: 'On Duty' },
-    { id: 9, name: 'Ramesh Sivalingam', contact: '+94723344556', role: 'Conductor', status: 'On Break' },
-  ]);
+  // TODO: Replace with actual depot/region from context/auth if needed
+  const depotId = 1;
+  const regionId = 1;
+
+  useEffect(() => {
+    const fetchCrew = async () => {
+      setLoading(true);
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch(
+          `http://localhost:5000/api/crew?depot_id=${depotId}&region_id=${regionId}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+        if (!res.ok) throw new Error('Failed to fetch crew');
+        const data = await res.json();
+        setCrewList(
+          data.map((member: any) => ({
+            id: member.person_id,
+            name: member.name,
+            contact: member.contact,
+            role: member.role,
+            status: member.status,
+          }))
+        );
+      } catch (err) {
+        setCrewList([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCrew();
+  }, [depotId, regionId]);
 
   const getStatusColor = (status: CrewStatus) => {
     switch (status) {
@@ -63,7 +91,9 @@ const DriverManagement = () => {
           </select>
         </div>
 
-        {filteredCrew.length === 0 ? (
+        {loading ? (
+          <p className="text-sm text-gray-500">Loading...</p>
+        ) : filteredCrew.length === 0 ? (
           <p className="text-sm text-gray-500">No crew members match the selected role.</p>
         ) : (
           <div className="overflow-x-auto">
