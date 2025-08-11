@@ -2,6 +2,7 @@ const Bus = require('../models/busModel');
 const User = require('../models/userModel');
 const RegionDepot = require('../models/regionDepotModel');
 const BusConditionReport = require('../models/BusConditionReport');
+const ServiceSchedule = require('../models/serviceScheduleModel');
 
 // Get buses for depot engineer (filtered by their depot)
 const getBusesForDepotEngineer = async (req, res) => {
@@ -27,6 +28,16 @@ const getBusesForDepotEngineer = async (req, res) => {
         }
 
         const buses = await Bus.getByDepot(depotEngineerDetails.depot_id);
+
+        // Debug logging for comparison with service schedule controller
+        console.log(`[DEPOT ENGINEER] Fetching buses for depot_id: ${depotEngineerDetails.depot_id}`);
+        console.log(`[DEPOT ENGINEER] Total buses found: ${buses.length}`);
+        console.log(`[DEPOT ENGINEER] Bus details:`, buses.map(bus => ({
+            bus_id: bus.bus_id,
+            registration_number: bus.registration_number,
+            status: bus.status,
+            depot_id: bus.depot_id
+        })));
 
         res.json({
             success: true,
@@ -248,11 +259,68 @@ const getReportStatistics = async (req, res) => {
     }
 };
 
+// Get service history for a specific bus
+const getServiceHistoryForBus = async (req, res) => {
+    try {
+        const { bus_id } = req.params;
+
+        // Get depot engineer details
+        const depotEngineerDetails = await User.getRoleSpecificDetails(req.user.userId, req.user.role);
+
+        if (!depotEngineerDetails || !depotEngineerDetails.depot_id) {
+            return res.status(403).json({
+                success: false,
+                message: 'Depot engineer details or depot ID not found for this user'
+            });
+        }
+
+        // Verify the bus belongs to the depot engineer's depot
+        const bus = await Bus.findById(bus_id);
+        if (!bus) {
+            return res.status(404).json({
+                success: false,
+                message: 'Bus not found'
+            });
+        }
+
+        if (bus.depot_id !== depotEngineerDetails.depot_id) {
+            return res.status(403).json({
+                success: false,
+                message: 'Not authorized to access service history for this bus'
+            });
+        }
+
+        // Get service schedules for this bus
+        const schedules = await ServiceSchedule.getByBusId(bus_id);
+
+        console.log(`[SERVICE HISTORY] Found ${schedules.length} service records for bus ${bus_id}`);
+
+        res.json({
+            success: true,
+            message: 'Service history retrieved successfully',
+            schedules: schedules || [],
+            bus: {
+                bus_id: bus.bus_id,
+                registration_number: bus.registration_number,
+                depot_id: bus.depot_id
+            }
+        });
+    } catch (err) {
+        console.error('Get service history error:', err);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: err.message
+        });
+    }
+};
+
 module.exports = {
     getBusesForDepotEngineer,
     updateBusStatus,
     getConditionReportsForDepot,
     reviewConditionReport,
     getPendingReports,
-    getReportStatistics
+    getReportStatistics,
+    getServiceHistoryForBus
 };

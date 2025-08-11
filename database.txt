@@ -724,7 +724,7 @@ CREATE TABLE spare_parts_inventory (
 );
 ALTER TABLE spare_parts_inventory ADD COLUMN deleted_at TIMESTAMP NULL;
 
--- Index for better performance
+-- Index 
 CREATE INDEX idx_spare_parts_depot ON spare_parts_inventory(depot_id);
 
 -- Spare Parts Usage History Table
@@ -747,8 +747,52 @@ CREATE TABLE spare_parts_usage_history (
     CONSTRAINT fk_usage_part FOREIGN KEY (part_id) REFERENCES spare_parts_inventory(part_id) ON DELETE CASCADE
 );
 
--- Indexes for better performance
+-- Indexes
 CREATE INDEX idx_usage_bus ON spare_parts_usage_history(bus_id);
 CREATE INDEX idx_usage_depot ON spare_parts_usage_history(depot_id);
 CREATE INDEX idx_usage_date ON spare_parts_usage_history(usage_date);
 CREATE INDEX idx_usage_part ON spare_parts_usage_history(part_id);
+
+
+-- Service Schedules
+CREATE TABLE service_schedules (
+    id SERIAL PRIMARY KEY,
+    service_type VARCHAR(100) NOT NULL,
+    bus_id INTEGER NOT NULL,
+    scheduled_date DATE NOT NULL,
+    
+    -- Status types with constraint validation
+    status VARCHAR(20) NOT NULL DEFAULT 'Pending' 
+        CHECK (status IN (
+            'Pending', 
+            'Due Today', 
+            'In Progress', 
+            'Completed', 
+            'Overdue', 
+            'Critical Overdue',
+            'Cancelled'
+        )),
+        
+    completed_date DATE,
+    cancelled_date DATE,
+    depot_id INTEGER NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Foreign key constraints
+    CONSTRAINT fk_service_schedules_bus 
+        FOREIGN KEY (bus_id) REFERENCES buses(bus_id) ON DELETE CASCADE,
+    CONSTRAINT fk_service_schedules_depot 
+        FOREIGN KEY (depot_id) REFERENCES depots(depot_id) ON DELETE CASCADE
+);
+
+-- Indexes 
+CREATE INDEX idx_service_schedules_bus_id ON service_schedules(bus_id);
+CREATE INDEX idx_service_schedules_status ON service_schedules(status);
+CREATE INDEX idx_service_schedules_scheduled_date ON service_schedules(scheduled_date);
+CREATE INDEX idx_service_schedules_depot_id ON service_schedules(depot_id);
+CREATE INDEX idx_service_schedules_depot_status ON service_schedules(depot_id, status);
+CREATE INDEX idx_service_schedules_active ON service_schedules(depot_id) WHERE status != 'Cancelled';
+
+ALTER TABLE service_schedules 
+ADD COLUMN is_deleted BOOLEAN DEFAULT false;
