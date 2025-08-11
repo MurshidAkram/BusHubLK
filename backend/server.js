@@ -7,11 +7,12 @@ require('dotenv').config(); // Load environment variables at the very beginning
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Basic CORS configuration
+// --- THIS IS THE FIX ---
+// Added 'PATCH' to the list of allowed methods to resolve the CORS issue.
 app.use(cors({
   origin: true, // Allow all origins in development (for testing)
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], // <-- 'PATCH' is now included
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Mobile-App', 'Accept', 'Origin', 'X-Requested-With'],
   exposedHeaders: ['Content-Length', 'X-Foo', 'X-Bar']
 }));
@@ -199,6 +200,23 @@ try {
 } catch (error) {
   console.log('❌ emergencyRoutes error:', error.message);
 }
+
+try {
+  const depotEmergencyRoutes = require('./routes/depotEmergencyRoutes');
+  app.use('/api/depot/emergency', depotEmergencyRoutes);
+  console.log('✅ depotEmergencyRoutes loaded');
+} catch (error) {
+  console.log('❌ depotEmergencyRoutes error:', error.message);
+}
+
+try {
+  const depotManagerRoutes = require('./routes/depotManagerRoutes');
+  app.use('/api/depot-manager', depotManagerRoutes);
+  console.log('✅ depotManagerRoutes loaded');
+} catch (error) {
+  console.log('❌ depotManagerRoutes error:', error.message);
+}
+
 try {
   const depotEngineerRoutes = require('./routes/depotEngineerRoutes');
   app.use('/api/depot-engineer', depotEngineerRoutes); // Mount at /api/depot-engineer

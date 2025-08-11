@@ -1,5 +1,4 @@
 const db = require('../config/db');
-const { v4: uuidv4 } = require('uuid');
 
 class LostFoundReport {
   constructor(data) {
@@ -26,44 +25,35 @@ class LostFoundReport {
 
   // Create a new report
   static async create(reportData) {
-    const {
-      driver_id,
-      passenger_id,
-      report_type,
-      item_category,
-      item_description,
-      item_photo_url,
-      contact_email,
-      contact_phone,
-      incident_date,      // <-- add this
-      incident_time,      // <-- add this if required
-    } = reportData;
+    const query = `
+      INSERT INTO lost_found_reports (
+        passenger_id, report_type, report_reference, item_category, 
+        item_description, item_photo_url, route_number, region_id,
+        approximate_location, incident_date, incident_time, 
+        contact_email, contact_phone, reward_offered
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      RETURNING *
+    `;
+    
+    const values = [
+      reportData.passenger_id,
+      reportData.report_type,
+      reportData.report_reference,
+      reportData.item_category,
+      reportData.item_description,
+      reportData.item_photo_url || null,
+      reportData.route_number || null,
+      reportData.region_id || null,
+      reportData.approximate_location || null,
+      reportData.incident_date,
+      reportData.incident_time,
+      reportData.contact_email || null,
+      reportData.contact_phone,
+      reportData.reward_offered || 0
+    ];
 
-    // Generate a unique reference
-    const report_reference = uuidv4();
-
-    // Build query dynamically based on which ID is present
-    let query, values;
-    if (driver_id) {
-      query = `
-        INSERT INTO lost_found_reports
-        (driver_id, report_type, report_reference, item_category, item_description, item_photo_url, contact_email, contact_phone, incident_date, incident_time, status)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'active')
-        RETURNING *`;
-      values = [driver_id, report_type, report_reference, item_category, item_description, item_photo_url, contact_email, contact_phone, incident_date, incident_time];
-    } else if (passenger_id) {
-      query = `
-        INSERT INTO lost_found_reports
-        (passenger_id, report_type, report_reference, item_category, item_description, item_photo_url, contact_email, contact_phone, incident_date, incident_time, status)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'active')
-        RETURNING *`;
-      values = [passenger_id, report_type, report_reference, item_category, item_description, item_photo_url, contact_email, contact_phone, incident_date, incident_time];
-    } else {
-      throw new Error('Missing driver_id or passenger_id');
-    }
-
-    const { rows } = await db.query(query, values);
-    return rows[0];
+    const result = await db.query(query, values);
+    return new LostFoundReport(result.rows[0]);
   }
 
   // Find report by ID
