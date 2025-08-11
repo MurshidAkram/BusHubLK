@@ -192,6 +192,12 @@ const lostFoundRoutes = require('./routes/lostFoundRoutes');
 app.use('/api/lost-found', lostFoundRoutes);
 console.log('✅ lostFoundRoutes loaded');
 
+const crewRoutes = require('./routes/crewRoutes');
+app.use('/api/crew', crewRoutes);
+console.log('✅ crewRoutes loaded');
+
+// ...existing code...
+
 
 try {
   const depotEngineerRoutes = require('./routes/depotEngineerRoutes');

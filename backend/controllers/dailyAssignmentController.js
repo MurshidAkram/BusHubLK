@@ -86,11 +86,60 @@ const getUpcomingAssignmentsByDriver = async (req, res) => {
   }
 };
 
+// Get all assignments for a route
+const getAssignmentsByRoute = async (req, res) => {
+  const { route_id } = req.params;
+  try {
+    const assignments = await DailyAssignment.getAllByRoute(route_id);
+    res.json(assignments);
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+// Fetch template slots for a route
+const getTemplatesByRoute = async (req, res) => {
+  const { route_id } = req.params;
+  try {
+    const templates = await DailyAssignment.getTemplatesByRoute(route_id);
+    res.json({ templates });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+// Assign a slot
+const assignSlot = async (req, res) => {
+  const { assignment_id } = req.params;
+  const { bus_id, driver_id, conductor_id } = req.body;
+  try {
+    const updated = await DailyAssignment.assignSlot(assignment_id, { bus_id, driver_id, conductor_id });
+    res.json({ assignment: updated });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+// Soft-delete a slot
+const softDeleteSlot = async (req, res) => {
+  const { assignment_id } = req.params;
+  try {
+    const updated = await DailyAssignment.softDeleteSlot(assignment_id);
+    res.json({ assignment: updated });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
 module.exports = {
   getAssignmentsByDepot,
   createAssignment,
   updateAssignment,
   deleteAssignment,
   getAssignmentByDriver,
-  getUpcomingAssignmentsByDriver
+  getUpcomingAssignmentsByDriver,
+  getAssignmentsByRoute,
+  getTemplatesByRoute,
+  assignSlot,
+  softDeleteSlot,
 };

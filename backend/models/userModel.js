@@ -239,7 +239,7 @@ static async getRoleSpecificDetails(user_id, role_name) {
        ORDER BY u.user_id`,
       [role_name]
     );
-    return result.rows;
+    return result.rows;z
   }
 
   static async getUsersByDepot(depot_id) {

@@ -148,6 +148,69 @@ class DailyAssignment {
     );
     return result.rows;
   }
+
+  static async getAllByRoute(route_id) {
+    const result = await db.query(
+      `SELECT da.assignment_id, da.depot_id, da.bus_id, da.route_id, da.driver_id, da.conductor_id,
+              b.registration_number AS bus_registration,
+              r.route_number || ': ' || r.route_name AS route_name,
+              d.depot_name,
+              CONCAT(udriver.first_name, ' ', udriver.last_name) AS driver_name,
+              CASE 
+                WHEN uconductor.user_id IS NOT NULL 
+                THEN CONCAT(uconductor.first_name, ' ', uconductor.last_name)
+                ELSE NULL
+              END AS conductor_name,
+              da.assignment_date, da.shift_start_time, da.shift_end_time, da.status,
+              da.created_at, da.updated_at
+       FROM dailyassignment da
+       JOIN buses b ON da.bus_id = b.bus_id
+       JOIN routes r ON da.route_id = r.route_id
+       JOIN depots d ON da.depot_id = d.depot_id
+       JOIN users udriver ON da.driver_id = udriver.user_id
+       LEFT JOIN users uconductor ON da.conductor_id = uconductor.user_id
+       WHERE da.route_id = $1
+       ORDER BY da.assignment_id DESC`,
+      [route_id]
+    );
+    return result.rows;
+  }
+
+  // Fetch template slots for a route
+  static async getTemplatesByRoute(route_id) {
+    const result = await db.query(
+      `SELECT * FROM dailyassignment
+       WHERE route_id = $1 AND status = 'template' AND is_active = TRUE
+       ORDER BY shift_start_time ASC`,
+      [route_id]
+    );
+    return result.rows;
+  }
+
+  // Assign a slot (update template to assigned)
+  static async assignSlot(assignment_id, { bus_id, driver_id, conductor_id }) {
+    const result = await db.query(
+      `UPDATE dailyassignment
+       SET bus_id = $1, driver_id = $2, conductor_id = $3,
+           status = 'assigned', updated_at = CURRENT_TIMESTAMP
+       WHERE assignment_id = $4 AND status = 'template' AND is_active = TRUE
+       RETURNING *`,
+      [bus_id, driver_id, conductor_id, assignment_id]
+    );
+    return result.rows[0];
+  }
+
+  // Soft-delete a slot (set is_active = FALSE, status = 'unassigned')
+  static async softDeleteSlot(assignment_id) {
+    const result = await db.query(
+      `UPDATE dailyassignment
+       SET is_active = FALSE, status = 'unassigned', updated_at = CURRENT_TIMESTAMP
+       WHERE assignment_id = $1
+       RETURNING *`,
+      [assignment_id]
+    );
+    return result.rows[0];
+  }
 }
 
 module.exports = DailyAssignment;

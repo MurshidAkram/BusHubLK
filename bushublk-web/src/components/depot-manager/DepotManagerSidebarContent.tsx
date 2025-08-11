@@ -41,7 +41,7 @@ const DepotManagerSidebarContent = () => {
         Buses
       </NavLink>
 
-      {/*
+      {
   <NavLink
     to="/depot-manager/checklist-verification"
     className={({ isActive }) =>
@@ -53,7 +53,7 @@ const DepotManagerSidebarContent = () => {
     <HiClipboardList className="mr-3 flex-shrink-0 h-5 w-5" />
     Checklist Verification
   </NavLink>
-*/}
+}
 
 
       <NavLink

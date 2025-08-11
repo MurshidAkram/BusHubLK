@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CheckCircle, AlertCircle, Clock, RotateCw, Search, X } from 'lucide-react';
 
 type CrewStatus = 'Off Duty' | 'On Duty' | 'On Break';
@@ -18,71 +18,48 @@ const CrewManagement = () => {
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [newStatus, setNewStatus] = useState<CrewStatus>('Off Duty');
 
-  const [crewList, setCrewList] = useState<CrewMember[]>([
-    {
-      id: 1,
-      name: 'Nimal Perera',
-      contact: '+94771234567',
-      role: 'Driver',
-      status: 'On Duty',
-    },
-    {
-      id: 2,
-      name: 'Sunil Silva',
-      contact: '+94769876543',
-      role: 'Conductor',
-      status: 'On Break',
-    },
-    {
-      id: 3,
-      name: 'Kamal Fernando',
-      contact: '+94712345678',
-      role: 'Driver',
-      status: 'Off Duty',
-    },
-    {
-      id: 4,
-      name: 'Mohamed Rizwan',
-      contact: '+94751234567',
-      role: 'Conductor',
-      status: 'On Duty',
-    },
-    {
-      id: 5,
-      name: 'Nawas Ameer',
-      contact: '+94784561230',
-      role: 'Driver',
-      status: 'On Break',
-    },
-    {
-      id: 6,
-      name: 'Thilina Jayasooriya',
-      contact: '+94711122233',
-      role: 'Driver',
-      status: 'On Duty',
-    },
-    {
-      id: 7,
-      name: 'Sahan Bandara',
-      contact: '+94779988776',
-      role: 'Conductor',
-      status: 'Off Duty',
-    },
-    {
-      id: 8,
-      name: 'Siththi Lebbe Faiz',
-      contact: '+94761122445',
-      role: 'Driver',
-      status: 'On Duty',
-    },
-    {
-      id: 9,
-      name: 'Ramesh Sivalingam',
-      contact: '+94723344556',
-      role: 'Conductor',
-      status: 'On Break',
-    },
-  ]);
+  const [crewList, setCrewList] = useState<CrewMember[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // TODO: Replace with actual user depot/region (from context/auth)
+  const depotId = 1;
+  const regionId = 1;
+
+  useEffect(() => {
+    const fetchCrew = async () => {
+      setLoading(true);
+      try {
+        const token = localStorage.getItem('token'); // Or get it from your auth context
+
+        const res = await fetch(
+          `http://localhost:5000/api/crew?depot_id=${depotId}&region_id=${regionId}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+        if (!res.ok) throw new Error('Failed to fetch crew');
+        const data = await res.json();
+        // Map backend fields to CrewMember interface
+        setCrewList(
+          data.map((member: any) => ({
+            id: member.person_id,
+            name: member.name,
+            contact: member.contact,
+            role: member.role,
+            status: member.status,
+          }))
+        );
+      } catch (err) {
+        setCrewList([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCrew();
+  }, [depotId, regionId]);
 
   const openStatusModal = (member: CrewMember) => {
     setSelectedMember(member);
@@ -95,16 +72,35 @@ const CrewManagement = () => {
     setSelectedMember(null);
   };
 
-  const handleStatusChange = () => {
+  const handleStatusChange = async () => {
     if (selectedMember) {
-      setCrewList(prev =>
-        prev.map(member =>
-          member.id === selectedMember.id
-            ? { ...member, status: newStatus }
-            : member
-        )
-      );
-      closeStatusModal();
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch('http://localhost:5000/api/crew/status', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            person_id: selectedMember.id,
+            role: selectedMember.role,
+            status: newStatus,
+          }),
+        });
+        if (!res.ok) throw new Error('Failed to update status');
+        // Update UI
+        setCrewList(prev =>
+          prev.map(member =>
+            member.id === selectedMember.id
+              ? { ...member, status: newStatus }
+              : member
+          )
+        );
+        closeStatusModal();
+      } catch (err) {
+        alert('Failed to update status');
+      }
     }
   };
 
