@@ -1,14 +1,66 @@
-import React from 'react'; 
-import { 
-  HiClock, 
-  HiTruck, 
-  HiUsers, 
-  HiExclamationCircle,
-  HiPhone,
-  HiChartBar
-} from 'react-icons/hi';
+import React, { useEffect, useState } from 'react';
+import { HiClock, HiTruck, HiUsers, HiExclamationCircle } from 'react-icons/hi';
+
+type CrewStatus = 'Off Duty' | 'On Duty' | 'On Break';
+
+interface CrewMember {
+  id: number;
+  name: string;
+  contact: string;
+  role: 'Driver' | 'Conductor';
+  status: CrewStatus;
+}
 
 const DepotOperationsManagerDashboard = () => {
+  const [crewList, setCrewList] = useState<CrewMember[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // Replace with actual depot/region if needed
+  const depotId = 1;
+  const regionId = 1;
+
+  useEffect(() => {
+    const fetchCrew = async () => {
+      setLoading(true);
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch(
+          `http://localhost:5000/api/crew?depot_id=${depotId}&region_id=${regionId}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+        if (!res.ok) throw new Error('Failed to fetch crew');
+        const data = await res.json();
+        setCrewList(
+          data.map((member: any) => ({
+            id: member.person_id,
+            name: member.name,
+            contact: member.contact,
+            role: member.role,
+            status: member.status,
+          }))
+        );
+      } catch (err) {
+        setCrewList([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCrew();
+  }, [depotId, regionId]);
+
+  // Count on-duty drivers and conductors
+  const onDutyDrivers = crewList.filter(
+    (member) => member.role === 'Driver' && member.status === 'On Duty'
+  ).length;
+  const onDutyConductors = crewList.filter(
+    (member) => member.role === 'Conductor' && member.status === 'On Duty'
+  ).length;
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -27,7 +79,6 @@ const DepotOperationsManagerDashboard = () => {
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-500">Active Buses</p>
               <p className="text-2xl font-semibold text-gray-900">8</p>
-              <p className="text-sm text-green-600"></p>
             </div>
           </div>
         </div>
@@ -39,8 +90,7 @@ const DepotOperationsManagerDashboard = () => {
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-500">Active Drivers</p>
-              <p className="text-2xl font-semibold text-gray-900">8</p>
-              <p className="text-sm text-blue-600"></p>
+              <p className="text-2xl font-semibold text-gray-900">{loading ? '-' : onDutyDrivers}</p>
             </div>
           </div>
         </div>
@@ -52,8 +102,7 @@ const DepotOperationsManagerDashboard = () => {
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-500">Active Conductors</p>
-              <p className="text-2xl font-semibold text-gray-900">7</p>
-              <p className="text-sm text-gray-500"></p>
+              <p className="text-2xl font-semibold text-gray-900">{loading ? '-' : onDutyConductors}</p>
             </div>
           </div>
         </div>
@@ -66,7 +115,6 @@ const DepotOperationsManagerDashboard = () => {
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-500">Active Incidents</p>
               <p className="text-2xl font-semibold text-gray-900">2</p>
-              <p className="text-sm text-red-600"></p>
             </div>
           </div>
         </div>
