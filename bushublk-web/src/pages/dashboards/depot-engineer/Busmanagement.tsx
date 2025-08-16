@@ -14,11 +14,11 @@ type BusFromAPI = {
   class: string;
   manufacturer: string;
   purchase_date: string;
+  updated_at: string; // Timestamp when the bus record was last updated
 };
 
 // Extended type with dummy data
 type Bus = BusFromAPI & {
-  capacity?: number;
   currentRoute?: string;
   nextService?: string;
   lastService?: string;
@@ -32,16 +32,21 @@ type Bus = BusFromAPI & {
 };
 
 type ServiceHistory = {
+  id: number;
   date: string;
   type: string;
   cost: number;
-  description: string;
+  status: string;
+  scheduled_date: string;
+  completed_date?: string;
+  cancelled_date?: string;
 };
 
 type PartChange = {
   date: string;
   part: string;
   quantity: number;
+  unit: string;
   cost: number;
 };
 
@@ -90,6 +95,229 @@ const Busmanagement: React.FC = () => {
 
   const token = context?.token;
 
+  // Fetch spare parts usage history for a specific bus
+  const fetchPartChangesForBus = async (busId: string): Promise<PartChange[]> => {
+    try {
+      console.log('🔧 Fetching part changes for bus:', busId);
+      
+      if (!token) {
+        console.log('❌ No token available');
+        return [];
+      }
+
+      const response = await axios.get(
+        `http://localhost:5000/api/depot-engineer/buses/${busId}/spare-parts-usage`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      console.log('📥 Part changes response:', response.data);
+
+      if (response.data.success && response.data.usageHistory) {
+        // Transform the usage history data to match the PartChange interface
+        const partChanges: PartChange[] = response.data.usageHistory.map((usage: any) => ({
+          date: new Date(usage.usage_date).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+          }),
+          part: usage.part_name,
+          quantity: usage.quantity_used,
+          unit: usage.unit || 'pieces', // Include unit from API response
+          cost: 0 // We removed cost tracking, so setting to 0
+        }));
+
+        console.log('✅ Transformed part changes:', partChanges);
+        return partChanges;
+      } else {
+        console.log('❌ No usage history found or failed response');
+        return [];
+      }
+    } catch (err) {
+      const axiosError = err as AxiosError;
+      console.error('💥 Fetch part changes error:', axiosError);
+      return [];
+    }
+  };
+
+  // Fetch service history for a specific bus and calculate last/next service dates
+  const fetchServiceHistoryForBus = async (busId: string): Promise<{
+    serviceHistory: ServiceHistory[];
+    lastService: string;
+    nextService: string;
+  }> => {
+    try {
+      console.log('📋 Fetching service history for bus:', busId);
+      
+      if (!token) {
+        console.log('❌ No token available');
+        return { serviceHistory: [], lastService: 'N/A', nextService: 'N/A' };
+      }
+
+      const response = await axios.get(
+        `http://localhost:5000/api/depot-engineer/buses/${busId}/service-history`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      console.log('📥 Service history response:', response.data);
+
+      if (response.data.success && response.data.schedules) {
+        // Transform the service schedule data to match the ServiceHistory interface
+        const serviceHistory: ServiceHistory[] = response.data.schedules.map((schedule: any) => ({
+          id: schedule.id,
+          date: schedule.completed_date ? schedule.completed_date.split('T')[0] : schedule.scheduled_date.split('T')[0],
+          type: schedule.service_type,
+          cost: 0, // Cost tracking removed
+          status: schedule.calculated_status || schedule.status,
+          scheduled_date: schedule.scheduled_date.split('T')[0],
+          completed_date: schedule.completed_date ? schedule.completed_date.split('T')[0] : undefined,
+          cancelled_date: schedule.cancelled_date ? schedule.cancelled_date.split('T')[0] : undefined,
+        }));
+
+        // Calculate last service (most recent completed service)
+        const completedServices = serviceHistory
+          .filter(service => service.status === 'Completed' && service.completed_date)
+          .sort((a, b) => new Date(b.completed_date!).getTime() - new Date(a.completed_date!).getTime());
+        
+        const lastService = completedServices.length > 0 ? completedServices[0].completed_date! : 'N/A';
+
+        // Calculate next service (nearest pending service by scheduled date)
+        const today = new Date();
+        const pendingServices = serviceHistory
+          .filter(service => 
+            (service.status === 'Pending' || service.status === 'Due Today') && 
+            new Date(service.scheduled_date) >= today
+          )
+          .sort((a, b) => new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime());
+        
+        const nextService = pendingServices.length > 0 ? pendingServices[0].scheduled_date : 'N/A';
+
+        console.log('✅ Calculated service dates:', { lastService, nextService });
+        console.log('✅ Transformed service history:', serviceHistory);
+        
+        return { serviceHistory, lastService, nextService };
+      } else {
+        console.log('❌ No service history found or failed response');
+        return { serviceHistory: [], lastService: 'N/A', nextService: 'N/A' };
+      }
+    } catch (err) {
+      const axiosError = err as AxiosError;
+      console.error('💥 Fetch service history error:', axiosError);
+      return { serviceHistory: [], lastService: 'N/A', nextService: 'N/A' };
+    }
+  };
+
+  // Fetch current route for a specific bus
+  const fetchCurrentRouteForBus = async (busId: string): Promise<string> => {
+    try {
+      console.log('🛣 Fetching current route for bus:', busId);
+      
+      if (!token) {
+        console.log('❌ No token available');
+        return 'N/A';
+      }
+
+      const response = await axios.get(
+        `http://localhost:5000/api/depot-engineer/buses/${busId}/current-route`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      console.log('📥 Current route response:', response.data);
+
+      if (response.data.success && response.data.currentRoute) {
+        console.log('✅ Current route found:', response.data.currentRoute.full_route_name);
+        return response.data.currentRoute.full_route_name;
+      } else {
+        console.log('❌ No current route assignment found');
+        return 'No route assigned';
+      }
+    } catch (err) {
+      const axiosError = err as AxiosError;
+      console.error('💥 Fetch current route error:', axiosError);
+      return 'N/A';
+    }
+  };
+
+  // Calculate how long a bus has been in maintenance or out of service
+  const calculateStatusDuration = (bus: BusFromAPI): string => {
+    if (bus.status !== 'Maintenance' && bus.status !== 'Out of Service') {
+      return '';
+    }
+
+    console.log('🕒 Calculating duration for bus:', bus.registration_number, 'Status:', bus.status);
+    console.log('📅 Available date fields:', {
+      updated_at: bus.updated_at,
+      purchase_date: bus.purchase_date
+    });
+
+    const today = new Date();
+    let statusChangeDate: Date | null = null;
+
+    // Use the updated_at field from the buses table
+    if (bus.updated_at) {
+      statusChangeDate = new Date(bus.updated_at);
+      console.log('✅ Using updated_at:', bus.updated_at);
+    }
+
+    // If no valid date is available, we can't calculate duration
+    if (!statusChangeDate || isNaN(statusChangeDate.getTime())) {
+      console.log('❌ No valid date found for duration calculation');
+      return 'Duration unknown';
+    }
+
+    // Calculate the difference in days
+    const daysDifference = Math.floor((today.getTime() - statusChangeDate.getTime()) / (1000 * 60 * 60 * 24));
+    console.log('📊 Days difference calculated:', daysDifference);
+    
+    if (daysDifference < 0) {
+      return 'Recently updated';
+    } else if (daysDifference < 1) {
+      return 'Started today';
+    } else if (daysDifference === 1) {
+      return '1 day';
+    } else if (daysDifference < 7) {
+      return `${daysDifference} days`;
+    } else if (daysDifference < 30) {
+      const weeks = Math.floor(daysDifference / 7);
+      return weeks === 1 ? '1 week' : `${weeks} weeks`;
+    } else {
+      const months = Math.floor(daysDifference / 30);
+      return months === 1 ? '1 month' : `${months} months`;
+    }
+  };
+
+  // Generate alerts based on bus status and service history
+  const generateBusAlerts = (bus: BusFromAPI): Alert[] => {
+    const alerts: Alert[] = [];
+    
+    if (bus.status === 'Maintenance') {
+      const duration = calculateStatusDuration(bus);
+      alerts.push({ 
+        type: 'warning', 
+        message: `Under maintenance for ${duration}` 
+      });
+    } else if (bus.status === 'Out of Service') {
+      const duration = calculateStatusDuration(bus);
+      alerts.push({ 
+        type: 'error', 
+        message: `Out of service for ${duration}` 
+      });
+    }
+    
+    return alerts;
+  };
+
   const fetchBuses = async () => {
     setLoading(true);
     setError(null);
@@ -121,31 +349,47 @@ const Busmanagement: React.FC = () => {
       });
 
       if (response.data.buses) {
-        const fetchedBuses = response.data.buses.map(bus => ({
-          id: bus.bus_id,
-          registrationNumber: bus.registration_number,
-          model: bus.model,
-          year: bus.year,
-          mileage: bus.mileage,
-          status: bus.status,
-          location: bus.depot_name,
-          capacity: 50,
-          currentRoute: 'N/A',
-          lastService: '2024-06-15',
-          nextService: '2024-08-15',
-          fuelEfficiency: 4.5,
-          driver: 'John Doe',
-          conductor: 'Jane Smith',
-          serviceHistory: [
-            { date: '2024-06-15', type: 'Regular Service', cost: 15000, description: 'Oil change, brake inspection' },
-            { date: '2024-05-20', type: 'Repair', cost: 8500, description: 'Engine cooling system repair' },
-          ],
-          partChanges: [
-            { date: '2024-06-15', part: 'Engine Oil', quantity: 1, cost: 3500 },
-            { date: '2024-05-20', part: 'Radiator', quantity: 1, cost: 6500 },
-          ],
-          alerts: bus.status === 'Maintenance' ? [{ type: 'error', message: 'Under maintenance - ETA 2 days' }] : [],
-        }));
+        console.log('📥 Sample bus data structure:', response.data.buses[0]); // Debug: Check available fields
+        
+        // First, create buses with basic data and empty part changes
+        const fetchedBuses: Bus[] = await Promise.all(
+          response.data.buses.map(async (bus: any) => {
+            // Fetch real part changes, service history, and current route for this bus
+            const partChanges = await fetchPartChangesForBus(bus.bus_id.toString());
+            const serviceData = await fetchServiceHistoryForBus(bus.bus_id.toString());
+            const currentRoute = await fetchCurrentRouteForBus(bus.bus_id.toString());
+            
+            // Generate alerts based on bus status and actual status change date
+            const alerts = generateBusAlerts(bus);
+            
+            return {
+              // BusFromAPI properties
+              bus_id: bus.bus_id,
+              registration_number: bus.registration_number,
+              model: bus.model,
+              year: bus.year,
+              mileage: bus.mileage,
+              status: bus.status,
+              depot_name: bus.depot_name,
+              class: bus.class,
+              manufacturer: bus.manufacturer,
+              purchase_date: bus.purchase_date,
+              updated_at: bus.updated_at, // Use the actual updated_at field from the database
+              
+              // Extended properties
+              currentRoute: currentRoute, // Real data from bus routes
+              lastService: serviceData.lastService, // Real data from completed services
+              nextService: serviceData.nextService, // Real data from pending services
+              fuelEfficiency: 4.5,
+              driver: 'John Doe',
+              conductor: 'Jane Smith',
+              location: bus.depot_name,
+              serviceHistory: serviceData.serviceHistory, // Real data from service schedules
+              partChanges: partChanges, // Real data from spare parts usage history
+              alerts: alerts, // Dynamic alerts based on actual status change dates
+            };
+          })
+        );
         setBuses(fetchedBuses);
       } else {
         setError(`Failed to fetch buses: ${response.data.message}`);
@@ -158,7 +402,7 @@ const Busmanagement: React.FC = () => {
         if (axiosError.response.status === 403) {
             setError(`Permission Denied: You do not have access to view this information. Please check your user role with an administrator.`);
         } else {
-            setError(`Failed to fetch buses: ${axiosError.response.status} - ${axiosError.response.data?.message || axiosError.response.statusText}. Please verify the API endpoint with the backend team.`);
+            setError(`Failed to fetch buses: ${axiosError.response.status} - ${(axiosError.response.data as any)?.message || axiosError.response.statusText}. Please verify the API endpoint with the backend team.`);
         }
       } else if (axiosError.request) {
         setError('Failed to fetch buses. The API endpoint might be down or unreachable.');
@@ -188,7 +432,7 @@ const Busmanagement: React.FC = () => {
 
   const filteredBuses = buses.filter((bus) => {
     const matchesSearch =
-      bus.registrationNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      bus.registration_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
       bus.model.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'All' || bus.status === statusFilter;
     return matchesSearch && matchesStatus;
@@ -209,6 +453,27 @@ const Busmanagement: React.FC = () => {
     }
   };
 
+  const getServiceStatusColor = (status: string): string => {
+    switch (status) {
+      case 'Completed':
+        return 'bg-green-100 text-green-800';
+      case 'In Progress':
+        return 'bg-blue-100 text-blue-800';
+      case 'Pending':
+        return 'bg-gray-100 text-gray-800';
+      case 'Due Today':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'Overdue':
+        return 'bg-orange-100 text-orange-800';
+      case 'Critical Overdue':
+        return 'bg-red-100 text-red-800';
+      case 'Cancelled':
+        return 'bg-gray-100 text-gray-500';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
   const handleViewDetails = (bus: Bus) => {
     setSelectedBus(bus);
     setShowDetails(true);
@@ -224,6 +489,7 @@ const Busmanagement: React.FC = () => {
     active: buses.filter((b) => b.status === 'Active').length,
     inService: buses.filter((b) => b.status === 'In Service').length,
     maintenance: buses.filter((b) => b.status === 'Maintenance').length,
+    outOfService: buses.filter((b) => b.status === 'Out of Service').length,
     avgFuelEfficiency: (
       buses.reduce((sum, b) => sum + (b.fuelEfficiency || 0), 0) / (buses.length || 1)
     ).toFixed(1),
@@ -245,7 +511,7 @@ const Busmanagement: React.FC = () => {
           <StatCard label="Active" value={fleetStats.active} color="text-green-600" />
           <StatCard label="In Service" value={fleetStats.inService} color="text-blue-600" />
           <StatCard label="Maintenance" value={fleetStats.maintenance} color="text-yellow-600" />
-         
+          <StatCard label="Out of Service" value={fleetStats.outOfService} color="text-red-600" />
         </div>
 
         <div className="bg-white rounded-lg shadow-sm p-6">
@@ -275,12 +541,12 @@ const Busmanagement: React.FC = () => {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
             {filteredBuses.map((bus) => (
-              <div key={bus.id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+              <div key={bus.bus_id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
                 <div className="flex justify-between items-start mb-4">
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900">{bus.registrationNumber}</h3>
+                    <h3 className="text-lg font-semibold text-gray-900">{bus.registration_number}</h3>
                     <p className="text-sm text-gray-600">
-                      {bus.model} ({bus.year})
+                      {bus.model} ({bus.year}) - {bus.class || 'N/A'}
                     </p>
                   </div>
                   <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(bus.status)}`}>
@@ -293,9 +559,17 @@ const Busmanagement: React.FC = () => {
                     {bus.alerts.map((alert, index) => (
                       <div
                         key={index}
-                        className="flex items-center text-sm text-yellow-700 bg-yellow-50 p-2 rounded"
+                        className={`flex items-center text-sm p-2 rounded mb-2 ${
+                          alert.type === 'error' 
+                            ? 'text-red-700 bg-red-50 border border-red-200'
+                            : alert.type === 'warning'
+                            ? 'text-yellow-700 bg-yellow-50 border border-yellow-200'
+                            : 'text-blue-700 bg-blue-50 border border-blue-200'
+                        }`}
                       >
-                        <span className="mr-2">⚠</span>
+                        <span className="mr-2">
+                          {alert.type === 'error' ? '🔴' : alert.type === 'warning' ? '⚠️' : 'ℹ️'}
+                        </span>
                         <span>{alert.message}</span>
                       </div>
                     ))}
@@ -309,7 +583,7 @@ const Busmanagement: React.FC = () => {
                   </div>
                   <div className="flex items-center">
                     <span className="mr-2">🛣</span>
-                    Route: {bus.currentRoute || 'N/A'}
+                    Current Route: {bus.currentRoute || 'N/A'}
                   </div>
                   <div className="flex items-center">
                     <span className="mr-2">📅</span>
@@ -342,7 +616,7 @@ const Busmanagement: React.FC = () => {
               <div className="p-6">
                 <div className="flex justify-between items-start mb-6">
                   <div>
-                    <h2 className="text-2xl font-bold text-gray-900">{selectedBus.registrationNumber}</h2>
+                    <h2 className="text-2xl font-bold text-gray-900">{selectedBus.registration_number}</h2>
                     <p className="text-gray-600">
                       {selectedBus.model} ({selectedBus.year})
                     </p>
@@ -354,10 +628,10 @@ const Busmanagement: React.FC = () => {
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                   <DetailsSection title="Basic Information" data={[
-                    ['Registration', selectedBus.registrationNumber],
+                    ['Registration', selectedBus.registration_number],
                     ['Model', selectedBus.model],
                     ['Year', selectedBus.year],
-                    ['Capacity', `${selectedBus.capacity || 0} seats`],
+                    ['Class', selectedBus.class || 'N/A'],
                   ]} />
 
                   <DetailsSection title="Performance" data={[
@@ -368,12 +642,10 @@ const Busmanagement: React.FC = () => {
                   ]} />
                 </div>
 
-                <TableSection title="🔧 Service History" columns={['Date', 'Type', 'Description', 'Cost (LKR)']} rows={
-                  selectedBus.serviceHistory.map(item => [item.date, item.type, item.description, item.cost.toLocaleString()])
-                } />
+                <ServiceHistoryTable title="🔧 Service History" serviceHistory={selectedBus.serviceHistory} getServiceStatusColor={getServiceStatusColor} />
 
-                <TableSection title="⚙ Recent Part Changes" columns={['Date', 'Part', 'Quantity', 'Cost (LKR)']} rows={
-                  selectedBus.partChanges.map(item => [item.date, item.part, item.quantity, item.cost.toLocaleString()])
+                <TableSection title="⚙ Recent Part Changes" columns={['Date', 'Part', 'Quantity', 'Unit']} rows={
+                  selectedBus.partChanges.map(item => [item.date, item.part, item.quantity.toString(), item.unit])
                 } />
               </div>
             </div>
@@ -396,10 +668,47 @@ const StatCard = ({ label, value, color }: { label: string; value: string | numb
   </div>
 );
 
-const InfoPair = ({ label, value }: { label: string; value: string }) => (
-  <div>
-    <p className="text-gray-500">{label}</p>
-    <p className="font-semibold">{value}</p>
+const ServiceHistoryTable = ({ 
+  title, 
+  serviceHistory, 
+  getServiceStatusColor 
+}: {
+  title: string;
+  serviceHistory: ServiceHistory[];
+  getServiceStatusColor: (status: string) => string;
+}) => (
+  <div className="mb-8">
+    <h3 className="text-lg font-semibold mb-4 flex items-center">{title}</h3>
+    {serviceHistory.length === 0 ? (
+      <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg">
+        <p>No service history found</p>
+      </div>
+    ) : (
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-4 py-2 text-left">Date</th>
+              <th className="px-4 py-2 text-left">Service Type</th>
+              <th className="px-4 py-2 text-left">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {serviceHistory.map((item, i) => (
+              <tr key={i} className="border-b">
+                <td className="px-4 py-2">{item.date}</td>
+                <td className="px-4 py-2">{item.type}</td>
+                <td className="px-4 py-2">
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getServiceStatusColor(item.status)}`}>
+                    {item.status}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
   </div>
 );
 
@@ -424,22 +733,28 @@ const TableSection = ({ title, columns, rows }: {
 }) => (
   <div className="mb-8">
     <h3 className="text-lg font-semibold mb-4 flex items-center">{title}</h3>
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead className="bg-gray-50">
-          <tr>{columns.map((col, i) => <th key={i} className="px-4 py-2 text-left">{col}</th>)}</tr>
-        </thead>
-        <tbody>
-          {rows.map((row, i) => (
-            <tr key={i} className="border-b">
-              {row.map((cell, j) => (
-                <td key={j} className={`px-4 py-2 ${j === row.length - 1 ? 'text-right' : ''}`}>{cell}</td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    {rows.length === 0 ? (
+      <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg">
+        <p>No recent part changes found</p>
+      </div>
+    ) : (
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50">
+            <tr>{columns.map((col, i) => <th key={i} className="px-4 py-2 text-left">{col}</th>)}</tr>
+          </thead>
+          <tbody>
+            {rows.map((row, i) => (
+              <tr key={i} className="border-b">
+                {row.map((cell, j) => (
+                  <td key={j} className="px-4 py-2">{cell}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
   </div>
 );
 
