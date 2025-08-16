@@ -48,6 +48,7 @@ export default function DriverLoginScreen() {
       console.log("Login response:", response);
 
       if (response.success) {
+        
         // Store the token and user data using storageAPI
         await storageAPI.storeAuthToken(response.token);
 
