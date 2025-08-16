@@ -68,6 +68,18 @@ interface AppContextType {
 
 const ServiceScheduleApp: React.FC = () => {
   const context = useContext(AppContext) as AppContextType | null;
+  
+  // Utility function to get current Sri Lankan time
+  const getSriLankanDate = (date?: Date): Date => {
+    const baseDate = date || new Date();
+    return new Date(baseDate.getTime() + (5.5 * 60 * 60 * 1000));
+  };
+  
+  // Utility function to get Sri Lankan date string (YYYY-MM-DD)
+  const getSriLankanDateString = (date?: Date): string => {
+    return getSriLankanDate(date).toISOString().split('T')[0];
+  };
+
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [services, setServices] = useState<Service[]>([]);
@@ -139,6 +151,17 @@ const ServiceScheduleApp: React.FC = () => {
         setServices(response.data.schedules);
         console.log('Services fetched successfully:', response.data.schedules);
         console.log('Service dates:', response.data.schedules.map((s: Service) => ({ id: s.id, scheduled_date: s.scheduled_date, service_type: s.service_type })));
+        
+        // Debug: Check each service date format
+        response.data.schedules.forEach((service: Service) => {
+          console.log(`🗃️ DB Service ID ${service.id}:`, {
+            service_type: service.service_type,
+            scheduled_date: service.scheduled_date,
+            date_type: typeof service.scheduled_date,
+            is_timestamp: service.scheduled_date.includes('T'),
+            split_result: service.scheduled_date.split('T')[0]
+          });
+        });
         
         // Log today's date for comparison
         const today = new Date();
@@ -278,12 +301,44 @@ const ServiceScheduleApp: React.FC = () => {
   };
 
   const getServicesForDate = (date: Date): Service[] => {
-    const dateStr = date.toISOString().split('T')[0];
+    // Format the date in local timezone as YYYY-MM-DD to avoid UTC conversion issues
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
+    
     const filteredServices = services.filter(service => {
-      // Handle both date formats: "YYYY-MM-DD" and "YYYY-MM-DDTHH:mm:ss.sssZ"
-      const serviceDate = service.scheduled_date.split('T')[0];
+      // Handle both date formats: clean "YYYY-MM-DD" strings and "YYYY-MM-DDTHH:mm:ss.sssZ" timestamps
+      let serviceDate;
+      if (service.scheduled_date.includes('T')) {
+        // If it's a timestamp, extract date part
+        serviceDate = service.scheduled_date.split('T')[0];
+      } else {
+        // If it's already a clean date string, use as-is
+        serviceDate = service.scheduled_date;
+      }
       return serviceDate === dateStr;
     });
+    
+    console.log('🕐 Calendar date comparison debug:');
+    console.log('Selected calendar date (local format):', dateStr);
+    console.log('Original date object:', date);
+    console.log('Services found for date:', filteredServices.length);
+    console.log('Service dates comparison:', services.map(s => {
+      let serviceDate;
+      if (s.scheduled_date.includes('T')) {
+        serviceDate = s.scheduled_date.split('T')[0];
+      } else {
+        serviceDate = s.scheduled_date;
+      }
+      return {
+        id: s.id, 
+        scheduled_date_raw: s.scheduled_date, 
+        scheduled_date_cleaned: serviceDate,
+        service_type: s.service_type,
+        matches: serviceDate === dateStr
+      };
+    }));
     
     return filteredServices;
   };
@@ -330,21 +385,6 @@ const ServiceScheduleApp: React.FC = () => {
     }
   };
 
-  const getPriorityColor = (priority: string): string => {
-    switch (priority) {
-      case 'Critical':
-        return 'bg-red-100 text-red-800';
-      case 'High':
-        return 'bg-orange-100 text-orange-800';
-      case 'Medium':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'Low':
-        return 'bg-green-100 text-green-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
   const handlePrevMonth = () => {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
   };
@@ -355,7 +395,12 @@ const ServiceScheduleApp: React.FC = () => {
 
   const handleDateClick = (day: number | null): void => {
     if (day) {
+      // Create date in local timezone context
       const clickedDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+      console.log('🗓️ Date clicked:', clickedDate.toISOString().split('T')[0]);
+      console.log('🗓️ Day number clicked:', day);
+      console.log('🗓️ Current month/year:', currentDate.getMonth() + 1, currentDate.getFullYear());
+      console.log('🗓️ Full clicked date:', clickedDate);
       setSelectedDate(clickedDate);
     }
   };
@@ -375,7 +420,7 @@ const ServiceScheduleApp: React.FC = () => {
       return;
     }
     
-    // Check if date is not in the past
+    // Check if date is not in the past (using local date comparison)
     const selectedDate = new Date(newService.scheduled_date);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -561,7 +606,16 @@ const ServiceScheduleApp: React.FC = () => {
   };
 
   const calendarDays = getDaysInMonth(currentDate);
+  // Get today's date in local timezone without UTC conversion
   const today = new Date();
+  today.setHours(0, 0, 0, 0); // Normalize to start of day
+  
+  // Format today in local timezone for consistent comparison
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  
+  console.log('📅 Today calculated as (local):', todayStr);
+  console.log('📅 Today full:', today);
+  console.log('📅 Calendar month/year:', currentDate.getMonth() + 1, currentDate.getFullYear());
 
   // Helper function to get bus details by ID
   const getBusDetails = (busId: string | number) => {
@@ -569,28 +623,40 @@ const ServiceScheduleApp: React.FC = () => {
     return bus ? `${bus.registration_number}` : busId;
   };
 
-  // SLTB-specific service types based on real operations
-  const serviceTypes = [
-    'Daily Inspection',
-    'Weekly Inspection', 
-    'Monthly Service',
-    'Quarterly Service',
-    'Annual Inspection',
-    'Safety Inspection',
-    'Brake System Check',
-    'Engine Oil Change',
-    'Tire Rotation',
-    'Air Filter Change',
-    'Fuel Filter Change',
-    'Engine Overhaul',
-    'Transmission Service',
-    'Air Conditioning Service',
-    'Battery Check',
-    'Lights & Electrical Check',
-    'Body & Paint Work',
-    'Seat Repair',
-    'Emergency Repair'
-  ];
+  // Helper function to format date for display (handles timezone issues)
+  const formatDateForDisplay = (dateString: string): string => {
+    console.log('🔍 formatDateForDisplay called with:', {
+      input: dateString,
+      type: typeof dateString,
+      length: dateString?.length
+    });
+    
+    // Check if input is valid
+    if (!dateString) {
+      console.warn('❌ Empty or null dateString received');
+      return 'Invalid Date';
+    }
+    
+    // If the date is already in YYYY-MM-DD format, return as is
+    if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      console.log('✅ Date already in YYYY-MM-DD format:', dateString);
+      return dateString;
+    }
+    
+    // For backward compatibility with timestamps, extract the date part
+    if (dateString.includes('T')) {
+      const result = dateString.split('T')[0];
+      console.log('🔄 Date conversion from timestamp:', {
+        original: dateString,
+        result: result
+      });
+      return result;
+    }
+    
+    // If it's some other format, return as-is and log a warning
+    console.warn('⚠️ Unexpected date format:', dateString);
+    return dateString;
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -629,6 +695,92 @@ const ServiceScheduleApp: React.FC = () => {
           </div>
         </div>
 
+        {/* Priority Services - Overdue and Critical */}
+        {(stats.overdue_count > 0 || stats.critical_overdue_count > 0) && (
+          <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded-lg">
+            <div className="flex items-center mb-4">
+              <FaExclamationTriangle className="text-red-600 text-xl mr-2" />
+              <h2 className="text-lg font-semibold text-red-800">Priority Services - Immediate Attention Required</h2>
+            </div>
+            
+            {/* Critical Overdue Services Details */}
+            {stats.critical_overdue_count > 0 && (
+              <div className="mb-4">
+                <div className="bg-red-100 border border-red-300 rounded-lg p-3 mb-3">
+                  <div className="flex items-center mb-2">
+                    <FaExclamationCircle className="text-red-700 text-lg mr-2" />
+                    <div>
+                      <p className="text-sm font-medium text-red-800">Critical Overdue</p>
+                      <p className="text-xl font-bold text-red-900">{stats.critical_overdue_count}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  {services
+                    .filter(service => !service.is_deleted && (service.calculated_status || service.status) === 'Critical Overdue')
+                    .map((service) => (
+                      <div key={service.id} className="bg-red-200 border border-red-400 rounded-md p-3">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <p className="font-medium text-red-900">{service.service_type}</p>
+                            <p className="text-sm text-red-800">Bus: {getBusDetails(service.bus_id)}</p>
+                            <p className="text-sm text-red-700">Scheduled: {formatDateForDisplay(service.scheduled_date)}</p>
+                          </div>
+                          <button
+                            onClick={() => handleStartWork(service.id)}
+                            className="ml-3 px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 text-xs font-medium transition-colors"
+                            title="Start Work Immediately"
+                            disabled={loading}
+                          >
+                            Start Now
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {/* Overdue Services Details */}
+            {stats.overdue_count > 0 && (
+              <div>
+                <div className="bg-orange-100 border border-orange-300 rounded-lg p-3 mb-3">
+                  <div className="flex items-center mb-2">
+                    <FaExclamationTriangle className="text-orange-700 text-lg mr-2" />
+                    <div>
+                      <p className="text-sm font-medium text-orange-800">Overdue</p>
+                      <p className="text-xl font-bold text-orange-900">{stats.overdue_count}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  {services
+                    .filter(service => !service.is_deleted && (service.calculated_status || service.status) === 'Overdue')
+                    .map((service) => (
+                      <div key={service.id} className="bg-orange-200 border border-orange-400 rounded-md p-3">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <p className="font-medium text-orange-900">{service.service_type}</p>
+                            <p className="text-sm text-orange-800">Bus: {getBusDetails(service.bus_id)}</p>
+                            <p className="text-sm text-orange-700">Scheduled: {formatDateForDisplay(service.scheduled_date)}</p>
+                          </div>
+                          <button
+                            onClick={() => handleStartWork(service.id)}
+                            className="ml-3 px-3 py-1 bg-orange-600 text-white rounded-md hover:bg-orange-700 text-xs font-medium transition-colors"
+                            title="Start Work"
+                            disabled={loading}
+                          >
+                            Start Work
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* SLTB Depot Service Summary */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
           <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
@@ -657,12 +809,12 @@ const ServiceScheduleApp: React.FC = () => {
 
           <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
             <div className="flex items-center">
-              <div className="bg-red-100 p-2 rounded-lg mr-3">
-                <FaExclamationTriangle className="text-red-600 text-lg" />
+              <div className="bg-gray-100 p-2 rounded-lg mr-3">
+                <FaClock className="text-gray-600 text-lg" />
               </div>
               <div>
-                <p className="text-sm text-gray-600">Overdue</p>
-                <p className="text-xl font-bold text-red-600">{stats.overdue_count + stats.critical_overdue_count}</p>
+                <p className="text-sm text-gray-600">Pending</p>
+                <p className="text-xl font-bold text-gray-900">{stats.pending_count}</p>
               </div>
             </div>
           </div>
@@ -843,7 +995,7 @@ const ServiceScheduleApp: React.FC = () => {
         {/* Upcoming Services Table */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           <div className="p-6">
-            <h2 className="text-xl font-semibold text-gray-700 mb-6">Upcoming Services</h2>
+            <h2 className="text-xl font-semibold text-gray-700 mb-6">Service Schedules (Priority Order)</h2>
             
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -857,11 +1009,49 @@ const ServiceScheduleApp: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {services.filter(service => !service.is_deleted).map((service) => (
+                  {services
+                    .filter(service => !service.is_deleted)
+                    .sort((a, b) => {
+                      // Define priority order for statuses
+                      const statusPriority: { [key: string]: number } = {
+                        'Critical Overdue': 1,
+                        'Overdue': 2,
+                        'In Progress': 3,
+                        'Due Today': 4,
+                        'Pending': 5,
+                        'Completed': 6,
+                        'Cancelled': 7
+                      };
+                      
+                      const statusA = a.calculated_status || a.status;
+                      const statusB = b.calculated_status || b.status;
+                      
+                      const priorityA = statusPriority[statusA] || 8; // Unknown statuses go last
+                      const priorityB = statusPriority[statusB] || 8;
+                      
+                      // Primary sort: by status priority
+                      if (priorityA !== priorityB) {
+                        return priorityA - priorityB;
+                      }
+                      
+                      // Secondary sort: by scheduled date (earliest first within same status)
+                      return new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime();
+                    })
+                    .map((service) => {
+                    // Debug each service in the table
+                    console.log('🏓 Table row for service:', {
+                      id: service.id,
+                      service_type: service.service_type,
+                      scheduled_date_raw: service.scheduled_date,
+                      scheduled_date_type: typeof service.scheduled_date,
+                      formatted_result: formatDateForDisplay(service.scheduled_date)
+                    });
+                    
+                    return (
                     <tr key={service.id} className="border-b border-gray-100 hover:bg-gray-50">
                       <td className="py-4 px-4 text-gray-900">{service.service_type}</td>
                       <td className="py-4 px-4 text-gray-900">{getBusDetails(service.bus_id)}</td>
-                      <td className="py-4 px-4 text-gray-900">{service.scheduled_date.split('T')[0]}</td>
+                      <td className="py-4 px-4 text-gray-900">{formatDateForDisplay(service.scheduled_date)}</td>
                       <td className="py-4 px-4">
                         <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(service.calculated_status || service.status)}`}>
                           {getStatusIcon(service.calculated_status || service.status)}
@@ -935,7 +1125,8 @@ const ServiceScheduleApp: React.FC = () => {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -983,7 +1174,7 @@ const ServiceScheduleApp: React.FC = () => {
                     type="date"
                     value={newService.scheduled_date}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewService({...newService, scheduled_date: e.target.value})}
-                    min={new Date().toISOString().split('T')[0]} // Prevent past dates
+                    min={new Date().toISOString().split('T')[0]}
                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
@@ -1103,11 +1294,11 @@ const ServiceScheduleApp: React.FC = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-500 mb-1">Scheduled Date</label>
-                    <p className="text-gray-900">{viewingService.scheduled_date.split('T')[0]}</p>
+                    <p className="text-gray-900">{formatDateForDisplay(viewingService.scheduled_date)}</p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-500 mb-1">Completed Date</label>
-                    <p className="text-gray-900 font-medium">{viewingService.completed_date || 'N/A'}</p>
+                    <p className="text-gray-900 font-medium">{viewingService.completed_date ? formatDateForDisplay(viewingService.completed_date) : 'N/A'}</p>
                   </div>
                 </div>
 

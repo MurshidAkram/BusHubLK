@@ -3,15 +3,11 @@ import {
   HiCog, 
   HiExclamationCircle, 
   HiTruck, 
-  HiCheckCircle,
   HiClock,
   HiEye,
   HiArrowRight,
   HiFire,
-  HiHeart,
-  HiLocationMarker,
-  HiOfficeBuilding,
-  HiUserCircle
+  HiHeart
 } from 'react-icons/hi';
 import { useState, useEffect, useContext } from 'react';
 import { AppContext } from '../../../context/AppContext';
@@ -79,12 +75,12 @@ interface AppContextType {
 }
 
 const DepotEngineerDashboard = () => {
-  const context = useContext<AppContextType | null>(AppContext);
+  const context = useContext(AppContext) as AppContextType | null;
   const navigate = useNavigate();
   const [stats, setStats] = useState({
     totalBuses: 0,
-    activeBuses: 0,
-    underMaintenance: 0,
+    pendingSchedules: 0,
+    overdueSchedules: 0,
     EmergencyReports: 2,
     criticalIssues: 2,
     busesOverdueService: 4,
@@ -167,9 +163,7 @@ const DepotEngineerDashboard = () => {
         setDepotInfo(response.data.depot);
         setStats(prevStats => ({
           ...prevStats,
-          totalBuses: buses.length,
-          activeBuses: buses.filter(bus => bus.status === 'Active').length,
-          underMaintenance: buses.filter(bus => bus.status === 'Maintenance').length
+          totalBuses: buses.length
         }));
       } else {
         setError('Failed to fetch buses.');
@@ -184,6 +178,31 @@ const DepotEngineerDashboard = () => {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchServiceScheduleStats = async () => {
+    try {
+      const apiUrl = `http://localhost:5000/api/depot-engineer/service-schedules/stats`;
+      const response = await axios.get(apiUrl, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.data.success) {
+        const scheduleStats = response.data.stats;
+        setStats(prevStats => ({
+          ...prevStats,
+          pendingSchedules: parseInt(scheduleStats.pending_count) || 0,
+          overdueSchedules: (parseInt(scheduleStats.overdue_count) || 0) + (parseInt(scheduleStats.critical_overdue_count) || 0)
+        }));
+      } else {
+        console.error('Failed to fetch service schedule stats:', response.data.message);
+      }
+    } catch (err) {
+      const axiosError = err as AxiosError;
+      console.error('Error fetching service schedule stats:', axiosError);
     }
   };
 
@@ -233,6 +252,7 @@ const DepotEngineerDashboard = () => {
     if (token && context?.user?.role === 'depot_engineer') {
       fetchBuses();
       fetchPendingReports();
+      fetchServiceScheduleStats();
     }
   }, [token, context?.user?.role]);
 
@@ -319,30 +339,30 @@ const DepotEngineerDashboard = () => {
             </div>
           </div>
 
-          {/* Active Buses Card */}
+          {/* Pending Schedules Card */}
           <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-500 text-sm mb-1">Active Buses</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.activeBuses}</p>
+                <p className="text-gray-500 text-sm mb-1">Pending Schedules</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.pendingSchedules}</p>
                 
               </div>
-              <div className="p-2 bg-green-50 rounded-lg">
-                <HiCheckCircle className="w-6 h-6 text-green-600" />
+              <div className="p-2 bg-yellow-50 rounded-lg">
+                <HiClock className="w-6 h-6 text-yellow-600" />
               </div>
             </div>
           </div>
 
-          {/* Maintenance Card */}
+          {/* Overdue Schedules Card */}
           <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-500 text-sm mb-1">Under Maintenance</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.underMaintenance}</p>
+                <p className="text-gray-500 text-sm mb-1">Overdue Schedules</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.overdueSchedules}</p>
                 
               </div>
-              <div className="p-2 bg-yellow-50 rounded-lg">
-                <HiCog className="w-6 h-6 text-yellow-600" />
+              <div className="p-2 bg-red-50 rounded-lg">
+                <HiExclamationCircle className="w-6 h-6 text-red-600" />
               </div>
             </div>
           </div>

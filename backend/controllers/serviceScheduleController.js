@@ -53,9 +53,7 @@ const getDepotServiceSchedules = async (req, res) => {
         const schedulesWithStatus = schedules.map(schedule => ({
             ...schedule,
             calculated_status: ServiceSchedule.calculateStatus(schedule.scheduled_date, schedule.status)
-        }));
-
-        res.json({
+        })); res.json({
             success: true,
             message: 'Service schedules retrieved successfully',
             schedules: schedulesWithStatus,

@@ -14,6 +14,7 @@ type BusFromAPI = {
   class: string;
   manufacturer: string;
   purchase_date: string;
+  updated_at: string; // Timestamp when the bus record was last updated
 };
 
 // Extended type with dummy data
@@ -142,14 +143,18 @@ const Busmanagement: React.FC = () => {
     }
   };
 
-  // Fetch service history for a specific bus
-  const fetchServiceHistoryForBus = async (busId: string): Promise<ServiceHistory[]> => {
+  // Fetch service history for a specific bus and calculate last/next service dates
+  const fetchServiceHistoryForBus = async (busId: string): Promise<{
+    serviceHistory: ServiceHistory[];
+    lastService: string;
+    nextService: string;
+  }> => {
     try {
       console.log('📋 Fetching service history for bus:', busId);
       
       if (!token) {
         console.log('❌ No token available');
-        return [];
+        return { serviceHistory: [], lastService: 'N/A', nextService: 'N/A' };
       }
 
       const response = await axios.get(
@@ -176,16 +181,36 @@ const Busmanagement: React.FC = () => {
           cancelled_date: schedule.cancelled_date ? schedule.cancelled_date.split('T')[0] : undefined,
         }));
 
+        // Calculate last service (most recent completed service)
+        const completedServices = serviceHistory
+          .filter(service => service.status === 'Completed' && service.completed_date)
+          .sort((a, b) => new Date(b.completed_date!).getTime() - new Date(a.completed_date!).getTime());
+        
+        const lastService = completedServices.length > 0 ? completedServices[0].completed_date! : 'N/A';
+
+        // Calculate next service (nearest pending service by scheduled date)
+        const today = new Date();
+        const pendingServices = serviceHistory
+          .filter(service => 
+            (service.status === 'Pending' || service.status === 'Due Today') && 
+            new Date(service.scheduled_date) >= today
+          )
+          .sort((a, b) => new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime());
+        
+        const nextService = pendingServices.length > 0 ? pendingServices[0].scheduled_date : 'N/A';
+
+        console.log('✅ Calculated service dates:', { lastService, nextService });
         console.log('✅ Transformed service history:', serviceHistory);
-        return serviceHistory;
+        
+        return { serviceHistory, lastService, nextService };
       } else {
         console.log('❌ No service history found or failed response');
-        return [];
+        return { serviceHistory: [], lastService: 'N/A', nextService: 'N/A' };
       }
     } catch (err) {
       const axiosError = err as AxiosError;
       console.error('💥 Fetch service history error:', axiosError);
-      return [];
+      return { serviceHistory: [], lastService: 'N/A', nextService: 'N/A' };
     }
   };
 
@@ -224,6 +249,75 @@ const Busmanagement: React.FC = () => {
     }
   };
 
+  // Calculate how long a bus has been in maintenance or out of service
+  const calculateStatusDuration = (bus: BusFromAPI): string => {
+    if (bus.status !== 'Maintenance' && bus.status !== 'Out of Service') {
+      return '';
+    }
+
+    console.log('🕒 Calculating duration for bus:', bus.registration_number, 'Status:', bus.status);
+    console.log('📅 Available date fields:', {
+      updated_at: bus.updated_at,
+      purchase_date: bus.purchase_date
+    });
+
+    const today = new Date();
+    let statusChangeDate: Date | null = null;
+
+    // Use the updated_at field from the buses table
+    if (bus.updated_at) {
+      statusChangeDate = new Date(bus.updated_at);
+      console.log('✅ Using updated_at:', bus.updated_at);
+    }
+
+    // If no valid date is available, we can't calculate duration
+    if (!statusChangeDate || isNaN(statusChangeDate.getTime())) {
+      console.log('❌ No valid date found for duration calculation');
+      return 'Duration unknown';
+    }
+
+    // Calculate the difference in days
+    const daysDifference = Math.floor((today.getTime() - statusChangeDate.getTime()) / (1000 * 60 * 60 * 24));
+    console.log('📊 Days difference calculated:', daysDifference);
+    
+    if (daysDifference < 0) {
+      return 'Recently updated';
+    } else if (daysDifference < 1) {
+      return 'Started today';
+    } else if (daysDifference === 1) {
+      return '1 day';
+    } else if (daysDifference < 7) {
+      return `${daysDifference} days`;
+    } else if (daysDifference < 30) {
+      const weeks = Math.floor(daysDifference / 7);
+      return weeks === 1 ? '1 week' : `${weeks} weeks`;
+    } else {
+      const months = Math.floor(daysDifference / 30);
+      return months === 1 ? '1 month' : `${months} months`;
+    }
+  };
+
+  // Generate alerts based on bus status and service history
+  const generateBusAlerts = (bus: BusFromAPI): Alert[] => {
+    const alerts: Alert[] = [];
+    
+    if (bus.status === 'Maintenance') {
+      const duration = calculateStatusDuration(bus);
+      alerts.push({ 
+        type: 'warning', 
+        message: `Under maintenance for ${duration}` 
+      });
+    } else if (bus.status === 'Out of Service') {
+      const duration = calculateStatusDuration(bus);
+      alerts.push({ 
+        type: 'error', 
+        message: `Out of service for ${duration}` 
+      });
+    }
+    
+    return alerts;
+  };
+
   const fetchBuses = async () => {
     setLoading(true);
     setError(null);
@@ -255,13 +349,18 @@ const Busmanagement: React.FC = () => {
       });
 
       if (response.data.buses) {
+        console.log('📥 Sample bus data structure:', response.data.buses[0]); // Debug: Check available fields
+        
         // First, create buses with basic data and empty part changes
         const fetchedBuses: Bus[] = await Promise.all(
           response.data.buses.map(async (bus: any) => {
             // Fetch real part changes, service history, and current route for this bus
             const partChanges = await fetchPartChangesForBus(bus.bus_id.toString());
-            const serviceHistory = await fetchServiceHistoryForBus(bus.bus_id.toString());
+            const serviceData = await fetchServiceHistoryForBus(bus.bus_id.toString());
             const currentRoute = await fetchCurrentRouteForBus(bus.bus_id.toString());
+            
+            // Generate alerts based on bus status and actual status change date
+            const alerts = generateBusAlerts(bus);
             
             return {
               // BusFromAPI properties
@@ -275,18 +374,19 @@ const Busmanagement: React.FC = () => {
               class: bus.class,
               manufacturer: bus.manufacturer,
               purchase_date: bus.purchase_date,
+              updated_at: bus.updated_at, // Use the actual updated_at field from the database
               
               // Extended properties
               currentRoute: currentRoute, // Real data from bus routes
-              lastService: '2024-06-15',
-              nextService: '2024-08-15',
+              lastService: serviceData.lastService, // Real data from completed services
+              nextService: serviceData.nextService, // Real data from pending services
               fuelEfficiency: 4.5,
               driver: 'John Doe',
               conductor: 'Jane Smith',
               location: bus.depot_name,
-              serviceHistory: serviceHistory, // Real data from service schedules
+              serviceHistory: serviceData.serviceHistory, // Real data from service schedules
               partChanges: partChanges, // Real data from spare parts usage history
-              alerts: bus.status === 'Maintenance' ? [{ type: 'error', message: 'Under maintenance - ETA 2 days' }] : [],
+              alerts: alerts, // Dynamic alerts based on actual status change dates
             };
           })
         );
@@ -389,6 +489,7 @@ const Busmanagement: React.FC = () => {
     active: buses.filter((b) => b.status === 'Active').length,
     inService: buses.filter((b) => b.status === 'In Service').length,
     maintenance: buses.filter((b) => b.status === 'Maintenance').length,
+    outOfService: buses.filter((b) => b.status === 'Out of Service').length,
     avgFuelEfficiency: (
       buses.reduce((sum, b) => sum + (b.fuelEfficiency || 0), 0) / (buses.length || 1)
     ).toFixed(1),
@@ -410,7 +511,7 @@ const Busmanagement: React.FC = () => {
           <StatCard label="Active" value={fleetStats.active} color="text-green-600" />
           <StatCard label="In Service" value={fleetStats.inService} color="text-blue-600" />
           <StatCard label="Maintenance" value={fleetStats.maintenance} color="text-yellow-600" />
-         
+          <StatCard label="Out of Service" value={fleetStats.outOfService} color="text-red-600" />
         </div>
 
         <div className="bg-white rounded-lg shadow-sm p-6">
@@ -458,9 +559,17 @@ const Busmanagement: React.FC = () => {
                     {bus.alerts.map((alert, index) => (
                       <div
                         key={index}
-                        className="flex items-center text-sm text-yellow-700 bg-yellow-50 p-2 rounded"
+                        className={`flex items-center text-sm p-2 rounded mb-2 ${
+                          alert.type === 'error' 
+                            ? 'text-red-700 bg-red-50 border border-red-200'
+                            : alert.type === 'warning'
+                            ? 'text-yellow-700 bg-yellow-50 border border-yellow-200'
+                            : 'text-blue-700 bg-blue-50 border border-blue-200'
+                        }`}
                       >
-                        <span className="mr-2">⚠</span>
+                        <span className="mr-2">
+                          {alert.type === 'error' ? '🔴' : alert.type === 'warning' ? '⚠️' : 'ℹ️'}
+                        </span>
                         <span>{alert.message}</span>
                       </div>
                     ))}
@@ -476,10 +585,10 @@ const Busmanagement: React.FC = () => {
                     <span className="mr-2">🛣</span>
                     Current Route: {bus.currentRoute || 'N/A'}
                   </div>
-                  {/* <div className="flex items-center">
+                  <div className="flex items-center">
                     <span className="mr-2">📅</span>
                     Next Service: {bus.nextService || 'N/A'}
-                  </div> */}
+                  </div>
                 </div>
 
                 

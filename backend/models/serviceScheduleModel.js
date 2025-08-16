@@ -16,10 +16,14 @@ class ServiceSchedule {
     // Get service schedule by ID (includes deleted records for admin purposes)
     static async findById(id) {
         const result = await db.query(
-            `SELECT ss.*, 
-              b.registration_number, b.manufacturer, b.model,
-              d.depot_name,
-              COALESCE(ss.is_deleted, false) as is_deleted
+            `SELECT ss.id, ss.service_type, ss.bus_id, ss.depot_id, ss.status,
+                    TO_CHAR(ss.scheduled_date, 'YYYY-MM-DD') as scheduled_date,
+                    TO_CHAR(ss.completed_date, 'YYYY-MM-DD') as completed_date,
+                    TO_CHAR(ss.cancelled_date, 'YYYY-MM-DD') as cancelled_date,
+                    ss.created_at, ss.updated_at,
+                    b.registration_number, b.manufacturer, b.model,
+                    d.depot_name,
+                    COALESCE(ss.is_deleted, false) as is_deleted
        FROM service_schedules ss
        LEFT JOIN buses b ON ss.bus_id = b.bus_id
        LEFT JOIN depots d ON ss.depot_id = d.depot_id
@@ -32,7 +36,11 @@ class ServiceSchedule {
     // Get all service schedules for a depot (excluding deleted)
     static async getByDepot(depot_id, include_deleted = false) {
         let query = `
-      SELECT ss.*, 
+      SELECT ss.id, ss.service_type, ss.bus_id, ss.depot_id, ss.status,
+             TO_CHAR(ss.scheduled_date, 'YYYY-MM-DD') as scheduled_date,
+             TO_CHAR(ss.completed_date, 'YYYY-MM-DD') as completed_date,
+             TO_CHAR(ss.cancelled_date, 'YYYY-MM-DD') as cancelled_date,
+             ss.created_at, ss.updated_at,
              b.registration_number, b.manufacturer, b.model,
              d.depot_name,
              COALESCE(ss.is_deleted, false) as is_deleted
@@ -54,7 +62,11 @@ class ServiceSchedule {
     // Get all service schedules for a specific bus (excluding deleted)
     static async getByBusId(bus_id, include_deleted = false) {
         let query = `
-      SELECT ss.*, 
+      SELECT ss.id, ss.service_type, ss.bus_id, ss.depot_id, ss.status,
+             TO_CHAR(ss.scheduled_date, 'YYYY-MM-DD') as scheduled_date,
+             TO_CHAR(ss.completed_date, 'YYYY-MM-DD') as completed_date,
+             TO_CHAR(ss.cancelled_date, 'YYYY-MM-DD') as cancelled_date,
+             ss.created_at, ss.updated_at,
              b.registration_number, b.manufacturer, b.model,
              d.depot_name,
              COALESCE(ss.is_deleted, false) as is_deleted
@@ -76,9 +88,13 @@ class ServiceSchedule {
     // Get all service schedules (admin view)
     static async getAll() {
         const result = await db.query(
-            `SELECT ss.*, 
-              b.registration_number, b.manufacturer, b.model,
-              d.depot_name
+            `SELECT ss.id, ss.service_type, ss.bus_id, ss.depot_id, ss.status,
+                    TO_CHAR(ss.scheduled_date, 'YYYY-MM-DD') as scheduled_date,
+                    TO_CHAR(ss.completed_date, 'YYYY-MM-DD') as completed_date,
+                    TO_CHAR(ss.cancelled_date, 'YYYY-MM-DD') as cancelled_date,
+                    ss.created_at, ss.updated_at,
+                    b.registration_number, b.manufacturer, b.model,
+                    d.depot_name
        FROM service_schedules ss
        LEFT JOIN buses b ON ss.bus_id = b.bus_id
        LEFT JOIN depots d ON ss.depot_id = d.depot_id
@@ -90,9 +106,13 @@ class ServiceSchedule {
     // Get service schedules for a specific date and depot
     static async getByDateAndDepot(depot_id, date) {
         const result = await db.query(
-            `SELECT ss.*, 
-              b.registration_number, b.manufacturer, b.model,
-              d.depot_name
+            `SELECT ss.id, ss.service_type, ss.bus_id, ss.depot_id, ss.status,
+                    TO_CHAR(ss.scheduled_date, 'YYYY-MM-DD') as scheduled_date,
+                    TO_CHAR(ss.completed_date, 'YYYY-MM-DD') as completed_date,
+                    TO_CHAR(ss.cancelled_date, 'YYYY-MM-DD') as cancelled_date,
+                    ss.created_at, ss.updated_at,
+                    b.registration_number, b.manufacturer, b.model,
+                    d.depot_name
        FROM service_schedules ss
        LEFT JOIN buses b ON ss.bus_id = b.bus_id
        LEFT JOIN depots d ON ss.depot_id = d.depot_id
