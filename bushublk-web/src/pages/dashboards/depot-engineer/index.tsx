@@ -24,14 +24,15 @@ interface PendingReport {
 }
 
 interface EmergencyReport {
-  id: string;
-  depotid: string;
-  busNumber: string;
-  type: 'fire' | 'medical' | 'mechanical';
-  reason: string;
-  status: 'pending' | 'resolved' | 'in-progress';
-  region: string;
-  depot: string;
+  id: number;
+  incident_type: string;
+  status: 'New' | 'In Progress' | 'Pending' | 'Resolved' | 'Escalated to Depot Manager';
+  driver_name: string;
+  vehicle_registration: string;
+  created_at: string;
+  description?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 interface Bus {
@@ -81,7 +82,7 @@ const DepotEngineerDashboard = () => {
     totalBuses: 0,
     pendingSchedules: 0,
     overdueSchedules: 0,
-    EmergencyReports: 2,
+    EmergencyReports: 0,
     criticalIssues: 2,
     busesOverdueService: 4,
     busesOperational: 18,
@@ -90,49 +91,64 @@ const DepotEngineerDashboard = () => {
   });
   const [depotInfo, setDepotInfo] = useState<DepotInfo | null>(null);
   const [pendingReports, setPendingReports] = useState<PendingReport[]>([]);
+  const [emergencyReports, setEmergencyReports] = useState<EmergencyReport[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
   const token = context?.token;
 
-  const emergencyReports: EmergencyReport[] = [
-    { 
-      id: 'R-17',
-      depotid: '2',
-      busNumber: 'NC_1234',
-      type: 'fire',
-      reason: 'Engine compartment fire',
-      status: 'pending',
-      region: 'Central',
-      depot: 'Kandy Depot'
-    },
-    { 
-      id: 'R-23',
-      depotid: '1',
-      busNumber: 'NY-3456',
-      type: 'medical',
-      reason: 'Passenger medical emergency',
-      status: 'pending',
-      region: 'Western',
-      depot: 'Colombo Depot'
+  const fetchEmergencyReports = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/depot/emergency', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!response.ok) {
+        throw new Error('Failed to fetch emergency reports');
+      }
+      const data = await response.json();
+      
+      if (data.success) {
+        // Filter for only pending status reports
+        const pendingReports = (data.data || []).filter((report: EmergencyReport) => 
+          report.status === 'Pending'
+        );
+        setEmergencyReports(pendingReports);
+        
+        // Update stats with emergency reports count
+        setStats(prevStats => ({
+          ...prevStats,
+          EmergencyReports: pendingReports.length
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching emergency reports:', error);
     }
-  ];
+  };
 
-  const getEmergencyColor = (type: EmergencyReport['type']) => {
-    switch (type) {
-      case 'fire': return 'bg-red-50 border-red-200';
-      case 'medical': return 'bg-blue-50 border-blue-200';
-      case 'mechanical': return 'bg-orange-50 border-orange-200';
+  const getEmergencyColor = (incident_type: EmergencyReport['incident_type']) => {
+    switch (incident_type) {
+      case 'Accident': return 'bg-red-50 border-red-200';
+      case 'Breakdown': return 'bg-yellow-50 border-yellow-200';
+      case 'Medical Emergency': return 'bg-blue-50 border-blue-200';
+      case 'Security Issue': return 'bg-purple-50 border-purple-200';
       default: return 'bg-gray-50 border-gray-200';
     }
   };
 
-  const getEmergencyIcon = (type: EmergencyReport['type']) => {
-    switch (type) {
-      case 'fire': return <HiFire className="w-5 h-5 text-red-600" />;
-      case 'medical': return <HiHeart className="w-5 h-5 text-blue-600" />;
-      case 'mechanical': return <HiCog className="w-5 h-5 text-orange-600" />;
-      default: return <HiExclamationCircle className="w-5 h-5 text-gray-600" />;
+  const getEmergencyIcon = (incident_type: EmergencyReport['incident_type']) => {
+    switch (incident_type) {
+      case 'Accident': 
+        return <HiFire className="w-5 h-5 text-red-600" />;
+      case 'Breakdown': 
+        return <HiCog className="w-5 h-5 text-yellow-600" />;
+      case 'Medical Emergency': 
+        return <HiHeart className="w-5 h-5 text-blue-600" />;
+      case 'Security Issue': 
+        return <HiExclamationCircle className="w-5 h-5 text-purple-600" />;
+      default: 
+        return <HiExclamationCircle className="w-5 h-5 text-gray-600" />;
     }
   };
 
@@ -141,6 +157,11 @@ const DepotEngineerDashboard = () => {
       case 'Active': return 'bg-green-100 text-green-800';
       case 'Maintenance': return 'bg-yellow-100 text-yellow-800';
       case 'Pending Review': return 'bg-blue-100 text-blue-800';
+      case 'New': return 'bg-blue-100 text-blue-800';
+      case 'In Progress': return 'bg-yellow-100 text-yellow-800';
+      case 'Pending': return 'bg-orange-100 text-orange-800';
+      case 'Resolved': return 'bg-green-100 text-green-800';
+      case 'Escalated to Depot Manager': return 'bg-red-100 text-red-800';
       case 'pending': return 'bg-yellow-100 text-yellow-800';
       case 'in-progress': return 'bg-blue-100 text-blue-800';
       case 'resolved': return 'bg-green-100 text-green-800';
@@ -253,6 +274,7 @@ const DepotEngineerDashboard = () => {
       fetchBuses();
       fetchPendingReports();
       fetchServiceScheduleStats();
+      fetchEmergencyReports();
     }
   }, [token, context?.user?.role]);
 
@@ -444,10 +466,10 @@ const DepotEngineerDashboard = () => {
           </div>
 
           {/* Emergency Reports Section */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 flex-1">
-            <div className="p-4 border-b border-gray-200 flex justify-between items-center">
-              <h3 className="text-lg font-semibold text-gray-700">Emergency Reports</h3>
-              <span className="bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full">
+          <div className="bg-white rounded-xl shadow-sm border border-red-100 flex-1">
+            <div className="p-4 border-b border-red-200 flex justify-between items-center bg-red-50">
+              <h3 className="text-lg font-semibold text-red-700">Emergency Reports</h3>
+              <span className="bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full font-medium">
                 {stats.EmergencyReports} active
               </span>
             </div>
@@ -455,31 +477,28 @@ const DepotEngineerDashboard = () => {
               {emergencyReports.map((report) => (
                 <div 
                   key={report.id} 
-                  className={`flex items-center justify-between p-3 rounded-lg border ${getEmergencyColor(report.type)} hover:shadow-xs transition-shadow`}
+                  className={`flex items-center justify-between p-3 rounded-lg border-2 border-red-200 bg-red-50 hover:shadow-md transition-shadow`}
                 >
                   <div className="flex items-center gap-3 flex-grow">
-                    {getEmergencyIcon(report.type)}
+                    {getEmergencyIcon(report.incident_type)}
                     <div className="flex-grow min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium">{report.id}</span>
+                        <span className="font-semibold text-red-800">{report.incident_type}</span>
                         <span className={`text-xs px-2 py-0.5 rounded-full ${getStatusBadge(report.status)}`}>
-                          {report.status.replace('-', ' ')}
+                          {report.status}
                         </span>
                       </div>
-                      <div className="text-sm text-gray-600 mt-1">
-                        <span className="font-medium">Bus:</span> {report.busNumber}
-                      </div>
                       <div className="text-sm text-gray-600">
-                        <span className="font-medium">Location:</span> {report.depot}, {report.region}
+                        <span className="font-medium">Driver:</span> {report.driver_name}
                       </div>
                       <div className="text-sm font-medium mt-1 text-gray-700 truncate">
-                        {report.reason}
+                        {report.description}
                       </div>
                     </div>
                   </div>
                   <button 
                     onClick={() => navigate('/depot-engineer/DepotEscalateissues')}
-                    className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-50 transition-colors flex-shrink-0"
+                    className="text-red-600 hover:text-red-800 p-1 rounded-full hover:bg-red-100 transition-colors flex-shrink-0"
                     aria-label="View details"
                   >
                     <HiArrowRight className="w-5 h-5" />

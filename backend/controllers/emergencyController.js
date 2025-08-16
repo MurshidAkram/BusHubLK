@@ -1,5 +1,5 @@
 const Emergency = require('../models/emergencyModel');
-const pool = require('../config/db'); 
+const pool = require('../config/db');
 
 const createEmergencyReport = async (req, res) => {
   const { incidentType, description, location, driver_id } = req.body;
@@ -112,7 +112,7 @@ const addMessageToReport = async (req, res) => {
 const getReportsByDriver = async (req, res) => {
   try {
     const { driverId } = req.params;
-    
+
     // --- ADD THIS LINE ---
     console.log(`[HISTORY] Request received for driver_id: ${driverId}`);
 
@@ -132,9 +132,43 @@ const getReportsByDriver = async (req, res) => {
     res.status(500).json({ message: 'Server Error', error: error.message });
   }
 };
+
+const getReportsByStatus = async (req, res) => {
+  try {
+    const { status } = req.query;
+
+    let query = {
+      text: `SELECT er.*, d.name as driver_name, b.registration_number as vehicle_registration 
+             FROM emergency_reports er 
+             LEFT JOIN drivers d ON er.driver_id = d.id 
+             LEFT JOIN buses b ON d.bus_id = b.id 
+             ORDER BY er.created_at DESC`,
+      values: []
+    };
+
+    if (status) {
+      query.text = `SELECT er.*, d.name as driver_name, b.registration_number as vehicle_registration 
+                    FROM emergency_reports er 
+                    LEFT JOIN drivers d ON er.driver_id = d.id 
+                    LEFT JOIN buses b ON d.bus_id = b.id 
+                    WHERE er.status = $1 
+                    ORDER BY er.created_at DESC`;
+      query.values = [status];
+    }
+
+    const { rows } = await pool.query(query);
+
+    res.status(200).json(rows);
+  } catch (error) {
+    console.error('Error fetching reports by status:', error);
+    res.status(500).json({ message: 'Server Error', error: error.message });
+  }
+};
+
 module.exports = {
   createEmergencyReport,
   getReportWithMessages,
   addMessageToReport,
   getReportsByDriver,
+  getReportsByStatus,
 };
