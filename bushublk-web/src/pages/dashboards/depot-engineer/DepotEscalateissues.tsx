@@ -1,533 +1,358 @@
-import React, { useState } from 'react';
-import { Clock, AlertTriangle, CheckCircle, XCircle, MessageSquare, MapPin, User, Filter, Search, Bell, Car, FileText, Send, ArrowUp, CheckSquare } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import {
+    XCircle, MapPin, CheckCircle, ArrowUpCircle, FileText,
+    MessageSquare, Send, AlertTriangle, ShieldAlert, ChevronDown, ChevronUp, Users, User
+} from 'lucide-react';
 
-// Define the interface for an emergency report
-interface EmergencyReport {
-  id: string;
-  type: string;
-  priority: string;
-  status: string;
-  driver: string;
-  driverPhone: string;
-  vehicle: string;
-  location: string;
-  description: string;
-  timestamp: string;
-  assignedTo: string;
-  estimatedResolution: string;
-  updates: number;
-  coordinates: { lat: number; lng: number };
-  escalatedToDepotManager: boolean;
-  escalationReason?: string;
-  chatHistory: { sender: string; message: string; time: string }[];
+const API_BASE_URL = 'http://localhost:5000/api';
+
+// --- INTERFACES --- //
+interface ChatMessage {
+    id: number;
+    sender_type: 'driver' | 'depot' | 'manager';
+    text: string;
+    created_at: string;
 }
 
-const DepotEscalateIssues = () => {
-  const [selectedIssue, setSelectedIssue] = useState<EmergencyReport | null>(null);
-  const [filterType, setFilterType] = useState('all');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [showChat, setShowChat] = useState(false);
-  const [chatMessage, setChatMessage] = useState('');
-  const [showPopup, setShowPopup] = useState(false);
-  const [showEscalateModal, setShowEscalateModal] = useState(false);
-  const [escalationReason, setEscalationReason] = useState('');
-  const [emergencyReports, setEmergencyReports] = useState<EmergencyReport[]>([
-    {
-      id: '17',
-      type: 'Fire',
-      priority: 'Critical',
-      status: 'In Progress',
-      driver: 'Rajesh ',
-      driverPhone: '+94-77-123-4567',
-      vehicle: 'NC-1234',
-      location: 'Near Colombo Central Station',
-      description: 'Small fire detected in engine compartment, passengers evacuated safely',
-      timestamp: '2025-07-19 09:15:00',
-      assignedTo: 'Depot engineer',
-      estimatedResolution: '2025-07-19 12:00:00',
-      updates: 3,
-      coordinates: { lat: 6.9271, lng: 79.8612 },
-      escalatedToDepotManager: false,
-      chatHistory: [
-        { sender: 'driver', message: 'Engine compartment showing smoke, passengers evacuated', time: '09:15' },
-        { sender: 'engineer', message: 'Fire team dispatched. Are you at safe distance?', time: '09:17' },
-      ],
-    },
-    {
-      id: '23',
-      type: 'Medical',
-      priority: 'High',
-      status: 'Resolved',
-      driver: 'Sankar',
-      driverPhone: '+94-77-234-5678',
-      vehicle: 'NY-3456',
-      location: 'Galle Road Junction',
-      description: 'Passenger medical emergency, ambulance requested',
-      timestamp: '2025-07-19 08:30:00',
-      assignedTo: 'Depot engineer',
-      estimatedResolution: '2025-07-19 09:00:00',
-      updates: 5,
-      coordinates: { lat: 6.8649, lng: 79.8997 },
-      escalatedToDepotManager: false,
-      chatHistory: [
-        { sender: 'driver', message: 'Passenger collapsed, need ambulance urgently', time: '08:30' },
-        { sender: 'engineer', message: 'Ambulance dispatched. Is passenger conscious?', time: '08:32' },
-      ],
-    },
-  ]);
+interface EmergencyReport {
+    id: number;
+    incident_type: string;
+    status: 'New' | 'In Progress' | 'Pending' | 'Resolved' | 'Escalated to Depot Manager';
+    driver_name: string;
+    vehicle_registration: string;
+    created_at: string;
+    description?: string;
+    latitude?: number;
+    longitude?: number;
+    messages?: ChatMessage[]; 
+    managerMessages?: ChatMessage[];
+}
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Critical': return 'text-red-600 bg-red-100';
-      case 'High': return 'text-orange-600 bg-orange-100';
-      case 'Medium': return 'text-yellow-600 bg-yellow-100';
-      case 'Low': return 'text-green-600 bg-green-100';
-      case 'Resolved': return 'text-green-600 bg-green-100';
-      case 'In Progress': return 'text-blue-600 bg-blue-100';
-      case 'Pending': return 'text-gray-600 bg-gray-100';
-      case 'Escalated to Depot Manager': return 'text-purple-600 bg-purple-100';
-      default: return 'text-gray-600 bg-gray-100';
-    }
-  };
+// --- SUB-COMPONENTS --- //
+interface ChatBoxProps {
+    reportId: number;
+    messages: ChatMessage[] | undefined;
+    onMessageSent: (reportId: number, chatType: 'driver' | 'manager') => void;
+    chatType: 'driver' | 'manager';
+    currentUserType: 'depot';
+}
 
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'Fire': return <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center text-white text-sm">🔥</div>;
-      case 'Medical': return <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm">⚕️</div>;
-      case 'Breakdown': return <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center text-white text-sm">⚙️</div>;
-      case 'Accident': return <div className="w-8 h-8 bg-red-600 rounded-full flex items-center justify-center text-white text-sm">⚠️</div>;
-      case 'Passenger': return <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white text-sm">👥</div>;
-      case 'Other': return <div className="w-8 h-8 bg-gray-500 rounded-full flex items-center justify-center text-white text-sm">👥</div>;
-      default: return <div className="w-8 h-8 bg-gray-500 rounded-full flex items-center justify-center text-white text-sm">❓</div>;
-    }
-  };
+const ChatBox: React.FC<ChatBoxProps> = ({ reportId, messages, onMessageSent, chatType }) => {
+    const [newMessage, setNewMessage] = useState('');
+    const chatEndRef = useRef<HTMLDivElement>(null);
 
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'Fire': return 'text-red-600 bg-red-100';
-      case 'Medical': return 'text-blue-600 bg-blue-100';
-      case 'Breakdown': return 'text-orange-600 bg-orange-100';
-      case 'Accident': return 'text-red-600 bg-red-100';
-      case 'Passenger': return 'text-purple-600 bg-purple-100';
-      case 'Other': return 'text-gray-600 bg-purple-100';
-      default: return 'text-gray-600 bg-gray-100';
-    }
-  };
+    useEffect(() => {
+        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messages]);
 
-  const filteredReports = emergencyReports.filter((report: EmergencyReport) => {
-    const matchesSearch = report.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         report.driver.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         report.vehicle.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         report.location.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    return filterType === 'all' ? matchesSearch : matchesSearch && report.type === filterType;
-  });
+    const handleSendMessage = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newMessage.trim()) return;
 
-  const stats = {
-    total: emergencyReports.length,
-    critical: emergencyReports.filter((r: EmergencyReport) => r.priority === 'Critical').length,
-    inProgress: emergencyReports.filter((r: EmergencyReport) => r.status === 'In Progress').length,
-    resolved: emergencyReports.filter((r: EmergencyReport) => r.status === 'Resolved').length,
-    pending: emergencyReports.filter((r: EmergencyReport) => r.status === 'Pending').length,
-    escalated: emergencyReports.filter((r: EmergencyReport) => r.escalatedToDepotManager).length,
-  };
+        const endpoint = chatType === 'driver'
+            ? `${API_BASE_URL}/depot/emergency/${reportId}/messages`
+            : `${API_BASE_URL}/depot/emergency/${reportId}/manager-chat`;
 
-  const sendMessage = () => {
-    if (chatMessage.trim() && selectedIssue) {
-      const currentTime = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
-      const updatedReports = emergencyReports.map((report: EmergencyReport) =>
-        report.id === selectedIssue.id
-          ? { ...report, chatHistory: [...report.chatHistory, { sender: 'engineer', message: chatMessage, time: currentTime }] }
-          : report
-      );
-      setEmergencyReports(updatedReports);
-      setSelectedIssue({
-        ...selectedIssue,
-        chatHistory: [...selectedIssue.chatHistory, { sender: 'engineer', message: chatMessage, time: currentTime }],
-      });
-      setChatMessage('');
-    }
-  };
-
-  const escalateToDepotManager = () => {
-    if (escalationReason.trim() && selectedIssue) {
-      const updatedReports = emergencyReports.map((report: EmergencyReport) =>
-        report.id === selectedIssue.id
-          ? {
-              ...report,
-              status: 'Escalated to Depot Manager',
-              escalatedToDepotManager: true,
-              escalationReason,
-              assignedTo: 'Depot Manager',
+        try {
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: newMessage, sender: 'depot' }),
+            });
+            if (response.ok) {
+                setNewMessage('');
+                onMessageSent(reportId, chatType);
+            } else {
+                console.error('Failed to send message');
             }
-          : report
-      );
-      setEmergencyReports(updatedReports);
-      setSelectedIssue({
-        ...selectedIssue,
-        status: 'Escalated to Depot Manager',
-        escalatedToDepotManager: true,
-        escalationReason,
-        assignedTo: 'Depot Manager',
-      });
-      setShowEscalateModal(false);
-      setEscalationReason('');
-    }
-  };
+        } catch (error) {
+            console.error('Error sending message:', error);
+        }
+    };
 
-  const resolveIssue = () => {
-    if (selectedIssue) {
-      const updatedReports = emergencyReports.map((report: EmergencyReport) =>
-        report.id === selectedIssue.id ? { ...report, status: 'Resolved' } : report
-      );
-      setEmergencyReports(updatedReports);
-      setSelectedIssue({ ...selectedIssue, status: 'Resolved' });
-      setShowPopup(false);
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-
-      {/* Stats Cards */}
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
-          <div className="bg-white rounded-lg shadow-sm p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total Reports</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
-              </div>
-              <FileText className="w-8 h-8 text-gray-400" />
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">In Progress</p>
-                <p className="text-2xl font-bold text-blue-600">{stats.inProgress}</p>
-              </div>
-              <Clock className="w-8 h-8 text-blue-400" />
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Resolved</p>
-                <p className="text-2xl font-bold text-green-600">{stats.resolved}</p>
-              </div>
-              <CheckCircle className="w-8 h-8 text-green-400" />
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Pending</p>
-                <p className="text-2xl font-bold text-gray-600">{stats.pending}</p>
-              </div>
-              <XCircle className="w-8 h-8 text-gray-400" />
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Escalated</p>
-                <p className="text-2xl font-bold text-purple-600">{stats.escalated}</p>
-              </div>
-              <ArrowUp className="w-8 h-8 text-purple-400" />
-            </div>
-          </div>
-        </div>
-
-        {/* Filters and Search */}
-        <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
-            <div className="flex items-center space-x-4">
-              <div className="relative">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search reports..."
-                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-              <select
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={filterType}
-                onChange={(e) => setFilterType(e.target.value)}
-              >
-                <option value="all">All Types</option>
-                <option value="Fire">Fire</option>
-                <option value="Medical">Medical</option>
-                <option value="Breakdown">Breakdown</option>
-                <option value="Accident">Accident</option>
-                <option value="Passenger">Passenger</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Filter className="w-4 h-4 text-gray-400" />
-              <span className="text-sm text-gray-600">Showing {filteredReports.length} of {emergencyReports.length} reports</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Reports List with Increased Width */}
-        <div className="max-w-7xl mx-auto">
-          <div className="bg-white rounded-lg shadow-sm">
-            <div className="p-4 border-b">
-              <h2 className="text-lg font-semibold text-gray-900">Emergency Reports</h2>
-            </div>
-            <div className="divide-y">
-              {filteredReports.map((report: EmergencyReport) => (
-                <div
-                  key={report.id}
-                  className="p-4 hover:bg-gray-50 transition-colors"
-                >
-                  <div className="flex items-start space-x-3">
-                    {getTypeIcon(report.type)}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center space-x-2">
-                          <h3 className="text-sm font-semibold text-gray-900">Reportid:{report.id}</h3>
-                          {report.escalatedToDepotManager && (
-                            <span className="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-600">
-                              Depot Manager
-                            </span>
-                          )}
+    return (
+        <div className="mt-4 border-t border-gray-200 pt-4">
+            <div className="space-y-4 h-48 overflow-y-auto bg-gray-50 p-2 rounded-md pr-2">
+                {messages && messages.length > 0 ? (messages.map((msg) => (
+                    <div key={msg.id} className={`flex items-start gap-3 ${msg.sender_type === 'depot' ? 'justify-end' : ''}`}>
+                        <div className={`rounded-lg p-3 max-w-xs ${msg.sender_type === 'depot' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'}`}>
+                            {msg.sender_type !== 'depot' && (<p className="text-xs font-bold capitalize text-gray-600">{msg.sender_type}</p>)}
+                            <p className="text-sm">{msg.text}</p>
+                            <p className="text-xs text-right mt-1 opacity-70">{new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(report.status)}`}>
-                            {report.status}
-                          </span>
-                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${getTypeColor(report.type)}`}>
-                            {report.type}
-                          </span>
-                          <button
-                            className="text-blue-600 hover:text-blue-800 text-sm"
-                            onClick={() => {
-                              setSelectedIssue(report);
-                              setShowPopup(true);
-                            }}
-                          >
-                            View
-                          </button>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-4 text-sm text-gray-600 mb-2">
-                        <div className="flex items-center space-x-1">
-                          <User className="w-4 h-4" />
-                          <span>{report.driver}</span>
-                        </div>
-                        <div className="flex items-center space-x-1">
-                          <Car className="w-4 h-4" />
-                          <span>{report.vehicle}</span>
-                        </div>
-                        <div className="flex items-center space-x-1">
-                          <Clock className="w-4 h-4" />
-                          <span>{new Date(report.timestamp).toLocaleTimeString()}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-1 text-sm text-gray-600 mb-2">
-                        <MapPin className="w-4 h-4" />
-                        <span>{report.location}</span>
-                      </div>
-                      <p className="text-sm text-gray-700 mb-2 line-clamp-2">{report.description}</p>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-500">Assigned to: {report.assignedTo}</span>
-                        <button
-                          className="text-green-600 hover:text-green-800 text-sm flex items-center space-x-1"
-                          onClick={() => {
-                            setSelectedIssue(report);
-                            setShowChat(!showChat);
-                          }}
-                        >
-                          <MessageSquare className="w-4 h-4" />
-                          <span>Chat</span>
-                        </button>
-                      </div>
-                      {showChat && selectedIssue && selectedIssue.id === report.id && (
-                        <div className="mt-2 p-2 bg-gray-50 rounded-lg">
-                          <div className="max-h-60 overflow-y-auto mb-2 space-y-2">
-                            {report.chatHistory.map((chat: { sender: string; message: string; time: string }, index: number) => (
-                              <div
-                                key={index}
-                                className={`p-2 rounded-lg ${chat.sender === 'engineer' ? 'bg-blue-100 text-right' : 'bg-gray-200'}`}
-                              >
-                                <p className="text-sm font-medium">{chat.sender === 'engineer' ? 'You' : chat.sender}</p>
-                                <p className="text-sm">{chat.message}</p>
-                                <p className="text-xs text-gray-500">{chat.time}</p>
-                              </div>
-                            ))}
-                          </div>
-                          <div className="flex space-x-2">
-                            <input
-                              type="text"
-                              value={chatMessage}
-                              onChange={(e) => setChatMessage(e.target.value)}
-                              placeholder="Type a message..."
-                              className="flex-1 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                            <button
-                              onClick={sendMessage}
-                              className="bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700"
-                            >
-                              <Send className="w-5 h-5" />
-                            </button>
-                          </div>
-                        </div>
-                      )}
                     </div>
-                  </div>
-                </div>
-              ))}
+                ))) : (<p className="text-center text-gray-400 text-sm py-8">No messages yet. Start the conversation!</p>)}
+                <div ref={chatEndRef} />
             </div>
-          </div>
-        </div>
-
-        {/* Popup for Issue Details with Scrollbar */}
-        {showPopup && selectedIssue && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-2xl h-[70vh] overflow-y-auto">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900">Issue Details - {selectedIssue.id}</h2>
-                <button
-                  className="text-gray-400 hover:text-gray-600"
-                  onClick={() => setShowPopup(false)}
-                >
-                  <XCircle className="w-6 h-6" />
+            <form onSubmit={handleSendMessage} className="mt-4 flex items-center gap-3">
+                <input type="text" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} placeholder="Type your response..." className="flex-1 border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+                <button type="submit" className="p-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors" aria-label="Send message">
+                    <Send className="w-5 h-5" />
                 </button>
-              </div>
-              <div className="space-y-4">
-                <div className="flex items-center space-x-3 mb-3">
-                  {getTypeIcon(selectedIssue.type)}
-                  <div>
-                    <div className="flex items-center space-x-2">
-                      <h3 className="font-semibold text-gray-900">{selectedIssue.id}</h3>
-                      {selectedIssue.escalatedToDepotManager && (
-                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-600">
-                          Escalated to Depot Manager
-                        </span>
-                      )}
+            </form>
+        </div>
+    );
+};
+
+
+// --- MAIN COMPONENT --- //
+const DepotEscalateIssues: React.FC = () => {
+    const [reports, setReports] = useState<EmergencyReport[]>([]);
+    const [stats, setStats] = useState({ total: 0, in_progress: 0, resolved: 0, pending: 0, escalated: 0 });
+    const [isLoading, setIsLoading] = useState(true);
+    const [activeChatId, setActiveChatId] = useState<number | null>(null);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filterType, setFilterType] = useState('All Types');
+
+    const fetchAllData = useCallback(async () => {
+        if (reports.length === 0) setIsLoading(true);
+        try {
+            const [reportsResponse, statsResponse] = await Promise.all([
+                fetch(`${API_BASE_URL}/depot/emergency`),
+                fetch(`${API_BASE_URL}/depot/emergency/statistics`)
+            ]);
+            const reportsResult = await reportsResponse.json();
+            if (reportsResult.success) {
+                const newReports = reportsResult.data || [];
+                setReports(prevReports => {
+                    const messageMap = new Map<number, ChatMessage[]>();
+                    const managerMessageMap = new Map<number, ChatMessage[]>();
+                    prevReports.forEach(report => {
+                        if (report.messages) messageMap.set(report.id, report.messages);
+                        if (report.managerMessages) managerMessageMap.set(report.id, report.managerMessages);
+                    });
+                    return newReports.map((newReport: EmergencyReport) => ({
+                        ...newReport,
+                        messages: messageMap.get(newReport.id),
+                        managerMessages: managerMessageMap.get(newReport.id),
+                    }));
+                });
+            }
+            const statsResult = await statsResponse.json();
+            if (statsResult.success) setStats(statsResult.data);
+        } catch (error) {
+            console.error("Failed to fetch data:", error);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [reports.length]);
+
+    useEffect(() => {
+        fetchAllData();
+        const interval = setInterval(fetchAllData, 30000);
+        return () => clearInterval(interval);
+    }, [fetchAllData]);
+
+    const handleUpdateStatus = async (id: number, status: EmergencyReport['status']) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/depot/emergency/${id}/status`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status }),
+            });
+            if (response.ok) {
+                await fetchAllData();
+            } else {
+                throw new Error('Failed to update status on the server.');
+            }
+        } catch (error) {
+            console.error("Failed to update status:", error);
+            alert("There was an error updating the status. Please try again.");
+        }
+    };
+
+    const fetchMessagesForReport = useCallback(async (reportId: number) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/depot/emergency/${reportId}/messages`);
+            const result = await response.json();
+            if (result.success) {
+                setReports(prevReports => prevReports.map(r =>
+                    r.id === reportId ? { ...r, messages: result.data } : r
+                ));
+            }
+        } catch (error) {
+            console.error(`Failed to fetch messages for report ${reportId}:`, error);
+        }
+    }, []);
+
+    const fetchManagerChatForReport = useCallback(async (reportId: number) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/depot/emergency/${reportId}/manager-chat`);
+            const result = await response.json();
+            if (result.success) {
+                setReports(prevReports => prevReports.map(r =>
+                    r.id === reportId ? { ...r, managerMessages: result.data } : r
+                ));
+            }
+        } catch (error) {
+            console.error(`Failed to fetch manager chat for report ${reportId}:`, error);
+        }
+    }, []);
+
+    const handleMessageSent = (reportId: number, chatType: 'driver' | 'manager') => {
+        if (chatType === 'driver') {
+            fetchMessagesForReport(reportId);
+        } else {
+            fetchManagerChatForReport(reportId);
+        }
+    };
+
+    const handleToggleChat = (reportId: number) => {
+        const report = reports.find(r => r.id === reportId);
+        if (!report) return;
+
+        if (activeChatId === reportId) {
+            setActiveChatId(null);
+        } else {
+            setActiveChatId(reportId);
+            if (report.status === 'Escalated to Depot Manager') {
+                if (!report.managerMessages) {
+                    fetchManagerChatForReport(reportId);
+                }
+            } else {
+                if (!report.messages) {
+                    fetchMessagesForReport(reportId);
+                }
+            }
+        }
+    };
+
+    const getStatusPill = (status: EmergencyReport['status']) => {
+        const styles = {
+            'New':'bg-blue-100 text-blue-800', 'In Progress':'bg-indigo-100 text-indigo-800',
+            'Pending': 'bg-yellow-100 text-yellow-800', 'Resolved':'bg-green-100 text-green-800',
+            'Escalated to Depot Manager':'bg-purple-100 text-purple-800'
+        };
+        return (<span className={`px-3 py-1 text-xs font-medium rounded-full ${styles[status] || 'bg-gray-100'}`}>{status}</span>);
+    };
+
+    const filteredReports = reports.filter(report => {
+        const typeMatch = filterType === 'All Types' || report.incident_type === filterType;
+        const searchMatch = !searchTerm || String(report.id).includes(searchTerm) ||
+            report.driver_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            report.vehicle_registration?.toLowerCase().includes(searchTerm.toLowerCase());
+        return typeMatch && searchMatch;
+    });
+
+    const incidentTypes = ['All Types', ...new Set(reports.map(r => r.incident_type))];
+
+    return (
+        <div className="p-6 bg-gray-50 font-sans">
+            <div className="flex justify-between items-center mb-6"><div><h1 className="text-2xl font-bold text-gray-800">Issue Tracker</h1><p className="text-gray-500">Live emergency reports from drivers</p></div></div>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+                <div className="bg-white p-4 rounded-lg shadow-sm flex items-center gap-4"><FileText className="w-8 h-8 text-gray-400"/><div><p className="text-sm text-gray-500">Total Reports</p><p className="text-2xl font-bold text-gray-800">{stats.total}</p></div></div>
+                <div className="bg-white p-4 rounded-lg shadow-sm flex items-center gap-4"><CheckCircle className="w-8 h-8 text-blue-500"/><div><p className="text-sm text-gray-500">In Progress</p><p className="text-2xl font-bold text-blue-600">{stats.in_progress}</p></div></div>
+                <div className="bg-white p-4 rounded-lg shadow-sm flex items-center gap-4"><XCircle className="w-8 h-8 text-green-500"/><div><p className="text-sm text-gray-500">Resolved</p><p className="text-2xl font-bold text-green-600">{stats.resolved}</p></div></div>
+                <div className="bg-white p-4 rounded-lg shadow-sm flex items-center gap-4"><ArrowUpCircle className="w-8 h-8 text-yellow-500"/><div><p className="text-sm text-gray-500">Pending</p><p className="text-2xl font-bold text-yellow-600">{stats.pending}</p></div></div>
+                <div className="bg-white p-4 rounded-lg shadow-sm flex items-center gap-4"><ShieldAlert className="w-8 h-8 text-purple-500"/><div><p className="text-sm text-gray-500">Escalated</p><p className="text-2xl font-bold text-purple-600">{stats.escalated}</p></div></div>
+            </div>
+            <div className="mb-6 bg-white p-4 rounded-lg shadow-sm flex items-center gap-4">
+                <input type="text" placeholder="Search by driver, vehicle, or ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="flex-grow border border-gray-300 rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"/>
+                <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="border border-gray-300 rounded-md px-4 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400">{incidentTypes.map(type => <option key={type} value={type}>{type}</option>)}</select>
+            </div>
+
+            <div className="space-y-4">
+                {isLoading ? (<div className="text-center p-10 text-gray-500">Loading reports...</div>)
+                : filteredReports.length > 0 ? (filteredReports.map((report) => (
+                    <div key={report.id} className="bg-white rounded-lg shadow-sm border border-gray-300 p-5">
+                        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-start">
+                            <div className="md:col-span-2">
+                                <div className="flex items-center gap-3">
+                                    <span className="bg-red-100 text-red-700 p-2 rounded-full"><AlertTriangle className="w-5 h-5"/></span>
+                                    <div>
+                                        <h3 className="text-lg font-bold text-gray-800">{report.incident_type}</h3>
+                                        <p className="text-sm text-gray-500">{report.driver_name} | {report.vehicle_registration}</p>
+                                    </div>
+                                </div>
+                                <p className="text-sm text-gray-700 mt-3 bg-gray-50 p-3 rounded-md">{report.description}</p>
+                            </div>
+                            <div className="text-sm">
+                               <p className="font-semibold text-gray-500 mb-1">Status</p>
+                                {getStatusPill(report.status)}
+                                <p className="font-semibold text-gray-500 mt-3 mb-1">Reported At</p>
+                                <p className="text-gray-700">{new Date(report.created_at).toLocaleString()}</p>
+                            </div>
+                            <div className="text-sm">
+                                <p className="font-semibold text-gray-500 mb-1">Location</p>
+                                <a href={`https://www.google.com/maps?q=${report.latitude},${report.longitude}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-blue-600 hover:underline">
+                                    <MapPin className="w-4 h-4" />
+                                    <span>View on Map</span>
+                                </a>
+                            </div>
+                            <div className="md:col-span-1 space-y-2 flex flex-col items-stretch">
+                                <select 
+                                    value={report.status}
+                                    onChange={(e) => handleUpdateStatus(report.id, e.target.value as EmergencyReport['status'])}
+                                    className="w-full border border-gray-300 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    disabled={report.status === 'Escalated to Depot Manager'}
+                                >
+                                    <option value="In Progress">In Progress</option>
+                                    <option value="Pending">Pending</option>
+                                    <option value="Resolved">Resolved</option>
+                                </select>
+                                <button
+                                    onClick={() => handleUpdateStatus(report.id, 'Escalated to Depot Manager')}
+                                    className={`flex items-center justify-center gap-2 px-3 py-2 bg-red-600 text-white font-semibold rounded-lg transition-colors text-sm ${report.status !== 'Escalated to Depot Manager' ? 'hover:bg-red-700' : 'opacity-50 cursor-not-allowed'}`}
+                                    disabled={report.status === 'Escalated to Depot Manager'} >
+                                    <ShieldAlert size={16} /> Escalate
+                                </button>
+                                
+                                {/* --- THIS IS THE MODIFIED BUTTON --- */}
+                                <button 
+                                    onClick={() => handleToggleChat(report.id)} 
+                                    className={`flex items-center justify-center gap-2 px-3 py-2 text-white font-semibold rounded-lg transition-colors text-sm ${
+                                        report.status === 'Escalated to Depot Manager' 
+                                        ? 'bg-blue-600 hover:bg-blue-700' 
+                                        : 'bg-blue-600 hover:bg-blue-700'
+                                    }`}
+                                >
+                                    <MessageSquare size={16} /> 
+                                    {report.status === 'Escalated to Depot Manager' ? 'Chat with Manager' : 'Chat with Driver'}
+                                    {activeChatId === report.id ? <ChevronUp size={16} /> : <ChevronDown size={16}/>}
+                                </button>
+                            </div>
+                        </div>
+                        
+                        {activeChatId === report.id && (
+                            <div className="mt-4 pt-4 border-t">
+                                {report.status === 'Escalated to Depot Manager' ? (
+                                    <>
+                                        <div className="flex items-center gap-2 text-blue-700 mb-2">
+                                            <Users size={18} />
+                                            <h4 className="font-semibold">Internal Manager Chat</h4>
+                                        </div>
+                                        <ChatBox
+                                            reportId={report.id}
+                                            messages={report.managerMessages}
+                                            onMessageSent={handleMessageSent}
+                                            chatType="manager"
+                                            currentUserType="depot"
+                                        />
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className="flex items-center gap-2 text-blue-700 mb-2">
+                                            <User size={18} />
+                                            <h4 className="font-semibold">Driver Chat</h4>
+                                        </div>
+                                        <ChatBox
+                                            reportId={report.id}
+                                            messages={report.messages}
+                                            onMessageSent={handleMessageSent}
+                                            chatType="driver"
+                                            currentUserType="depot"
+                                        />
+                                    </>
+                                )}
+                            </div>
+                        )}
                     </div>
-                    <p className="text-sm text-gray-600">{selectedIssue.type} Emergency</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wide">Priority</p>
-                    <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(selectedIssue.priority)}`}>
-                      {selectedIssue.priority}
-                    </span>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wide">Status</p>
-                    <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(selectedIssue.status)}`}>
-                      {selectedIssue.status}
-                    </span>
-                  </div>
-                </div>
-
-                <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Description</p>
-                  <p className="text-sm text-gray-700">{selectedIssue.description}</p>
-                </div>
-
-                {selectedIssue.escalatedToDepotManager && selectedIssue.escalationReason && (
-                  <div className="bg-purple-50 p-3 rounded-lg">
-                    <p className="text-xs text-purple-600 uppercase tracking-wide mb-1">Escalation Reason</p>
-                    <p className="text-sm text-purple-800">{selectedIssue.escalationReason}</p>
-                  </div>
+                ))) : (
+                    <div className="text-center p-10 bg-white rounded-lg shadow-sm"><h3 className="text-lg font-semibold text-gray-700">No Reports Found</h3><p className="text-gray-500">There are no reports matching your current filters.</p></div>
                 )}
-
-                <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">Details</p>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">Driver:</span>
-                      <span className="font-medium">{selectedIssue.driver}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">Vehicle:</span>
-                      <span className="font-medium">{selectedIssue.vehicle}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">Location:</span>
-                      <span className="font-medium">{selectedIssue.location}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">Reported:</span>
-                      <span className="font-medium">{new Date(selectedIssue.timestamp).toLocaleString()}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">Assigned to:</span>
-                      <span className="font-medium">{selectedIssue.assignedTo}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="border-t pt-4">
-                  {selectedIssue.status !== 'Resolved' && selectedIssue.status !== 'Escalated to Depot Manager' && (
-                    <div className="flex space-x-2">
-                      <button
-                        className="flex-1 bg-green-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-600 transition-colors flex items-center justify-center space-x-1"
-                        onClick={resolveIssue}
-                      >
-                        <CheckSquare className="w-4 h-4" />
-                        <span>Resolve</span>
-                      </button>
-                      <button
-                        className="flex-1 bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple-700 transition-colors flex items-center justify-center space-x-1"
-                        onClick={() => setShowEscalateModal(true)}
-                      >
-                        <ArrowUp className="w-4 h-4" />
-                        <span>Escalate to Depot manager</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
             </div>
-          </div>
-        )}
-
-        {/* Escalate Modal */}
-        {showEscalateModal && selectedIssue && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Escalate to Depot Manager</h3>
-              <p className="text-sm text-gray-600 mb-4">Provide a reason for escalation:</p>
-              <textarea
-                value={escalationReason}
-                onChange={(e) => setEscalationReason(e.target.value)}
-                placeholder="e.g., Major component failure requiring manager approval..."
-                className="w-full p-2 border border-gray-300 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                rows={4}
-              />
-              <div className="flex justify-end space-x-4">
-                <button
-                  onClick={() => setShowEscalateModal(false)}
-                  className="bg-gray-300 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-400"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={escalateToDepotManager}
-                  className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700"
-                >
-                  Confirm Escalation
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
+        </div>
+    );
 };
 
 export default DepotEscalateIssues;
