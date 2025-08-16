@@ -201,6 +201,14 @@ try {
   console.log('❌ depotEngineerRoutes error:', error.message);
 }
 
+try {
+  const inspectionRoutes = require('./routes/inspectionRoutes');
+  app.use('/api/inspections', inspectionRoutes);
+  console.log('✅ inspectionRoutes loaded');
+} catch (error) {
+  console.log('❌ inspectionRoutes error:', error.message);
+}
+
 
 app.get('/resetPassword.js', (req, res) => {
   res.setHeader('Content-Type', 'application/javascript');
