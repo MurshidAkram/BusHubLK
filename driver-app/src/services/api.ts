@@ -566,4 +566,55 @@ export const conditionReportAPI = {
     const result = await response.json();
     return result.data || result;
   },
+  // Add this new function inside your driverAPI object
+// Inside the driverAPI object
+getEmergencyHistory: async (driverId: string) => {
+  const token = await storageAPI.getAuthToken();
+  
+  // --- ADD THIS LINE FOR DEBUGGING ---
+  const requestUrl = `${API_BASE_URL}/emergency/driver/${driverId}`;
+  console.log("Attempting to fetch history from URL:", requestUrl);
+
+  const response = await fetch(requestUrl, { // Use the variable here
+      method: "GET",
+      headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+      },
+  });
+  if (!response.ok) {
+      throw new Error('Failed to fetch emergency history');
+  }
+  return response.json();
+},
+
+
+// Gets a report and all its associated messages
+getReportAndMessages: async (reportId: string) => {
+    const token = await storageAPI.getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/emergency/${reportId}`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) throw new Error('Failed to fetch chat history');
+    return response.json();
+},
+
+// Sends a new message from the driver
+sendMessage: async (reportId: string, text: string) => {
+    const token = await storageAPI.getAuthToken();
+    const messageData = {
+        text: text,
+        sender: 'driver' // Explicitly set the sender
+    };
+    const response = await fetch(`${API_BASE_URL}/emergency/${reportId}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(messageData)
+    });
+    if (!response.ok) throw new Error('Failed to send message');
+    return response.json();
+},
+
+
 };
