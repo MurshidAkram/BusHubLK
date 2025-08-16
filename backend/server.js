@@ -236,6 +236,14 @@ try {
   console.log('❌ depotEngineerRoutes error:', error.message);
 }
 
+
+try {
+  const inspectionRoutes = require('./routes/inspectionRoutes');
+  app.use('/api/inspections', inspectionRoutes);
+  console.log('✅ inspectionRoutes loaded');
+} catch (error) {
+  console.log('❌ inspectionRoutes error:', error.message);
+
 // Service Schedule Routes
 try {
   const serviceScheduleRoutes = require('./routes/serviceScheduleRoutes');
@@ -243,6 +251,7 @@ try {
   console.log('✅ serviceScheduleRoutes loaded');
 } catch (error) {
   console.log('❌ serviceScheduleRoutes error:', error.message);
+
 }
 
 
