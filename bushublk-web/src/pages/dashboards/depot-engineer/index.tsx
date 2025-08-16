@@ -3,6 +3,7 @@ import {
   HiCog, 
   HiExclamationCircle, 
   HiTruck, 
+  HiCheckCircle,
   HiClock,
   HiEye,
   HiArrowRight,
@@ -24,15 +25,14 @@ interface PendingReport {
 }
 
 interface EmergencyReport {
-  id: number;
-  incident_type: string;
-  status: 'New' | 'In Progress' | 'Pending' | 'Resolved' | 'Escalated to Depot Manager';
-  driver_name: string;
-  vehicle_registration: string;
-  created_at: string;
-  description?: string;
-  latitude?: number;
-  longitude?: number;
+  id: string;
+  depotid: string;
+  busNumber: string;
+  type: 'fire' | 'medical' | 'mechanical';
+  reason: string;
+  status: 'pending' | 'resolved' | 'in-progress';
+  region: string;
+  depot: string;
 }
 
 interface Bus {
@@ -63,26 +63,14 @@ interface BusResponse {
   depot: DepotInfo;
 }
 
-interface AppContextType {
-  user: { 
-    role: string; 
-    userId: string; 
-    depot_id?: string; 
-    region_id?: string;
-    name?: string;
-    email?: string;
-  } | null;
-  token: string | null;
-}
-
 const DepotEngineerDashboard = () => {
-  const context = useContext(AppContext) as AppContextType | null;
+  const context = useContext(AppContext);
   const navigate = useNavigate();
   const [stats, setStats] = useState({
     totalBuses: 0,
-    pendingSchedules: 0,
-    overdueSchedules: 0,
-    EmergencyReports: 0,
+    activeBuses: 0,
+    underMaintenance: 0,
+    EmergencyReports: 2,
     criticalIssues: 2,
     busesOverdueService: 4,
     busesOperational: 18,
@@ -97,58 +85,32 @@ const DepotEngineerDashboard = () => {
 
   const token = context?.token;
 
-  const fetchEmergencyReports = async () => {
-    try {
-      const response = await fetch('http://localhost:5000/api/depot/emergency', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (!response.ok) {
-        throw new Error('Failed to fetch emergency reports');
-      }
-      const data = await response.json();
-      
-      if (data.success) {
-        // Filter for only pending status reports
-        const pendingReports = (data.data || []).filter((report: EmergencyReport) => 
-          report.status === 'Pending'
-        );
-        setEmergencyReports(pendingReports);
-        
-        // Update stats with emergency reports count
-        setStats(prevStats => ({
-          ...prevStats,
-          EmergencyReports: pendingReports.length
-        }));
-      }
-    } catch (error) {
-      console.error('Error fetching emergency reports:', error);
-    }
-  };
+  // Debug authentication
+  useEffect(() => {
+    console.log('🔐 Authentication Debug:');
+    console.log('- Token exists:', !!token);
+    console.log('- User role:', context?.user?.role);
+    console.log('- User object:', context?.user);
+    console.log('- Depot ID:', context?.user?.depot_id);
+  }, [token, context?.user]);
 
-  const getEmergencyColor = (incident_type: EmergencyReport['incident_type']) => {
-    switch (incident_type) {
-      case 'Accident': return 'bg-red-50 border-red-200';
-      case 'Breakdown': return 'bg-yellow-50 border-yellow-200';
-      case 'Medical Emergency': return 'bg-blue-50 border-blue-200';
-      case 'Security Issue': return 'bg-purple-50 border-purple-200';
+  // Remove the hardcoded emergency reports array - we'll fetch from API
+
+  const getEmergencyColor = (type: EmergencyReport['type']) => {
+    switch (type) {
+      case 'fire': return 'bg-red-50 border-red-200';
+      case 'medical': return 'bg-blue-50 border-blue-200';
+      case 'mechanical': return 'bg-orange-50 border-orange-200';
       default: return 'bg-gray-50 border-gray-200';
     }
   };
 
-  const getEmergencyIcon = (incident_type: EmergencyReport['incident_type']) => {
-    switch (incident_type) {
-      case 'Accident': 
-        return <HiFire className="w-5 h-5 text-red-600" />;
-      case 'Breakdown': 
-        return <HiCog className="w-5 h-5 text-yellow-600" />;
-      case 'Medical Emergency': 
-        return <HiHeart className="w-5 h-5 text-blue-600" />;
-      case 'Security Issue': 
-        return <HiExclamationCircle className="w-5 h-5 text-purple-600" />;
-      default: 
-        return <HiExclamationCircle className="w-5 h-5 text-gray-600" />;
+  const getEmergencyIcon = (type: EmergencyReport['type']) => {
+    switch (type) {
+      case 'fire': return <HiFire className="w-5 h-5 text-red-600" />;
+      case 'medical': return <HiHeart className="w-5 h-5 text-blue-600" />;
+      case 'mechanical': return <HiCog className="w-5 h-5 text-orange-600" />;
+      default: return <HiExclamationCircle className="w-5 h-5 text-gray-600" />;
     }
   };
 
@@ -157,11 +119,6 @@ const DepotEngineerDashboard = () => {
       case 'Active': return 'bg-green-100 text-green-800';
       case 'Maintenance': return 'bg-yellow-100 text-yellow-800';
       case 'Pending Review': return 'bg-blue-100 text-blue-800';
-      case 'New': return 'bg-blue-100 text-blue-800';
-      case 'In Progress': return 'bg-yellow-100 text-yellow-800';
-      case 'Pending': return 'bg-orange-100 text-orange-800';
-      case 'Resolved': return 'bg-green-100 text-green-800';
-      case 'Escalated to Depot Manager': return 'bg-red-100 text-red-800';
       case 'pending': return 'bg-yellow-100 text-yellow-800';
       case 'in-progress': return 'bg-blue-100 text-blue-800';
       case 'resolved': return 'bg-green-100 text-green-800';
@@ -184,7 +141,9 @@ const DepotEngineerDashboard = () => {
         setDepotInfo(response.data.depot);
         setStats(prevStats => ({
           ...prevStats,
-          totalBuses: buses.length
+          totalBuses: buses.length,
+          activeBuses: buses.filter(bus => bus.status === 'Active').length,
+          underMaintenance: buses.filter(bus => bus.status === 'Maintenance').length
         }));
       } else {
         setError('Failed to fetch buses.');
@@ -202,55 +161,185 @@ const DepotEngineerDashboard = () => {
     }
   };
 
-  const fetchServiceScheduleStats = async () => {
-    try {
-      const apiUrl = `http://localhost:5000/api/depot-engineer/service-schedules/stats`;
-      const response = await axios.get(apiUrl, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (response.data.success) {
-        const scheduleStats = response.data.stats;
-        setStats(prevStats => ({
-          ...prevStats,
-          pendingSchedules: parseInt(scheduleStats.pending_count) || 0,
-          overdueSchedules: (parseInt(scheduleStats.overdue_count) || 0) + (parseInt(scheduleStats.critical_overdue_count) || 0)
-        }));
-      } else {
-        console.error('Failed to fetch service schedule stats:', response.data.message);
-      }
-    } catch (err) {
-      const axiosError = err as AxiosError;
-      console.error('Error fetching service schedule stats:', axiosError);
-    }
-  };
-
   const fetchPendingReports = async () => {
     try {
-      const apiUrl = `http://localhost:5000/api/depot-engineer/condition-reports/pending`;
+      // Try the correct API endpoint for depot engineers
+      const apiUrl = `http://localhost:5000/api/bus-condition-reports/pending`;
+      console.log('🔍 Fetching pending reports from:', apiUrl);
+      console.log('🔑 Using token:', token ? 'Token available' : 'No token');
+      
       const response = await axios.get(apiUrl, {
         headers: {
-          Authorization: `Bearer ${token}`,
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         },
       });
 
+      console.log('📊 Pending reports response:', response.data);
+
       if (response.data.success) {
-        setPendingReports(response.data.reports);
+        const reports = response.data.data || response.data.reports || [];
+        setPendingReports(reports);
         // Update stats with pending reports count
         setStats(prevStats => ({
           ...prevStats,
-          criticalIssues: response.data.reports.filter((r: PendingReport) => 
+          criticalIssues: reports.filter((r: PendingReport) => 
             r.condition_status === 'Major Issues' || r.condition_status === 'Out of Service'
           ).length,
         }));
+        console.log('✅ Pending reports loaded successfully:', reports.length);
       } else {
-        console.error('Failed to fetch pending reports:', response.data.message);
+        console.error('❌ Failed to fetch pending reports:', response.data.message);
       }
     } catch (err) {
       const axiosError = err as AxiosError;
-      console.error('Error fetching pending reports:', axiosError);
+      console.error('❌ Error fetching pending reports:', axiosError);
+      if (axiosError.response) {
+        console.error('Response status:', axiosError.response.status);
+        console.error('Response data:', axiosError.response.data);
+        console.error('Response headers:', axiosError.response.headers);
+      }
+      
+      // Try alternative endpoint if the first one fails
+      if (axiosError.response?.status === 403 || axiosError.response?.status === 404) {
+        console.log('🔄 Trying alternative endpoint...');
+        try {
+          const altApiUrl = `http://localhost:5000/api/depot-engineer/condition-reports/pending`;
+          const altResponse = await axios.get(altApiUrl, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+          });
+          
+          if (altResponse.data.success) {
+            const reports = altResponse.data.data || altResponse.data.reports || [];
+            setPendingReports(reports);
+            setStats(prevStats => ({
+              ...prevStats,
+              criticalIssues: reports.filter((r: PendingReport) => 
+                r.condition_status === 'Major Issues' || r.condition_status === 'Out of Service'
+              ).length,
+            }));
+            console.log('✅ Pending reports loaded from alternative endpoint:', reports.length);
+          }
+        } catch (altErr) {
+          console.error('❌ Alternative endpoint also failed:', altErr);
+        }
+      }
+    }
+  };
+
+  const fetchEmergencyReports = async () => {
+    try {
+      // Use the depot emergency endpoint to get all reports, then filter for pending
+      const apiUrl = `http://localhost:5000/api/depot/emergency`;
+      console.log('🔍 Fetching emergency reports from:', apiUrl);
+      console.log('🔑 Using token:', token ? 'Token available' : 'No token');
+      
+      const response = await axios.get(apiUrl, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log('📊 Emergency reports response:', response.data);
+
+      if (response.data.success) {
+        const allReports = response.data.data || [];
+        
+        // Log detailed information about the reports structure
+        console.log('📋 All emergency reports count:', allReports.length);
+        if (allReports.length > 0) {
+          console.log('📄 Sample report structure:', allReports[0]);
+          console.log('📋 All available status values:', [...new Set(allReports.map((r: any) => r.status))]);
+          console.log('📋 All reports with their status:', allReports.map((r: any) => ({ id: r.id, status: r.status, incident_type: r.incident_type })));
+        }
+        
+        // Filter for pending status reports only - only show reports with "Pending" status
+        const pendingReports = allReports.filter((report: any) => {
+          // Only include reports with exactly "Pending" status
+          const status = report.status?.toString();
+          return status === 'Pending';
+        });
+        
+        console.log('🔍 Filtered pending reports:', pendingReports.length, pendingReports);
+        
+        const mappedReports: EmergencyReport[] = pendingReports.map((report: any) => ({
+          id: report.id.toString(),
+          depotid: report.depot_id?.toString() || '',
+          busNumber: report.vehicle_registration || report.registration_number || `Bus-${report.bus_id}`,
+          type: report.incident_type || 'mechanical', // This comes from emergency_reports.incident_type
+          reason: report.description || 'No description provided', // This comes from emergency_reports.description
+          status: 'pending', // We're filtering for pending status only
+          region: report.region_name || 'Unknown Region',
+          depot: report.depot_name || 'Unknown Depot'
+        }));
+        
+        setEmergencyReports(mappedReports);
+        
+        // Update stats with real count
+        setStats(prevStats => ({
+          ...prevStats,
+          EmergencyReports: mappedReports.length
+        }));
+        
+        console.log('✅ Emergency reports fetched successfully:', mappedReports.length, 'pending reports out of', allReports.length, 'total');
+      } else {
+        console.error('❌ Failed to fetch emergency reports:', response.data.message);
+        setEmergencyReports([]); // Set empty array if fetch fails
+      }
+    } catch (err) {
+      const axiosError = err as AxiosError;
+      console.error('❌ Error fetching emergency reports:', axiosError);
+      if (axiosError.response) {
+        console.error('Response data:', axiosError.response.data);
+        console.error('Response status:', axiosError.response.status);
+      }
+      
+      // Try alternative emergency endpoint if the first one fails
+      if (axiosError.response?.status === 403 || axiosError.response?.status === 404) {
+        console.log('🔄 Trying alternative emergency endpoint...');
+        try {
+          const altApiUrl = `http://localhost:5000/api/emergency`;
+          const altResponse = await axios.get(altApiUrl, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (altResponse.data.success) {
+            const allReports = altResponse.data.data || [];
+            const pendingReports = allReports.filter((report: any) => report.status === 'pending');
+            
+            const mappedReports: EmergencyReport[] = pendingReports.map((report: any) => ({
+              id: report.id.toString(),
+              depotid: report.depot_id?.toString() || '',
+              busNumber: report.vehicle_registration || report.registration_number || `Bus-${report.bus_id}`,
+              type: report.incident_type || 'mechanical',
+              reason: report.description || 'No description provided',
+              status: 'pending',
+              region: report.region_name || 'Unknown Region',
+              depot: report.depot_name || 'Unknown Depot'
+            }));
+            
+            setEmergencyReports(mappedReports);
+            setStats(prevStats => ({
+              ...prevStats,
+              EmergencyReports: mappedReports.length
+            }));
+            
+            console.log('✅ Emergency reports loaded from alternative endpoint:', mappedReports.length);
+          }
+        } catch (altErr) {
+          console.error('❌ Alternative emergency endpoint also failed:', altErr);
+          setEmergencyReports([]);
+        }
+      } else {
+        setEmergencyReports([]); // Set empty array on error
+      }
     }
   };
 
@@ -273,7 +362,6 @@ const DepotEngineerDashboard = () => {
     if (token && context?.user?.role === 'depot_engineer') {
       fetchBuses();
       fetchPendingReports();
-      fetchServiceScheduleStats();
       fetchEmergencyReports();
     }
   }, [token, context?.user?.role]);
@@ -292,14 +380,25 @@ const DepotEngineerDashboard = () => {
   if (error) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center py-8 text-red-600">
+        <div className="text-center py-8 text-red-600 max-w-md">
           <HiExclamationCircle className="w-12 h-12 mx-auto mb-4" />
-          <p className="text-xl font-medium">Error: {error}</p>
+          <p className="text-xl font-medium mb-2">Error Loading Dashboard</p>
+          <p className="text-sm text-gray-600 mb-4">{error}</p>
+          {error.includes('403') && (
+            <p className="text-sm text-yellow-600 mb-4">
+              ⚠️ This might be an authentication issue. Please try logging out and logging back in.
+            </p>
+          )}
           <button 
-            onClick={fetchBuses}
+            onClick={() => {
+              setError(null);
+              fetchBuses();
+              fetchPendingReports();
+              fetchEmergencyReports();
+            }}
             className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
-            Retry
+            Retry Loading
           </button>
         </div>
       </div>
@@ -361,30 +460,30 @@ const DepotEngineerDashboard = () => {
             </div>
           </div>
 
-          {/* Pending Schedules Card */}
+          {/* Active Buses Card */}
           <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-500 text-sm mb-1">Pending Schedules</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.pendingSchedules}</p>
+                <p className="text-gray-500 text-sm mb-1">Active Buses</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.activeBuses}</p>
                 
               </div>
-              <div className="p-2 bg-yellow-50 rounded-lg">
-                <HiClock className="w-6 h-6 text-yellow-600" />
+              <div className="p-2 bg-green-50 rounded-lg">
+                <HiCheckCircle className="w-6 h-6 text-green-600" />
               </div>
             </div>
           </div>
 
-          {/* Overdue Schedules Card */}
+          {/* Maintenance Card */}
           <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-500 text-sm mb-1">Overdue Schedules</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.overdueSchedules}</p>
+                <p className="text-gray-500 text-sm mb-1">Under Maintenance</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.underMaintenance}</p>
                 
               </div>
-              <div className="p-2 bg-red-50 rounded-lg">
-                <HiExclamationCircle className="w-6 h-6 text-red-600" />
+              <div className="p-2 bg-yellow-50 rounded-lg">
+                <HiCog className="w-6 h-6 text-yellow-600" />
               </div>
             </div>
           </div>
@@ -466,45 +565,68 @@ const DepotEngineerDashboard = () => {
           </div>
 
           {/* Emergency Reports Section */}
-          <div className="bg-white rounded-xl shadow-sm border border-red-100 flex-1">
-            <div className="p-4 border-b border-red-200 flex justify-between items-center bg-red-50">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 flex-1">
+            <div className="p-4 border-b border-gray-200 flex justify-between items-center">
               <h3 className="text-lg font-semibold text-red-700">Emergency Reports</h3>
-              <span className="bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full font-medium">
-                {stats.EmergencyReports} active
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full">
+                  {stats.EmergencyReports} active
+                </span>
+                <button
+                  onClick={fetchEmergencyReports}
+                  className="text-blue-600 hover:text-blue-800 p-1"
+                  title="Refresh emergency reports"
+                >
+                  <HiCog className="w-4 h-4" />
+                </button>
+              </div>
             </div>
             <div className="p-4 space-y-3">
-              {emergencyReports.map((report) => (
+              {loading ? (
+                <div className="text-center py-4">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                  <p className="text-sm text-red-500">Loading emergency reports...</p>
+                </div>
+              ) : emergencyReports.length > 0 ? emergencyReports.map((report) => (
                 <div 
                   key={report.id} 
-                  className={`flex items-center justify-between p-3 rounded-lg border-2 border-red-200 bg-red-50 hover:shadow-md transition-shadow`}
+                  className={`flex items-center justify-between p-3 rounded-lg border ${getEmergencyColor(report.type)} hover:shadow-xs transition-shadow`}
                 >
                   <div className="flex items-center gap-3 flex-grow">
-                    {getEmergencyIcon(report.incident_type)}
+                    {getEmergencyIcon(report.type)}
                     <div className="flex-grow min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold text-red-800">{report.incident_type}</span>
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${getStatusBadge(report.status)}`}>
-                          {report.status}
+                        {/* <span className="font-medium text-gray-900">#{report.id}</span> */}
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${getStatusBadge('pending')}`}>
+                          Pending
                         </span>
                       </div>
-                      <div className="text-sm text-gray-600">
-                        <span className="font-medium">Driver:</span> {report.driver_name}
+                      <div className="text-sm text-red-600 mt-1">
+                        <span className="font-medium">Bus:</span> {report.busNumber}
                       </div>
-                      <div className="text-sm font-medium mt-1 text-gray-700 truncate">
-                        {report.description}
+                      <div className="text-sm text-red-600">
+                        <span className="font-medium">Type:</span> {report.type.charAt(0).toUpperCase() + report.type.slice(1)}
                       </div>
+                      {/* <div className="text-sm font-medium mt-1 text-gray-700 truncate">
+                        {report.reason}
+                      </div> */}
                     </div>
                   </div>
                   <button 
                     onClick={() => navigate('/depot-engineer/DepotEscalateissues')}
-                    className="text-red-600 hover:text-red-800 p-1 rounded-full hover:bg-red-100 transition-colors flex-shrink-0"
+                    className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-50 transition-colors flex-shrink-0"
                     aria-label="View details"
                   >
                     <HiArrowRight className="w-5 h-5" />
                   </button>
                 </div>
-              ))}
+              )) : (
+                <div className="text-center py-6 text-gred-500">
+                  <HiCheckCircle className="w-8 h-8 mx-auto mb-2 text-red-400" />
+                  <p>No pending emergency reports</p>
+                  <p className="text-xs mt-1">Check browser console for debugging info</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
