@@ -12,7 +12,9 @@ const PORT = process.env.PORT || 5000;
 app.use(cors({
   origin: true, // Allow all origins in development (for testing)
   credentials: true,
+
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], // <-- 'PATCH' is now included
+
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Mobile-App', 'Accept', 'Origin', 'X-Requested-With'],
   exposedHeaders: ['Content-Length', 'X-Foo', 'X-Bar']
 }));
@@ -193,6 +195,15 @@ const lostFoundRoutes = require('./routes/lostFoundRoutes');
 app.use('/api/lost-found', lostFoundRoutes);
 console.log('✅ lostFoundRoutes loaded');
 
+
+try {
+  const sparePartsRoutes = require('./routes/sparePartsRoutes');
+  app.use('/api/depot-engineer/spare-parts', sparePartsRoutes);
+  console.log('✅ sparePartsRoutes loaded');
+} catch (error) {
+  console.error('❌ Error loading sparePartsRoutes:', error.message);
+}
+
 try {
   const emergencyRoutes = require('./routes/emergencyRoutes');
   app.use('/api/emergency', emergencyRoutes);
@@ -223,6 +234,15 @@ try {
   console.log('✅ depotEngineerRoutes loaded');
 } catch (error) {
   console.log('❌ depotEngineerRoutes error:', error.message);
+}
+
+// Service Schedule Routes
+try {
+  const serviceScheduleRoutes = require('./routes/serviceScheduleRoutes');
+  app.use('/api/depot-engineer/service-schedules', serviceScheduleRoutes);
+  console.log('✅ serviceScheduleRoutes loaded');
+} catch (error) {
+  console.log('❌ serviceScheduleRoutes error:', error.message);
 }
 
 
@@ -277,6 +297,14 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log(`📧 Email service configured: ${process.env.EMAIL_SERVICE || 'smtp'}`); // Default to smtp
     console.log(`🌐 Base URL for deep links/web access: ${baseURL}`);
     console.log(`🔐 Password reset endpoint: ${baseURL}/api/password-reset`);
+
+    // Setup automatic service status updates
+    try {
+      const { setupCronJobs } = require('./utils/cronJobs');
+      setupCronJobs();
+    } catch (cronError) {
+      console.log('⚠️  Cron jobs setup skipped:', cronError.message);
+    }
   } catch (error) {
     console.log(`🚀 Server is running on http://localhost:${PORT}`);
     console.log('❌ Network utils error:', error.message);

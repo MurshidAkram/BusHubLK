@@ -1,55 +1,120 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
+import { 
+  FaCheck, 
+  FaClock, 
+  FaCalendarAlt, 
+  FaExclamationTriangle, 
+  FaExclamationCircle, 
+  FaTimes,
+  FaClipboardList,
+  FaHourglassHalf,
+  FaCheckCircle,
+  FaPlus,
+  FaChevronLeft,
+  FaChevronRight
+} from 'react-icons/fa';
+import { AppContext } from '../../../context/AppContext';
+import axios, { AxiosError } from 'axios';
 
 interface Service {
   id: number;
-  serviceType: string;
-  busId: string;
-  scheduledDate: string;
+  service_type: string;
+  bus_id: number;
+  scheduled_date: string;
+  status: string;
+  completed_date?: string;
+  cancelled_date?: string;
+  depot_id: number;
+  created_at: string;
+  updated_at: string;
+  registration_number?: string;
+  manufacturer?: string;
+  model?: string;
+  depot_name?: string;
+  calculated_status?: string;
+  is_deleted?: boolean;
+}
+
+interface Bus {
+  bus_id: number;
+  registration_number: string;
+  manufacturer: string;
+  model: string;
+  depot_id: number;
   status: string;
 }
 
 interface NewService {
-  serviceType: string;
-  busId: string;
-  scheduledDate: string;
-  status: string;
+  service_type: string;
+  bus_id: string;
+  scheduled_date: string;
+}
+
+interface Stats {
+  total_services: number;
+  pending_count: number;
+  due_today_count: number;
+  in_progress_count: number;
+  completed_count: number;
+  overdue_count: number;
+  critical_overdue_count: number;
+  cancelled_count: number;
+}
+
+interface AppContextType {
+  user: { role: string; userId: string; depot_id?: number; region_id?: number; } | null;
+  token: string | null;
 }
 
 const ServiceScheduleApp: React.FC = () => {
+  const context = useContext(AppContext) as AppContextType | null;
+  
+  // Utility function to get current Sri Lankan time
+  const getSriLankanDate = (date?: Date): Date => {
+    const baseDate = date || new Date();
+    return new Date(baseDate.getTime() + (5.5 * 60 * 60 * 1000));
+  };
+  
+  // Utility function to get Sri Lankan date string (YYYY-MM-DD)
+  const getSriLankanDateString = (date?: Date): string => {
+    return getSriLankanDate(date).toISOString().split('T')[0];
+  };
+
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [services, setServices] = useState<Service[]>([
-    {
-      id: 1,
-      serviceType: 'Oil Change',
-      busId: '23',
-      scheduledDate: '2024-07-05',
-      status: 'Pending'
-    },
-    {
-      id: 2,
-      serviceType: 'Brake Inspection',
-      busId: '17',
-      scheduledDate: '2024-07-10',
-      status: 'Pending'
-    },
-    {
-      id: 3,
-      serviceType: 'Tire Rotation',
-      busId: '21',
-      scheduledDate: '2024-07-15',
-      status: 'Completed'
-    }
-  ]);
+  const [services, setServices] = useState<Service[]>([]);
+  const [availableBuses, setAvailableBuses] = useState<Bus[]>([]);
+  const [stats, setStats] = useState<Stats>({
+    total_services: 0,
+    pending_count: 0,
+    due_today_count: 0,
+    in_progress_count: 0,
+    completed_count: 0,
+    overdue_count: 0,
+    critical_overdue_count: 0,
+    cancelled_count: 0
+  });
   const [showNewScheduleModal, setShowNewScheduleModal] = useState<boolean>(false);
   const [showEditModal, setShowEditModal] = useState<boolean>(false);
+  const [showViewModal, setShowViewModal] = useState<boolean>(false);
   const [newService, setNewService] = useState<NewService>({
-    serviceType: '',
-    busId: '',
-    scheduledDate: '',
-    status: 'Pending'
+    service_type: '',
+    bus_id: '',
+    scheduled_date: ''
   });
   const [editingService, setEditingService] = useState<Service | null>(null);
+  const [viewingService, setViewingService] = useState<Service | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const token = context?.token;
+  const user = context?.user;
+
+  // Debug: Log user context
+  useEffect(() => {
+    console.log('User context:', user);
+    console.log('Token:', token ? 'Present' : 'Missing');
+  }, [user, token]);
 
   const months = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -57,6 +122,162 @@ const ServiceScheduleApp: React.FC = () => {
   ];
 
   const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  // API Functions
+  const fetchServices = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      if (!token) {
+        setError('Authentication token is missing. Please log in.');
+        setLoading(false);
+        return;
+      }
+
+      console.log('User role:', user?.role);
+      console.log('User depot_id:', user?.depot_id);
+      console.log('Fetching services from:', 'http://localhost:5000/api/depot-engineer/service-schedules');
+
+      const response = await axios.get(
+        'http://localhost:5000/api/depot-engineer/service-schedules',
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.data.success) {
+        setServices(response.data.schedules);
+        console.log('Services fetched successfully:', response.data.schedules);
+        console.log('Service dates:', response.data.schedules.map((s: Service) => ({ id: s.id, scheduled_date: s.scheduled_date, service_type: s.service_type })));
+        
+        // Debug: Check each service date format
+        response.data.schedules.forEach((service: Service) => {
+          console.log(`🗃️ DB Service ID ${service.id}:`, {
+            service_type: service.service_type,
+            scheduled_date: service.scheduled_date,
+            date_type: typeof service.scheduled_date,
+            is_timestamp: service.scheduled_date.includes('T'),
+            split_result: service.scheduled_date.split('T')[0]
+          });
+        });
+        
+        // Log today's date for comparison
+        const today = new Date();
+        console.log('Today\'s date for comparison:', today.toISOString().split('T')[0]);
+        console.log('Current calendar month/year:', currentDate.getMonth() + 1, currentDate.getFullYear());
+      } else {
+        setError(`Failed to fetch service schedules: ${response.data.message}`);
+      }
+    } catch (err) {
+      const axiosError = err as AxiosError;
+      console.error('API Error:', axiosError);
+      if (axiosError.response) {
+        console.error('Response data:', axiosError.response.data);
+        console.error('Response status:', axiosError.response.status);
+        setError(`Failed to fetch service schedules: ${axiosError.response.status} - ${(axiosError.response.data as any)?.message || axiosError.response.statusText}`);
+      } else {
+        setError('Failed to fetch service schedules. Please try again later.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchStats = async () => {
+    try {
+      if (!token) return;
+
+      console.log('User role:', user?.role);
+      console.log('User depot_id:', user?.depot_id);
+      console.log('Fetching stats from:', 'http://localhost:5000/api/depot-engineer/service-schedules/stats');
+
+      const response = await axios.get(
+        'http://localhost:5000/api/depot-engineer/service-schedules/stats',
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.data.success) {
+        setStats({
+          total_services: parseInt(response.data.stats.total_services),
+          pending_count: parseInt(response.data.stats.pending_count),
+          due_today_count: parseInt(response.data.stats.due_today_count),
+          in_progress_count: parseInt(response.data.stats.in_progress_count),
+          completed_count: parseInt(response.data.stats.completed_count),
+          overdue_count: parseInt(response.data.stats.overdue_count),
+          critical_overdue_count: parseInt(response.data.stats.critical_overdue_count),
+          cancelled_count: parseInt(response.data.stats.cancelled_count),
+        });
+        console.log('Stats fetched successfully:', response.data.stats);
+      } else {
+        console.error('Stats API returned success: false', response.data);
+      }
+    } catch (err) {
+      const axiosError = err as AxiosError;
+      console.error('Stats API Error:', axiosError);
+      if (axiosError.response) {
+        console.error('Stats Response data:', axiosError.response.data);
+        console.error('Stats Response status:', axiosError.response.status);
+      }
+    }
+  };
+
+  const fetchAvailableBuses = async () => {
+    try {
+      if (!token) return;
+
+      console.log('User role:', user?.role);
+      console.log('User depot_id:', user?.depot_id);
+
+      // Use the direct depot-engineer buses endpoint like other working components
+      const apiUrl = 'http://localhost:5000/api/depot-engineer/buses';
+      console.log('Fetching buses from:', apiUrl);
+      
+      const response = await axios.get(
+        apiUrl,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.data.success) {
+        // Show all buses for scheduling (like other components)
+        console.log('All buses from API:', response.data.buses);
+        console.log('Total buses received:', response.data.buses.length);
+        
+        // Use all buses instead of filtering by status
+        setAvailableBuses(response.data.buses);
+        console.log('Buses fetched successfully:', response.data.buses);
+      } else {
+        console.error('API returned success: false', response.data);
+      }
+    } catch (err) {
+      const axiosError = err as AxiosError;
+      console.error('Buses API Error:', axiosError);
+      if (axiosError.response) {
+        console.error('Response data:', axiosError.response.data);
+        console.error('Response status:', axiosError.response.status);
+      }
+    }
+  };
+
+  useEffect(() => {
+    fetchServices();
+    fetchStats();
+    fetchAvailableBuses();
+  }, [token]);
+
+  // Force calendar re-render when services change
+  useEffect(() => {
+    console.log('Services updated, calendar should re-render. Service count:', services.length);
+  }, [services]);
 
   const getDaysInMonth = (date: Date): (number | null)[] => {
     const year = date.getFullYear();
@@ -80,8 +301,46 @@ const ServiceScheduleApp: React.FC = () => {
   };
 
   const getServicesForDate = (date: Date): Service[] => {
-    const dateStr = date.toISOString().split('T')[0];
-    return services.filter(service => service.scheduledDate === dateStr);
+    // Format the date in local timezone as YYYY-MM-DD to avoid UTC conversion issues
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
+    
+    const filteredServices = services.filter(service => {
+      // Handle both date formats: clean "YYYY-MM-DD" strings and "YYYY-MM-DDTHH:mm:ss.sssZ" timestamps
+      let serviceDate;
+      if (service.scheduled_date.includes('T')) {
+        // If it's a timestamp, extract date part
+        serviceDate = service.scheduled_date.split('T')[0];
+      } else {
+        // If it's already a clean date string, use as-is
+        serviceDate = service.scheduled_date;
+      }
+      return serviceDate === dateStr;
+    });
+    
+    console.log('🕐 Calendar date comparison debug:');
+    console.log('Selected calendar date (local format):', dateStr);
+    console.log('Original date object:', date);
+    console.log('Services found for date:', filteredServices.length);
+    console.log('Service dates comparison:', services.map(s => {
+      let serviceDate;
+      if (s.scheduled_date.includes('T')) {
+        serviceDate = s.scheduled_date.split('T')[0];
+      } else {
+        serviceDate = s.scheduled_date;
+      }
+      return {
+        id: s.id, 
+        scheduled_date_raw: s.scheduled_date, 
+        scheduled_date_cleaned: serviceDate,
+        service_type: s.service_type,
+        matches: serviceDate === dateStr
+      };
+    }));
+    
+    return filteredServices;
   };
 
   const getStatusColor = (status: string): string => {
@@ -91,7 +350,15 @@ const ServiceScheduleApp: React.FC = () => {
       case 'In Progress':
         return 'bg-blue-100 text-blue-800';
       case 'Pending':
+        return 'bg-gray-100 text-gray-800';
+      case 'Due Today':
         return 'bg-yellow-100 text-yellow-800';
+      case 'Overdue':
+        return 'bg-orange-100 text-orange-800';
+      case 'Critical Overdue':
+        return 'bg-red-100 text-red-800';
+      case 'Cancelled':
+        return 'bg-gray-100 text-gray-500';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -100,11 +367,19 @@ const ServiceScheduleApp: React.FC = () => {
   const getStatusIcon = (status: string): React.ReactNode => {
     switch (status) {
       case 'Completed':
-        return <span className="w-4 h-4 text-green-600">✓</span>;
+        return <FaCheck className="w-4 h-4 text-green-600" />;
       case 'In Progress':
-        return <span className="w-4 h-4 text-blue-600">⏳</span>;
+        return <FaHourglassHalf className="w-4 h-4 text-blue-600" />;
       case 'Pending':
-        return <span className="w-4 h-4 text-yellow-600">⏰</span>;
+        return <FaClock className="w-4 h-4 text-gray-600" />;
+      case 'Due Today':
+        return <FaCalendarAlt className="w-4 h-4 text-yellow-600" />;
+      case 'Overdue':
+        return <FaExclamationTriangle className="w-4 h-4 text-orange-600" />;
+      case 'Critical Overdue':
+        return <FaExclamationCircle className="w-4 h-4 text-red-600" />;
+      case 'Cancelled':
+        return <FaTimes className="w-4 h-4 text-gray-500" />;
       default:
         return null;
     }
@@ -120,25 +395,73 @@ const ServiceScheduleApp: React.FC = () => {
 
   const handleDateClick = (day: number | null): void => {
     if (day) {
+      // Create date in local timezone context
       const clickedDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+      console.log('🗓️ Date clicked:', clickedDate.toISOString().split('T')[0]);
+      console.log('🗓️ Day number clicked:', day);
+      console.log('🗓️ Current month/year:', currentDate.getMonth() + 1, currentDate.getFullYear());
+      console.log('🗓️ Full clicked date:', clickedDate);
       setSelectedDate(clickedDate);
     }
   };
 
-  const handleAddService = (): void => {
-    if (newService.serviceType && newService.busId && newService.scheduledDate) {
-      const service = {
-        id: services.length > 0 ? Math.max(...services.map(s => s.id)) + 1 : 1,
-        ...newService
-      };
-      setServices([...services, service]);
-      setNewService({
-        serviceType: '',
-        busId: '',
-        scheduledDate: '',
-        status: 'Pending'
-      });
-      setShowNewScheduleModal(false);
+  const handleAddService = async (): Promise<void> => {
+    // Form validation
+    if (!newService.service_type) {
+      setError('Please select a service type');
+      return;
+    }
+    if (!newService.bus_id) {
+      setError('Please select a bus');
+      return;
+    }
+    if (!newService.scheduled_date) {
+      setError('Please select a scheduled date');
+      return;
+    }
+    
+    // Check if date is not in the past (using local date comparison)
+    const selectedDate = new Date(newService.scheduled_date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    if (selectedDate < today) {
+      setError('Scheduled date cannot be in the past');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response = await axios.post(
+        'http://localhost:5000/api/depot-engineer/service-schedules',
+        newService,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (response.data.success) {
+        setNewService({
+          service_type: '',
+          bus_id: '',
+          scheduled_date: '',
+        });
+        setShowNewScheduleModal(false);
+        setError(null);
+        await fetchServices();
+        await fetchStats();
+      } else {
+        setError(response.data.message || 'Failed to create service schedule');
+      }
+    } catch (err) {
+      const axiosError = err as AxiosError;
+      console.error('Create Service Error:', axiosError);
+      setError('Failed to create service schedule. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -147,49 +470,378 @@ const ServiceScheduleApp: React.FC = () => {
     setShowEditModal(true);
   };
 
-  const handleUpdateService = (): void => {
-    if (editingService) {
-      setServices(services.map(service => 
-        service.id === editingService.id ? editingService : service
-      ));
-      setShowEditModal(false);
-      setEditingService(null);
+  const handleViewService = (service: Service): void => {
+    setViewingService(service);
+    setShowViewModal(true);
+  };
+
+  const handleUpdateService = async (): Promise<void> => {
+    if (!editingService) return;
+
+    try {
+      setLoading(true);
+      const response = await axios.put(
+        `http://localhost:5000/api/depot-engineer/service-schedules/${editingService.id}`,
+        {
+          service_type: editingService.service_type,
+          bus_id: editingService.bus_id,
+          scheduled_date: editingService.scheduled_date
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (response.data.success) {
+        setShowEditModal(false);
+        setEditingService(null);
+        setError(null);
+        // Refresh the data to get updated service
+        await fetchServices();
+        await fetchStats();
+        console.log('Service updated successfully:', response.data.schedule);
+      } else {
+        setError(response.data.message || 'Failed to update service schedule');
+      }
+    } catch (err) {
+      const axiosError = err as AxiosError;
+      console.error('Update Service Error:', axiosError);
+      setError('Failed to update service schedule. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleDeleteService = (id: number): void => {
-    setServices(services.filter(service => service.id !== id));
+  const handleStartWork = async (id: number): Promise<void> => {
+    try {
+      setLoading(true);
+      const response = await axios.patch(
+        `http://localhost:5000/api/depot-engineer/service-schedules/${id}/start`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.data.success) {
+        // Refresh the data to get updated statuses
+        await fetchServices();
+        await fetchStats();
+        console.log('Work started successfully:', response.data.schedule);
+      } else {
+        setError(response.data.message || 'Failed to start work');
+      }
+    } catch (err) {
+      const axiosError = err as AxiosError;
+      console.error('Start Work Error:', axiosError);
+      setError('Failed to start work. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleMarkAsCompleted = (id: number): void => {
-    setServices(services.map(service => 
-      service.id === id ? {...service, status: 'Completed'} : service
-    ));
+  const handleMarkAsCompleted = async (id: number): Promise<void> => {
+    try {
+      setLoading(true);
+      const response = await axios.patch(
+        `http://localhost:5000/api/depot-engineer/service-schedules/${id}/complete`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.data.success) {
+        // Refresh the data to get updated statuses
+        await fetchServices();
+        await fetchStats();
+        console.log('Service completed successfully:', response.data.schedule);
+      } else {
+        setError(response.data.message || 'Failed to complete service');
+      }
+    } catch (err) {
+      const axiosError = err as AxiosError;
+      console.error('Complete Service Error:', axiosError);
+      setError('Failed to complete service. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancelService = async (id: number): Promise<void> => {
+    try {
+      setLoading(true);
+      const response = await axios.patch(
+        `http://localhost:5000/api/depot-engineer/service-schedules/${id}/cancel`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.data.success) {
+        // Refresh the data to get updated statuses
+        await fetchServices();
+        await fetchStats();
+        console.log('Service cancelled successfully:', response.data.schedule);
+      } else {
+        setError(response.data.message || 'Failed to cancel service');
+      }
+    } catch (err) {
+      const axiosError = err as AxiosError;
+      console.error('Cancel Service Error:', axiosError);
+      setError('Failed to cancel service. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const calendarDays = getDaysInMonth(currentDate);
+  // Get today's date in local timezone without UTC conversion
   const today = new Date();
+  today.setHours(0, 0, 0, 0); // Normalize to start of day
+  
+  // Format today in local timezone for consistent comparison
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  
+  console.log('📅 Today calculated as (local):', todayStr);
+  console.log('📅 Today full:', today);
+  console.log('📅 Calendar month/year:', currentDate.getMonth() + 1, currentDate.getFullYear());
 
-  // Available buses under the depot (hardcoded based on context)
-  const availableBuses = [
-    { id: '17', number: 'NC-1234' },
-    { id: '21', number: 'NP-3456' },
-    { id: '23', number: 'NY-3891' },
-  ];
+  // Helper function to get bus details by ID
+  const getBusDetails = (busId: string | number) => {
+    const bus = availableBuses.find(b => b.bus_id.toString() === busId.toString());
+    return bus ? `${bus.registration_number}` : busId;
+  };
+
+  // Helper function to format date for display (handles timezone issues)
+  const formatDateForDisplay = (dateString: string): string => {
+    console.log('🔍 formatDateForDisplay called with:', {
+      input: dateString,
+      type: typeof dateString,
+      length: dateString?.length
+    });
+    
+    // Check if input is valid
+    if (!dateString) {
+      console.warn('❌ Empty or null dateString received');
+      return 'Invalid Date';
+    }
+    
+    // If the date is already in YYYY-MM-DD format, return as is
+    if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      console.log('✅ Date already in YYYY-MM-DD format:', dateString);
+      return dateString;
+    }
+    
+    // For backward compatibility with timestamps, extract the date part
+    if (dateString.includes('T')) {
+      const result = dateString.split('T')[0];
+      console.log('🔄 Date conversion from timestamp:', {
+        original: dateString,
+        result: result
+      });
+      return result;
+    }
+    
+    // If it's some other format, return as-is and log a warning
+    console.warn('⚠️ Unexpected date format:', dateString);
+    return dateString;
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto flex flex-col h-full">
+        {/* Loading State */}
+        {loading && (
+          <div className="flex justify-center items-center h-64">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">Loading service schedules...</p>
+            </div>
+          </div>
+        )}
+
+        {/* Error State */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+            <div className="flex items-center">
+              <FaExclamationTriangle className="mr-2" />
+              <span>{error}</span>
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Service Schedules</h1>
-          <button
-            onClick={() => setShowNewScheduleModal(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
-          >
-            <span className="text-lg">+</span>
-            New Schedule
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowNewScheduleModal(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+            >
+              <FaPlus className="text-lg" />
+              New Schedule
+            </button>
+          </div>
+        </div>
+
+        {/* Priority Services - Overdue and Critical */}
+        {(stats.overdue_count > 0 || stats.critical_overdue_count > 0) && (
+          <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded-lg">
+            <div className="flex items-center mb-4">
+              <FaExclamationTriangle className="text-red-600 text-xl mr-2" />
+              <h2 className="text-lg font-semibold text-red-800">Priority Services - Immediate Attention Required</h2>
+            </div>
+            
+            {/* Critical Overdue Services Details */}
+            {stats.critical_overdue_count > 0 && (
+              <div className="mb-4">
+                <div className="bg-red-100 border border-red-300 rounded-lg p-3 mb-3">
+                  <div className="flex items-center mb-2">
+                    <FaExclamationCircle className="text-red-700 text-lg mr-2" />
+                    <div>
+                      <p className="text-sm font-medium text-red-800">Critical Overdue</p>
+                      <p className="text-xl font-bold text-red-900">{stats.critical_overdue_count}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  {services
+                    .filter(service => !service.is_deleted && (service.calculated_status || service.status) === 'Critical Overdue')
+                    .map((service) => (
+                      <div key={service.id} className="bg-red-200 border border-red-400 rounded-md p-3">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <p className="font-medium text-red-900">{service.service_type}</p>
+                            <p className="text-sm text-red-800">Bus: {getBusDetails(service.bus_id)}</p>
+                            <p className="text-sm text-red-700">Scheduled: {formatDateForDisplay(service.scheduled_date)}</p>
+                          </div>
+                          <button
+                            onClick={() => handleStartWork(service.id)}
+                            className="ml-3 px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 text-xs font-medium transition-colors"
+                            title="Start Work Immediately"
+                            disabled={loading}
+                          >
+                            Start Now
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {/* Overdue Services Details */}
+            {stats.overdue_count > 0 && (
+              <div>
+                <div className="bg-orange-100 border border-orange-300 rounded-lg p-3 mb-3">
+                  <div className="flex items-center mb-2">
+                    <FaExclamationTriangle className="text-orange-700 text-lg mr-2" />
+                    <div>
+                      <p className="text-sm font-medium text-orange-800">Overdue</p>
+                      <p className="text-xl font-bold text-orange-900">{stats.overdue_count}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  {services
+                    .filter(service => !service.is_deleted && (service.calculated_status || service.status) === 'Overdue')
+                    .map((service) => (
+                      <div key={service.id} className="bg-orange-200 border border-orange-400 rounded-md p-3">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <p className="font-medium text-orange-900">{service.service_type}</p>
+                            <p className="text-sm text-orange-800">Bus: {getBusDetails(service.bus_id)}</p>
+                            <p className="text-sm text-orange-700">Scheduled: {formatDateForDisplay(service.scheduled_date)}</p>
+                          </div>
+                          <button
+                            onClick={() => handleStartWork(service.id)}
+                            className="ml-3 px-3 py-1 bg-orange-600 text-white rounded-md hover:bg-orange-700 text-xs font-medium transition-colors"
+                            title="Start Work"
+                            disabled={loading}
+                          >
+                            Start Work
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* SLTB Depot Service Summary */}
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
+          <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
+            <div className="flex items-center">
+              <div className="bg-blue-100 p-2 rounded-lg mr-3">
+                <FaClipboardList className="text-blue-600 text-lg" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Total Services</p>
+                <p className="text-xl font-bold text-gray-900">{stats.total_services}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
+            <div className="flex items-center">
+              <div className="bg-yellow-100 p-2 rounded-lg mr-3">
+                <FaCalendarAlt className="text-yellow-600 text-lg" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Due Today</p>
+                <p className="text-xl font-bold text-gray-900">{stats.due_today_count}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
+            <div className="flex items-center">
+              <div className="bg-gray-100 p-2 rounded-lg mr-3">
+                <FaClock className="text-gray-600 text-lg" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Pending</p>
+                <p className="text-xl font-bold text-gray-900">{stats.pending_count}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
+            <div className="flex items-center">
+              <div className="bg-blue-100 p-2 rounded-lg mr-3">
+                <FaHourglassHalf className="text-blue-600 text-lg" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">In Progress</p>
+                <p className="text-xl font-bold text-blue-600">{stats.in_progress_count}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
+            <div className="flex items-center">
+              <div className="bg-green-100 p-2 rounded-lg mr-3">
+                <FaCheckCircle className="text-green-600 text-lg" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Completed</p>
+                <p className="text-xl font-bold text-green-600">{stats.completed_count}</p>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Calendar Section */}
@@ -203,7 +855,7 @@ const ServiceScheduleApp: React.FC = () => {
                 onClick={handlePrevMonth}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-lg font-bold"
               >
-                ←
+                <FaChevronLeft />
               </button>
               <h3 className="text-lg font-semibold">
                 {months[currentDate.getMonth()]} {currentDate.getFullYear()}
@@ -212,7 +864,7 @@ const ServiceScheduleApp: React.FC = () => {
                 onClick={handleNextMonth}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-lg font-bold"
               >
-                →
+                <FaChevronRight />
               </button>
             </div>
 
@@ -228,35 +880,78 @@ const ServiceScheduleApp: React.FC = () => {
             <div className="grid grid-cols-7 gap-1">
               {calendarDays.map((day, index) => {
                 const cellDate = day ? new Date(currentDate.getFullYear(), currentDate.getMonth(), day) : null;
-                const dayServices = cellDate ? getServicesForDate(cellDate) : [];
+                const dayServices = cellDate ? getServicesForDate(cellDate).filter(service => !service.is_deleted) : [];
                 const isToday = cellDate && cellDate.toDateString() === today.toDateString();
                 const isSelected = cellDate && cellDate.toDateString() === selectedDate.toDateString();
+                const hasServices = dayServices.length > 0;
 
                 return (
                   <div
                     key={index}
-                    className={`p-1 border border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${
+                    className={`p-1 border border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors min-h-[100px] ${
                       isToday ? 'bg-blue-50 border-blue-200' : ''
-                    } ${isSelected ? 'bg-blue-100 border-blue-300' : ''}`}
+                    } ${isSelected ? 'bg-blue-100 border-blue-300' : ''} ${
+                      hasServices ? 'border-l-4 border-l-blue-500' : ''
+                    }`}
                     onClick={() => handleDateClick(day)}
                   >
                     {day && (
                       <div>
-                        <div className={`text-sm font-medium mb-1 ${isToday ? 'text-blue-600' : 'text-gray-900'}`}>
-                          {day}
+                        <div className={`text-sm font-medium mb-2 flex items-center justify-between ${
+                          isToday ? 'text-blue-600' : 'text-gray-900'
+                        }`}>
+                          <span>{day}</span>
+                          {hasServices && (
+                            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                          )}
                         </div>
                         <div className="space-y-1">
-                          {dayServices.slice(0, 2).map((service, idx) => (
-                            <div
-                              key={idx}
-                              className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-800 truncate"
-                            >
-                              {service.serviceType}
-                            </div>
-                          ))}
-                          {dayServices.length > 2 && (
-                            <div className="text-xs text-gray-500">
-                              +{dayServices.length - 2} more
+                          {dayServices.slice(0, 3).map((service, idx) => {
+                            const status = service.calculated_status || service.status;
+                            let statusColor = 'bg-blue-100 text-blue-800';
+                            
+                            // Set colors based on status
+                            switch (status) {
+                              case 'Completed':
+                                statusColor = 'bg-green-100 text-green-800';
+                                break;
+                              case 'In Progress':
+                                statusColor = 'bg-blue-100 text-blue-800';
+                                break;
+                              case 'Due Today':
+                                statusColor = 'bg-yellow-100 text-yellow-800';
+                                break;
+                              case 'Overdue':
+                                statusColor = 'bg-orange-100 text-orange-800';
+                                break;
+                              case 'Critical Overdue':
+                                statusColor = 'bg-red-100 text-red-800';
+                                break;
+                              case 'Pending':
+                                statusColor = 'bg-gray-100 text-gray-800';
+                                break;
+                              default:
+                                statusColor = 'bg-blue-100 text-blue-800';
+                            }
+
+                            return (
+                              <div
+                                key={idx}
+                                className={`text-xs px-2 py-1 rounded-md truncate ${statusColor} cursor-pointer`}
+                                title={`${service.service_type} - ${status}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleViewService(service);
+                                }}
+                              >
+                                <div className="font-medium">{service.service_type}</div>
+                                <div className="text-xs opacity-75">Bus {getBusDetails(service.bus_id)}</div>
+                              </div>
+                            );
+                          })}
+                          {dayServices.length > 3 && (
+                            <div className="text-xs text-gray-500 px-1">
+                              +{dayServices.length - 3} more
                             </div>
                           )}
                         </div>
@@ -266,64 +961,172 @@ const ServiceScheduleApp: React.FC = () => {
                 );
               })}
             </div>
+
+            {/* Calendar Legend */}
+            <div className="mt-4 flex flex-wrap gap-4 text-xs">
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 bg-green-100 border border-green-200 rounded"></div>
+                <span className="text-gray-600">Completed</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 bg-blue-100 border border-blue-200 rounded"></div>
+                <span className="text-gray-600">In Progress</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 bg-yellow-100 border border-yellow-200 rounded"></div>
+                <span className="text-gray-600">Due Today</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 bg-orange-100 border border-orange-200 rounded"></div>
+                <span className="text-gray-600">Overdue</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 bg-red-100 border border-red-200 rounded"></div>
+                <span className="text-gray-600">Critical Overdue</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 bg-gray-100 border border-gray-200 rounded"></div>
+                <span className="text-gray-600">Pending</span>
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Upcoming Services Table */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           <div className="p-6">
-            <h2 className="text-xl font-semibold text-gray-700 mb-6">Upcoming Services</h2>
+            <h2 className="text-xl font-semibold text-gray-700 mb-6">Service Schedules (Priority Order)</h2>
             
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-gray-200">
                     <th className="text-left py-3 px-4 font-medium text-gray-700">Service Type</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Bus ID</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">Bus</th>
                     <th className="text-left py-3 px-4 font-medium text-gray-700">Scheduled Date</th>
                     <th className="text-left py-3 px-4 font-medium text-gray-700">Status</th>
                     <th className="text-left py-3 px-4 font-medium text-gray-700">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {services.map((service) => (
+                  {services
+                    .filter(service => !service.is_deleted)
+                    .sort((a, b) => {
+                      // Define priority order for statuses
+                      const statusPriority: { [key: string]: number } = {
+                        'Critical Overdue': 1,
+                        'Overdue': 2,
+                        'In Progress': 3,
+                        'Due Today': 4,
+                        'Pending': 5,
+                        'Completed': 6,
+                        'Cancelled': 7
+                      };
+                      
+                      const statusA = a.calculated_status || a.status;
+                      const statusB = b.calculated_status || b.status;
+                      
+                      const priorityA = statusPriority[statusA] || 8; // Unknown statuses go last
+                      const priorityB = statusPriority[statusB] || 8;
+                      
+                      // Primary sort: by status priority
+                      if (priorityA !== priorityB) {
+                        return priorityA - priorityB;
+                      }
+                      
+                      // Secondary sort: by scheduled date (earliest first within same status)
+                      return new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime();
+                    })
+                    .map((service) => {
+                    // Debug each service in the table
+                    console.log('🏓 Table row for service:', {
+                      id: service.id,
+                      service_type: service.service_type,
+                      scheduled_date_raw: service.scheduled_date,
+                      scheduled_date_type: typeof service.scheduled_date,
+                      formatted_result: formatDateForDisplay(service.scheduled_date)
+                    });
+                    
+                    return (
                     <tr key={service.id} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="py-4 px-4 text-gray-900">{service.serviceType}</td>
-                      <td className="py-4 px-4 text-gray-900">{service.busId}</td>
-                      <td className="py-4 px-4 text-gray-900">{service.scheduledDate}</td>
+                      <td className="py-4 px-4 text-gray-900">{service.service_type}</td>
+                      <td className="py-4 px-4 text-gray-900">{getBusDetails(service.bus_id)}</td>
+                      <td className="py-4 px-4 text-gray-900">{formatDateForDisplay(service.scheduled_date)}</td>
                       <td className="py-4 px-4">
-                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(service.status)}`}>
-                          {getStatusIcon(service.status)}
-                          {service.status}
+                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(service.calculated_status || service.status)}`}>
+                          {getStatusIcon(service.calculated_status || service.status)}
+                          {service.calculated_status || service.status}
                         </span>
                       </td>
                       <td className="py-4 px-4">
                         <div className="flex gap-2">
-                          <button 
-                            onClick={() => handleEditService(service)}
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                          >
-                            <span className="text-sm">✏️</span>
-                          </button>
-                          {service.status !== 'Completed' && (
+                          {/* Start Work Button - only for due today/overdue (NOT pending) */}
+                          {((service.calculated_status || service.status) === 'Due Today' || 
+                            (service.calculated_status || service.status) === 'Overdue' || 
+                            (service.calculated_status || service.status) === 'Critical Overdue') && (
                             <button
-                              onClick={() => handleMarkAsCompleted(service.id)}
-                              className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                              title="Mark as completed"
+                              onClick={() => handleStartWork(service.id)}
+                              className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-xs font-medium transition-colors"
+                              title="Start Work"
+                              disabled={loading}
                             >
-                              <span className="text-sm">✓</span>
+                              Start Work
                             </button>
                           )}
-                          <button
-                            onClick={() => handleDeleteService(service.id)}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          >
-                            <span className="text-sm">🗑️</span>
-                          </button>
+                          
+                          {/* Complete Button - only for in progress */}
+                          {(service.calculated_status || service.status) === 'In Progress' && (
+                            <button
+                              onClick={() => handleMarkAsCompleted(service.id)}
+                              className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 text-xs font-medium transition-colors"
+                              title="Mark as Completed"
+                              disabled={loading}
+                            >
+                              Complete
+                            </button>
+                          )}
+                          
+                          {/* View Button - only for completed services */}
+                          {(service.calculated_status || service.status) === 'Completed' && (
+                            <button 
+                              onClick={() => handleViewService(service)}
+                              className="px-3 py-1 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-xs font-medium transition-colors"
+                              title="View Service Details"
+                            >
+                              View Details
+                            </button>
+                          )}
+                          
+                          {/* Edit Button - only for non-completed services */}
+                          {(service.calculated_status || service.status) !== 'Completed' && 
+                           (service.calculated_status || service.status) !== 'In Progress' && (
+                            <button 
+                              onClick={() => handleEditService(service)}
+                              className="px-3 py-1 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 text-xs font-medium transition-colors"
+                              title="Edit Schedule"
+                              disabled={loading}
+                            >
+                              Edit
+                            </button>
+                          )}
+                          
+                          {/* Cancel Button - available for all statuses except In Progress and Completed */}
+                          {((service.calculated_status || service.status) !== 'In Progress' && 
+                            (service.calculated_status || service.status) !== 'Completed') && (
+                            <button
+                              onClick={() => handleCancelService(service.id)}
+                              className="px-3 py-1 bg-orange-600 text-white rounded-md hover:bg-orange-700 text-xs font-medium transition-colors"
+                              title="Cancel Schedule"
+                              disabled={loading}
+                            >
+                              Cancel
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -334,31 +1137,32 @@ const ServiceScheduleApp: React.FC = () => {
         {showNewScheduleModal && (
           <div className="fixed inset-0 backdrop-blur-sm bg-white/10 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg p-6 w-full max-w-md">
-              <h3 className="text-lg font-semibold mb-4">Schedule New Service</h3>
+              <h3 className="text-lg font-semibold mb-2">Schedule New Service</h3>
+              
               
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Service Type</label>
                   <input
                     type="text"
-                    value={newService.serviceType}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewService({...newService, serviceType: e.target.value})}
-                    placeholder="e.g., Oil Change"
+                    value={newService.service_type}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewService({...newService, service_type: e.target.value})}
+                    placeholder="e.g., Daily Inspection, Oil Change, Brake Check..."
                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Bus ID</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Bus</label>
                   <select
-                    value={newService.busId}
-                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setNewService({...newService, busId: e.target.value})}
+                    value={newService.bus_id}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setNewService({...newService, bus_id: e.target.value})}
                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
                     <option value="">Select a bus</option>
                     {availableBuses.map((bus) => (
-                      <option key={bus.id} value={bus.id}>
-                        {bus.number} ({bus.id})
+                      <option key={bus.bus_id} value={bus.bus_id}>
+                        {bus.registration_number} - {bus.model} (ID: {bus.bus_id})
                       </option>
                     ))}
                   </select>
@@ -368,23 +1172,11 @@ const ServiceScheduleApp: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Scheduled Date</label>
                   <input
                     type="date"
-                    value={newService.scheduledDate}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewService({...newService, scheduledDate: e.target.value})}
+                    value={newService.scheduled_date}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewService({...newService, scheduled_date: e.target.value})}
+                    min={new Date().toISOString().split('T')[0]}
                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                  <select
-                    value={newService.status}
-                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setNewService({...newService, status: e.target.value})}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="Pending">Pending</option>
-                    <option value="In Progress">In Progress</option>
-                    <option value="Completed">Completed</option>
-                  </select>
                 </div>
               </div>
 
@@ -417,28 +1209,28 @@ const ServiceScheduleApp: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Service Type</label>
                   <input
                     type="text"
-                    value={editingService.serviceType}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                      setEditingService({...editingService, serviceType: e.target.value})
+                    value={editingService.service_type}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setEditingService({...editingService, service_type: e.target.value})
                     }
-                    placeholder="e.g., Oil Change"
+                    placeholder="e.g., Daily Inspection, Oil Change, Brake Check..."
                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Bus ID</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Bus</label>
                   <select
-                    value={editingService.busId}
-                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => 
-                      setEditingService({...editingService, busId: e.target.value})
+                    value={editingService.bus_id}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                      setEditingService({...editingService, bus_id: parseInt(e.target.value)})
                     }
                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
                     <option value="">Select a bus</option>
                     {availableBuses.map((bus) => (
-                      <option key={bus.id} value={bus.id}>
-                        {bus.number} ({bus.id})
+                      <option key={bus.bus_id} value={bus.bus_id}>
+                        {bus.registration_number} - {bus.model} (ID: {bus.bus_id})
                       </option>
                     ))}
                   </select>
@@ -448,28 +1240,14 @@ const ServiceScheduleApp: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Scheduled Date</label>
                   <input
                     type="date"
-                    value={editingService.scheduledDate}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                      setEditingService({...editingService, scheduledDate: e.target.value})
+                    value={editingService.scheduled_date}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setEditingService({...editingService, scheduled_date: e.target.value})
                     }
                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                  <select
-                    value={editingService.status}
-                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => 
-                      setEditingService({...editingService, status: e.target.value})
-                    }
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="Pending">Pending</option>
-                    <option value="In Progress">In Progress</option>
-                    <option value="Completed">Completed</option>
-                  </select>
-                </div>
               </div>
 
               <div className="flex gap-3 mt-6">
@@ -484,6 +1262,55 @@ const ServiceScheduleApp: React.FC = () => {
                   className="flex-1 py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
                   Update schedule
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* View Service Details Modal - Read Only */}
+        {showViewModal && viewingService && (
+          <div className="fixed inset-0 backdrop-blur-sm bg-white/10 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Service Details</h3>
+                <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1">
+                  <FaCheckCircle size={10} />
+                  Completed
+                </span>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 mb-1">Service Type</label>
+                  <p className="text-gray-900 font-medium">{viewingService.service_type}</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 mb-1">Bus</label>
+                  <p className="text-gray-900 font-medium">{getBusDetails(viewingService.bus_id)}</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-1">Scheduled Date</label>
+                    <p className="text-gray-900">{formatDateForDisplay(viewingService.scheduled_date)}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-1">Completed Date</label>
+                    <p className="text-gray-900 font-medium">{viewingService.completed_date ? formatDateForDisplay(viewingService.completed_date) : 'N/A'}</p>
+                  </div>
+                </div>
+
+                
+              </div>
+
+              <div className="flex justify-end mt-6">
+                <button
+                  onClick={() => setShowViewModal(false)}
+                  className="py-2 px-4 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                >
+                  Close
                 </button>
               </div>
             </div>
