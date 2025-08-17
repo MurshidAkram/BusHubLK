@@ -695,92 +695,6 @@ const ServiceScheduleApp: React.FC = () => {
           </div>
         </div>
 
-        {/* Priority Services - Overdue and Critical */}
-        {(stats.overdue_count > 0 || stats.critical_overdue_count > 0) && (
-          <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded-lg">
-            <div className="flex items-center mb-4">
-              <FaExclamationTriangle className="text-red-600 text-xl mr-2" />
-              <h2 className="text-lg font-semibold text-red-800">Priority Services - Immediate Attention Required</h2>
-            </div>
-            
-            {/* Critical Overdue Services Details */}
-            {stats.critical_overdue_count > 0 && (
-              <div className="mb-4">
-                <div className="bg-red-100 border border-red-300 rounded-lg p-3 mb-3">
-                  <div className="flex items-center mb-2">
-                    <FaExclamationCircle className="text-red-700 text-lg mr-2" />
-                    <div>
-                      <p className="text-sm font-medium text-red-800">Critical Overdue</p>
-                      <p className="text-xl font-bold text-red-900">{stats.critical_overdue_count}</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  {services
-                    .filter(service => !service.is_deleted && (service.calculated_status || service.status) === 'Critical Overdue')
-                    .map((service) => (
-                      <div key={service.id} className="bg-red-200 border border-red-400 rounded-md p-3">
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <p className="font-medium text-red-900">{service.service_type}</p>
-                            <p className="text-sm text-red-800">Bus: {getBusDetails(service.bus_id)}</p>
-                            <p className="text-sm text-red-700">Scheduled: {formatDateForDisplay(service.scheduled_date)}</p>
-                          </div>
-                          <button
-                            onClick={() => handleStartWork(service.id)}
-                            className="ml-3 px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 text-xs font-medium transition-colors"
-                            title="Start Work Immediately"
-                            disabled={loading}
-                          >
-                            Start Now
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              </div>
-            )}
-
-            {/* Overdue Services Details */}
-            {stats.overdue_count > 0 && (
-              <div>
-                <div className="bg-orange-100 border border-orange-300 rounded-lg p-3 mb-3">
-                  <div className="flex items-center mb-2">
-                    <FaExclamationTriangle className="text-orange-700 text-lg mr-2" />
-                    <div>
-                      <p className="text-sm font-medium text-orange-800">Overdue</p>
-                      <p className="text-xl font-bold text-orange-900">{stats.overdue_count}</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  {services
-                    .filter(service => !service.is_deleted && (service.calculated_status || service.status) === 'Overdue')
-                    .map((service) => (
-                      <div key={service.id} className="bg-orange-200 border border-orange-400 rounded-md p-3">
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <p className="font-medium text-orange-900">{service.service_type}</p>
-                            <p className="text-sm text-orange-800">Bus: {getBusDetails(service.bus_id)}</p>
-                            <p className="text-sm text-orange-700">Scheduled: {formatDateForDisplay(service.scheduled_date)}</p>
-                          </div>
-                          <button
-                            onClick={() => handleStartWork(service.id)}
-                            className="ml-3 px-3 py-1 bg-orange-600 text-white rounded-md hover:bg-orange-700 text-xs font-medium transition-colors"
-                            title="Start Work"
-                            disabled={loading}
-                          >
-                            Start Work
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
         {/* SLTB Depot Service Summary */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
           <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
@@ -809,12 +723,12 @@ const ServiceScheduleApp: React.FC = () => {
 
           <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
             <div className="flex items-center">
-              <div className="bg-gray-100 p-2 rounded-lg mr-3">
-                <FaClock className="text-gray-600 text-lg" />
+              <div className="bg-red-100 p-2 rounded-lg mr-3">
+                <FaExclamationTriangle className="text-red-600 text-lg" />
               </div>
               <div>
-                <p className="text-sm text-gray-600">Pending</p>
-                <p className="text-xl font-bold text-gray-900">{stats.pending_count}</p>
+                <p className="text-sm text-gray-600">Overdue</p>
+                <p className="text-xl font-bold text-red-600">{stats.overdue_count + stats.critical_overdue_count}</p>
               </div>
             </div>
           </div>
@@ -995,7 +909,7 @@ const ServiceScheduleApp: React.FC = () => {
         {/* Upcoming Services Table */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           <div className="p-6">
-            <h2 className="text-xl font-semibold text-gray-700 mb-6">Service Schedules (Priority Order)</h2>
+            <h2 className="text-xl font-semibold text-gray-700 mb-6">Upcoming Services</h2>
             
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -1009,35 +923,7 @@ const ServiceScheduleApp: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {services
-                    .filter(service => !service.is_deleted)
-                    .sort((a, b) => {
-                      // Define priority order for statuses
-                      const statusPriority: { [key: string]: number } = {
-                        'Critical Overdue': 1,
-                        'Overdue': 2,
-                        'In Progress': 3,
-                        'Due Today': 4,
-                        'Pending': 5,
-                        'Completed': 6,
-                        'Cancelled': 7
-                      };
-                      
-                      const statusA = a.calculated_status || a.status;
-                      const statusB = b.calculated_status || b.status;
-                      
-                      const priorityA = statusPriority[statusA] || 8; // Unknown statuses go last
-                      const priorityB = statusPriority[statusB] || 8;
-                      
-                      // Primary sort: by status priority
-                      if (priorityA !== priorityB) {
-                        return priorityA - priorityB;
-                      }
-                      
-                      // Secondary sort: by scheduled date (earliest first within same status)
-                      return new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime();
-                    })
-                    .map((service) => {
+                  {services.filter(service => !service.is_deleted).map((service) => {
                     // Debug each service in the table
                     console.log('🏓 Table row for service:', {
                       id: service.id,

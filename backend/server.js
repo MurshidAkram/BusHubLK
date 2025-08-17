@@ -7,13 +7,13 @@ require('dotenv').config(); // Load environment variables at the very beginning
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// --- THIS IS THE FIX ---
-// Added 'PATCH' to the list of allowed methods to resolve the CORS issue.
+
+
 app.use(cors({
   origin: true, // Allow all origins in development (for testing)
   credentials: true,
 
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], // <-- 'PATCH' is now included
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
 
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Mobile-App', 'Accept', 'Origin', 'X-Requested-With'],
   exposedHeaders: ['Content-Length', 'X-Foo', 'X-Bar']
@@ -252,6 +252,15 @@ try {
 } catch (error) {
   console.log('❌ serviceScheduleRoutes error:', error.message);
 
+}
+
+// DGM Technical Routes
+try {
+  const dgmTechnicalRoutes = require('./routes/dgmTechnicalRoutes');
+  app.use('/api/dgm-technical', dgmTechnicalRoutes);
+  console.log('✅ dgmTechnicalRoutes loaded');
+} catch (error) {
+  console.log('❌ dgmTechnicalRoutes error:', error.message);
 }
 
 
