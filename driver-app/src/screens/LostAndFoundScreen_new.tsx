@@ -16,6 +16,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Dropdown } from 'react-native-element-dropdown';
 import * as ImagePicker from 'expo-image-picker';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { API_BASE_URL } from '../config/api';
 
 // Type definitions
@@ -84,7 +85,7 @@ const AppColors = {
   success: '#28a745',
 };
 
-// Data for the dropdown (legacy - now using itemTypes for modern grid)
+// Data for the dropdown
 const itemCategories = [
   { label: 'Phone', value: 'phone' },
   { label: 'Wallet', value: 'wallet' },
@@ -218,7 +219,7 @@ const LostAndFoundScreen = ({ navigation }: { navigation: NavigationProp }) => {
       // For now, use dummy driver ID (in real app, get from auth context)
       const driverId = 1;
       
-      const response = await fetch(`${API_BASE_URL}/driver/found-items?driver_id=${driverId}`);
+      const response = await fetch(`${API_BASE_URL}/driver-found-items/found-items?driver_id=${driverId}`);
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -356,7 +357,7 @@ const LostAndFoundScreen = ({ navigation }: { navigation: NavigationProp }) => {
       
       console.log('📤 Submitting found item report...');
       
-      const response = await fetch(`${API_BASE_URL}/driver/found-items`, {
+      const response = await fetch(`${API_BASE_URL}/driver-found-items/found-items`, {
         method: 'POST',
         body: submitFormData,
         headers: {
@@ -481,48 +482,23 @@ const LostAndFoundScreen = ({ navigation }: { navigation: NavigationProp }) => {
     }
   };
 
-  const handleDatePress = () => {
-    Alert.prompt(
-      'Select Date',
-      'Enter date in DD/MM/YYYY format',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'OK', 
-          onPress: (text) => {
-            if (text && /^\d{2}\/\d{2}\/\d{4}$/.test(text)) {
-              updateFormData('date', text);
-            } else {
-              Alert.alert('Invalid Date', 'Please enter date in DD/MM/YYYY format');
-            }
-          }
-        },
-      ],
-      'plain-text',
-      formData.date
-    );
+  const handleDateChange = (event: any, selectedDate?: Date) => {
+    setShowDatePicker(false);
+    if (selectedDate) {
+      const day = selectedDate.getDate().toString().padStart(2, '0');
+      const month = (selectedDate.getMonth() + 1).toString().padStart(2, '0');
+      const year = selectedDate.getFullYear();
+      updateFormData('date', `${day}/${month}/${year}`);
+    }
   };
 
-  const handleTimePress = () => {
-    Alert.prompt(
-      'Select Time',
-      'Enter time in HH:MM format (24-hour)',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'OK', 
-          onPress: (text) => {
-            if (text && /^\d{2}:\d{2}$/.test(text)) {
-              updateFormData('time', text);
-            } else {
-              Alert.alert('Invalid Time', 'Please enter time in HH:MM format');
-            }
-          }
-        },
-      ],
-      'plain-text',
-      formData.time
-    );
+  const handleTimeChange = (event: any, selectedTime?: Date) => {
+    setShowTimePicker(false);
+    if (selectedTime) {
+      const hours = selectedTime.getHours().toString().padStart(2, '0');
+      const minutes = selectedTime.getMinutes().toString().padStart(2, '0');
+      updateFormData('time', `${hours}:${minutes}`);
+    }
   };
 
   // Navigation View
@@ -658,253 +634,168 @@ const LostAndFoundScreen = ({ navigation }: { navigation: NavigationProp }) => {
     </>
   );
 
-  // Item categories with icons and colors for modern UI
-  const itemTypes = [
-    { key: 'phone', icon: 'phone-portrait-outline', color: '#007AFF' },
-    { key: 'wallet', icon: 'wallet-outline', color: '#34C759' },
-    { key: 'bag', icon: 'bag-outline', color: '#FF9500' },
-    { key: 'keys', icon: 'key-outline', color: '#FF3B30' },
-    { key: 'clothing', icon: 'shirt-outline', color: '#AF52DE' },
-    { key: 'documents', icon: 'document-outline', color: '#5856D6' },
-    { key: 'electronics', icon: 'laptop-outline', color: '#00C7BE' },
-    { key: 'jewelry', icon: 'diamond-outline', color: '#FFD60A' },
-    { key: 'other', icon: 'help-outline', color: '#8E8E93' },
-  ];
-
   // Report Form Steps
   const renderReportStep1 = () => (
     <View style={styles.stepContainer}>
-      {/* Modern Progress Indicator */}
-      <View style={styles.modernProgressContainer}>
-        <View style={styles.progressIndicator}>
-          <View style={[styles.progressDot, styles.activeDot]}>
-            <Text style={styles.progressNumber}>1</Text>
-          </View>
-          <View style={styles.progressLine} />
-          <View style={styles.progressDot}>
-            <Text style={styles.progressNumber}>2</Text>
-          </View>
-          <View style={styles.progressLine} />
-          <View style={styles.progressDot}>
-            <Text style={styles.progressNumber}>3</Text>
-          </View>
+      <View style={styles.progressContainer}>
+        <View style={styles.progressBar}>
+          <View style={[styles.progressStep, { width: '33.33%' }]} />
         </View>
+        <Text style={styles.progressText}>Step 1 of 3</Text>
       </View>
 
-      {/* Header Section */}
-      <View style={styles.stepHeader}>
-        <Text style={styles.modernStepTitle}>What did you find?</Text>
-        <Text style={styles.modernStepSubtitle}>Tell us about the item you found</Text>
-      </View>
+      <Text style={styles.stepTitle}>What did you find?</Text>
+      <Text style={styles.stepSubtitle}>Tell us about the item you found</Text>
 
-      {/* Item Type Selection */}
       <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>What type of item?</Text>
-        <View style={styles.modernCategoryGrid}>
-          {itemTypes.map(item => (
-            <TouchableOpacity
-              key={item.key}
-              style={[styles.modernCategoryCard, formData.itemType === item.key && styles.activeCategoryCard]}
-              onPress={() => updateFormData('itemType', item.key)}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.categoryIconContainer, { backgroundColor: item.color + '20' }]}>
-                <Ionicons
-                  name={item.icon as any}
-                  size={28}
-                  color={formData.itemType === item.key ? '#FFFFFF' : item.color}
-                />
-              </View>
-              <Text style={[styles.modernCategoryLabel, formData.itemType === item.key && styles.activeCategoryLabel]}>
-                {item.key}
-              </Text>
-              {formData.itemType === item.key && (
-                <View style={styles.selectedIndicator}>
-                  <Ionicons name="checkmark" size={16} color="#FFFFFF" />
-                </View>
-              )}
-            </TouchableOpacity>
-          ))}
-        </View>
-        {errors.itemType && <Text style={styles.modernErrorText}>{errors.itemType}</Text>}
+        <Text style={styles.label}>Item Category *</Text>
+        <Dropdown
+          style={[styles.dropdown, errors.itemType && styles.inputError]}
+          placeholderStyle={styles.placeholderStyle}
+          selectedTextStyle={styles.selectedTextStyle}
+          data={itemCategories}
+          maxHeight={300}
+          labelField="label"
+          valueField="value"
+          placeholder="Select item category"
+          value={formData.itemType}
+          onChange={item => updateFormData('itemType', item.value)}
+        />
+        {errors.itemType && <Text style={styles.errorText}>{errors.itemType}</Text>}
       </View>
 
-      {/* Description Section */}
       <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>Description *</Text>
-        <View style={styles.modernInputContainer}>
-          <TextInput
-            placeholder="Describe the item in detail (color, brand, size, distinctive features...)"
-            placeholderTextColor={AppColors.textSecondary}
-            style={styles.modernTextArea}
-            value={formData.description}
-            onChangeText={text => updateFormData('description', text)}
-            multiline
-            numberOfLines={4}
-            textAlignVertical="top"
-            autoCapitalize="sentences"
-            maxLength={500}
-          />
-        </View>
-        {errors.description && <Text style={styles.modernErrorText}>{errors.description}</Text>}
+        <Text style={styles.label}>Description *</Text>
+        <TextInput
+          style={[styles.textArea, errors.description && styles.inputError]}
+          placeholder="Describe the item in detail (color, brand, size, etc.)"
+          placeholderTextColor={AppColors.textSecondary}
+          value={formData.description}
+          onChangeText={text => updateFormData('description', text)}
+          multiline
+          numberOfLines={4}
+          textAlignVertical="top"
+          maxLength={500}
+        />
+        {errors.description && <Text style={styles.errorText}>{errors.description}</Text>}
         <Text style={styles.characterCount}>{formData.description.length}/500</Text>
       </View>
 
-      {/* Photo Upload Section */}
       <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>Photo (Optional)</Text>
-        <TouchableOpacity
-          style={styles.modernPhotoUpload}
-          activeOpacity={0.8}
-          onPress={handlePhotoUpload}
-        >
+        <Text style={styles.label}>Photo (Optional)</Text>
+        <TouchableOpacity style={styles.photoUploader} onPress={handlePhotoUpload}>
           {formData.photo ? (
             <Image source={{ uri: formData.photo.uri }} style={styles.previewImage} />
           ) : (
             <>
-              <View style={styles.photoUploadIcon}>
-                <Ionicons name="camera-outline" size={32} color={AppColors.primary} />
-              </View>
-              <Text style={styles.photoUploadTitle}>Add a photo</Text>
-              <Text style={styles.photoUploadSubtitle}>Help others identify the item</Text>
+              <Ionicons name="camera-outline" size={40} color={AppColors.textSecondary} />
+              <Text style={styles.photoUploaderText}>Tap to add photo</Text>
             </>
           )}
         </TouchableOpacity>
       </View>
 
-      {/* Continue Button */}
-      <TouchableOpacity style={styles.modernPrimaryButton} onPress={validateAndProceed} activeOpacity={0.8}>
-        <Text style={styles.modernButtonText}>Continue</Text>
-        <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
-      </TouchableOpacity>
+      <View style={styles.buttonRow}>
+        <TouchableOpacity 
+          style={styles.primaryButton} 
+          onPress={validateAndProceed}
+        >
+          <Text style={styles.buttonText}>Next</Text>
+          <Ionicons name="arrow-forward" size={16} color="white" />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
   const renderReportStep2 = () => (
     <View style={styles.stepContainer}>
-      {/* Modern Progress Indicator */}
-      <View style={styles.modernProgressContainer}>
-        <View style={styles.progressIndicator}>
-          <View style={[styles.progressDot, styles.completedDot]}>
-            <Ionicons name="checkmark" size={16} color="#FFFFFF" />
-          </View>
-          <View style={[styles.progressLine, styles.completedLine]} />
-          <View style={[styles.progressDot, styles.activeDot]}>
-            <Text style={styles.progressNumber}>2</Text>
-          </View>
-          <View style={styles.progressLine} />
-          <View style={styles.progressDot}>
-            <Text style={styles.progressNumber}>3</Text>
-          </View>
+      <View style={styles.progressContainer}>
+        <View style={styles.progressBar}>
+          <View style={[styles.progressStep, { width: '66.66%' }]} />
         </View>
+        <Text style={styles.progressText}>Step 2 of 3</Text>
       </View>
 
-      {/* Header Section */}
-      <View style={styles.stepHeader}>
-        <Text style={styles.modernStepTitle}>Where & When?</Text>
-        <Text style={styles.modernStepSubtitle}>Tell us when and where you found this item</Text>
-      </View>
+      <Text style={styles.stepTitle}>Where & When?</Text>
+      <Text style={styles.stepSubtitle}>Tell us when and where you found this item</Text>
 
-      {/* Location Found Section */}
       <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>Location Found *</Text>
-        <View style={styles.modernInputContainer}>
-          <Ionicons name="location-outline" size={20} color={AppColors.textSecondary} style={styles.modernInputIcon} />
-          <TextInput
-            placeholder="Where exactly did you find this item?"
-            placeholderTextColor={AppColors.textSecondary}
-            style={styles.modernTextInput}
-            value={formData.locationFound}
-            onChangeText={text => updateFormData('locationFound', text)}
-            autoCapitalize="words"
+        <Text style={styles.label}>Location Found *</Text>
+        <StyledTextInput
+          icon="location-outline"
+          placeholder="Where exactly did you find this item?"
+          value={formData.locationFound}
+          onChangeText={text => updateFormData('locationFound', text)}
+          error={errors.locationFound}
+        />
+      </View>
+
+      <View style={styles.row}>
+        <View style={styles.halfContainer}>
+          <Text style={styles.label}>Route Number *</Text>
+          <StyledTextInput
+            icon="bus-outline"
+            placeholder="Route #"
+            value={formData.routeNumber}
+            onChangeText={text => updateFormData('routeNumber', text)}
+            error={errors.routeNumber}
           />
         </View>
-        {errors.locationFound && <Text style={styles.modernErrorText}>{errors.locationFound}</Text>}
-      </View>
-
-      {/* Route and Bus Section */}
-      <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>Transport Details *</Text>
-        <View style={styles.row}>
-          <View style={styles.halfContainer}>
-            <View style={styles.modernInputContainer}>
-              <Ionicons name="bus-outline" size={20} color={AppColors.textSecondary} style={styles.modernInputIcon} />
-              <TextInput
-                placeholder="Route #"
-                placeholderTextColor={AppColors.textSecondary}
-                style={styles.modernTextInput}
-                value={formData.routeNumber}
-                onChangeText={text => updateFormData('routeNumber', text)}
-              />
-            </View>
-            {errors.routeNumber && <Text style={styles.modernErrorText}>{errors.routeNumber}</Text>}
-          </View>
-          <View style={styles.halfContainer}>
-            <View style={styles.modernInputContainer}>
-              <Ionicons name="car-outline" size={20} color={AppColors.textSecondary} style={styles.modernInputIcon} />
-              <TextInput
-                placeholder="Bus #"
-                placeholderTextColor={AppColors.textSecondary}
-                style={styles.modernTextInput}
-                value={formData.busNumber}
-                onChangeText={text => updateFormData('busNumber', text)}
-              />
-            </View>
-            {errors.busNumber && <Text style={styles.modernErrorText}>{errors.busNumber}</Text>}
-          </View>
+        <View style={styles.halfContainer}>
+          <Text style={styles.label}>Bus Number *</Text>
+          <StyledTextInput
+            icon="car-outline"
+            placeholder="Bus #"
+            value={formData.busNumber}
+            onChangeText={text => updateFormData('busNumber', text)}
+            error={errors.busNumber}
+          />
         </View>
       </View>
 
-      {/* Date & Time Section */}
-      <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>When did this happen? *</Text>
-        <View style={styles.dateTimeRow}>
+      <View style={styles.row}>
+        <View style={styles.halfContainer}>
+          <Text style={styles.label}>Date *</Text>
           <TouchableOpacity 
-            style={styles.dateTimeButton} 
-            onPress={handleDatePress}
-            activeOpacity={0.8}
+            style={[styles.styledInput, errors.date && styles.inputError]} 
+            onPress={() => setShowDatePicker(true)}
           >
-            <Ionicons name="calendar-outline" size={20} color={AppColors.primary} />
+            <Ionicons name="calendar-outline" size={20} color={AppColors.textSecondary} style={styles.inputIcon} />
             <Text style={[styles.dateTimeText, !formData.date && styles.placeholderText]}>
-              {formData.date || 'Select Date'}
+              {formData.date || 'Select date'}
             </Text>
-            <Ionicons name="chevron-down" size={16} color={AppColors.textSecondary} />
           </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.dateTimeButton} 
-            onPress={handleTimePress}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="time-outline" size={20} color={AppColors.primary} />
-            <Text style={[styles.dateTimeText, !formData.time && styles.placeholderText]}>
-              {formData.time ? formatTimeForDisplay(formData.time) : 'Select Time'}
-            </Text>
-            <Ionicons name="chevron-down" size={16} color={AppColors.textSecondary} />
-          </TouchableOpacity>
+          {errors.date && <Text style={styles.errorText}>{errors.date}</Text>}
         </View>
-        {(errors.date || errors.time) && (
-          <Text style={styles.modernErrorText}>{errors.date || errors.time}</Text>
-        )}
+        <View style={styles.halfContainer}>
+          <Text style={styles.label}>Time *</Text>
+          <TouchableOpacity 
+            style={[styles.styledInput, errors.time && styles.inputError]} 
+            onPress={() => setShowTimePicker(true)}
+          >
+            <Ionicons name="time-outline" size={20} color={AppColors.textSecondary} style={styles.inputIcon} />
+            <Text style={[styles.dateTimeText, !formData.time && styles.placeholderText]}>
+              {formData.time ? formatTimeForDisplay(formData.time) : 'Select time'}
+            </Text>
+          </TouchableOpacity>
+          {errors.time && <Text style={styles.errorText}>{errors.time}</Text>}
+        </View>
       </View>
 
-      {/* Navigation Buttons */}
-      <View style={styles.modernButtonRow}>
+      <View style={styles.buttonRow}>
         <TouchableOpacity 
-          style={styles.modernSecondaryButton} 
+          style={styles.secondaryButton} 
           onPress={() => setReportStep(1)}
-          activeOpacity={0.8}
         >
-          <Ionicons name="arrow-back" size={20} color={AppColors.text} />
-          <Text style={styles.modernSecondaryButtonText}>Back</Text>
+          <Ionicons name="arrow-back" size={16} color={AppColors.text} />
+          <Text style={styles.secondaryButtonText}>Back</Text>
         </TouchableOpacity>
         <TouchableOpacity 
-          style={styles.modernPrimaryButton} 
+          style={styles.primaryButton} 
           onPress={validateAndProceed}
-          activeOpacity={0.8}
         >
-          <Text style={styles.modernButtonText}>Continue</Text>
-          <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
+          <Text style={styles.buttonText}>Next</Text>
+          <Ionicons name="arrow-forward" size={16} color="white" />
         </TouchableOpacity>
       </View>
     </View>
@@ -912,112 +803,71 @@ const LostAndFoundScreen = ({ navigation }: { navigation: NavigationProp }) => {
 
   const renderReportStep3 = () => (
     <View style={styles.stepContainer}>
-      {/* Modern Progress Indicator */}
-      <View style={styles.modernProgressContainer}>
-        <View style={styles.progressIndicator}>
-          <View style={[styles.progressDot, styles.completedDot]}>
-            <Ionicons name="checkmark" size={16} color="#FFFFFF" />
-          </View>
-          <View style={[styles.progressLine, styles.completedLine]} />
-          <View style={[styles.progressDot, styles.completedDot]}>
-            <Ionicons name="checkmark" size={16} color="#FFFFFF" />
-          </View>
-          <View style={[styles.progressLine, styles.completedLine]} />
-          <View style={[styles.progressDot, styles.activeDot]}>
-            <Text style={styles.progressNumber}>3</Text>
-          </View>
+      <View style={styles.progressContainer}>
+        <View style={styles.progressBar}>
+          <View style={[styles.progressStep, { width: '100%' }]} />
         </View>
+        <Text style={styles.progressText}>Step 3 of 3</Text>
       </View>
 
-      {/* Header Section */}
-      <View style={styles.stepHeader}>
-        <Text style={styles.modernStepTitle}>Almost done!</Text>
-        <Text style={styles.modernStepSubtitle}>How can passengers contact you about this item?</Text>
-      </View>
+      <Text style={styles.stepTitle}>Your Contact Info</Text>
+      <Text style={styles.stepSubtitle}>How can passengers contact you about this item?</Text>
 
-      {/* Driver Name Section */}
       <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>Driver Name *</Text>
-        <View style={styles.modernInputContainer}>
-          <Ionicons name="person-outline" size={20} color={AppColors.textSecondary} style={styles.modernInputIcon} />
-          <TextInput
-            placeholder="Your full name"
-            placeholderTextColor={AppColors.textSecondary}
-            style={styles.modernTextInput}
-            value={formData.driverName}
-            onChangeText={text => updateFormData('driverName', text)}
-            autoCapitalize="words"
-          />
-        </View>
-        {errors.driverName && <Text style={styles.modernErrorText}>{errors.driverName}</Text>}
+        <Text style={styles.label}>Driver Name *</Text>
+        <StyledTextInput
+          icon="person-outline"
+          placeholder="Your full name"
+          value={formData.driverName}
+          onChangeText={text => updateFormData('driverName', text)}
+          error={errors.driverName}
+        />
       </View>
 
-      {/* Phone Number Section */}
       <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>Phone Number *</Text>
-        <View style={styles.modernInputContainer}>
-          <Ionicons name="call-outline" size={20} color={AppColors.textSecondary} style={styles.modernInputIcon} />
-          <TextInput
-            placeholder="Your phone number"
-            placeholderTextColor={AppColors.textSecondary}
-            style={styles.modernTextInput}
-            value={formData.driverPhone}
-            onChangeText={text => updateFormData('driverPhone', text)}
-            keyboardType="phone-pad"
-            autoCapitalize="none"
-          />
-        </View>
-        {errors.driverPhone && <Text style={styles.modernErrorText}>{errors.driverPhone}</Text>}
+        <Text style={styles.label}>Phone Number *</Text>
+        <StyledTextInput
+          icon="call-outline"
+          placeholder="Your phone number"
+          value={formData.driverPhone}
+          onChangeText={text => updateFormData('driverPhone', text)}
+          keyboardType="phone-pad"
+          error={errors.driverPhone}
+        />
       </View>
 
-      {/* Email Section */}
       <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>Email (Optional)</Text>
-        <View style={styles.modernInputContainer}>
-          <Ionicons name="mail-outline" size={20} color={AppColors.textSecondary} style={styles.modernInputIcon} />
-          <TextInput
-            placeholder="Your email address"
-            placeholderTextColor={AppColors.textSecondary}
-            style={styles.modernTextInput}
-            value={formData.driverEmail}
-            onChangeText={text => updateFormData('driverEmail', text)}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-        </View>
-        {errors.driverEmail && <Text style={styles.modernErrorText}>{errors.driverEmail}</Text>}
+        <Text style={styles.label}>Email (Optional)</Text>
+        <StyledTextInput
+          icon="mail-outline"
+          placeholder="Your email address"
+          value={formData.driverEmail}
+          onChangeText={text => updateFormData('driverEmail', text)}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          error={errors.driverEmail}
+        />
       </View>
 
-      {/* Privacy Note */}
-      <View style={styles.modernPrivacyNote}>
-        <Ionicons name="shield-checkmark" size={20} color={AppColors.primary} />
-        <Text style={styles.modernPrivacyText}>
-          Your contact information will only be shared with passengers who claim this item.
-        </Text>
-      </View>
-
-      {/* Navigation Buttons */}
-      <View style={styles.modernButtonRow}>
+      <View style={styles.buttonRow}>
         <TouchableOpacity 
-          style={styles.modernSecondaryButton} 
+          style={styles.secondaryButton} 
           onPress={() => setReportStep(2)}
-          activeOpacity={0.8}
         >
-          <Ionicons name="arrow-back" size={20} color={AppColors.text} />
-          <Text style={styles.modernSecondaryButtonText}>Back</Text>
+          <Ionicons name="arrow-back" size={16} color={AppColors.text} />
+          <Text style={styles.secondaryButtonText}>Back</Text>
         </TouchableOpacity>
         <TouchableOpacity 
-          style={[styles.modernPrimaryButton, submitting && styles.disabledButton]} 
+          style={[styles.primaryButton, submitting && styles.disabledButton]} 
           onPress={validateAndProceed}
           disabled={submitting}
-          activeOpacity={0.8}
         >
           {submitting ? (
             <ActivityIndicator size="small" color="white" />
           ) : (
             <>
-              <Text style={styles.modernButtonText}>Submit Report</Text>
-              <Ionicons name="checkmark" size={20} color="#FFFFFF" />
+              <Text style={styles.buttonText}>Submit Report</Text>
+              <Ionicons name="checkmark" size={16} color="white" />
             </>
           )}
         </TouchableOpacity>
@@ -1060,7 +910,24 @@ const LostAndFoundScreen = ({ navigation }: { navigation: NavigationProp }) => {
           )}
         </ScrollView>
 
-        {/* Note: Date and Time pickers can be enhanced with proper date picker components */}
+        {/* Date and Time Pickers */}
+        {showDatePicker && (
+          <DateTimePicker
+            value={new Date()}
+            mode="date"
+            display="default"
+            onChange={handleDateChange}
+          />
+        )}
+
+        {showTimePicker && (
+          <DateTimePicker
+            value={new Date()}
+            mode="time"
+            display="default"
+            onChange={handleTimeChange}
+          />
+        )}
       </View>
     </SafeAreaView>
   );
@@ -1318,272 +1185,6 @@ const styles = StyleSheet.create({
   stepContainer: {
     paddingBottom: 20,
   },
-  
-  // Modern Progress Styles
-  modernProgressContainer: {
-    marginBottom: 32,
-  },
-  progressIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  progressDot: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: AppColors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  activeDot: {
-    backgroundColor: AppColors.primary,
-  },
-  completedDot: {
-    backgroundColor: AppColors.success,
-  },
-  progressNumber: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  progressLine: {
-    width: 60,
-    height: 2,
-    backgroundColor: AppColors.border,
-    marginHorizontal: 8,
-  },
-  completedLine: {
-    backgroundColor: AppColors.success,
-  },
-  
-  // Modern Headers
-  stepHeader: {
-    marginBottom: 32,
-    alignItems: 'center',
-  },
-  modernStepTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: AppColors.text,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  modernStepSubtitle: {
-    fontSize: 16,
-    color: AppColors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-  
-  // Modern Category Grid
-  modernCategoryGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  modernCategoryCard: {
-    width: '30%',
-    aspectRatio: 1,
-    backgroundColor: AppColors.background,
-    borderRadius: 16,
-    padding: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: AppColors.border,
-    position: 'relative',
-  },
-  activeCategoryCard: {
-    backgroundColor: AppColors.primary,
-    borderColor: AppColors.primary,
-  },
-  categoryIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  modernCategoryLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: AppColors.text,
-    textAlign: 'center',
-    textTransform: 'capitalize',
-  },
-  activeCategoryLabel: {
-    color: '#FFFFFF',
-  },
-  selectedIndicator: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: AppColors.success,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  
-  // Modern Input Styles
-  modernInputContainer: {
-    backgroundColor: AppColors.inputBackground,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: AppColors.border,
-    paddingHorizontal: 16,
-    paddingVertical: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  modernTextArea: {
-    flex: 1,
-    fontSize: 16,
-    color: AppColors.text,
-    paddingVertical: 16,
-    minHeight: 100,
-    textAlignVertical: 'top',
-  },
-  modernInputIcon: {
-    marginRight: 12,
-  },
-  modernTextInput: {
-    flex: 1,
-    fontSize: 16,
-    color: AppColors.text,
-    paddingVertical: 16,
-  },
-  
-  // Modern Photo Upload
-  modernPhotoUpload: {
-    backgroundColor: AppColors.background,
-    borderRadius: 16,
-    padding: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: AppColors.border,
-    borderStyle: 'dashed',
-  },
-  photoUploadIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: AppColors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  photoUploadTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: AppColors.text,
-    marginBottom: 4,
-  },
-  photoUploadSubtitle: {
-    fontSize: 14,
-    color: AppColors.textSecondary,
-  },
-  
-  // Modern Buttons
-  modernPrimaryButton: {
-    backgroundColor: AppColors.primary,
-    borderRadius: 16,
-    paddingVertical: 18,
-    paddingHorizontal: 32,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 32,
-    elevation: 4,
-    shadowColor: AppColors.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  modernButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginRight: 8,
-  },
-  modernSecondaryButton: {
-    flex: 1,
-    backgroundColor: 'transparent',
-    borderRadius: 16,
-    paddingVertical: 18,
-    paddingHorizontal: 24,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: AppColors.border,
-  },
-  modernSecondaryButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: AppColors.text,
-    marginLeft: 8,
-  },
-  modernButtonRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 32,
-  },
-  modernErrorText: {
-    color: AppColors.error,
-    fontSize: 14,
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  
-  // Privacy Note Styles
-  modernPrivacyNote: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: AppColors.accent,
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 20,
-  },
-  modernPrivacyText: {
-    flex: 1,
-    fontSize: 14,
-    color: AppColors.textSecondary,
-    marginLeft: 12,
-    lineHeight: 20,
-  },
-  
-  // Date Time Styles
-  dateTimeRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  dateTimeButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: AppColors.inputBackground,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: AppColors.border,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-  },
-  dateTimeText: {
-    flex: 1,
-    fontSize: 16,
-    color: AppColors.text,
-    marginLeft: 12,
-  },
-  placeholderText: {
-    color: AppColors.textSecondary,
-  },
-
-  // Old styles (keeping for compatibility)
   progressContainer: {
     marginBottom: 30,
     alignItems: 'center',
@@ -1715,6 +1316,15 @@ const styles = StyleSheet.create({
   selectedTextStyle: {
     fontSize: 16,
     color: AppColors.text,
+  },
+
+  // DateTime Styles
+  dateTimeText: {
+    fontSize: 16,
+    color: AppColors.text,
+  },
+  placeholderText: {
+    color: AppColors.textSecondary,
   },
 
   // Layout Styles
