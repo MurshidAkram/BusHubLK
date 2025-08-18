@@ -192,6 +192,14 @@ const lostFoundRoutes = require('./routes/lostFoundRoutes');
 app.use('/api/lost-found', lostFoundRoutes);
 console.log('✅ lostFoundRoutes loaded');
 
+try {
+const driverFoundItemRoutes = require('./routes/driverFoundItemRoutes');
+app.use('/api/driver', driverFoundItemRoutes);
+console.log('✅ driverFoundItemRoutes loaded');
+} catch (error) {
+console.log('❌ driverFoundItemRoutes error:', error.message);
+}
+
 
 try {
 const depotEngineerRoutes = require('./routes/depotEngineerRoutes');
