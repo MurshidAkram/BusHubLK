@@ -37,6 +37,23 @@ class DailyAssignment {
     return result.rows[0];
   }
 
+  // Create a template slot for a route
+  static async createTemplateSlot({ depot_id, route_id, shift_start_time, shift_end_time }) {
+    try {
+      const result = await db.query(
+        `INSERT INTO dailyassignment 
+          (depot_id, bus_id, route_id, driver_id, conductor_id, shift_start_time, shift_end_time, status, is_active, assignment_date)
+         VALUES ($1, -1, $2, -1, -2, $3, $4, 'template', TRUE, '1970-01-01')
+         RETURNING *`,
+        [depot_id, route_id, shift_start_time, shift_end_time]
+      );
+      return result.rows[0];
+    } catch (err) {
+      console.error('DailyAssignment.createTemplateSlot error:', err);
+      throw err;
+    }
+  }
+
   static async update(assignment_id, updates) {
     const allowedFields = ['bus_id', 'route_id', 'driver_id', 'conductor_id'];
     const setClauses = [];
@@ -176,12 +193,12 @@ class DailyAssignment {
     return result.rows;
   }
 
-  // Fetch template slots for a route
+  // Fetch template slots for a route (status = 'template', assignment_date = '1970-01-01')
   static async getTemplatesByRoute(route_id) {
     const result = await db.query(
       `SELECT * FROM dailyassignment
-       WHERE route_id = $1 AND status = 'template' AND is_active = TRUE
-       ORDER BY shift_start_time ASC`,
+     WHERE route_id = $1 AND status = 'template' AND is_active = TRUE AND assignment_date = '1970-01-01'
+     ORDER BY shift_start_time ASC`,
       [route_id]
     );
     return result.rows;
@@ -192,8 +209,8 @@ class DailyAssignment {
     const result = await db.query(
       `UPDATE dailyassignment
        SET bus_id = $1, driver_id = $2, conductor_id = $3,
-           status = 'assigned', updated_at = CURRENT_TIMESTAMP
-       WHERE assignment_id = $4 AND status = 'template' AND is_active = TRUE
+           status = 'Scheduled', updated_at = CURRENT_TIMESTAMP
+       WHERE assignment_id = $4 AND is_active = TRUE
        RETURNING *`,
       [bus_id, driver_id, conductor_id, assignment_id]
     );
@@ -210,6 +227,88 @@ class DailyAssignment {
       [assignment_id]
     );
     return result.rows[0];
+  }
+
+  static async updateTemplateSlot(assignment_id, shift_start_time, shift_end_time) {
+    const result = await db.query(
+      `UPDATE dailyassignment
+       SET shift_start_time = $1, shift_end_time = $2, updated_at = CURRENT_TIMESTAMP
+       WHERE assignment_id = $3 AND status = 'template' AND is_active = TRUE
+       RETURNING *`,
+      [shift_start_time, shift_end_time, assignment_id]
+    );
+    return result.rows[0];
+  }
+
+  // When assigning a slot for a real day, copy the template and fill in real IDs and date
+  static async assignSlotFromTemplate(template_assignment_id, { depot_id, bus_id, driver_id, conductor_id, assignment_date }) {
+    // Fetch the template slot
+    const templateRes = await db.query(
+      `SELECT * FROM dailyassignment WHERE assignment_id = $1 AND status = 'template' AND is_active = TRUE`,
+      [template_assignment_id]
+    );
+    if (!templateRes.rows.length) {
+      throw new Error('Route not found');
+    }
+    const template = templateRes.rows[0];
+    if (!template.route_id) {
+      throw new Error('Route not found');
+    }
+
+    // 2. Insert a new assignment row with all required fields
+    const insertRes = await db.query(
+      `INSERT INTO dailyassignment
+      (depot_id, bus_id, route_id, driver_id, conductor_id, assignment_date, shift_start_time, shift_end_time, status, is_active)
+     VALUES
+      ($1, $2, $3, $4, $5, $6, $7, $8, $9, TRUE)
+     RETURNING *`,
+      [
+        depot_id,
+        bus_id,
+        template.route_id, // copy from template
+        driver_id,
+        conductor_id,
+        assignment_date,
+        template.shift_start_time,
+        template.shift_end_time,
+        'Scheduled' // or 'assigned'
+      ]
+    );
+    return insertRes.rows[0];
+  }
+
+  // NEW: Get available drivers for a depot and date (not assigned on that date)
+  static async getAvailableDrivers(depot_id, assignment_date) {
+    const result = await db.query(
+      `SELECT u.user_id AS id, u.first_name, u.last_name
+       FROM users u
+       JOIN drivers d ON u.user_id = d.driver_id
+       WHERE d.depot_id = $1
+         AND u.is_active = TRUE
+         AND u.user_id NOT IN (
+           SELECT driver_id FROM dailyassignment
+           WHERE assignment_date = $2 AND is_active = TRUE
+         )`,
+      [depot_id, assignment_date]
+    );
+    return result.rows;
+  }
+
+  // NEW: Get available conductors for a depot and date (not assigned on that date)
+  static async getAvailableConductors(depot_id, assignment_date) {
+    const result = await db.query(
+      `SELECT u.user_id AS id, u.first_name, u.last_name
+       FROM users u
+       JOIN conductors c ON u.user_id = c.conductor_id
+       WHERE c.depot_id = $1
+         AND u.is_active = TRUE
+         AND u.user_id NOT IN (
+           SELECT conductor_id FROM dailyassignment
+           WHERE assignment_date = $2 AND is_active = TRUE
+         )`,
+      [depot_id, assignment_date]
+    );
+    return result.rows;
   }
 }
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { CheckCircle, AlertCircle, Clock, RotateCw, Search, X } from 'lucide-react';
 
-type CrewStatus = 'Off Duty' | 'On Duty' | 'On Break';
+type CrewStatus = 'On Duty' | 'On Break';
 
 interface CrewMember {
   id: number;
@@ -16,7 +16,7 @@ const CrewManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMember, setSelectedMember] = useState<CrewMember | null>(null);
   const [showStatusModal, setShowStatusModal] = useState(false);
-  const [newStatus, setNewStatus] = useState<CrewStatus>('Off Duty');
+  const [newStatus, setNewStatus] = useState<CrewStatus>('On Duty');
 
   const [crewList, setCrewList] = useState<CrewMember[]>([]);
   const [loading, setLoading] = useState(false);
@@ -110,8 +110,6 @@ const CrewManagement = () => {
         return <CheckCircle className="h-4 w-4 mr-1" />;
       case 'On Break':
         return <Clock className="h-4 w-4 mr-1" />;
-      case 'Off Duty':
-        return <AlertCircle className="h-4 w-4 mr-1" />;
     }
   };
 
@@ -121,8 +119,6 @@ const CrewManagement = () => {
         return 'text-green-600';
       case 'On Break':
         return 'text-yellow-600';
-      case 'Off Duty':
-        return 'text-red-600';
     }
   };
 
@@ -138,7 +134,7 @@ const CrewManagement = () => {
     <div className="space-y-6 relative">
       {/* Status Change Modal */}
       {showStatusModal && selectedMember && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 backdrop-blur-sm bg-white/10 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
             <div className="flex justify-between items-center border-b p-4">
               <h3 className="text-lg font-medium text-gray-900">Change Status</h3>
@@ -171,7 +167,6 @@ const CrewManagement = () => {
                   value={newStatus}
                   onChange={(e) => setNewStatus(e.target.value as CrewStatus)}
                 >
-                  <option value="Off Duty">Off Duty</option>
                   <option value="On Duty">On Duty</option>
                   <option value="On Break">On Break</option>
                 </select>

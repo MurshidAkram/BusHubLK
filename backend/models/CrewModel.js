@@ -27,16 +27,20 @@ class CrewModel {
        WHERE c.depot_id = $1 AND c.region_id = $2`,
       [depot_id, region_id]
     );
-    // Default status to 'Off Duty' if null
+    // Default status to 'On Duty' if null
     const normalize = row => ({
       ...row,
-      status: row.status || 'Off Duty'
+      status: row.status || 'On Duty'
     });
     return [...drivers.rows.map(normalize), ...conductors.rows.map(normalize)];
   }
 
   // Upsert status for a person
   static async upsertCrewStatus({ person_id, role, status }) {
+    // Only allow "On Duty" or "On Break"
+    if (!['On Duty', 'On Break'].includes(status)) {
+      throw new Error('Invalid status');
+    }
     await db.query(
       `INSERT INTO crew_status (person_id, role, status, updated_at)
        VALUES ($1, $2, $3, NOW())

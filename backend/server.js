@@ -143,13 +143,12 @@ try {
   console.log('❌ passengerRoutes error:', error.message);
 }
 
-const assignmentRoutes = require('./routes/assignmentRoutes');
-const dailyAssignmentRoutes = require('./routes/dailyAssignmentRoutes');
 
-// Add this with your other app.use() routes
-app.use('/api/assignments', assignmentRoutes);
-app.use('/api/dailyassignment', dailyAssignmentRoutes);
+
+const dailyAssignmentRoutes = require('./routes/dailyAssignmentRoutes');
+app.use('/api/assignments', dailyAssignmentRoutes);
 console.log('✅ dailyAssignmentRoutes loaded');
+
 
 
 try {
@@ -195,9 +194,6 @@ console.log('✅ lostFoundRoutes loaded');
 const crewRoutes = require('./routes/crewRoutes');
 app.use('/api/crew', crewRoutes);
 console.log('✅ crewRoutes loaded');
-
-// ...existing code...
-
 
 try {
   const depotEngineerRoutes = require('./routes/depotEngineerRoutes');

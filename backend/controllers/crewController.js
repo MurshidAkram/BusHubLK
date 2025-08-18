@@ -20,6 +20,9 @@ const updateCrewStatus = async (req, res) => {
   if (!person_id || !role || !status) {
     return res.status(400).json({ error: 'person_id, role, and status required' });
   }
+  if (!['On Duty', 'On Break'].includes(status)) {
+    return res.status(400).json({ error: 'Invalid status' });
+  }
   try {
     const updated = await CrewModel.upsertCrewStatus({ person_id, role, status });
     res.json(updated);
