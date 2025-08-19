@@ -345,24 +345,40 @@ const LostAndFoundScreen = ({ navigation }: { navigation: NavigationProp }) => {
       if (formData.photo) {
         const photoUri = formData.photo.uri;
         const filename = formData.photo.fileName || `found_item_${Date.now()}.jpg`;
-        const type = formData.photo.type || 'image/jpeg';
         
-        (submitFormData.append as any)('photo', {
+        // Determine MIME type from file extension if not provided
+        let mimeType = 'image/jpeg';
+        if (filename.toLowerCase().endsWith('.png')) {
+          mimeType = 'image/png';
+        } else if (filename.toLowerCase().endsWith('.gif')) {
+          mimeType = 'image/gif';
+        }
+        
+        console.log('📸 Uploading photo:', { uri: photoUri, name: filename, type: mimeType });
+        
+        // For React Native, we need to create a proper file object
+        submitFormData.append('photo', {
           uri: photoUri,
-          type: type,
+          type: mimeType,
           name: filename,
-        });
+        } as any);
       }
       
       console.log('📤 Submitting found item report...');
+      console.log('🌐 API URL:', `${API_BASE_URL}/driver/found-items`);
       
       const response = await fetch(`${API_BASE_URL}/driver/found-items`, {
         method: 'POST',
         body: submitFormData,
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+        // Don't set Content-Type for FormData - let React Native set it automatically with boundary
       });
+      
+      console.log('📊 Response status:', response.status);
+      console.log('📋 Response headers:', response.headers);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       
       const result = await response.json();
       console.log('📋 Submit response:', result);
@@ -401,7 +417,17 @@ const LostAndFoundScreen = ({ navigation }: { navigation: NavigationProp }) => {
       }
     } catch (error) {
       console.error('❌ Error submitting report:', error);
-      Alert.alert('Error', 'Network error. Please check your connection and try again.');
+      
+      // More detailed error handling
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      if (error instanceof TypeError && errorMessage.includes('Network request failed')) {
+        Alert.alert('Network Error', 'Could not connect to server. Please check your internet connection and try again.');
+      } else if (errorMessage.includes('HTTP error')) {
+        Alert.alert('Server Error', `Server responded with error: ${errorMessage}`);
+      } else {
+        Alert.alert('Error', 'Failed to submit report. Please try again.');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -1134,7 +1160,8 @@ const styles = StyleSheet.create({
 
   // Content Styles
   contentContainer: {
-    paddingBottom: 30,
+    paddingBottom: 100, // Increased padding for better scrolling when photo is added
+    flexGrow: 1, // Allows content to grow beyond screen height for scrolling
   },
   searchSection: {
     padding: 20,
@@ -1747,7 +1774,7 @@ const styles = StyleSheet.create({
   },
   previewImage: {
     width: '100%',
-    height: '100%',
+    height: 200, // Fixed height instead of '100%' to prevent taking full screen
     borderRadius: 10,
   },
 
