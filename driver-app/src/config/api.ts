@@ -2,13 +2,8 @@ import Constants from 'expo-constants';
 
 const getApiBaseUrl = () => {
   if (__DEV__) {
-    const debuggerHost = Constants.expoGoConfig?.debuggerHost || 
-                        Constants.manifest?.debuggerHost;
-    
-    if (debuggerHost) {
-      const ip = debuggerHost.split(':')[0];
-      return `http://${ip}:5000/api`;
-    }
+    // Use the WiFi IP that mobile devices can reach
+    return 'http://10.22.166.184:5000/api';
   }
   
   return 'https://your-production-api.com/api';
