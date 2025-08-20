@@ -42,6 +42,20 @@ interface PartsRecord {
   created_at: string;
 }
 
+interface InspectionRecord {
+  id: number;
+  inspection_type: string;
+  date: string;
+  time: string;
+  status: string;
+  depot_id: number;
+  depot_name: string;
+  region_id: number;
+  region_name: string;
+  created_at: string;
+  updated_at?: string;
+}
+
 interface Region {
   region_id: number;
   region_name: string;
@@ -65,12 +79,13 @@ interface PaginationInfo {
 }
 
 const Servicehistoryexplorer = () => {
-  const [activeTab, setActiveTab] = useState<'services' | 'parts'>('services');
+  const [activeTab, setActiveTab] = useState<'services' | 'parts' | 'inspections'>('services');
   
   const [regions, setRegions] = useState<Region[]>([]);
   const [depots, setDepots] = useState<Depot[]>([]);
   const [serviceRecords, setServiceRecords] = useState<ServiceRecord[]>([]);
   const [partsRecords, setPartsRecords] = useState<PartsRecord[]>([]);
+  const [inspectionRecords, setInspectionRecords] = useState<InspectionRecord[]>([]);
   
   const [servicePagination, setServicePagination] = useState<PaginationInfo>({
     currentPage: 1,
@@ -86,8 +101,16 @@ const Servicehistoryexplorer = () => {
     recordsPerPage: 20
   });
 
+  const [inspectionPagination, setInspectionPagination] = useState<PaginationInfo>({
+    currentPage: 1,
+    totalPages: 1,
+    totalRecords: 0,
+    recordsPerPage: 20
+  });
+
   // Get current pagination based on active tab
-  const currentPagination = activeTab === 'services' ? servicePagination : partsPagination;
+  const currentPagination = activeTab === 'services' ? servicePagination : 
+                           activeTab === 'parts' ? partsPagination : inspectionPagination;
 
   const [selectedRegion, setSelectedRegion] = useState<string>('all');
   const [selectedDepot, setSelectedDepot] = useState<string>('all');
@@ -103,7 +126,7 @@ const Servicehistoryexplorer = () => {
   });
 
   const [showFilters, setShowFilters] = useState(false);
-  const [selectedRecord, setSelectedRecord] = useState<ServiceRecord | PartsRecord | null>(null);
+  const [selectedRecord, setSelectedRecord] = useState<ServiceRecord | PartsRecord | InspectionRecord | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
 
   // Fetch regions and initial counts on component mount
@@ -111,6 +134,7 @@ const Servicehistoryexplorer = () => {
     fetchRegions();
     fetchServiceCount();
     fetchPartsCount();
+    fetchInspectionCount();
   }, []);
 
   // Fetch depots when region changes
@@ -129,8 +153,10 @@ const Servicehistoryexplorer = () => {
       fetchServiceHistory();
     } else if (activeTab === 'parts') {
       fetchPartsHistory();
+    } else if (activeTab === 'inspections') {
+      fetchInspectionHistory();
     }
-  }, [selectedRegion, selectedDepot, filters, servicePagination.currentPage, partsPagination.currentPage, activeTab]);
+  }, [selectedRegion, selectedDepot, filters, servicePagination.currentPage, partsPagination.currentPage, inspectionPagination.currentPage, activeTab]);
 
   const fetchRegions = async () => {
     try {
@@ -207,6 +233,30 @@ const Servicehistoryexplorer = () => {
     }
   };
 
+  const fetchInspectionCount = async () => {
+    try {
+      const queryParams = new URLSearchParams({
+        page: '1',
+        limit: '1',
+        regionId: 'all',
+        depotId: 'all',
+        status: 'all'
+      });
+
+      const response = await fetch(`http://localhost:5000/api/dgm-technical/inspection-history?${queryParams}`);
+      const result = await response.json();
+      
+      if (result.success) {
+        setInspectionPagination(prev => ({
+          ...prev,
+          totalRecords: result.pagination ? result.pagination.totalRecords : result.data.length
+        }));
+      }
+    } catch (err) {
+      console.error('Error fetching inspection count:', err);
+    }
+  };
+
   const fetchServiceHistory = async () => {
     setLoading(true);
     setError(null);
@@ -280,17 +330,54 @@ const Servicehistoryexplorer = () => {
     }
   };
 
+  const fetchInspectionHistory = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const queryParams = new URLSearchParams({
+        page: inspectionPagination.currentPage.toString(),
+        limit: inspectionPagination.recordsPerPage.toString(),
+        regionId: selectedRegion,
+        depotId: selectedDepot,
+        status: filters.status
+      });
+
+      const response = await fetch(`http://localhost:5000/api/dgm-technical/inspection-history?${queryParams}`);
+      const result = await response.json();
+      
+      if (result.success) {
+        setInspectionRecords(result.data);
+        setInspectionPagination({
+          currentPage: result.pagination ? result.pagination.currentPage : 1,
+          totalPages: result.pagination ? result.pagination.totalPages : 1,
+          totalRecords: result.pagination ? result.pagination.totalRecords : result.data.length,
+          recordsPerPage: inspectionPagination.recordsPerPage
+        });
+      } else {
+        throw new Error(result.message);
+      }
+    } catch (err) {
+      console.error('Error fetching inspection history:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch inspection history');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleRegionChange = (regionId: string) => {
     setSelectedRegion(regionId);
     setSelectedDepot('all');
     setServicePagination(prev => ({ ...prev, currentPage: 1 }));
     setPartsPagination(prev => ({ ...prev, currentPage: 1 }));
+    setInspectionPagination(prev => ({ ...prev, currentPage: 1 }));
   };
 
   const handleDepotChange = (depotId: string) => {
     setSelectedDepot(depotId);
     setServicePagination(prev => ({ ...prev, currentPage: 1 }));
     setPartsPagination(prev => ({ ...prev, currentPage: 1 }));
+    setInspectionPagination(prev => ({ ...prev, currentPage: 1 }));
   };
 
   const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -298,29 +385,38 @@ const Servicehistoryexplorer = () => {
     setFilters(prev => ({ ...prev, [name]: value }));
     setServicePagination(prev => ({ ...prev, currentPage: 1 }));
     setPartsPagination(prev => ({ ...prev, currentPage: 1 }));
+    setInspectionPagination(prev => ({ ...prev, currentPage: 1 }));
   };
 
   const handlePageChange = (newPage: number) => {
     if (activeTab === 'services') {
       setServicePagination(prev => ({ ...prev, currentPage: newPage }));
-    } else {
+    } else if (activeTab === 'parts') {
       setPartsPagination(prev => ({ ...prev, currentPage: newPage }));
+    } else if (activeTab === 'inspections') {
+      setInspectionPagination(prev => ({ ...prev, currentPage: newPage }));
     }
   };
 
-  const handleViewRecord = (record: ServiceRecord | PartsRecord) => {
+  const handleViewRecord = (record: ServiceRecord | PartsRecord | InspectionRecord) => {
     setSelectedRecord(record);
     setIsViewModalOpen(true);
   };
 
-  const handleTabChange = (tab: 'services' | 'parts') => {
+  const handleTabChange = (tab: 'services' | 'parts' | 'inspections') => {
     setActiveTab(tab);
-    // Clear service-specific filters when switching to parts tab
+    // Clear service-specific filters when switching to parts or inspections tab
     if (tab === 'parts') {
       setFilters(prev => ({
         ...prev,
         status: 'all',
         serviceType: ''
+      }));
+    } else if (tab === 'inspections') {
+      setFilters(prev => ({
+        ...prev,
+        serviceType: '',
+        search: ''
       }));
     }
   };
@@ -355,10 +451,16 @@ const Servicehistoryexplorer = () => {
                record.service_type.toLowerCase().includes(filters.search.toLowerCase()) ||
                record.depot_name.toLowerCase().includes(filters.search.toLowerCase());
       })
-    : partsRecords.filter(record => {
+    : activeTab === 'parts' 
+    ? partsRecords.filter(record => {
         return filters.search === '' || 
                record.registration_number.toLowerCase().includes(filters.search.toLowerCase()) ||
                record.part_name.toLowerCase().includes(filters.search.toLowerCase()) ||
+               record.depot_name.toLowerCase().includes(filters.search.toLowerCase());
+      })
+    : inspectionRecords.filter(record => {
+        return filters.search === '' || 
+               record.inspection_type.toLowerCase().includes(filters.search.toLowerCase()) ||
                record.depot_name.toLowerCase().includes(filters.search.toLowerCase());
       });
 
@@ -398,6 +500,19 @@ const Servicehistoryexplorer = () => {
               Parts Replacement
               <span className="ml-2 bg-gray-100 text-gray-600 py-0.5 px-2 rounded-full text-xs">
                 {partsPagination.totalRecords}
+              </span>
+            </button>
+            <button
+              onClick={() => handleTabChange('inspections')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'inspections'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Inspection History
+              <span className="ml-2 bg-gray-100 text-gray-600 py-0.5 px-2 rounded-full text-xs">
+                {inspectionPagination.totalRecords}
               </span>
             </button>
           </nav>
@@ -447,8 +562,10 @@ const Servicehistoryexplorer = () => {
               onClick={() => {
                 if (activeTab === 'services') {
                   fetchServiceHistory();
-                } else {
+                } else if (activeTab === 'parts') {
                   fetchPartsHistory();
+                } else if (activeTab === 'inspections') {
+                  fetchInspectionHistory();
                 }
               }}
               disabled={loading}
@@ -461,8 +578,8 @@ const Servicehistoryexplorer = () => {
         </div>
       </div>
 
-      {/* Filters Section - Only show for Service History tab */}
-      {activeTab === 'services' && (
+      {/* Filters Section - Only show for Service History and Inspections tabs */}
+      {(activeTab === 'services' || activeTab === 'inspections') && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-6 overflow-hidden">
           <div 
             className="p-4 border-b border-gray-200 flex justify-between items-center cursor-pointer"
@@ -470,7 +587,7 @@ const Servicehistoryexplorer = () => {
           >
             <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
               <HiFilter className="w-5 h-5" />
-              Service Filters
+              {activeTab === 'services' ? 'Service Filters' : 'Inspection Filters'}
             </h2>
             {showFilters ? (
               <HiChevronUp className="w-5 h-5 text-gray-500" />
@@ -491,28 +608,41 @@ const Servicehistoryexplorer = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="all">All Statuses</option>
-                  <option value="Pending">Pending</option>
-                  <option value="Due Today">Due Today</option>
-                  <option value="In Progress">In Progress</option>
-                  <option value="Completed">Completed</option>
-                  <option value="Overdue">Overdue</option>
-                  <option value="Critical Overdue">Critical Overdue</option>
-                  <option value="Cancelled">Cancelled</option>
+                  {activeTab === 'services' ? (
+                    <>
+                      <option value="Pending">Pending</option>
+                      <option value="Due Today">Due Today</option>
+                      <option value="In Progress">In Progress</option>
+                      <option value="Completed">Completed</option>
+                      <option value="Overdue">Overdue</option>
+                      <option value="Critical Overdue">Critical Overdue</option>
+                      <option value="Cancelled">Cancelled</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="Scheduled">Scheduled</option>
+                      <option value="In Progress">In Progress</option>
+                      <option value="Completed">Completed</option>
+                      <option value="Cancelled">Cancelled</option>
+                    </>
+                  )}
                 </select>
               </div>
               
-              <div className="min-w-[200px] flex-1">
-                <label htmlFor="serviceType" className="block text-sm font-medium text-gray-700 mb-1">Service Type</label>
-                <input
-                  type="text"
-                  id="serviceType"
-                  name="serviceType"
-                  value={filters.serviceType}
-                  onChange={handleFilterChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Filter by service type"
-                />
-              </div>
+              {activeTab === 'services' && (
+                <div className="min-w-[200px] flex-1">
+                  <label htmlFor="serviceType" className="block text-sm font-medium text-gray-700 mb-1">Service Type</label>
+                  <input
+                    type="text"
+                    id="serviceType"
+                    name="serviceType"
+                    value={filters.serviceType}
+                    onChange={handleFilterChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Filter by service type"
+                  />
+                </div>
+              )}
               
               <div className="flex gap-2">
                 <button
@@ -538,8 +668,10 @@ const Servicehistoryexplorer = () => {
                 onClick={() => {
                   if (activeTab === 'services') {
                     fetchServiceHistory();
-                  } else {
+                  } else if (activeTab === 'parts') {
                     fetchPartsHistory();
+                  } else if (activeTab === 'inspections') {
+                    fetchInspectionHistory();
                   }
                 }} 
                 className="mt-2 px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
@@ -556,7 +688,8 @@ const Servicehistoryexplorer = () => {
         <div className="p-4 border-b border-gray-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h2 className="text-lg font-semibold text-gray-800">
-              {activeTab === 'services' ? 'Service Records' : 'Parts Replacement Records'}
+              {activeTab === 'services' ? 'Service Records' : 
+               activeTab === 'parts' ? 'Parts Replacement Records' : 'Inspection Records'}
             </h2>
             <p className="text-sm text-gray-500">
               {loading ? 'Loading...' : `${currentPagination.totalRecords} records found`}
@@ -575,7 +708,9 @@ const Servicehistoryexplorer = () => {
                 onChange={handleFilterChange}
                 placeholder={activeTab === 'services' 
                   ? "Search by bus, service type, or depot..." 
-                  : "Search by bus, part name, or depot..."
+                  : activeTab === 'parts'
+                  ? "Search by bus, part name, or depot..."
+                  : "Search by inspection type or depot..."
                 }
                 className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
@@ -592,7 +727,7 @@ const Servicehistoryexplorer = () => {
             <thead className="bg-gray-50">
               <tr>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Bus number
+                  {activeTab === 'inspections' ? 'Inspection Type' : 'Bus number'}
                 </th>
                 {activeTab === 'services' ? (
                   <>
@@ -606,7 +741,7 @@ const Servicehistoryexplorer = () => {
                       Status
                     </th>
                   </>
-                ) : (
+                ) : activeTab === 'parts' ? (
                   <>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Part Name
@@ -616,6 +751,18 @@ const Servicehistoryexplorer = () => {
                     </th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Quantity
+                    </th>
+                  </>
+                ) : (
+                  <>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Depot
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Date & Time
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
                     </th>
                   </>
                 )}
@@ -631,7 +778,8 @@ const Servicehistoryexplorer = () => {
                     <div className="flex items-center justify-center">
                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
                       <span className="ml-2 text-gray-500">
-                        Loading {activeTab === 'services' ? 'service' : 'parts replacement'} records...
+                        Loading {activeTab === 'services' ? 'service' : 
+                                activeTab === 'parts' ? 'parts replacement' : 'inspection'} records...
                       </span>
                     </div>
                   </td>
@@ -664,7 +812,7 @@ const Servicehistoryexplorer = () => {
                       </td>
                     </tr>
                   ))
-                ) : (
+                ) : activeTab === 'parts' ? (
                   (filteredRecords as PartsRecord[]).map((part) => (
                     <tr key={part.usage_id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -691,11 +839,38 @@ const Servicehistoryexplorer = () => {
                       </td>
                     </tr>
                   ))
+                ) : (
+                  (filteredRecords as InspectionRecord[]).map((inspection) => (
+                    <tr key={inspection.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">{inspection.inspection_type}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {inspection.depot_name}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {new Date(inspection.date).toLocaleDateString()} • {inspection.time}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {getStatusBadge(inspection.status)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button
+                          onClick={() => handleViewRecord(inspection)}
+                          className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
+                          title="View details"
+                        >
+                          <HiEye className="w-5 h-5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
                 )
               ) : (
                 <tr>
                   <td colSpan={7} className="px-6 py-8 text-center text-sm text-gray-500">
-                    No {activeTab === 'services' ? 'service' : 'parts replacement'} records found matching your criteria
+                    No {activeTab === 'services' ? 'service' : 
+                       activeTab === 'parts' ? 'parts replacement' : 'inspection'} records found matching your criteria
                   </td>
                 </tr>
               )}
@@ -744,7 +919,8 @@ const Servicehistoryexplorer = () => {
               <div className="flex justify-between items-start">
                 <div>
                   <h2 className="text-2xl font-bold text-gray-800">
-                    {activeTab === 'services' ? 'Service Record Details' : 'Parts Replacement Details'}
+                    {activeTab === 'services' ? 'Service Record Details' : 
+                     activeTab === 'parts' ? 'Parts Replacement Details' : 'Inspection Details'}
                   </h2>
                   {/* <p className="text-gray-600">Service ID: #{selectedRecord.service_id}</p> */}
                 </div>
