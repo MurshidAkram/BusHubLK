@@ -225,6 +225,13 @@ try {
   console.log('❌ depotEngineerRoutes error:', error.message);
 }
 
+try {
+  const rtoRoutes = require('./routes/rtoRoutes');
+  app.use('/api/rto', rtoRoutes);
+  console.log('✅ rtoRoutes loaded');
+} catch (error) {
+  console.log('❌ rtoRoutes error:', error.message);
+}
 
 app.get('/resetPassword.js', (req, res) => {
   res.setHeader('Content-Type', 'application/javascript');

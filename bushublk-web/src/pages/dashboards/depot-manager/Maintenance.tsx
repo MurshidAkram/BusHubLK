@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
-    MapPin, Clock, CheckCircle, FileText,
+    CheckCircle, FileText,
     MessageSquare, Send, AlertTriangle, ShieldCheck, ChevronDown, ChevronUp, Activity
 } from 'lucide-react';
 
@@ -9,7 +9,7 @@ const API_BASE_URL = 'http://localhost:5000/api/depot-manager';
 // --- INTERFACES --- //
 interface ChatMessage {
     id: number;
-    sender_type: 'driver' | 'depot' | 'depot_manager';
+    sender_type: 'driver' | 'depot' | 'depot_manager' | 'rto';
     text: string;
     created_at: string;
 }
@@ -17,22 +17,25 @@ interface ChatMessage {
 interface ManagerReport {
     id: number;
     incident_type: string;
-    status: 'Escalated to Depot Manager' | 'Action Taken' | 'Resolved';
+    status: 'Escalated to Depot Manager' | 'Action Taken' | 'Resolved' | 'Escalated to RTO';
     driver_name: string;
+    driver_phone: string;
     vehicle_registration: string;
     created_at: string;
     description?: string;
     location?: string;
     messages?: ChatMessage[];
+    rtoMessages?: ChatMessage[];
 }
 
-// --- REUSABLE CHATBOX SUB-COMPONENT --- //
+// --- REUSABLE CHATBOX SUB-COMPONENT (Simplified) --- //
 const ChatBox: React.FC<{
     reportId: number;
     messages: ChatMessage[];
     currentUser: 'depot' | 'depot_manager';
     onMessageSent: (reportId: number) => void;
-}> = ({ reportId, messages, currentUser, onMessageSent }) => {
+    chatType?: 'depot' | 'rto';
+}> = ({ reportId, messages, currentUser, onMessageSent, chatType = 'depot' }) => {
     const [newMessage, setNewMessage] = useState('');
     const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -43,7 +46,9 @@ const ChatBox: React.FC<{
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!newMessage.trim()) return;
-        const postUrl = `${API_BASE_URL}/emergency/${reportId}/reply`;
+        const postUrl = chatType === 'rto' 
+            ? `${API_BASE_URL}/emergency/${reportId}/rto-reply`
+            : `${API_BASE_URL}/emergency/${reportId}/reply`;
         try {
             const response = await fetch(postUrl, {
                 method: 'POST',
@@ -72,7 +77,10 @@ const ChatBox: React.FC<{
                         <div className={`rounded-xl p-3 w-fit max-w-xl ${msg.sender_type === currentUser ? userBubbleClass : otherBubbleClass}`}>
                             {msg.sender_type !== currentUser && (
                                 <p className="text-xs font-bold capitalize text-gray-500">
-                                    {msg.sender_type === 'depot' ? 'Engineer' : msg.sender_type.replace('_', ' ')}
+                                    {msg.sender_type === 'depot' ? 'Engineer' : 
+                                     msg.sender_type === 'depot_manager' ? 'Depot Manager' : 
+                                     msg.sender_type === 'rto' ? 'RTO' :
+                                     msg.sender_type.replace('_', ' ')}
                                 </p>
                             )}
                             <p className="text-sm break-words">{msg.text}</p>
@@ -107,7 +115,7 @@ const ChatBox: React.FC<{
 const DepotManagerIssues: React.FC = () => {
     const [reports, setReports] = useState<ManagerReport[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [activeChatId, setActiveChatId] = useState<number | null>(null);
+    const [activeChatId, setActiveChatId] = useState<string | null>(null);
     const [stats, setStats] = useState({ reviewing: 0, actionTaken: 0, resolved: 0, total: 0 });
 
     const fetchAllManagerData = useCallback(async () => {
@@ -120,11 +128,16 @@ const DepotManagerIssues: React.FC = () => {
             const statsResult = await statsResponse.json();
             if (reportsResult.success) {
                 setReports(prevReports => {
-                    const messageMap = new Map<number, ChatMessage[]>();
-                    prevReports.forEach(r => r.messages && messageMap.set(r.id, r.messages));
+                    // Preserve existing chat history during refresh to avoid re-fetching
+                    const chatStateMap = new Map<string, ChatMessage[]>();
+                    prevReports.forEach(r => {
+                        if (r.messages) chatStateMap.set(`${r.id}-depot`, r.messages);
+                        if (r.rtoMessages) chatStateMap.set(`${r.id}-rto`, r.rtoMessages);
+                    });
                     return (reportsResult.data || []).map((newReport: ManagerReport) => ({
                         ...newReport,
-                        messages: messageMap.get(newReport.id),
+                        messages: chatStateMap.get(`${newReport.id}-depot`),
+                        rtoMessages: chatStateMap.get(`${newReport.id}-rto`),
                     }));
                 });
             }
@@ -171,15 +184,63 @@ const DepotManagerIssues: React.FC = () => {
         }
     }, []);
 
-    const handleToggleChat = (reportId: number) => {
+    const fetchRTOMessagesForReport = useCallback(async (reportId: number) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/emergency/${reportId}/rto-chat`);
+            const result = await response.json();
+            if (result.success) {
+                setReports(prev => prev.map(r => 
+                    r.id === reportId ? { ...r, rtoMessages: result.data } : r
+                ));
+            }
+        } catch (error) {
+            console.error("Failed to fetch RTO messages:", error);
+        }
+    }, []);
+
+    const handleEscalateToRTO = async (id: number) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/emergency/${id}/status`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'Escalated to RTO' }),
+            });
+            if (response.ok) {
+                await fetchAllManagerData();
+                // Close any open engineer chat and open the RTO chat automatically
+                setActiveChatId(`${id}-rto`);
+                fetchRTOMessagesForReport(id);
+            } else {
+                console.error("Failed to escalate to RTO: HTTP", response.status);
+            }
+        } catch (error) {
+            console.error("Failed to escalate to RTO:", error);
+        }
+    };
+
+    const handleToggleChat = (reportId: number, chatType: 'depot' | 'rto' = 'depot') => {
         const report = reports.find(r => r.id === reportId);
-        if (activeChatId === reportId) {
+        const chatKey = `${reportId}-${chatType}`;
+        
+        if (activeChatId === chatKey) {
             setActiveChatId(null);
         } else {
-            setActiveChatId(reportId);
-            if (report && !report.messages) {
-                fetchMessagesForReport(reportId);
+            setActiveChatId(chatKey);
+            if (report) {
+                if (chatType === 'rto' && !report.rtoMessages) {
+                    fetchRTOMessagesForReport(reportId);
+                } else if (chatType === 'depot' && !report.messages) {
+                    fetchMessagesForReport(reportId);
+                }
             }
+        }
+    };
+
+    const handleMessageSent = (reportId: number, chatType: 'depot' | 'rto' = 'depot') => {
+        if (chatType === 'rto') {
+            fetchRTOMessagesForReport(reportId);
+        } else {
+            fetchMessagesForReport(reportId);
         }
     };
     
@@ -200,7 +261,6 @@ const DepotManagerIssues: React.FC = () => {
             <div className="space-y-4">
                 {isLoading && reports.length === 0 ? (<p className="text-center p-10">Loading escalated reports...</p>)
                 : reports.length > 0 ? (reports.map((report) => (
-                    // --- THIS IS THE FIX: Changed the border color ---
                     <div key={report.id} className="bg-white rounded-lg shadow-sm border border-gray-300 p-5">
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
                             <div className="md:col-span-2">
@@ -209,6 +269,7 @@ const DepotManagerIssues: React.FC = () => {
                                     <div>
                                         <h3 className="text-lg font-bold text-gray-800">{report.incident_type} </h3>
                                         <p className="text-sm text-gray-500">{report.driver_name} | {report.vehicle_registration}</p>
+                                        <p className="text-sm text-gray-500">📞 {report.driver_phone}</p>
                                     </div>
                                 </div>
                                 <p className="text-sm text-gray-700 mt-3 bg-gray-50 p-3 rounded-md">{report.description}</p>
@@ -219,7 +280,9 @@ const DepotManagerIssues: React.FC = () => {
                                     <p className="font-semibold text-gray-500">Status</p>
                                     <span className={`px-3 py-1 text-xs font-medium rounded-full ${
                                         report.status === 'Resolved' ? 'bg-green-100 text-green-800' :
-                                        report.status === 'Action Taken' ? 'bg-yellow-100 text-yellow-800' : 'bg-purple-100 text-purple-800'
+                                        report.status === 'Action Taken' ? 'bg-yellow-100 text-yellow-800' :
+                                        report.status === 'Escalated to RTO' ? 'bg-red-100 text-red-800' :
+                                        'bg-purple-100 text-purple-800'
                                     }`}>{report.status}</span>
                                 </div>
                                 <div>
@@ -233,25 +296,59 @@ const DepotManagerIssues: React.FC = () => {
                                     value={report.status}
                                     onChange={(e) => handleUpdateStatus(report.id, e.target.value as ManagerReport['status'])}
                                     className="w-full border rounded-md p-2 text-sm focus:ring-blue-700"
-                                    disabled={report.status === 'Resolved'}
+                                    disabled={report.status === 'Resolved' || report.status === 'Escalated to RTO'}
                                 >
                                     <option value="Escalated to Depot Manager">Reviewing</option>
                                     <option value="Action Taken">Action Taken</option>
                                     <option value="Resolved">Mark as Resolved</option>
                                 </select>
-                                <button onClick={() => handleToggleChat(report.id)} className="flex items-center justify-center gap-2 px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors">
-                                    <MessageSquare size={16} /> Chat with Depot {activeChatId === report.id ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
+                                <button 
+                                    onClick={() => handleEscalateToRTO(report.id)}
+                                    className={`flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+                                        report.status === 'Resolved' || report.status === 'Escalated to RTO'
+                                            ? 'bg-gray-400 cursor-not-allowed text-gray-200'
+                                            : 'bg-red-500 hover:bg-red-600 text-white'
+                                    }`}
+                                    disabled={report.status === 'Resolved' || report.status === 'Escalated to RTO'}
+                                >
+                                    <AlertTriangle size={16} /> 
+                                    {report.status === 'Escalated to RTO' ? 'Escalated' : 'Escalate to RTO'}
                                 </button>
+                                
+                                {/* --- FIX: Conditionally render the correct chat button --- */}
+                                {report.status === 'Escalated to RTO' ? (
+                                    <button onClick={() => handleToggleChat(report.id, 'rto')} className="flex items-center justify-center gap-2 px-3 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition-colors">
+                                        <MessageSquare size={16} /> Chat with RTO {activeChatId === `${report.id}-rto` ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
+                                    </button>
+                                ) : (
+                                    <button onClick={() => handleToggleChat(report.id, 'depot')} className="flex items-center justify-center gap-2 px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors">
+                                        <MessageSquare size={16} /> Chat with Engineer {activeChatId === `${report.id}-depot` ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
+                                    </button>
+                                )}
                             </div>
                         </div>
 
-                        {activeChatId === report.id && (
+                        {/* --- FIX: Chat windows now open based on the exclusive buttons --- */}
+                        {activeChatId === `${report.id}-depot` && (
                             !report.messages ? <p className="text-center text-gray-500 mt-4">Loading chat...</p> : (
                                 <ChatBox
                                     reportId={report.id}
                                     messages={report.messages}
                                     currentUser="depot_manager"
-                                    onMessageSent={fetchMessagesForReport}
+                                    onMessageSent={(id) => handleMessageSent(id, 'depot')}
+                                    chatType="depot"
+                                />
+                            )
+                        )}
+                        
+                        {activeChatId === `${report.id}-rto` && (
+                            !report.rtoMessages ? <p className="text-center text-gray-500 mt-4">Loading RTO chat...</p> : (
+                                <ChatBox
+                                    reportId={report.id}
+                                    messages={report.rtoMessages}
+                                    currentUser="depot_manager"
+                                    onMessageSent={(id) => handleMessageSent(id, 'rto')}
+                                    chatType="rto"
                                 />
                             )
                         )}
