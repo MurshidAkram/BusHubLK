@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   FaSearch, 
@@ -8,80 +8,157 @@ import {
   FaCheck,
   FaClock,
   FaFilter,
-  FaTools
+  FaTools,
+  FaEye
 } from 'react-icons/fa';
+import { AppContext } from '../../../context/AppContext';
+import axios, { AxiosError } from 'axios';
 
 interface Report {
-  id: string;
-  busNum: string;
-  driverId: string;
-  driverName: string;
-  priority: 'Low' | 'Medium' | 'High';
-  busStatus: 'Good' | 'Minor Issue' | 'Major Issue' | 'Out of Service';
-  issueDescription: string;
-  reviewed: boolean;
-  reportedAt: string;
+  report_id: string;
+  bus_id: string;
+  driver_id: string;
+  condition_status: 'Good' | 'Minor Issues' | 'Major Issues' | 'Out of Service';
+  description: string;
+  review_status: 'pending' | 'reviewed';
+  report_time: string;
+  reviewed_at?: string;
+  registration_number: string;
+  bus_class: string;
+  manufacturer: string;
+  model: string;
+  driver_first_name: string;
+  driver_last_name: string;
+  driver_email: string;
+  reviewer_first_name?: string;
+  reviewer_last_name?: string;
+}
+
+interface AppContextType {
+  user: { role: string; userId: string; depot_id?: string; } | null;
+  token: string | null;
+}
+
+interface ReportsResponse {
+  success: boolean;
+  message: string;
+  reports: Report[];
+  depot_id?: string;
+}
+
+interface StatsResponse {
+  success: boolean;
+  message: string;
+  stats: {
+    total_reports: string;
+    pending_count: string;
+    reviewed_count: string;
+    good_count: string;
+    minor_issues_count: string;
+    major_issues_count: string;
+    out_of_service_count: string;
+  };
+  depot_id?: string;
 }
 
 const Autoforwardbusstatus = () => {
   const navigate = useNavigate();
+  const context = useContext(AppContext) as AppContextType | null;
+  
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
-  const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [reports, setReports] = useState<Report[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [stats, setStats] = useState({
+    total_reports: 0,
+    pending_count: 0,
+    reviewed_count: 0,
+    good_count: 0,
+    minor_issues_count: 0,
+    major_issues_count: 0,
+    out_of_service_count: 0,
+  });
 
-  const [reports, setReports] = useState<Report[]>([
-    {
-      id: "1",
-      busNum: 'NC-1234',
-      driverId: '2',
-      driverName: 'Nimal',
-      priority: 'High',
-      busStatus: 'Major Issue',
-      issueDescription: 'Engine making unusual noise during acceleration',
-      reviewed: false,
-      reportedAt: '2023-06-15T08:30:00'
-    },
-    {
-      id: "2",
-      busNum: 'NP-3456',
-      driverId: '4',
-      driverName: 'Venukaran',
-      priority: 'Medium',
-      busStatus: 'Minor Issue',
-      issueDescription: 'Head lights not working',
-      reviewed: false,
-      reportedAt: '2023-06-15T11:20:00'
-    },
-    {
-      id: "3",
-      busNum: 'LA-9801',
-      driverId: '6',
-      driverName: 'Loganathan',
-      priority: 'Low',
-      busStatus: 'Good',
-      issueDescription: 'No issues reported',
-      reviewed: false,
-      reportedAt: '2023-06-15T11:20:00'
+  const token = context?.token;
+
+  // Fetch reports from API
+  const fetchReports = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      if (!token) {
+        setError('Authentication token is missing. Please log in.');
+        setLoading(false);
+        return;
+      }
+
+      const response = await axios.get<ReportsResponse>(
+        'http://localhost:5000/api/depot-engineer/condition-reports',
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.data.success) {
+        setReports(response.data.reports);
+      } else {
+        setError(`Failed to fetch reports: ${response.data.message}`);
+      }
+    } catch (err) {
+      const axiosError = err as AxiosError;
+      console.error('API Error:', axiosError);
+      setError('Failed to fetch reports. Please try again later.');
+    } finally {
+      setLoading(false);
     }
-  ]);
+  };
+
+  // Fetch statistics from API
+  const fetchStats = async () => {
+    try {
+      if (!token) return;
+
+      const response = await axios.get<StatsResponse>(
+        'http://localhost:5000/api/depot-engineer/condition-reports/stats',
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.data.success) {
+        setStats({
+          total_reports: parseInt(response.data.stats.total_reports),
+          pending_count: parseInt(response.data.stats.pending_count),
+          reviewed_count: parseInt(response.data.stats.reviewed_count),
+          good_count: parseInt(response.data.stats.good_count),
+          minor_issues_count: parseInt(response.data.stats.minor_issues_count),
+          major_issues_count: parseInt(response.data.stats.major_issues_count),
+          out_of_service_count: parseInt(response.data.stats.out_of_service_count),
+        });
+      }
+    } catch (err) {
+      console.error('Stats API Error:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchReports();
+    fetchStats();
+  }, [token]);
 
   const getBusStatusColor = (status: string) => {
     switch(status.toLowerCase()) {
       case 'good': return 'bg-green-100 text-green-800';
-      case 'minor issue': return 'bg-yellow-100 text-yellow-800';
-      case 'major issue': return 'bg-orange-100 text-orange-800';
+      case 'minor issues': return 'bg-yellow-100 text-yellow-800';
+      case 'major issues': return 'bg-orange-100 text-orange-800';
       case 'out of service': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getPriorityColor = (priority: string) => {
-    switch(priority.toLowerCase()) {
-      case 'low': return 'bg-blue-100 text-blue-800';
-      case 'medium': return 'bg-yellow-100 text-yellow-800';
-      case 'high': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -97,32 +174,55 @@ const Autoforwardbusstatus = () => {
 
   const filteredReports = reports.filter(report => {
     const matchesStatus = statusFilter === 'all' || 
-                         report.busStatus.toLowerCase() === statusFilter.toLowerCase();
-    const matchesPriority = priorityFilter === 'all' || 
-                           report.priority.toLowerCase() === priorityFilter.toLowerCase();
-    const matchesSearch = report.busNum.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         report.driverId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         report.driverName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         report.issueDescription.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesStatus && matchesPriority && matchesSearch;
+                         report.condition_status.toLowerCase() === statusFilter.toLowerCase();
+    const driverName = `${report.driver_first_name} ${report.driver_last_name}`;
+    const matchesSearch = report.registration_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         report.driver_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         driverName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         report.description.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesStatus && matchesSearch;
   });
 
-  const markAsReviewed = (reportId: string) => {
-    setReports(reports.map(report => 
-      report.id === reportId ? { ...report, reviewed: true } : report
-    ));
-  };
+  const markAsReviewed = async (reportId: string) => {
+    try {
+      if (!token) return;
 
-  const markAsUnreviewed = (reportId: string) => {
-    setReports(reports.map(report => 
-      report.id === reportId ? { ...report, reviewed: false } : report
-    ));
+      const response = await axios.put(
+        `http://localhost:5000/api/depot-engineer/condition-reports/${reportId}/review`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.data.success) {
+        // Update local state
+        setReports(reports.map(report => 
+          report.report_id === reportId ? { ...report, review_status: 'reviewed', reviewed_at: new Date().toISOString() } : report
+        ));
+        // Refresh stats
+        fetchStats();
+      } else {
+        setError(`Failed to review report: ${response.data.message}`);
+      }
+    } catch (err) {
+      const axiosError = err as AxiosError;
+      console.error('Review API Error:', axiosError);
+      setError('Failed to review report. Please try again later.');
+    }
   };
 
   const handleReviewClick = (report: Report) => {
-    if (!report.reviewed) {
-      markAsReviewed(report.id);
+    if (report.review_status === 'pending') {
+      markAsReviewed(report.report_id);
     }
+    setSelectedReport(report);
+    setIsModalOpen(true);
+  };
+
+  const handleViewDetails = (report: Report) => {
     setSelectedReport(report);
     setIsModalOpen(true);
   };
@@ -135,17 +235,17 @@ const Autoforwardbusstatus = () => {
   const handleUpdateStatus = () => {
     navigate('/depot-engineer/Busavailability', { 
       state: { 
-        busId: selectedReport?.busNum,
-        currentStatus: selectedReport?.busStatus
+        busId: selectedReport?.registration_number,
+        currentStatus: selectedReport?.condition_status
       } 
     });
   };
 
   // Statistics
-  const unreviewedCount = reports.filter(r => !r.reviewed).length;
-  const goodStatusCount = reports.filter(r => r.busStatus === 'Good').length;
-  const minorIssueCount = reports.filter(r => r.busStatus === 'Minor Issue').length;
-  const majorIssueCount = reports.filter(r => r.busStatus === 'Major Issue').length;
+  const unreviewedCount = stats.pending_count;
+  const goodStatusCount = stats.good_count;
+  const minorIssueCount = stats.minor_issues_count;
+  const majorIssueCount = stats.major_issues_count;
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-6">
@@ -213,7 +313,7 @@ const Autoforwardbusstatus = () => {
 
       {/* Filters */}
       <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <FaSearch className="text-gray-400" />
@@ -237,28 +337,28 @@ const Autoforwardbusstatus = () => {
             >
               <option value="all">All Statuses</option>
               <option value="good">Good</option>
-              <option value="minor issue">Minor Issue</option>
-              <option value="major issue">Major Issue</option>
+              <option value="minor issues">Minor Issues</option>
+              <option value="major issues">Major Issues</option>
               <option value="out of service">Out of Service</option>
-            </select>
-          </div>
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <FaFilter className="text-gray-400" />
-            </div>
-            <select
-              className="pl-10 pr-4 py-2.5 w-full border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none"
-              value={priorityFilter}
-              onChange={(e) => setPriorityFilter(e.target.value)}
-            >
-              <option value="all">All Priorities</option>
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
             </select>
           </div>
         </div>
       </div>
+
+      {/* Loading and Error States */}
+      {loading && (
+        <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
+          <div className="flex items-center justify-center">
+            <div className="text-gray-500">Loading reports...</div>
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <div className="bg-red-50 rounded-xl p-6 mb-6">
+          <div className="text-red-700">{error}</div>
+        </div>
+      )}
 
       {/* Reports Table */}
       <div className="bg-white rounded-xl shadow-sm overflow-hidden">
@@ -268,7 +368,6 @@ const Autoforwardbusstatus = () => {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bus Number</th>
                 {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reported By</th> */}
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reported At</th>
                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -278,31 +377,26 @@ const Autoforwardbusstatus = () => {
               {filteredReports.length > 0 ? (
                 filteredReports.map((report) => (
                   <tr 
-                    key={report.id} 
-                    className={`hover:bg-gray-50 ${!report.reviewed ? 'bg-blue-50' : ''}`}
+                    key={report.report_id} 
+                    className={`hover:bg-gray-50 ${report.review_status === 'pending' ? 'bg-blue-50' : ''}`}
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="font-medium text-gray-900">{report.busNum}</div>
+                      <div className="font-medium text-gray-900">{report.registration_number}</div>
                     </td>
                     {/* <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-gray-900">{report.driverId}</div>
+                      <div className="text-gray-900">{report.driver_id}</div>
                     </td> */}
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getPriorityColor(report.priority)}`}>
-                        {report.priority}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getBusStatusColor(report.busStatus)}`}>
-                        {report.busStatus}
+                      <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getBusStatusColor(report.condition_status)}`}>
+                        {report.condition_status}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatDateTime(report.reportedAt)}
+                      {formatDateTime(report.report_time)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                      <div className="flex justify-center">
-                        {!report.reviewed ? (
+                      <div className="flex justify-center gap-2">
+                        {report.review_status === 'pending' ? (
                           <button
                             onClick={() => handleReviewClick(report)}
                             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-1.5 transition-colors"
@@ -311,10 +405,20 @@ const Autoforwardbusstatus = () => {
                             <span>Review</span>
                           </button>
                         ) : (
-                          <span className="px-4 py-2 bg-green-100 text-green-800 rounded-lg inline-flex items-center gap-1.5">
-                            <FaCheck size={12} />
-                            <span>Reviewed</span>
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="px-3 py-1 bg-green-100 text-green-800 rounded-lg inline-flex items-center gap-1.5 text-xs">
+                              <FaCheck size={10} />
+                              <span>Reviewed</span>
+                            </span>
+                            <button
+                              onClick={() => handleViewDetails(report)}
+                              className="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg flex items-center gap-1.5 transition-colors text-xs"
+                              title="View Details"
+                            >
+                              <FaEye size={10} />
+                              <span>View</span>
+                            </button>
+                          </div>
                         )}
                       </div>
                     </td>
@@ -322,7 +426,7 @@ const Autoforwardbusstatus = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
+                  <td colSpan={4} className="px-6 py-4 text-center text-gray-500">
                     No reports found matching your criteria
                   </td>
                 </tr>
@@ -352,38 +456,59 @@ const Autoforwardbusstatus = () => {
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <h3 className="text-sm font-medium text-gray-500">Bus ID</h3>
-                    <p className="mt-1 text-gray-900">{selectedReport.busNum}</p>
+                    <h3 className="text-sm font-medium text-gray-500">Bus Registration</h3>
+                    <p className="mt-1 text-gray-900">{selectedReport.registration_number}</p>
                   </div>
                   <div>
                     <h3 className="text-sm font-medium text-gray-500">Driver</h3>
-                    <p className="mt-1 text-gray-900">{selectedReport.driverName}</p>
+                    <p className="mt-1 text-gray-900">{selectedReport.driver_first_name} {selectedReport.driver_last_name}</p>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <h3 className="text-sm font-medium text-gray-500">Priority</h3>
-                    <span className={`mt-1 px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full ${getPriorityColor(selectedReport.priority)}`}>
-                      {selectedReport.priority}
+                    <h3 className="text-sm font-medium text-gray-500">Condition Status</h3>
+                    <span className={`mt-1 px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full ${getBusStatusColor(selectedReport.condition_status)}`}>
+                      {selectedReport.condition_status}
                     </span>
                   </div>
                   <div>
-                    <h3 className="text-sm font-medium text-gray-500">Status</h3>
-                    <span className={`mt-1 px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full ${getBusStatusColor(selectedReport.busStatus)}`}>
-                      {selectedReport.busStatus}
-                    </span>
+                    <h3 className="text-sm font-medium text-gray-500">Reported At</h3>
+                    <p className="mt-1 text-gray-900">{formatDateTime(selectedReport.report_time)}</p>
                   </div>
                 </div>
 
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500">Reported At</h3>
-                  <p className="mt-1 text-gray-900">{formatDateTime(selectedReport.reportedAt)}</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">Review Status</h3>
+                    <span className={`mt-1 px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full ${
+                      selectedReport.review_status === 'reviewed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {selectedReport.review_status === 'reviewed' ? 'Reviewed' : 'Pending Review'}
+                    </span>
+                  </div>
+                  {selectedReport.reviewed_at && (
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500">Reviewed At</h3>
+                      <p className="mt-1 text-gray-900">{formatDateTime(selectedReport.reviewed_at)}</p>
+                    </div>
+                  )}
                 </div>
+
+                {selectedReport.review_status === 'reviewed' && (selectedReport.reviewer_first_name || selectedReport.reviewer_last_name) && (
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">Reviewed By</h3>
+                    <p className="mt-1 text-gray-900">
+                      {selectedReport.reviewer_first_name} {selectedReport.reviewer_last_name}
+                    </p>
+                  </div>
+                )}
 
                 <div>
                   <h3 className="text-sm font-medium text-gray-500">Issue Description</h3>
-                  <p className="mt-1 text-gray-900 whitespace-pre-line">{selectedReport.issueDescription}</p>
+                  <div className="mt-1 p-3 bg-gray-50 rounded-lg max-h-32 overflow-y-auto">
+                    <p className="text-gray-900 whitespace-pre-line break-words">{selectedReport.description}</p>
+                  </div>
                 </div>
 
                 <div className="pt-4 border-t">

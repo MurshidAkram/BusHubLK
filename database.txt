@@ -63,7 +63,7 @@ INSERT INTO roles (role_name, role_description) VALUES
 INSERT INTO regions (region_name) VALUES
 ('Colombo'),
 ('Gampaha'),
-('Kaluthara'),
+('Kaluthara'), ..
 ('Wayamba'),
 ('Mahanuwara'),
 ('Sabaragamuwa'),
@@ -698,3 +698,101 @@ CREATE TABLE bus_condition_reports (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+-- Add review columns to bus_condition_reports table
+ALTER TABLE bus_condition_reports 
+ADD COLUMN review_status VARCHAR(20) DEFAULT 'pending',
+ADD COLUMN reviewed_by INTEGER REFERENCES depot_engineers(depot_engineer_id) ON DELETE SET NULL,
+ADD COLUMN reviewed_at TIMESTAMP NULL;
+
+
+CREATE TABLE spare_parts_inventory (
+    id SERIAL PRIMARY KEY,
+    part_id VARCHAR(10) UNIQUE NOT NULL,
+    part_name VARCHAR(255) NOT NULL,
+    current_stock INTEGER NOT NULL DEFAULT 0,
+    unit VARCHAR(50) NOT NULL, 
+    depot_id INTEGER NOT NULL,
+    last_restocked TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    
+    CONSTRAINT fk_depot FOREIGN KEY (depot_id) REFERENCES depots(depot_id) ON DELETE CASCADE,
+    
+   
+    CONSTRAINT check_current_stock CHECK (current_stock >= 0)
+);
+ALTER TABLE spare_parts_inventory ADD COLUMN deleted_at TIMESTAMP NULL;
+
+-- Index 
+CREATE INDEX idx_spare_parts_depot ON spare_parts_inventory(depot_id);
+
+-- Spare Parts Usage History Table
+CREATE TABLE spare_parts_usage_history (
+    usage_id SERIAL PRIMARY KEY,
+    part_id VARCHAR(10) NOT NULL,
+    part_name VARCHAR(255) NOT NULL,
+    bus_id INTEGER NOT NULL,
+    depot_id INTEGER NOT NULL,
+    engineer_id INTEGER NOT NULL,
+    quantity_used INTEGER NOT NULL CHECK (quantity_used > 0),
+    unit VARCHAR(50) NOT NULL,
+    usage_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Foreign key constraints
+    CONSTRAINT fk_usage_bus FOREIGN KEY (bus_id) REFERENCES buses(bus_id) ON DELETE CASCADE,
+    CONSTRAINT fk_usage_depot FOREIGN KEY (depot_id) REFERENCES depots(depot_id) ON DELETE CASCADE,
+    CONSTRAINT fk_usage_engineer FOREIGN KEY (engineer_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    CONSTRAINT fk_usage_part FOREIGN KEY (part_id) REFERENCES spare_parts_inventory(part_id) ON DELETE CASCADE
+);
+
+-- Indexes
+CREATE INDEX idx_usage_bus ON spare_parts_usage_history(bus_id);
+CREATE INDEX idx_usage_depot ON spare_parts_usage_history(depot_id);
+CREATE INDEX idx_usage_date ON spare_parts_usage_history(usage_date);
+CREATE INDEX idx_usage_part ON spare_parts_usage_history(part_id);
+
+
+-- Service Schedules
+CREATE TABLE service_schedules (
+    id SERIAL PRIMARY KEY,
+    service_type VARCHAR(100) NOT NULL,
+    bus_id INTEGER NOT NULL,
+    scheduled_date DATE NOT NULL,
+    
+    -- Status types with constraint validation
+    status VARCHAR(20) NOT NULL DEFAULT 'Pending' 
+        CHECK (status IN (
+            'Pending', 
+            'Due Today', 
+            'In Progress', 
+            'Completed', 
+            'Overdue', 
+            'Critical Overdue',
+            'Cancelled'
+        )),
+        
+    completed_date DATE,
+    cancelled_date DATE,
+    depot_id INTEGER NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Foreign key constraints
+    CONSTRAINT fk_service_schedules_bus 
+        FOREIGN KEY (bus_id) REFERENCES buses(bus_id) ON DELETE CASCADE,
+    CONSTRAINT fk_service_schedules_depot 
+        FOREIGN KEY (depot_id) REFERENCES depots(depot_id) ON DELETE CASCADE
+);
+
+-- Indexes 
+CREATE INDEX idx_service_schedules_bus_id ON service_schedules(bus_id);
+CREATE INDEX idx_service_schedules_status ON service_schedules(status);
+CREATE INDEX idx_service_schedules_scheduled_date ON service_schedules(scheduled_date);
+CREATE INDEX idx_service_schedules_depot_id ON service_schedules(depot_id);
+CREATE INDEX idx_service_schedules_depot_status ON service_schedules(depot_id, status);
+CREATE INDEX idx_service_schedules_active ON service_schedules(depot_id) WHERE status != 'Cancelled';
+
+ALTER TABLE service_schedules 
+ADD COLUMN is_deleted BOOLEAN DEFAULT false;
