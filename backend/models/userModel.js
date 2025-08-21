@@ -498,7 +498,7 @@ static async updateRoleSpecificEntry(user_id, role_name, updateData) {
 // Get depot engineers by depot ID
 static async getDepotEngineersByDepot(depotId) {
   const query = `
-    SELECT u.user_id as id, u.username, u.email, u.first_name, u.last_name
+    SELECT u.user_id, u.username, u.email, u.first_name, u.last_name
     FROM users u
     JOIN depot_engineers de ON u.user_id = de.depot_engineer_id
     WHERE de.depot_id = $1 AND u.is_active = true
@@ -509,6 +509,24 @@ static async getDepotEngineersByDepot(depotId) {
     return result.rows;
   } catch (error) {
     console.error('Error getting depot engineers by depot:', error);
+    throw error;
+  }
+}
+
+// Get depot managers by depot ID
+static async getDepotManagersByDepot(depotId) {
+  const query = `
+    SELECT u.user_id, u.username, u.email, u.first_name, u.last_name
+    FROM users u
+    JOIN depot_managers dm ON u.user_id = dm.depot_manager_id
+    WHERE dm.depot_id = $1 AND u.is_active = true
+  `;
+  
+  try {
+    const result = await db.query(query, [depotId]);
+    return result.rows;
+  } catch (error) {
+    console.error('Error getting depot managers by depot:', error);
     throw error;
   }
 }

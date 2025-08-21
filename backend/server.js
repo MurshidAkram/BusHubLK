@@ -200,6 +200,7 @@ console.log('✅ notificationRoutes loaded');
 console.log('❌ notificationRoutes error:', error.message);
 }
 
+try{
 const driverFoundItemRoutes = require('./routes/driverFoundItemRoutes');
 app.use('/api/driver', driverFoundItemRoutes);
 console.log('✅ driverFoundItemRoutes loaded');
@@ -255,7 +256,7 @@ try {
   console.log('✅ dgmTechnicalRoutes loaded');
 } catch (error) {
   console.log('❌ dgmTechnicalRoutes error:', error.message);
-
+}
 
 try {
   const rtoRoutes = require('./routes/rtoRoutes');
