@@ -76,6 +76,54 @@ createReport: async (reportData, client = pool) => { // <-- Add client parameter
     const { rows } = await client.query(query);
     return rows[0];
   },
+
+/**
+   * Finds the phone number of a Depot Engineer based on a driver's ID.
+   * @param {number} driverId - The ID of the driver.
+   * @returns {Promise<Array<object>>} A promise that resolves to the query result.
+   */
+  findDepotEngineerByDriverId: async (driverId) => {
+    // First get the depot_id for the driver
+    const driverQuery = {
+      text: `SELECT depot_id FROM drivers WHERE driver_id = $1`,
+      values: [driverId]
+    };
+
+    try {
+      // Get driver's depot
+      const driverResult = await pool.query(driverQuery);
+      console.log('[DEBUG] Driver query result:', driverResult.rows);
+      
+      if (driverResult.rows.length === 0) {
+        console.log('[DEBUG] No depot found for driver:', driverId);
+        return [];
+      }
+
+      const depotId = driverResult.rows[0].depot_id;
+
+      // Get depot engineer's phone number
+      // Removed hardcoded role_id = 12. Relies on the user being in depot_engineers table for the depot.
+      const engineerQuery = {
+        text: `
+          SELECT u.phone
+          FROM users u
+          INNER JOIN depot_engineers de ON de.depot_engineer_id = u.user_id
+          WHERE de.depot_id = $1
+          AND u.is_active = true
+          LIMIT 1
+        `,
+        values: [depotId]
+      };
+
+      const engineerResult = await pool.query(engineerQuery);
+      console.log('[DEBUG] Engineer query result:', engineerResult.rows);
+      return engineerResult.rows;
+      
+    } catch (error) {
+      console.error('[ERROR] Query error:', error);
+      throw error;
+    }
+  },
 };
 
 module.exports = Emergency;

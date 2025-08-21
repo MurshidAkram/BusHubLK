@@ -192,6 +192,21 @@ const lostFoundRoutes = require('./routes/lostFoundRoutes');
 app.use('/api/lost-found', lostFoundRoutes);
 console.log('✅ lostFoundRoutes loaded');
 
+try {
+const notificationRoutes = require('./routes/notificationRoutes');
+app.use('/api/notifications', notificationRoutes);
+console.log('✅ notificationRoutes loaded');
+} catch (error) {
+console.log('❌ notificationRoutes error:', error.message);
+}
+
+const driverFoundItemRoutes = require('./routes/driverFoundItemRoutes');
+app.use('/api/driver', driverFoundItemRoutes);
+console.log('✅ driverFoundItemRoutes loaded');
+} catch (error) {
+console.log('❌ driverFoundItemRoutes error:', error.message);
+}
+
 
 try {
   const depotEngineerRoutes = require('./routes/depotEngineerRoutes');
@@ -233,12 +248,21 @@ try {
   console.log('❌ inspectionRoutes error:', error.message);
 }
 
+
 try {
   const dgmTechnicalRoutes = require('./routes/dgmTechnicalRoutes');
   app.use('/api/dgm-technical', dgmTechnicalRoutes);
   console.log('✅ dgmTechnicalRoutes loaded');
 } catch (error) {
   console.log('❌ dgmTechnicalRoutes error:', error.message);
+
+
+try {
+  const rtoRoutes = require('./routes/rtoRoutes');
+  app.use('/api/rto', rtoRoutes);
+  console.log('✅ rtoRoutes loaded');
+} catch (error) {
+  console.log('❌ rtoRoutes error:', error.message);
 }
 
 app.get('/resetPassword.js', (req, res) => {

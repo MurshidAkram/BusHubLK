@@ -37,6 +37,7 @@ const Emergency = {
         const reportQuery = `
             SELECT
                 er.*, u.first_name || ' ' || u.last_name AS driver_name,
+                u.phone AS driver_phone,
                 b.registration_number AS vehicle_registration
             FROM emergency_reports er
             LEFT JOIN users u ON er.driver_id = u.user_id
@@ -68,7 +69,7 @@ const Emergency = {
         return rows[0];
     },
 
-    // No changes to manager chat functions
+    // Manager chat functions (depot engineer <-> depot manager)
     addManagerMessage: async (report_id, sender_type, text) => {
         const query = {
             text: 'INSERT INTO manager_chats(report_id, sender_type, text, created_at) VALUES($1, $2, $3, NOW()) RETURNING *',
@@ -81,6 +82,25 @@ const Emergency = {
     getManagerChat: async (reportId) => {
         const query = {
             text: `SELECT * FROM manager_chats WHERE report_id = $1 ORDER BY created_at ASC`,
+            values: [reportId],
+        };
+        const { rows } = await pool.query(query);
+        return rows;
+    },
+
+    // RTO-Manager chat functions (depot manager <-> RTO)
+    addRTOManagerMessage: async (report_id, sender_type, text) => {
+        const query = {
+            text: 'INSERT INTO rto_manager_chats(report_id, sender_type, text, created_at) VALUES($1, $2, $3, $4) RETURNING *',
+            values: [report_id, sender_type, text, new Date()],
+        };
+        const { rows } = await pool.query(query);
+        return rows[0];
+    },
+  
+    getRTOManagerChat: async (reportId) => {
+        const query = {
+            text: `SELECT * FROM rto_manager_chats WHERE report_id = $1 ORDER BY created_at ASC`,
             values: [reportId],
         };
         const { rows } = await pool.query(query);
@@ -121,24 +141,54 @@ const Emergency = {
      * those with action taken, and those that have been resolved by the manager.
      */
     findAllForManager: async () => {
+        // This function remains unchanged from our last fix
         const query = `
           SELECT 
             er.id, er.driver_id, er.bus_id, er.incident_type, er.description,
             er.latitude, er.longitude, er.status, er.created_at,
             u.first_name || ' ' || u.last_name AS driver_name,
+            u.phone AS driver_phone,
             b.registration_number AS vehicle_registration
           FROM emergency_reports er
           LEFT JOIN users u ON er.driver_id = u.user_id
           LEFT JOIN buses b ON er.bus_id = b.bus_id
-          WHERE er.status IN ('Escalated to Depot Manager', 'Action Taken', 'Resolved')
+          WHERE er.status IN ('Escalated to Depot Manager', 'Action Taken', 'Resolved', 'Escalated to RTO')
           ORDER BY er.created_at DESC
         `;
         const { rows } = await pool.query(query);
         return rows;
     },
 
+    /**
+     * Finds all reports escalated to RTO for the RTO dashboard
+     */
+    findAllForRTO: async () => {
+        const query = `
+          SELECT 
+            er.id, er.driver_id, er.bus_id, er.incident_type, er.description,
+            er.latitude, er.longitude, er.status, er.created_at,
+            u.first_name || ' ' || u.last_name AS driver_name,
+            u.phone AS driver_phone,
+            b.registration_number AS vehicle_registration
+          FROM emergency_reports er
+          LEFT JOIN users u ON er.driver_id = u.user_id
+          LEFT JOIN buses b ON er.bus_id = b.bus_id
+          WHERE er.status = 'Escalated to RTO'
+            OR (
+              er.status IN ('In Progress', 'Resolved') AND (
+                EXISTS (SELECT 1 FROM manager_chats mc WHERE mc.report_id = er.id)
+                OR
+                EXISTS (SELECT 1 FROM rto_manager_chats rmc WHERE rmc.report_id = er.id)
+              )
+            )
+          ORDER BY er.created_at DESC
+        `;
+        const { rows } = await pool.query(query);
+        return rows;
+    },
     // --- NEW: A dedicated statistics function for the Manager Dashboard --- //
     getManagerStatistics: async () => {
+        // ... this function remains unchanged ...
         const query = `
           SELECT
             COUNT(*) AS total,
@@ -150,7 +200,6 @@ const Emergency = {
         `;
         const { rows } = await pool.query(query);
         const stats = rows[0];
-        // Convert string counts to integers
         for (const key in stats) {
             stats[key] = parseInt(stats[key], 10);
         }

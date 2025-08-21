@@ -494,6 +494,24 @@ static async updateRoleSpecificEntry(user_id, role_name, updateData) {
   const query = `UPDATE ${tableName} SET ${updateFields.join(', ')} WHERE ${role_name}_id = $${paramCount}`;
   await db.query(query, values);
 }
+
+// Get depot engineers by depot ID
+static async getDepotEngineersByDepot(depotId) {
+  const query = `
+    SELECT u.user_id as id, u.username, u.email, u.first_name, u.last_name
+    FROM users u
+    JOIN depot_engineers de ON u.user_id = de.depot_engineer_id
+    WHERE de.depot_id = $1 AND u.is_active = true
+  `;
+  
+  try {
+    const result = await db.query(query, [depotId]);
+    return result.rows;
+  } catch (error) {
+    console.error('Error getting depot engineers by depot:', error);
+    throw error;
+  }
+}
 }
 
 module.exports = User;
