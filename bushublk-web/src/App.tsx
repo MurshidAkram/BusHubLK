@@ -19,6 +19,8 @@ import ManageRoles from './pages/dashboards/admin/DepotAndRegions'
 import Employees from './pages/dashboards/admin/Employees'
 import BusManaging from './pages/dashboards/admin/BusManaging'
 import RoutesMngmnt from './pages/dashboards/admin/RoutesMngmnt'
+import RouteFaresPage from './pages/dashboards/admin/RouteFaresPage';
+
 
 
 
@@ -168,6 +170,7 @@ const App = () => {
     <Route path="employees" element={<Employees />} />
     <Route path="buses" element={<BusManaging />} />
     <Route path="routes" element={<RoutesMngmnt />} />
+    <Route path="routes/:routeId/fares" element={<RouteFaresPage />} />
     {/* Add more admin routes as needed */}
   </Route>
 </Route>

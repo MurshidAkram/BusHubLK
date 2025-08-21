@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AppContext } from '../../../context/AppContext';
 import { toast } from 'react-toastify';
 
@@ -37,6 +38,8 @@ const RoutesMngmnt: React.FC = () => {
     estimated_duration_minutes: '',
   });
   const [searchTerm, setSearchTerm] = useState('');
+  const navigate = useNavigate();
+
 
   useEffect(() => {
     fetchRoutes();
@@ -373,10 +376,16 @@ const RoutesMngmnt: React.FC = () => {
                     Edit
                   </button>
                   <button
-                    className="text-red-600 hover:underline"
+                    className="text-red-600 hover:underline mr-2"
                     onClick={() => handleDelete(route.route_id)}
                   >
                     Delete
+                  </button>
+                  <button
+                    className="text-emerald-600 hover:underline mr-2"
+                    onClick={() => navigate(`/admin/routes/${route.route_id}/fares`)}
+                  >
+                    Fares
                   </button>
                 </td>
               </tr>
