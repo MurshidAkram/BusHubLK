@@ -1,4 +1,6 @@
 const Inspection = require('../models/inspectionModel');
+const User = require('../models/userModel');
+const Notification = require('../models/notificationModel');
 const { validationResult } = require('express-validator');
 
 // Create a new inspection
@@ -21,6 +23,28 @@ const createInspection = async (req, res) => {
     }
 
     const inspection = await Inspection.createInspection(inspection_type, date, time, user_id, depot_id);
+    
+    // Create notification for depot engineers in the assigned depot
+    try {
+      // Get depot engineers for this depot
+      const depotEngineers = await User.getDepotEngineersByDepot(depot_id);
+      
+      // Create notifications for each depot engineer
+      for (const engineer of depotEngineers) {
+        await Notification.createInspectionNotification(
+          {
+            id: inspection.id,
+            inspection_type: inspection_type,
+            date: date
+          },
+          engineer.id,
+          user_id
+        );
+      }
+    } catch (notificationError) {
+      console.error('Error creating notifications:', notificationError);
+      // Don't fail the inspection creation if notification fails
+    }
     
     res.status(201).json({
       message: 'Inspection scheduled successfully',
@@ -198,6 +222,38 @@ const getInspectionById = async (req, res) => {
   }
 };
 
+// Get inspections assigned to depot engineer's depot
+const getInspectionsForDepotEngineer = async (req, res) => {
+  try {
+    // Get depot engineer details to find their depot_id
+    const depotEngineerDetails = await User.getRoleSpecificDetails(req.user.userId, req.user.role);
+
+    if (!depotEngineerDetails || !depotEngineerDetails.depot_id) {
+      return res.status(404).json({
+        success: false,
+        message: 'Depot engineer details or depot ID not found for this user'
+      });
+    }
+
+    const depot_id = depotEngineerDetails.depot_id;
+    const inspections = await Inspection.getInspectionsByDepot(depot_id);
+    
+    res.json({
+      success: true,
+      message: 'Inspections retrieved successfully',
+      inspections,
+      depot_id
+    });
+  } catch (err) {
+    console.error('Get inspections for depot engineer error:', err);
+    res.status(500).json({ 
+      success: false,
+      error: 'Server error',
+      message: err.message
+    });
+  }
+};
+
 module.exports = {
   createInspection,
   getInspections,
@@ -207,5 +263,6 @@ module.exports = {
   updateInspection,
   deleteInspection,
   getUserDepots,
-  getInspectionById
+  getInspectionById,
+  getInspectionsForDepotEngineer
 };
