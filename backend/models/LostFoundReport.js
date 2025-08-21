@@ -4,6 +4,7 @@ class LostFoundReport {
   constructor(data) {
     this.report_id = data.report_id;
     this.passenger_id = data.passenger_id;
+    this.driver_id = data.driver_id;
     this.report_type = data.report_type;
     this.report_reference = data.report_reference;
     this.item_category = data.item_category;
@@ -27,16 +28,17 @@ class LostFoundReport {
   static async create(reportData) {
     const query = `
       INSERT INTO lost_found_reports (
-        passenger_id, report_type, report_reference, item_category, 
+        passenger_id, driver_id, report_type, report_reference, item_category, 
         item_description, item_photo_url, route_number, region_id,
         approximate_location, incident_date, incident_time, 
         contact_email, contact_phone, reward_offered
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
       RETURNING *
     `;
     
     const values = [
       reportData.passenger_id,
+      reportData.driver_id || null,
       reportData.report_type,
       reportData.report_reference,
       reportData.item_category,

@@ -200,6 +200,14 @@ console.log('✅ notificationRoutes loaded');
 console.log('❌ notificationRoutes error:', error.message);
 }
 
+const driverFoundItemRoutes = require('./routes/driverFoundItemRoutes');
+app.use('/api/driver', driverFoundItemRoutes);
+console.log('✅ driverFoundItemRoutes loaded');
+} catch (error) {
+console.log('❌ driverFoundItemRoutes error:', error.message);
+}
+
+
 try {
 const depotEngineerRoutes = require('./routes/depotEngineerRoutes');
 app.use('/api/depot-engineer', depotEngineerRoutes); // Mount at /api/depot-engineer
