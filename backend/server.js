@@ -192,14 +192,14 @@ const lostFoundRoutes = require('./routes/lostFoundRoutes');
 app.use('/api/lost-found', lostFoundRoutes);
 console.log('✅ lostFoundRoutes loaded');
 
+// Incident Management Routes (for depot dashboard)
 try {
-const driverFoundItemRoutes = require('./routes/driverFoundItemRoutes');
-app.use('/api/driver', driverFoundItemRoutes);
-console.log('✅ driverFoundItemRoutes loaded');
+const incidentManagementRoutes = require('./routes/incidentManagementRoutes');
+app.use('/api/incident-management', incidentManagementRoutes);
+console.log('✅ incidentManagementRoutes loaded');
 } catch (error) {
-console.log('❌ driverFoundItemRoutes error:', error.message);
+console.log('❌ incidentManagementRoutes error:', error.message);
 }
-
 
 try {
 const depotEngineerRoutes = require('./routes/depotEngineerRoutes');
