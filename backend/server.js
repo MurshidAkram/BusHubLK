@@ -258,6 +258,16 @@ try {
   console.log('❌ dgmTechnicalRoutes error:', error.message);
 }
 
+
+try {
+const incidentManagementRoutes = require('./routes/incidentManagementRoutes');
+app.use('/api/incident-management', incidentManagementRoutes);
+console.log('✅ incidentManagementRoutes loaded');
+ } catch (error) {
+console.log('❌ incidentManagementRoutes error:', error.message);
+}
+
+
 try {
   const rtoRoutes = require('./routes/rtoRoutes');
   app.use('/api/rto', rtoRoutes);
