@@ -1,51 +1,69 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { FaSearch, FaEye, FaChevronDown, FaTimes } from 'react-icons/fa';
+import { AppContext } from '../../../context/AppContext';
 
 interface DepotData {
   depot: string;
-  Active: number;
-  underRepair: number;
-  breakdown: number;
+  depot_id: number;
+  region_name: string;
+  active: number;
+  in_service: number;
+  out_of_service: number;
+  under_maintenance: number;
   lastInspection: string;
 }
 
-const initialData: DepotData[] = [
-  {
-    depot: 'Galle',
-    Active: 35,
-    underRepair: 2,
-    breakdown: 1,
-    lastInspection: '2025-07-01'
-  },
-  {
-    depot: 'Kandy',
-    Active: 40,
-    underRepair: 0,
-    breakdown: 3,
-    lastInspection: '2025-07-03'
-  },
-  {
-    depot: 'Colombo',
-    Active: 52,
-    underRepair: 5,
-    breakdown: 2,
-    lastInspection: '2025-06-28'
-  },
-  {
-    depot: 'Matara',
-    Active: 28,
-    underRepair: 3,
-    breakdown: 0,
-    lastInspection: '2025-06-30'
-  }
-];
-
 const Regionservicemonitor: React.FC = () => {
-  const [data, setData] = useState<DepotData[]>(initialData);
+  const context = useContext(AppContext);
+  const token = context?.token;
+  
+  const [data, setData] = useState<DepotData[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedDepot, setSelectedDepot] = useState<string>('All Depots');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedDetail, setSelectedDetail] = useState<DepotData | null>(null);
   const [showModal, setShowModal] = useState<boolean>(false);
+
+  // Helper function to format numbers properly
+  const formatNumber = (num: number): string => {
+    return Number(num).toLocaleString();
+  };
+
+  // Fetch depot service monitor data
+  useEffect(() => {
+    const fetchDepotData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        if (!token) {
+          setError('Authentication token is missing');
+          return;
+        }
+
+        const response = await fetch('http://localhost:5000/api/depots/service-monitor', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        setData(result.depots || []);
+      } catch (err) {
+        console.error('Error fetching depot data:', err);
+        setError('Failed to fetch depot data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDepotData();
+  }, [token]);
 
   // Filter data based on search term and selected depot
   const filteredData = data.filter(item => {
@@ -63,6 +81,26 @@ const Regionservicemonitor: React.FC = () => {
     setShowModal(false);
     setSelectedDetail(null);
   };
+
+  if (loading) {
+    return (
+      <div className="p-6 bg-gray-50 min-h-screen">
+        <div className="bg-white rounded-lg shadow-sm p-8">
+          <div className="text-center text-gray-500">Loading depot data...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 bg-gray-50 min-h-screen">
+        <div className="bg-white rounded-lg shadow-sm p-8">
+          <div className="text-center text-red-500">Error: {error}</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
@@ -110,13 +148,16 @@ const Regionservicemonitor: React.FC = () => {
                   Depot
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Active
+                  Active
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Under Repair
+                  In Service
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Breakdown
+                  Out of Service
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Under Maintenance
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Last Inspection
@@ -135,22 +176,37 @@ const Regionservicemonitor: React.FC = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{item.Active}</div>
+                    <div className="text-sm text-gray-900">{formatNumber(item.active)}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{item.underRepair}</div>
+                    <div className="text-sm text-gray-900">{formatNumber(item.in_service)}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">
-                      {item.breakdown > 0 ? (
-                        <span className="text-red-600 font-medium">{item.breakdown}</span>
+                      {item.out_of_service > 0 ? (
+                        <span className="text-red-600 font-medium">{formatNumber(item.out_of_service)}</span>
                       ) : (
-                        <span className="text-gray-900">{item.breakdown}</span>
+                        <span className="text-gray-900">{formatNumber(item.out_of_service)}</span>
                       )}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{item.lastInspection}</div>
+                    <div className="text-sm text-gray-900">
+                      {item.under_maintenance > 0 ? (
+                        <span className="text-yellow-600 font-medium">{formatNumber(item.under_maintenance)}</span>
+                      ) : (
+                        <span className="text-gray-900">{formatNumber(item.under_maintenance)}</span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">
+                      {item.lastInspection === 'Never' ? (
+                        <span className="text-red-500">Never</span>
+                      ) : (
+                        item.lastInspection
+                      )}
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <button
@@ -179,18 +235,23 @@ const Regionservicemonitor: React.FC = () => {
           <div className="flex justify-between items-center text-sm text-gray-600">
             <div className="flex space-x-6">
               <span>
-                Total Working: <span className="font-medium text-green-600">
-                  {filteredData.reduce((sum, item) => sum + item.Active, 0)}
+                Total Active: <span className="font-medium text-green-600">
+                  {formatNumber(filteredData.reduce((sum, item) => sum + item.active, 0))}
                 </span>
               </span>
               <span>
-                Total Under Repair: <span className="font-medium text-yellow-600">
-                  {filteredData.reduce((sum, item) => sum + item.underRepair, 0)}
+                Total In Service: <span className="font-medium text-blue-600">
+                  {formatNumber(filteredData.reduce((sum, item) => sum + item.in_service, 0))}
                 </span>
               </span>
               <span>
-                Total Breakdown: <span className="font-medium text-red-600">
-                  {filteredData.reduce((sum, item) => sum + item.breakdown, 0)}
+                Total Out of Service: <span className="font-medium text-red-600">
+                  {formatNumber(filteredData.reduce((sum, item) => sum + item.out_of_service, 0))}
+                </span>
+              </span>
+              <span>
+                Total Under Maintenance: <span className="font-medium text-yellow-600">
+                  {formatNumber(filteredData.reduce((sum, item) => sum + item.under_maintenance, 0))}
                 </span>
               </span>
             </div>
@@ -216,25 +277,35 @@ const Regionservicemonitor: React.FC = () => {
             <div className="p-6">
               <div className="space-y-4">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Working Vehicles:</span>
-                  <span className="font-medium">{selectedDetail.Active}</span>
+                  <span className="text-gray-600">Active Vehicles:</span>
+                  <span className="font-medium text-green-600">{formatNumber(selectedDetail.active)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Under Repair:</span>
-                  <span className="font-medium text-yellow-600">{selectedDetail.underRepair}</span>
+                  <span className="text-gray-600">In Service:</span>
+                  <span className="font-medium text-blue-600">{formatNumber(selectedDetail.in_service)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Breakdown:</span>
-                  <span className="font-medium text-red-600">{selectedDetail.breakdown}</span>
+                  <span className="text-gray-600">Out of Service:</span>
+                  <span className="font-medium text-red-600">{formatNumber(selectedDetail.out_of_service)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Under Maintenance:</span>
+                  <span className="font-medium text-yellow-600">{formatNumber(selectedDetail.under_maintenance)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Last Inspection:</span>
-                  <span className="font-medium">{selectedDetail.lastInspection}</span>
+                  <span className="font-medium">
+                    {selectedDetail.lastInspection === 'Never' ? (
+                      <span className="text-red-500">Never</span>
+                    ) : (
+                      selectedDetail.lastInspection
+                    )}
+                  </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Total Vehicles:</span>
+                <div className="flex justify-between border-t pt-4">
+                  <span className="text-gray-600 font-semibold">Total Vehicles:</span>
                   <span className="font-medium text-blue-600">
-                    {selectedDetail.Active + selectedDetail.underRepair + selectedDetail.breakdown}
+                    {formatNumber(selectedDetail.active + selectedDetail.in_service + selectedDetail.out_of_service + selectedDetail.under_maintenance)}
                   </span>
                 </div>
               </div>

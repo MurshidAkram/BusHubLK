@@ -1,4 +1,5 @@
 const RegionDepot = require('../models/regionDepotModel');
+const pool = require('../config/db');
 
 // Get all regions
 const getAllRegions = async (req, res) => {
@@ -17,13 +18,13 @@ const getAllRegions = async (req, res) => {
 // Get region by ID
 const getRegionById = async (req, res) => {
   const { id } = req.params;
-  
+
   try {
     const region = await RegionDepot.getRegionById(id);
     if (!region) {
       return res.status(404).json({ error: 'Region not found' });
     }
-    
+
     res.json({
       message: 'Region retrieved successfully',
       region
@@ -37,7 +38,7 @@ const getRegionById = async (req, res) => {
 // Create new region
 const createRegion = async (req, res) => {
   const { region_name } = req.body;
-  
+
   try {
     const newRegion = await RegionDepot.createRegion(region_name);
     res.status(201).json({
@@ -67,13 +68,13 @@ const getAllDepots = async (req, res) => {
 // Get depot by ID
 const getDepotById = async (req, res) => {
   const { id } = req.params;
-  
+
   try {
     const depot = await RegionDepot.getDepotById(id);
     if (!depot) {
       return res.status(404).json({ error: 'Depot not found' });
     }
-    
+
     res.json({
       message: 'Depot retrieved successfully',
       depot
@@ -87,7 +88,7 @@ const getDepotById = async (req, res) => {
 // Get depots by region
 const getDepotsByRegion = async (req, res) => {
   const { region_id } = req.params;
-  
+
   try {
     const depots = await RegionDepot.getDepotsByRegion(region_id);
     res.json({
@@ -103,7 +104,7 @@ const getDepotsByRegion = async (req, res) => {
 // Create new depot
 const createDepot = async (req, res) => {
   const { depot_name, region_id, address, contact_phone, latitude, longitude } = req.body;
-  
+
   try {
     const newDepot = await RegionDepot.createDepot({
       depot_name,
@@ -113,7 +114,7 @@ const createDepot = async (req, res) => {
       latitude,
       longitude
     });
-    
+
     res.status(201).json({
       message: 'Depot created successfully',
       depot: newDepot
@@ -128,7 +129,7 @@ const createDepot = async (req, res) => {
 const updateDepot = async (req, res) => {
   const { id } = req.params;
   const updates = req.body;
-  
+
   try {
     const updatedDepot = await RegionDepot.updateDepot(id, updates);
     res.json({
@@ -144,7 +145,7 @@ const updateDepot = async (req, res) => {
 // Delete depot
 const deleteDepot = async (req, res) => {
   const { id } = req.params;
-  
+
   try {
     const deletedDepot = await RegionDepot.deleteDepot(id);
     res.json({
@@ -153,6 +154,73 @@ const deleteDepot = async (req, res) => {
     });
   } catch (err) {
     console.error('Delete depot error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+// Get depot service monitor data with bus status counts and last inspection dates
+const getDepotServiceMonitor = async (req, res) => {
+  try {
+    const { region_id } = req.params;
+    const user = req.user; // From JWT middleware
+
+    let depots;
+
+    // If user is regional_tech, only get depots from their region
+    if (user.role === 'regional_tech') {
+      // Get depots for this regional technical officer
+      const userDepots = await RegionDepot.getDepotsByRegionForUser(user.userId);
+      depots = userDepots;
+    } else if (region_id) {
+      // If region_id is provided, get depots for that region
+      depots = await RegionDepot.getDepotsByRegion(region_id);
+    } else {
+      // Otherwise get all depots (for admin users)
+      depots = await RegionDepot.getAllDepots();
+    }
+
+    // For each depot, get bus status counts and last inspection date
+    const depotServiceData = await Promise.all(
+      depots.map(async (depot) => {
+        try {
+          // Get bus status counts for this depot
+          const busStatusResults = await RegionDepot.getBusStatusCounts(depot.depot_id);
+
+          // Get last completed inspection date for this depot
+          const lastInspectionResult = await RegionDepot.getLastInspectionDate(depot.depot_id);
+
+          return {
+            depot: depot.depot_name,
+            depot_id: depot.depot_id,
+            region_name: depot.region_name,
+            active: parseInt(busStatusResults.active) || 0,
+            in_service: parseInt(busStatusResults.in_service) || 0,
+            out_of_service: parseInt(busStatusResults.out_of_service) || 0,
+            under_maintenance: parseInt(busStatusResults.under_maintenance) || 0,
+            lastInspection: lastInspectionResult?.last_inspection_date || 'Never'
+          };
+        } catch (error) {
+          console.error(`Error getting service data for depot ${depot.depot_id}:`, error);
+          return {
+            depot: depot.depot_name,
+            depot_id: depot.depot_id,
+            region_name: depot.region_name,
+            active: 0,
+            in_service: 0,
+            out_of_service: 0,
+            under_maintenance: 0,
+            lastInspection: 'Error'
+          };
+        }
+      })
+    );
+
+    res.json({
+      message: 'Depot service monitor data retrieved successfully',
+      depots: depotServiceData
+    });
+  } catch (err) {
+    console.error('Get depot service monitor error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 };
@@ -166,5 +234,6 @@ module.exports = {
   getDepotsByRegion,
   createDepot,
   updateDepot,
-  deleteDepot
+  deleteDepot,
+  getDepotServiceMonitor
 };
