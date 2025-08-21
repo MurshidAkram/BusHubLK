@@ -24,23 +24,30 @@ const createInspection = async (req, res) => {
 
     const inspection = await Inspection.createInspection(inspection_type, date, time, user_id, depot_id);
     
-    // Create notification for depot engineers in the assigned depot
+    // Create notifications for both depot engineers and depot managers in the assigned depot
     try {
       // Get depot engineers for this depot
       const depotEngineers = await User.getDepotEngineersByDepot(depot_id);
       
-      // Create notifications for each depot engineer
-      for (const engineer of depotEngineers) {
-        await Notification.createInspectionNotification(
-          {
-            id: inspection.id,
-            inspection_type: inspection_type,
-            date: date
-          },
-          engineer.id,
-          user_id
-        );
+      // Get depot managers for this depot  
+      const depotManagers = await User.getDepotManagersByDepot(depot_id);
+      
+      // Combine both lists
+      const recipients = [...depotEngineers, ...depotManagers];
+      
+      // Create notifications for each recipient
+      for (const recipient of recipients) {
+        await Notification.create({
+          user_id: recipient.user_id,
+          title: 'New Inspection Assigned',
+          message: `A new ${inspection_type} inspection has been scheduled for ${new Date(date).toLocaleDateString()} at ${time}. Please ensure all necessary preparations are completed.`,
+          type: 'inspection',
+          inspection_id: inspection.id,
+          assigned_by: `${req.user.first_name} ${req.user.last_name}` || 'Regional Technical Officer'
+        });
       }
+      
+      console.log(`✅ Sent inspection notifications to ${recipients.length} recipients (${depotEngineers.length} engineers, ${depotManagers.length} managers) for inspection ${inspection.id}`);
     } catch (notificationError) {
       console.error('Error creating notifications:', notificationError);
       // Don't fail the inspection creation if notification fails
@@ -152,6 +159,35 @@ const updateInspection = async (req, res) => {
       return res.status(404).json({ error: 'Inspection not found or access denied' });
     }
 
+    // Send notifications to depot engineers and depot managers
+    try {
+      // Get depot engineers for this depot
+      const depotEngineers = await User.getDepotEngineersByDepot(depot_id);
+      
+      // Get depot managers for this depot  
+      const depotManagers = await User.getDepotManagersByDepot(depot_id);
+      
+      // Combine both lists
+      const recipients = [...depotEngineers, ...depotManagers];
+      
+      // Create notifications for each recipient
+      for (const recipient of recipients) {
+        await Notification.create({
+          user_id: recipient.user_id,
+          title: 'Inspection Updated',
+          message: `The ${inspection_type} inspection scheduled for ${new Date(date).toLocaleDateString()} has been updated by Regional Technical Officer.`,
+          type: 'info',
+          inspection_id: inspection.id,
+          assigned_by: `${req.user.first_name} ${req.user.last_name}` || 'Regional Technical Officer'
+        });
+      }
+      
+      console.log(`✅ Sent update notifications to ${recipients.length} recipients for inspection ${id}`);
+    } catch (notificationError) {
+      console.error('Error creating update notifications:', notificationError);
+      // Don't fail the inspection update if notification fails
+    }
+
     res.json({
       message: 'Inspection updated successfully',
       inspection
@@ -168,10 +204,48 @@ const deleteInspection = async (req, res) => {
     const { id } = req.params;
     const user_id = req.user.userId;
 
+    // Get inspection details before deleting for notification
+    const inspectionDetails = await Inspection.getInspectionById(id, user_id);
+    
+    if (!inspectionDetails) {
+      return res.status(404).json({ error: 'Inspection not found' });
+    }
+
     const inspection = await Inspection.deleteInspection(id, user_id);
     
     if (!inspection) {
       return res.status(404).json({ error: 'Inspection not found or access denied' });
+    }
+
+    // Send notifications to depot engineers and depot managers
+    try {
+      const depot_id = inspectionDetails.depot_id;
+      
+      // Get depot engineers for this depot
+      const depotEngineers = await User.getDepotEngineersByDepot(depot_id);
+      
+      // Get depot managers for this depot  
+      const depotManagers = await User.getDepotManagersByDepot(depot_id);
+      
+      // Combine both lists
+      const recipients = [...depotEngineers, ...depotManagers];
+      
+      // Create notifications for each recipient
+      for (const recipient of recipients) {
+        await Notification.create({
+          user_id: recipient.user_id,
+          title: 'Inspection Cancelled',
+          message: `The ${inspectionDetails.inspection_type} inspection scheduled for ${new Date(inspectionDetails.date).toLocaleDateString()} has been cancelled by Regional Technical Officer.`,
+          type: 'warning',
+          inspection_id: null, // No longer linked since inspection is deleted
+          assigned_by: `${req.user.first_name} ${req.user.last_name}` || 'Regional Technical Officer'
+        });
+      }
+      
+      console.log(`✅ Sent cancellation notifications to ${recipients.length} recipients for deleted inspection ${id}`);
+    } catch (notificationError) {
+      console.error('Error creating cancellation notifications:', notificationError);
+      // Don't fail the inspection deletion if notification fails
     }
 
     res.json({
@@ -254,6 +328,38 @@ const getInspectionsForDepotEngineer = async (req, res) => {
   }
 };
 
+// Get inspections for depot manager - same as depot engineer but for manager role
+const getInspectionsForDepotManager = async (req, res) => {
+  try {
+    // Get depot manager details to find their depot_id
+    const depotManagerDetails = await User.getRoleSpecificDetails(req.user.userId, req.user.role);
+
+    if (!depotManagerDetails || !depotManagerDetails.depot_id) {
+      return res.status(404).json({
+        success: false,
+        message: 'Depot manager details or depot ID not found for this user'
+      });
+    }
+
+    const depot_id = depotManagerDetails.depot_id;
+    const inspections = await Inspection.getInspectionsByDepot(depot_id);
+    
+    res.json({
+      success: true,
+      message: 'Inspections retrieved successfully',
+      inspections,
+      depot_id
+    });
+  } catch (err) {
+    console.error('Get inspections for depot manager error:', err);
+    res.status(500).json({ 
+      success: false,
+      error: 'Server error',
+      message: err.message
+    });
+  }
+};
+
 module.exports = {
   createInspection,
   getInspections,
@@ -264,5 +370,6 @@ module.exports = {
   deleteInspection,
   getUserDepots,
   getInspectionById,
-  getInspectionsForDepotEngineer
+  getInspectionsForDepotEngineer,
+  getInspectionsForDepotManager
 };
