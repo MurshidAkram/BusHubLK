@@ -11,14 +11,11 @@ const createEmergencyReport = async (req, res) => {
     return res.status(400).json({ message: 'Incident type and location are required.' });
   }
 
-  // Get a client from the connection pool to run the transaction
   const client = await pool.connect();
 
   try {
-    // Start the transaction
     await client.query('BEGIN');
 
-    // 1. Create the report itself
     const reportData = {
       driver_id,
       incidentType,
@@ -28,23 +25,18 @@ const createEmergencyReport = async (req, res) => {
     };
     const newReport = await Emergency.createReport(reportData, client);
 
-    // 2. Automatically create the first message with the report details
     const initialMessageText = `Report Details:\n- Type: ${newReport.incident_type}\n- Description: ${newReport.description || 'None provided'}`;
     await Emergency.addMessage(newReport.id, 'driver', initialMessageText, client);
 
-    // 3. If everything is successful, commit the transaction
     await client.query('COMMIT');
 
-    // 4. Send the created report back to the app
     res.status(201).json(newReport);
 
   } catch (error) {
-    // If any step fails, roll back the entire transaction
     await client.query('ROLLBACK');
     console.error('Error creating emergency report with initial message:', error);
     res.status(500).json({ message: 'Server Error', error: error.message });
   } finally {
-    // Always release the client back to the pool
     client.release();
   }
 };
@@ -113,7 +105,6 @@ const getReportsByDriver = async (req, res) => {
   try {
     const { driverId } = req.params;
     
-    // --- ADD THIS LINE ---
     console.log(`[HISTORY] Request received for driver_id: ${driverId}`);
 
     const query = {
@@ -123,7 +114,6 @@ const getReportsByDriver = async (req, res) => {
 
     const { rows } = await pool.query(query);
 
-    // --- AND ADD THIS LINE ---
     console.log(`[HISTORY] Found ${rows.length} reports in the database.`);
 
     res.status(200).json(rows);
@@ -132,9 +122,51 @@ const getReportsByDriver = async (req, res) => {
     res.status(500).json({ message: 'Server Error', error: error.message });
   }
 };
+
+/**
+ * Fetches the contact phone number for the depot associated with a given driver.
+ */
+const getDepotContact = async (req, res) => {
+  try {
+    const { driverId } = req.params;
+    console.log(`[CONTACT] Looking up phone number for driver_id: ${driverId}`);
+
+    if (!driverId) {
+      return res.status(400).json({ message: 'Driver ID is required' });
+    }
+
+    const driverIdNum = parseInt(driverId, 10);
+    if (isNaN(driverIdNum)) {
+      return res.status(400).json({ message: 'Invalid driver ID format' });
+    }
+
+    const result = await Emergency.findDepotEngineerByDriverId(driverIdNum);
+    console.log('[DEBUG] Phone lookup result:', result);
+
+    if (!result || result.length === 0 || !result[0].phone) {
+      console.log('[CONTACT] No phone number found');
+      return res.status(404).json({ 
+        message: 'Contact number not found',
+      });
+    }
+
+    console.log('[CONTACT] Found phone number:', result[0].phone);
+    res.status(200).json({ phone: result[0].phone });
+
+  } catch (error) {
+    console.error('[CONTACT] Error:', error);
+    res.status(500).json({ 
+      message: 'Server Error', 
+      error: error.message
+    });
+  }
+};
+
+
 module.exports = {
   createEmergencyReport,
   getReportWithMessages,
   addMessageToReport,
   getReportsByDriver,
+  getDepotContact, // 👈 Export the new function
 };
