@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { CheckCircle, AlertTriangle, Search, X, Calendar, Filter, Download, Eye } from 'lucide-react';
+import { CheckCircle, AlertTriangle, X, Calendar, Filter, Download, Eye } from 'lucide-react';
 
 // API Configuration
-const API_BASE_URL = 'http://10.136.250.115:5000';
+const API_BASE_URL = 'http://localhost:5000';
 
 interface LostFoundReport {
   report_id: number;
@@ -54,9 +54,7 @@ const IncidentManagement = () => {
   const [filter, setFilter] = useState<'All' | 'Lost' | 'Found'>('All');
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Pending' | 'Resolved'>('All');
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [yearFilter, setYearFilter] = useState<string>('');
-  const [monthFilter, setMonthFilter] = useState<string>('');
+  const [dateFilter, setDateFilter] = useState<string>('');
   
   // Modal and UI States
   const [selectedReport, setSelectedReport] = useState<LostFoundReport | null>(null);
@@ -80,7 +78,6 @@ const IncidentManagement = () => {
     resolved_reports: 0,
     pending_reports: 0
   });
-  const [availableYears, setAvailableYears] = useState<number[]>([]);
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
 
   // API Functions
@@ -94,12 +91,10 @@ const IncidentManagement = () => {
       queryParams.append('page', currentPage.toString());
       queryParams.append('limit', itemsPerPage.toString());
 
-      if (searchQuery.trim()) queryParams.append('search', searchQuery.trim());
       if (filter !== 'All') queryParams.append('type', filter);
       if (categoryFilter !== 'All') queryParams.append('category', categoryFilter);
       if (statusFilter !== 'All') queryParams.append('status', statusFilter);
-      if (yearFilter) queryParams.append('year', yearFilter);
-      if (monthFilter) queryParams.append('month', monthFilter);
+      if (dateFilter) queryParams.append('date', dateFilter);
 
       const response = await fetch(`${API_BASE_URL}/api/incident-management/reports?${queryParams}`);
       
@@ -129,14 +124,13 @@ const IncidentManagement = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, itemsPerPage, searchQuery, filter, categoryFilter, statusFilter, yearFilter, monthFilter]);
+  }, [currentPage, itemsPerPage, filter, categoryFilter, statusFilter, dateFilter]);
 
   const fetchStatistics = useCallback(async () => {
     try {
       console.log('📊 Fetching statistics...');
       const queryParams = new URLSearchParams();
-      if (yearFilter) queryParams.append('year', yearFilter);
-      if (monthFilter) queryParams.append('month', monthFilter);
+      if (dateFilter) queryParams.append('date', dateFilter);
 
       const response = await fetch(`${API_BASE_URL}/api/incident-management/statistics?${queryParams}`);
       
@@ -153,27 +147,7 @@ const IncidentManagement = () => {
     } catch (error) {
       console.error('❌ Error fetching statistics:', error);
     }
-  }, [yearFilter, monthFilter]);
-
-  const fetchAvailableYears = useCallback(async () => {
-    try {
-      console.log('📅 Fetching available years...');
-      const response = await fetch(`${API_BASE_URL}/api/incident-management/years`);
-      
-      if (!response.ok) {
-        console.warn('Failed to fetch years, using defaults');
-        return;
-      }
-
-      const data = await response.json();
-      if (data.success) {
-        setAvailableYears(data.data || []);
-        console.log('✅ Available years loaded:', data.data);
-      }
-    } catch (error) {
-      console.error('❌ Error fetching available years:', error);
-    }
-  }, []);
+  }, [dateFilter]);
 
   const fetchAvailableCategories = useCallback(async () => {
     try {
@@ -237,12 +211,10 @@ const IncidentManagement = () => {
       console.log('📄 Exporting to CSV...');
       const queryParams = new URLSearchParams();
       
-      if (searchQuery.trim()) queryParams.append('search', searchQuery.trim());
       if (filter !== 'All') queryParams.append('type', filter);
       if (categoryFilter !== 'All') queryParams.append('category', categoryFilter);
       if (statusFilter !== 'All') queryParams.append('status', statusFilter);
-      if (yearFilter) queryParams.append('year', yearFilter);
-      if (monthFilter) queryParams.append('month', monthFilter);
+      if (dateFilter) queryParams.append('date', dateFilter);
 
       const response = await fetch(`${API_BASE_URL}/api/incident-management/export/csv?${queryParams}`);
       
@@ -271,9 +243,8 @@ const IncidentManagement = () => {
   // Effects
   useEffect(() => {
     console.log('🔄 Component mounted, fetching initial data...');
-    fetchAvailableYears();
     fetchAvailableCategories();
-  }, [fetchAvailableYears, fetchAvailableCategories]);
+  }, [fetchAvailableCategories]);
 
   useEffect(() => {
     fetchReports();
@@ -285,16 +256,14 @@ const IncidentManagement = () => {
     if (currentPage !== 1) {
       setCurrentPage(1);
     }
-  }, [filter, categoryFilter, statusFilter, searchQuery, yearFilter, monthFilter]);
+  }, [filter, categoryFilter, statusFilter, dateFilter]);
 
   // Utility Functions
   const clearFilters = () => {
     setFilter('All');
     setCategoryFilter('All');
     setStatusFilter('All');
-    setSearchQuery('');
-    setYearFilter('');
-    setMonthFilter('');
+    setDateFilter('');
     setCurrentPage(1);
   };
 
@@ -414,18 +383,6 @@ const IncidentManagement = () => {
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <div className="flex flex-wrap gap-4 items-center justify-between">
             <div className="flex flex-wrap gap-4 items-center">
-              {/* Search */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <input
-                  type="text"
-                  placeholder="Search reports..."
-                  className="pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-
               {/* Type Filter */}
               <select
                 className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -462,38 +419,14 @@ const IncidentManagement = () => {
                 <option value="Resolved">Resolved</option>
               </select>
 
-              {/* Year Filter */}
-              <select
+              {/* Date Filter */}
+              <input
+                type="date"
                 className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                value={yearFilter}
-                onChange={(e) => setYearFilter(e.target.value)}
-              >
-                <option value="">All Years</option>
-                {availableYears.map(year => (
-                  <option key={year} value={year}>{year}</option>
-                ))}
-              </select>
-
-              {/* Month Filter */}
-              <select
-                className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                value={monthFilter}
-                onChange={(e) => setMonthFilter(e.target.value)}
-              >
-                <option value="">All Months</option>
-                <option value="1">January</option>
-                <option value="2">February</option>
-                <option value="3">March</option>
-                <option value="4">April</option>
-                <option value="5">May</option>
-                <option value="6">June</option>
-                <option value="7">July</option>
-                <option value="8">August</option>
-                <option value="9">September</option>
-                <option value="10">October</option>
-                <option value="11">November</option>
-                <option value="12">December</option>
-              </select>
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+                placeholder="Select date"
+              />
             </div>
 
             <div className="flex gap-2">
@@ -546,22 +479,19 @@ const IncidentManagement = () => {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Report Details
+                      Date
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Report Type
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Item Category
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Passenger Info
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Type & Category
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Route & Bus
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Date
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
@@ -571,10 +501,18 @@ const IncidentManagement = () => {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {reports.map((report) => (
                     <tr key={report.report_id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <div>{formatDate(report.incident_date)}</div>
+                        <div className="text-xs text-gray-400">{report.incident_time}</div>
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">#{report.report_id}</div>
-                        <div className="text-sm text-gray-500 truncate max-w-xs" title={report.item_description}>
-                          {report.item_description}
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getTypeColor(report.report_type)}`}>
+                          {report.report_type}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {report.item_category.charAt(0).toUpperCase() + report.item_category.slice(1)}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -582,25 +520,9 @@ const IncidentManagement = () => {
                         <div className="text-sm text-gray-500">{report.contact_phone}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getTypeColor(report.report_type)}`}>
-                          {report.report_type}
-                        </span>
-                        <div className="text-sm text-gray-500 mt-1">
-                          {report.item_category.charAt(0).toUpperCase() + report.item_category.slice(1)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">Route {report.route_number}</div>
-                        <div className="text-sm text-gray-500">{report.bus_number || 'N/A'}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(report.status)}`}>
                           {report.status}
                         </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <div>{formatDate(report.incident_date)}</div>
-                        <div>{report.incident_time}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <button
@@ -671,7 +593,7 @@ const IncidentManagement = () => {
         {/* Modal for Report Details */}
         {showModal && selectedReport && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
               <div className="p-6">
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-2xl font-bold text-gray-900">Report Details</h2>
@@ -683,110 +605,159 @@ const IncidentManagement = () => {
                   </button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Report Information</h3>
-                    <div className="space-y-3">
-                      <div>
-                        <label className="text-sm font-medium text-gray-500">Report ID</label>
-                        <p className="text-sm text-gray-900">#{selectedReport.report_id}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-500">Type</label>
-                        <p className="text-sm text-gray-900">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getTypeColor(selectedReport.report_type)}`}>
-                            {selectedReport.report_type}
-                          </span>
-                        </p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-500">Status</label>
-                        <p className="text-sm text-gray-900">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(selectedReport.status)}`}>
-                            {selectedReport.status}
-                          </span>
-                        </p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-500">Date & Time</label>
-                        <p className="text-sm text-gray-900">
-                          {formatDate(selectedReport.incident_date)} at {selectedReport.incident_time}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Passenger Information</h3>
-                    <div className="space-y-3">
-                      <div>
-                        <label className="text-sm font-medium text-gray-500">Name</label>
-                        <p className="text-sm text-gray-900">{selectedReport.passenger_name}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-500">Email</label>
-                        <p className="text-sm text-gray-900">{selectedReport.contact_email}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-500">Phone</label>
-                        <p className="text-sm text-gray-900">{selectedReport.contact_phone}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Item Information</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-sm font-medium text-gray-500">Category</label>
-                        <p className="text-sm text-gray-900">
-                          {selectedReport.item_category.charAt(0).toUpperCase() + selectedReport.item_category.slice(1)}
-                        </p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-500">Route Number</label>
-                        <p className="text-sm text-gray-900">Route {selectedReport.route_number}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-500">Bus Number</label>
-                        <p className="text-sm text-gray-900">{selectedReport.bus_number || 'Not specified'}</p>
-                      </div>
-                      {selectedReport.location_found && (
-                        <div>
-                          <label className="text-sm font-medium text-gray-500">Location Found</label>
-                          <p className="text-sm text-gray-900">{selectedReport.location_found}</p>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* Left Column - Report Information */}
+                  <div className="space-y-6">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Report Information</h3>
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-sm font-medium text-gray-500">Type</label>
+                            <p className="text-sm text-gray-900 mt-1">
+                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getTypeColor(selectedReport.report_type)}`}>
+                                {selectedReport.report_type}
+                              </span>
+                            </p>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-500">Status</label>
+                            <p className="text-sm text-gray-900 mt-1">
+                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(selectedReport.status)}`}>
+                                {selectedReport.status}
+                              </span>
+                            </p>
+                          </div>
                         </div>
-                      )}
+                        <div>
+                          <label className="text-sm font-medium text-gray-500">Date & Time</label>
+                          <p className="text-sm text-gray-900 mt-1">
+                            {formatDate(selectedReport.incident_date)} at {selectedReport.incident_time}
+                          </p>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-500">Route Number</label>
+                          <p className="text-sm text-gray-900 mt-1">Route {selectedReport.route_number}</p>
+                        </div>
+                        {selectedReport.bus_number && (
+                          <div>
+                            <label className="text-sm font-medium text-gray-500">Bus Number</label>
+                            <p className="text-sm text-gray-900 mt-1">{selectedReport.bus_number}</p>
+                          </div>
+                        )}
+                        {selectedReport.location_found && (
+                          <div>
+                            <label className="text-sm font-medium text-gray-500">Location Found</label>
+                            <p className="text-sm text-gray-900 mt-1">{selectedReport.location_found}</p>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div className="mt-4">
-                      <label className="text-sm font-medium text-gray-500">Description</label>
-                      <p className="text-sm text-gray-900 mt-1">{selectedReport.item_description}</p>
+
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Passenger Information</h3>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="text-sm font-medium text-gray-500">Name</label>
+                          <p className="text-sm text-gray-900 mt-1">{selectedReport.passenger_name}</p>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-500">Email</label>
+                          <p className="text-sm text-gray-900 mt-1">{selectedReport.contact_email}</p>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-500">Phone</label>
+                          <p className="text-sm text-gray-900 mt-1">{selectedReport.contact_phone}</p>
+                        </div>
+                      </div>
                     </div>
-                    
-                    {selectedReport.resolution_notes && (
-                      <div className="mt-4">
-                        <label className="text-sm font-medium text-gray-500">Resolution Notes</label>
-                        <p className="text-sm text-gray-900 mt-1">{selectedReport.resolution_notes}</p>
+
+                    {selectedReport.driver_name && selectedReport.driver_name !== 'N/A' && (
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Driver Information</h3>
+                        <div className="space-y-4">
+                          <div>
+                            <label className="text-sm font-medium text-gray-500">Driver Name</label>
+                            <p className="text-sm text-gray-900 mt-1">{selectedReport.driver_name}</p>
+                          </div>
+                          {selectedReport.driver_phone && selectedReport.driver_phone !== 'N/A' && (
+                            <div>
+                              <label className="text-sm font-medium text-gray-500">Driver Phone</label>
+                              <p className="text-sm text-gray-900 mt-1">{selectedReport.driver_phone}</p>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
 
-                  {selectedReport.item_photo_url && (
-                    <div className="md:col-span-2">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Item Photo</h3>
-                      <img 
-                        src={selectedReport.item_photo_url} 
-                        alt="Item photo" 
-                        className="w-full max-w-sm h-64 object-cover rounded-lg border"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).style.display = 'none';
-                        }}
-                      />
+                  {/* Right Column - Item Information and Image */}
+                  <div className="space-y-6">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Item Information</h3>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="text-sm font-medium text-gray-500">Category</label>
+                          <p className="text-sm text-gray-900 mt-1">
+                            {selectedReport.item_category.charAt(0).toUpperCase() + selectedReport.item_category.slice(1)}
+                          </p>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-500">Description</label>
+                          <p className="text-sm text-gray-900 mt-1 leading-relaxed">{selectedReport.item_description}</p>
+                        </div>
+                      </div>
                     </div>
-                  )}
+
+                    {/* Item Photo */}
+                    {selectedReport.item_photo_url && (
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Item Photo</h3>
+                        <div className="border rounded-lg overflow-hidden">
+                          <img 
+                            src={selectedReport.item_photo_url} 
+                            alt="Item photo" 
+                            className="w-full h-64 object-cover"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                              const parent = target.parentElement;
+                              if (parent) {
+                                parent.innerHTML = '<div class="flex items-center justify-center h-64 bg-gray-100 text-gray-500"><span>Image not available</span></div>';
+                              }
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedReport.resolution_notes && (
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Resolution Details</h3>
+                        <div className="space-y-4">
+                          {selectedReport.resolved_by && (
+                            <div>
+                              <label className="text-sm font-medium text-gray-500">Resolved By</label>
+                              <p className="text-sm text-gray-900 mt-1">{selectedReport.resolved_by}</p>
+                            </div>
+                          )}
+                          {selectedReport.resolution_date && (
+                            <div>
+                              <label className="text-sm font-medium text-gray-500">Resolution Date</label>
+                              <p className="text-sm text-gray-900 mt-1">{formatDate(selectedReport.resolution_date)}</p>
+                            </div>
+                          )}
+                          <div>
+                            <label className="text-sm font-medium text-gray-500">Resolution Notes</label>
+                            <p className="text-sm text-gray-900 mt-1 leading-relaxed">{selectedReport.resolution_notes}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                <div className="mt-6 flex justify-end space-x-3">
+                <div className="mt-8 flex justify-end space-x-3 pt-6 border-t">
                   <button
                     onClick={closeModal}
                     className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
