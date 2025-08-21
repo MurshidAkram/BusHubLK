@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react'
+import React, { useState, useContext, useEffect } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { HiBell, HiSearch } from 'react-icons/hi'
 import { AppContext } from '../context/AppContext'
@@ -8,13 +8,13 @@ const Navbar = () => {
   const navigate = useNavigate()
   const location = useLocation()
   const [showMenu, setShowMenu] = useState(false)
+  const [notificationCount, setNotificationCount] = useState(0)
   
   // Get authentication state from context (you'll need to add this to your AppContext)
   // const { user, token, logout } = useContext(AppContext)
   
   // For now, using local state - replace with context values
   const { user, token, logout } = useContext(AppContext);
-
 
   // Check if we're in a dashboard route
   const isDashboard = location.pathname.startsWith('/admin') || 
@@ -29,10 +29,53 @@ const Navbar = () => {
                      location.pathname.startsWith('/driver') || 
                      location.pathname.startsWith('/conductor')
 
-  const handleLogout = () => {
-  logout();
-  navigate('/');
-};
+  // Fetch notification count
+  useEffect(() => {
+    const fetchNotificationCount = async () => {
+      if (token && isDashboard) {
+        try {
+          const response = await fetch('http://localhost:5000/api/notifications/unread-count', {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            setNotificationCount(data.unreadCount || 0);
+          }
+        } catch (error) {
+          console.error('Error fetching notification count:', error);
+        }
+      }
+    };
+
+    fetchNotificationCount();
+    
+    // Refresh notification count every 30 seconds
+    const interval = setInterval(fetchNotificationCount, 30000);
+    
+    return () => clearInterval(interval);
+  }, [token, isDashboard]);
+
+  // Handle notification click
+  const handleNotificationClick = () => {
+    console.log('User role:', user?.role); // Debug log
+    
+    // Check for different possible role values
+    if (user?.role === 'depot-engineer' || user?.role === 'depot_engineer') {
+      navigate('/depot-engineer/notifications');
+    } else if (user?.role === 'depot_manager' || user?.role === 'depot-manager') {
+      navigate('/depot-manager/notifications');
+    } else if (user?.role === 'regional_tech' || user?.role === 'regional-technical-officer') {
+      navigate('/regional-technical-officer/notifications');
+    } else {
+      // Fallback for any role - navigate to their dashboard and show alert
+      console.log('Notifications not implemented for this role yet:', user?.role);
+      alert('Notifications feature is not yet implemented for your role.');
+    }
+  };
 
 
   // Function to get dashboard route based on user role
@@ -152,9 +195,16 @@ const Navbar = () => {
             
             {/* Dashboard Notifications (only show in dashboard) */}
             {isDashboard && token && (
-              <button className="p-1 rounded-full text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 relative">
+              <button 
+                onClick={handleNotificationClick}
+                className="p-1 rounded-full text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 relative"
+              >
                 <HiBell className="h-6 w-6" />
-                <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-red-500"></span>
+                {notificationCount > 0 && (
+                  <span className="absolute top-0 right-0 h-4 w-4 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold">
+                    {notificationCount > 9 ? '9+' : notificationCount}
+                  </span>
+                )}
               </button>
             )}
 
@@ -218,7 +268,10 @@ const Navbar = () => {
                   
                   <div className='border-t border-gray-100 mt-1 pt-1'>
                     <button 
-                      onClick={handleLogout}
+                      onClick={() => {
+                        logout();
+                        navigate('/');
+                      }}
                       className='w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors duration-150'
                     >
                       Sign Out

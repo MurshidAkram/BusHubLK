@@ -55,6 +55,7 @@ import Autoforwardbusstatus from './pages/dashboards/depot-engineer/Autoforwardb
 import DepotEscalateissues from './pages/dashboards/depot-engineer/DepotEscalateissues'
 import Depotcommunityhub from './pages/dashboards/depot-engineer/Depotcommunityhub'
 import Depotinspection from './pages/dashboards/depot-engineer/DepotInspection'
+import DepotEngineerNotifications from './pages/dashboards/depot-engineer/Notifications'
 
 
 
@@ -210,7 +211,7 @@ const App = () => {
           <Route path="scheduling" element={<Scheduling />} />
           <Route path="Spareparts" element={<Spareparts />} />
           <Route path="Depotinspection" element={<Depotinspection />} />
-         
+          <Route path="notifications" element={<DepotEngineerNotifications />} />
           <Route path="Autoforwardbusstatus" element={<Autoforwardbusstatus />} />
           <Route path="DepotEscalateissues" element={<DepotEscalateissues />} />
           <Route path="Depotcommunityhub" element={<Depotcommunityhub />} />
