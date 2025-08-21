@@ -9,14 +9,18 @@ const {
   updateInspection,
   deleteInspection,
   getUserDepots,
-  getInspectionById
+  getInspectionById,
+  getInspectionsForDepotEngineer
 } = require('../controllers/inspectionController');
 
-const { authenticateJWT, authorizeRole } = require('../middlewares/authMiddleware');
+const { authenticateJWT, authorizeRole, authorizeDepotStaff } = require('../middlewares/authMiddleware');
 const { body, param } = require('express-validator');
 
 // Middleware to ensure only regional technical officers can access these routes
 const authorizeRegionalTech = authorizeRole(['regional_tech']);
+
+// Route for depot engineers to get inspections assigned to their depot
+router.get('/depot-engineer', authenticateJWT, authorizeDepotStaff, getInspectionsForDepotEngineer);
 
 // Get depots for the logged-in regional technical officer
 router.get('/depots', authenticateJWT, authorizeRegionalTech, getUserDepots);
