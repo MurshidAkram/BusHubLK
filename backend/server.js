@@ -233,6 +233,14 @@ try {
   console.log('❌ rtoRoutes error:', error.message);
 }
 
+try {
+  const complaintRoutes = require('./routes/complaintRoutes');
+  app.use('/api/complaints', complaintRoutes);
+  console.log('✅ complaintRoutes loaded');
+} catch (error) {
+  console.log('❌ complaintRoutes error:', error.message);
+}
+
 app.get('/resetPassword.js', (req, res) => {
   res.setHeader('Content-Type', 'application/javascript');
   res.sendFile(path.join(__dirname, 'public/resetPassword.js'));

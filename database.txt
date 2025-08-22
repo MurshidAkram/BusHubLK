@@ -698,3 +698,42 @@ CREATE TABLE bus_condition_reports (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE complaints (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(user_id) ON DELETE CASCADE,
+    complaint_type VARCHAR(50) NOT NULL,
+    route_number VARCHAR(10) NOT NULL,
+    bus_number VARCHAR(20),
+    incident_date DATE NOT NULL,
+    incident_time TIME NOT NULL,
+    location VARCHAR(255) NOT NULL,
+    priority VARCHAR(10) NOT NULL CHECK (priority IN ('Low', 'Medium', 'High')),
+    description TEXT NOT NULL,
+    image_url VARCHAR(500),
+    contact_info VARCHAR(255) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'Pending' CHECK (status IN ('Pending', 'In Progress', 'Resolved', 'Rejected')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Add indexes for better query performance
+CREATE INDEX idx_complaints_user_id ON complaints(user_id);
+CREATE INDEX idx_complaints_route_number ON complaints(route_number);
+CREATE INDEX idx_complaints_status ON complaints(status);
+CREATE INDEX idx_complaints_priority ON complaints(priority);
+CREATE INDEX idx_complaints_created_at ON complaints(created_at);
+
+-- Add a trigger to update the updated_at timestamp
+CREATE OR REPLACE FUNCTION update_complaints_updated_at()
+RETURNS TRIGGER AS $
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_complaints_updated_at
+    BEFORE UPDATE ON complaints
+    FOR EACH ROW
+    EXECUTE FUNCTION update_complaints_updated_at();

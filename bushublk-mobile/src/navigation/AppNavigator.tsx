@@ -11,6 +11,7 @@ import BusTracker from "../screens/BusTrackingScreen";
 import BusRouteResultsScreen from "../screens/BusRouteResultsScreen";
 import BusOccupancyScreen from "../screens/BusOccupancyScreen";
 import ComplaintsScreen from "../screens/ComplaintsScreen";
+import ComplaintHistoryScreen from "../screens/ComplaintHistoryScreen";
 import EmergencyScreen from "../screens/EmergencyAlertScreen";
 
 const Stack = createStackNavigator();
@@ -31,6 +32,11 @@ export default function AppNavigator() {
       <Stack.Screen
         name="Complaints"
         component={ComplaintsScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="ComplaintHistory"
+        component={ComplaintHistoryScreen}
         options={{ headerShown: false }}
       />
       <Stack.Screen name="BusRouteResults" component={BusRouteResultsScreen} />
