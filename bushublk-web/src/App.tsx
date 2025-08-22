@@ -55,6 +55,7 @@ import Autoforwardbusstatus from './pages/dashboards/depot-engineer/Autoforwardb
 import DepotEscalateissues from './pages/dashboards/depot-engineer/DepotEscalateissues'
 import Depotcommunityhub from './pages/dashboards/depot-engineer/Depotcommunityhub'
 import Depotinspection from './pages/dashboards/depot-engineer/DepotInspection'
+import DepotEngineerNotifications from './pages/dashboards/depot-engineer/Notifications'
 
 
 
@@ -93,7 +94,7 @@ import DGMTechnicalDashboard from './pages/dashboards/dgm-tech/index'
 import Fleetmonitor from './pages/dashboards/dgm-tech/Fleetmonitor'
 import Servicehistoryexplorer from './pages/dashboards/dgm-tech/Servicehistoryexplorer'
 import GenerateReports from './pages/dashboards/dgm-tech/GenerateReports'
-import Dgmtechnicalissue from './pages/dashboards/dgm-tech/Dgmtechnicalissue'
+//import Dgmtechnicalissue from './pages/dashboards/dgm-tech/Dgmtechnicalissue'
 import Dgmcommunityhub from './pages/dashboards/dgm-tech/Dgmcommunityhub'
 
 
@@ -210,7 +211,7 @@ const App = () => {
           <Route path="scheduling" element={<Scheduling />} />
           <Route path="Spareparts" element={<Spareparts />} />
           <Route path="Depotinspection" element={<Depotinspection />} />
-         
+          <Route path="notifications" element={<DepotEngineerNotifications />} />
           <Route path="Autoforwardbusstatus" element={<Autoforwardbusstatus />} />
           <Route path="DepotEscalateissues" element={<DepotEscalateissues />} />
           <Route path="Depotcommunityhub" element={<Depotcommunityhub />} />
@@ -268,7 +269,7 @@ const App = () => {
     <Route path="Fleetmonitor" element={<Fleetmonitor />} />
     <Route path="Servicehistoryexplorer" element={<Servicehistoryexplorer />} />
     <Route path="GenerateReports" element={<GenerateReports />} />
-    <Route path="Dgmtechnicalissue" element={<Dgmtechnicalissue />} />
+    {/* <Route path="Dgmtechnicalissue" element={<Dgmtechnicalissue />} /> */}
     <Route path="Dgmcommunityhub" element={<Dgmcommunityhub />} />
   </Route>
 </Route>

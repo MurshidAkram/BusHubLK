@@ -75,7 +75,7 @@ const DGMTechnicalSidebarContent = () => {
         Inspection and Maintenance Schedule
       </NavLink> */}
 
-      <NavLink
+      {/* <NavLink
         to="/dgm-technical/Dgmtechnicalissue"
         className={({ isActive }) =>
           `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
@@ -85,7 +85,7 @@ const DGMTechnicalSidebarContent = () => {
       >
         <HiCog className="mr-3 flex-shrink-0 h-5 w-5" />
         Issue Tracker
-      </NavLink>
+      </NavLink> */}
 
       <NavLink
         to="/dgm-technical/GenerateReports"

@@ -8,14 +8,21 @@ import {
   HiEye,
   HiArrowRight,
   HiFire,
-  HiHeart,
-  HiLocationMarker,
-  HiOfficeBuilding,
-  HiUserCircle
+  HiHeart
 } from 'react-icons/hi';
 import { useState, useEffect, useContext } from 'react';
 import { AppContext } from '../../../context/AppContext';
 import axios, { AxiosError } from 'axios';
+
+interface PendingReport {
+  report_id: string;
+  registration_number: string;
+  condition_status: string;
+  description: string;
+  report_time: string;
+  driver_first_name: string;
+  driver_last_name: string;
+}
 
 interface EmergencyReport {
   id: string;
@@ -56,20 +63,8 @@ interface BusResponse {
   depot: DepotInfo;
 }
 
-interface AppContextType {
-  user: { 
-    role: string; 
-    userId: string; 
-    depot_id?: string; 
-    region_id?: string;
-    name?: string;
-    email?: string;
-  } | null;
-  token: string | null;
-}
-
 const DepotEngineerDashboard = () => {
-  const context = useContext<AppContextType | null>(AppContext);
+  const context = useContext(AppContext);
   const navigate = useNavigate();
   const [stats, setStats] = useState({
     totalBuses: 0,
@@ -83,40 +78,23 @@ const DepotEngineerDashboard = () => {
     complianceRate: 92
   });
   const [depotInfo, setDepotInfo] = useState<DepotInfo | null>(null);
+  const [pendingReports, setPendingReports] = useState<PendingReport[]>([]);
+  const [emergencyReports, setEmergencyReports] = useState<EmergencyReport[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
   const token = context?.token;
-  const user = context?.user;
 
-  const pendingApprovals = [
-    { id: 17, reg_num: 'NC_1234', priority: 'High', status: 'Major issue' },
-    { id: 23, reg_num: 'NP_8901', priority: 'Medium', status: 'Minor issue' },
-    { id: 21, reg_num: 'NY_9871', priority: 'Low', status: 'Good' }
-  ];
+  // Debug authentication
+  useEffect(() => {
+    console.log('🔐 Authentication Debug:');
+    console.log('- Token exists:', !!token);
+    console.log('- User role:', context?.user?.role);
+    console.log('- User object:', context?.user);
+    console.log('- Depot ID:', context?.user?.depot_id);
+  }, [token, context?.user]);
 
-  const emergencyReports: EmergencyReport[] = [
-    { 
-      id: 'R-17',
-      depotid: '2',
-      busNumber: 'NC_1234',
-      type: 'fire',
-      reason: 'Engine compartment fire',
-      status: 'pending',
-      region: 'Central',
-      depot: 'Kandy Depot'
-    },
-    { 
-      id: 'R-23',
-      depotid: '1',
-      busNumber: 'NY-3456',
-      type: 'medical',
-      reason: 'Passenger medical emergency',
-      status: 'pending',
-      region: 'Western',
-      depot: 'Colombo Depot'
-    }
-  ];
+  // Remove the hardcoded emergency reports array - we'll fetch from API
 
   const getEmergencyColor = (type: EmergencyReport['type']) => {
     switch (type) {
@@ -183,9 +161,208 @@ const DepotEngineerDashboard = () => {
     }
   };
 
+  const fetchPendingReports = async () => {
+    try {
+      // Try the correct API endpoint for depot engineers
+      const apiUrl = `http://localhost:5000/api/bus-condition-reports/pending`;
+      console.log('🔍 Fetching pending reports from:', apiUrl);
+      console.log('🔑 Using token:', token ? 'Token available' : 'No token');
+      
+      const response = await axios.get(apiUrl, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+      });
+
+      console.log('📊 Pending reports response:', response.data);
+
+      if (response.data.success) {
+        const reports = response.data.data || response.data.reports || [];
+        setPendingReports(reports);
+        // Update stats with pending reports count
+        setStats(prevStats => ({
+          ...prevStats,
+          criticalIssues: reports.filter((r: PendingReport) => 
+            r.condition_status === 'Major Issues' || r.condition_status === 'Out of Service'
+          ).length,
+        }));
+        console.log('✅ Pending reports loaded successfully:', reports.length);
+      } else {
+        console.error('❌ Failed to fetch pending reports:', response.data.message);
+      }
+    } catch (err) {
+      const axiosError = err as AxiosError;
+      console.error('❌ Error fetching pending reports:', axiosError);
+      if (axiosError.response) {
+        console.error('Response status:', axiosError.response.status);
+        console.error('Response data:', axiosError.response.data);
+        console.error('Response headers:', axiosError.response.headers);
+      }
+      
+      // Try alternative endpoint if the first one fails
+      if (axiosError.response?.status === 403 || axiosError.response?.status === 404) {
+        console.log('🔄 Trying alternative endpoint...');
+        try {
+          const altApiUrl = `http://localhost:5000/api/depot-engineer/condition-reports/pending`;
+          const altResponse = await axios.get(altApiUrl, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+          });
+          
+          if (altResponse.data.success) {
+            const reports = altResponse.data.data || altResponse.data.reports || [];
+            setPendingReports(reports);
+            setStats(prevStats => ({
+              ...prevStats,
+              criticalIssues: reports.filter((r: PendingReport) => 
+                r.condition_status === 'Major Issues' || r.condition_status === 'Out of Service'
+              ).length,
+            }));
+            console.log('✅ Pending reports loaded from alternative endpoint:', reports.length);
+          }
+        } catch (altErr) {
+          console.error('❌ Alternative endpoint also failed:', altErr);
+        }
+      }
+    }
+  };
+
+  const fetchEmergencyReports = async () => {
+    try {
+      // Use the depot emergency endpoint to get all reports, then filter for pending
+      const apiUrl = `http://localhost:5000/api/depot/emergency`;
+      console.log('🔍 Fetching emergency reports from:', apiUrl);
+      console.log('🔑 Using token:', token ? 'Token available' : 'No token');
+      
+      const response = await axios.get(apiUrl, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log('📊 Emergency reports response:', response.data);
+
+      if (response.data.success) {
+        const allReports = response.data.data || [];
+        
+        // Log detailed information about the reports structure
+        console.log('📋 All emergency reports count:', allReports.length);
+        if (allReports.length > 0) {
+          console.log('📄 Sample report structure:', allReports[0]);
+          console.log('📋 All available status values:', [...new Set(allReports.map((r: any) => r.status))]);
+          console.log('📋 All reports with their status:', allReports.map((r: any) => ({ id: r.id, status: r.status, incident_type: r.incident_type })));
+        }
+        
+        // Filter for pending status reports only - only show reports with "Pending" status
+        const pendingReports = allReports.filter((report: any) => {
+          // Only include reports with exactly "Pending" status
+          const status = report.status?.toString();
+          return status === 'Pending';
+        });
+        
+        console.log('🔍 Filtered pending reports:', pendingReports.length, pendingReports);
+        
+        const mappedReports: EmergencyReport[] = pendingReports.map((report: any) => ({
+          id: report.id.toString(),
+          depotid: report.depot_id?.toString() || '',
+          busNumber: report.vehicle_registration || report.registration_number || `Bus-${report.bus_id}`,
+          type: report.incident_type || 'mechanical', // This comes from emergency_reports.incident_type
+          reason: report.description || 'No description provided', // This comes from emergency_reports.description
+          status: 'pending', // We're filtering for pending status only
+          region: report.region_name || 'Unknown Region',
+          depot: report.depot_name || 'Unknown Depot'
+        }));
+        
+        setEmergencyReports(mappedReports);
+        
+        // Update stats with real count
+        setStats(prevStats => ({
+          ...prevStats,
+          EmergencyReports: mappedReports.length
+        }));
+        
+        console.log('✅ Emergency reports fetched successfully:', mappedReports.length, 'pending reports out of', allReports.length, 'total');
+      } else {
+        console.error('❌ Failed to fetch emergency reports:', response.data.message);
+        setEmergencyReports([]); // Set empty array if fetch fails
+      }
+    } catch (err) {
+      const axiosError = err as AxiosError;
+      console.error('❌ Error fetching emergency reports:', axiosError);
+      if (axiosError.response) {
+        console.error('Response data:', axiosError.response.data);
+        console.error('Response status:', axiosError.response.status);
+      }
+      
+      // Try alternative emergency endpoint if the first one fails
+      if (axiosError.response?.status === 403 || axiosError.response?.status === 404) {
+        console.log('🔄 Trying alternative emergency endpoint...');
+        try {
+          const altApiUrl = `http://localhost:5000/api/emergency`;
+          const altResponse = await axios.get(altApiUrl, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (altResponse.data.success) {
+            const allReports = altResponse.data.data || [];
+            const pendingReports = allReports.filter((report: any) => report.status === 'pending');
+            
+            const mappedReports: EmergencyReport[] = pendingReports.map((report: any) => ({
+              id: report.id.toString(),
+              depotid: report.depot_id?.toString() || '',
+              busNumber: report.vehicle_registration || report.registration_number || `Bus-${report.bus_id}`,
+              type: report.incident_type || 'mechanical',
+              reason: report.description || 'No description provided',
+              status: 'pending',
+              region: report.region_name || 'Unknown Region',
+              depot: report.depot_name || 'Unknown Depot'
+            }));
+            
+            setEmergencyReports(mappedReports);
+            setStats(prevStats => ({
+              ...prevStats,
+              EmergencyReports: mappedReports.length
+            }));
+            
+            console.log('✅ Emergency reports loaded from alternative endpoint:', mappedReports.length);
+          }
+        } catch (altErr) {
+          console.error('❌ Alternative emergency endpoint also failed:', altErr);
+          setEmergencyReports([]);
+        }
+      } else {
+        setEmergencyReports([]); // Set empty array on error
+      }
+    }
+  };
+
+  // Helper function to determine priority based on condition status
+  const getPriorityFromStatus = (status: string) => {
+    switch (status) {
+      case 'Out of Service':
+      case 'Major Issues':
+        return { level: 'High', color: 'bg-red-100 text-red-800' };
+      case 'Minor Issues':
+        return { level: 'Medium', color: 'bg-yellow-100 text-yellow-800' };
+      case 'Good':
+        return { level: 'Low', color: 'bg-green-100 text-green-800' };
+      default:
+        return { level: 'Medium', color: 'bg-yellow-100 text-yellow-800' };
+    }
+  };
+
   useEffect(() => {
     if (token && context?.user?.role === 'depot_engineer') {
       fetchBuses();
+      fetchPendingReports();
+      fetchEmergencyReports();
     }
   }, [token, context?.user?.role]);
 
@@ -203,14 +380,25 @@ const DepotEngineerDashboard = () => {
   if (error) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center py-8 text-red-600">
+        <div className="text-center py-8 text-red-600 max-w-md">
           <HiExclamationCircle className="w-12 h-12 mx-auto mb-4" />
-          <p className="text-xl font-medium">Error: {error}</p>
+          <p className="text-xl font-medium mb-2">Error Loading Dashboard</p>
+          <p className="text-sm text-gray-600 mb-4">{error}</p>
+          {error.includes('403') && (
+            <p className="text-sm text-yellow-600 mb-4">
+              ⚠️ This might be an authentication issue. Please try logging out and logging back in.
+            </p>
+          )}
           <button 
-            onClick={fetchBuses}
+            onClick={() => {
+              setError(null);
+              fetchBuses();
+              fetchPendingReports();
+              fetchEmergencyReports();
+            }}
             className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
-            Retry
+            Retry Loading
           </button>
         </div>
       </div>
@@ -321,9 +509,18 @@ const DepotEngineerDashboard = () => {
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 flex-1">
             <div className="p-4 border-b border-gray-200 flex justify-between items-center">
               <h3 className="text-lg font-semibold text-gray-700">Pending Bus Condition Review</h3>
-              <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
-                {pendingApprovals.length} awaiting action
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
+                  {pendingReports.length} awaiting action
+                </span>
+                <button
+                  onClick={fetchPendingReports}
+                  className="text-blue-600 hover:text-blue-800 p-1"
+                  title="Refresh pending reports"
+                >
+                  <HiCog className="w-4 h-4" />
+                </button>
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -336,29 +533,32 @@ const DepotEngineerDashboard = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {pendingApprovals.map((approval) => (
-                    <tr key={approval.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{approval.reg_num}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                        <span className={`px-2 py-1 rounded-full text-xs ${
-                          approval.priority === 'High' ? 'bg-red-100 text-red-800' :
-                          approval.priority === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-green-100 text-green-800'
-                        }`}>
-                          {approval.priority}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{approval.status}</td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <button 
-                          className="text-blue-600 hover:text-blue-900 text-sm font-medium flex items-center gap-1" 
-                          onClick={() => navigate('/depot-engineer/Autoforwardbusstatus')}
-                        >
-                          Review <HiEye className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {pendingReports.map((report) => {
+                    const priority = getPriorityFromStatus(report.condition_status);
+                    return (
+                      <tr key={report.report_id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {report.registration_number}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                          <span className={`px-2 py-1 rounded-full text-xs ${priority.color}`}>
+                            {priority.level}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                          {report.condition_status}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <button 
+                            className="text-blue-600 hover:text-blue-900 text-sm font-medium flex items-center gap-1" 
+                            onClick={() => navigate('/depot-engineer/Autoforwardbusstatus')}
+                          >
+                            Review <HiEye className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -367,13 +567,27 @@ const DepotEngineerDashboard = () => {
           {/* Emergency Reports Section */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 flex-1">
             <div className="p-4 border-b border-gray-200 flex justify-between items-center">
-              <h3 className="text-lg font-semibold text-gray-700">Emergency Reports</h3>
-              <span className="bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full">
-                {stats.EmergencyReports} active
-              </span>
+              <h3 className="text-lg font-semibold text-red-700">Emergency Reports</h3>
+              <div className="flex items-center gap-2">
+                <span className="bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full">
+                  {stats.EmergencyReports} active
+                </span>
+                <button
+                  onClick={fetchEmergencyReports}
+                  className="text-blue-600 hover:text-blue-800 p-1"
+                  title="Refresh emergency reports"
+                >
+                  <HiCog className="w-4 h-4" />
+                </button>
+              </div>
             </div>
             <div className="p-4 space-y-3">
-              {emergencyReports.map((report) => (
+              {loading ? (
+                <div className="text-center py-4">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                  <p className="text-sm text-red-500">Loading emergency reports...</p>
+                </div>
+              ) : emergencyReports.length > 0 ? emergencyReports.map((report) => (
                 <div 
                   key={report.id} 
                   className={`flex items-center justify-between p-3 rounded-lg border ${getEmergencyColor(report.type)} hover:shadow-xs transition-shadow`}
@@ -382,20 +596,20 @@ const DepotEngineerDashboard = () => {
                     {getEmergencyIcon(report.type)}
                     <div className="flex-grow min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium">{report.id}</span>
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${getStatusBadge(report.status)}`}>
-                          {report.status.replace('-', ' ')}
+                        {/* <span className="font-medium text-gray-900">#{report.id}</span> */}
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${getStatusBadge('pending')}`}>
+                          Pending
                         </span>
                       </div>
-                      <div className="text-sm text-gray-600 mt-1">
+                      <div className="text-sm text-red-600 mt-1">
                         <span className="font-medium">Bus:</span> {report.busNumber}
                       </div>
-                      <div className="text-sm text-gray-600">
-                        <span className="font-medium">Location:</span> {report.depot}, {report.region}
+                      <div className="text-sm text-red-600">
+                        <span className="font-medium">Type:</span> {report.type.charAt(0).toUpperCase() + report.type.slice(1)}
                       </div>
-                      <div className="text-sm font-medium mt-1 text-gray-700 truncate">
+                      {/* <div className="text-sm font-medium mt-1 text-gray-700 truncate">
                         {report.reason}
-                      </div>
+                      </div> */}
                     </div>
                   </div>
                   <button 
@@ -406,7 +620,13 @@ const DepotEngineerDashboard = () => {
                     <HiArrowRight className="w-5 h-5" />
                   </button>
                 </div>
-              ))}
+              )) : (
+                <div className="text-center py-6 text-gred-500">
+                  <HiCheckCircle className="w-8 h-8 mx-auto mb-2 text-red-400" />
+                  <p>No pending emergency reports</p>
+                  <p className="text-xs mt-1">Check browser console for debugging info</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
