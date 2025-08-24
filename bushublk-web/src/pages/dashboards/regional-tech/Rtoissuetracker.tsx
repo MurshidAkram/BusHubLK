@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { MessageSquare, Filter, Search, FileText, Send, ChevronUp, ChevronDown, ShieldCheck, Activity, CheckCircle } from 'lucide-react';
+import { MessageSquare, Filter, Search, FileText, Send, ChevronUp, ChevronDown, ShieldCheck, Activity, CheckCircle, Phone } from 'lucide-react';
 
 interface ChatMessage {
   sender_type: string;
@@ -227,21 +227,32 @@ const Rtoissuetracker = () => {
       <div className="space-y-4">
         {filteredReports.length > 0 ? (
           filteredReports.map((report: EmergencyReport) => (
-            <div key={report.id} className="bg-white rounded-lg shadow-sm border border-gray-300 p-5">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
+            <div key={report.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-start">
+                
                 <div className="md:col-span-2">
-                  <div className="flex items-center gap-3">
-                    <span className="bg-purple-100 text-purple-700 p-2 rounded-full">
-                      <ShieldCheck className="w-5 h-5"/>
-                    </span>
+                  <div className="flex items-start gap-4">
+                    <div className="flex-shrink-0 bg-purple-100 text-purple-600 p-3 rounded-full">
+                      <ShieldCheck className="w-6 h-6"/>
+                    </div>
+                    
                     <div>
-                      <h3 className="text-lg font-bold text-gray-800">{report.incident_type}</h3>
-                      <p className="text-sm text-gray-500">{report.driver_name} | {report.vehicle_registration}</p>
+                      <h3 className="text-xl font-bold text-gray-800">{report.incident_type}</h3>
+                      <p className="text-sm text-gray-500 mt-1">
+                        {report.driver_name} | {report.vehicle_registration}
+                      </p>
+                      {report.driver_phone && (
+                        <div className="flex items-center gap-2 mt-1 text-sm text-gray-500 font-medium">
+                          <Phone className="w-4 h-4 text-pink-500" />
+                          <span>{report.driver_phone}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <p className="text-sm text-gray-700 mt-3 bg-gray-50 p-3 rounded-md">{report.description}</p>
+                  
+                  <p className="text-sm text-gray-600 mt-4 bg-gray-50 p-3 rounded-md">{report.description}</p>
                 </div>
-                
+
                 <div className="text-sm space-y-2">
                   <div>
                     <p className="font-semibold text-gray-500">Status</p>
@@ -275,27 +286,23 @@ const Rtoissuetracker = () => {
                 </div>
               </div>
               
-              {/* ======================= SIMPLE CHAT STYLE START ======================= */}
+              {/* Chat section remains unchanged */}
               {activeChatId === report.id && (
                 !report.chatHistory ? (
                   <div className="text-center text-gray-500 mt-4 p-4">Loading chat history...</div>
                 ) : (
                   <div className="mt-4 flex flex-col h-96 bg-gray-50 rounded-lg p-2">
-                    {/* Messages Area */}
                     <div className="flex-grow space-y-3 overflow-y-auto p-2">
                       {report.chatHistory.length > 0 ? (
                         report.chatHistory.map((chat, index: number) => {
                           const isRTO = chat.sender_type === 'rto';
                           return (
                             <div key={index} className={`flex items-end gap-2 ${isRTO ? 'justify-end' : ''}`}>
-                              {/* Avatar (non-RTO) */}
                               {!isRTO && (
                                 <div className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-300 flex items-center justify-center">
                                   <ShieldCheck className="w-4 h-4 text-gray-600" />
                                 </div>
                               )}
-                              
-                              {/* Message Bubble */}
                               <div className={`w-fit max-w-xs leading-1.5 p-3 rounded-xl ${isRTO ? 'bg-blue-500 text-white' : 'bg-white shadow-sm'}`}>
                                 <p className="text-sm font-normal break-words">{chat.text}</p>
                                 <p className={`text-xs text-right mt-1.5 ${isRTO ? 'text-blue-100' : 'text-gray-400'}`}>
@@ -315,8 +322,6 @@ const Rtoissuetracker = () => {
                       )}
                       <div ref={chatEndRef} />
                     </div>
-
-                    {/* Input Area */}
                     <div className="p-2 border-t flex items-center gap-2">
                       <input
                         type="text"
@@ -337,7 +342,6 @@ const Rtoissuetracker = () => {
                   </div>
                 )
               )}
-              {/* ======================== SIMPLE CHAT STYLE END ======================== */}
             </div>
           ))
         ) : (
