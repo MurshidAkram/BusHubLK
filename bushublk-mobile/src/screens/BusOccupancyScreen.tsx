@@ -11,6 +11,7 @@ import {
   Modal,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { useNavigation } from '@react-navigation/native';
 import * as Location from 'expo-location';
 
 import { API_BASE_URL } from '../config/api';
@@ -412,6 +413,7 @@ const useEnhancedBusDetection = (userLocation: UserLocation | null, buses: Bus[]
 };
 
 export default function BusOccupancyScreen() {
+  const navigation = useNavigation();
   const [buses, setBuses] = useState<Bus[]>([]);
   const [occupancy, setOccupancy] = useState('not_crowded');
   const [busStatuses, setBusStatuses] = useState<BusStatuses>({});
@@ -605,29 +607,30 @@ export default function BusOccupancyScreen() {
           Alert.alert('Permission Denied', 'Location permission is required to detect bus.');
           return;
         }
-        
+
         setLocationPermission(true);
-        
+
+        // Use Balanced accuracy for faster initial fix
         const location = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
+          accuracy: Location.Accuracy.Balanced,
         });
-        
+
         const userPos = {
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
           accuracy: location.coords.accuracy,
           timestamp: Date.now(),
         };
-        
+
         setUserLocation(userPos);
-        
+
         // Fetch real nearby buses using passenger's GPS location
         const nearbyBuses = await fetchNearbyBuses(userPos.latitude, userPos.longitude, 5);
         setBuses(nearbyBuses);
-        
+
         locationWatchRef.current = await Location.watchPositionAsync(
           {
-            accuracy: Location.Accuracy.High,
+            accuracy: Location.Accuracy.Balanced,
             timeInterval: LOCATION_UPDATE_INTERVAL,
             distanceInterval: 5,
           },
@@ -641,7 +644,7 @@ export default function BusOccupancyScreen() {
             setUserLocation(newUserPos);
           }
         );
-        
+
         setLoading(false);
       } catch (error) {
         console.error('Error requesting location permission:', error);
@@ -650,9 +653,9 @@ export default function BusOccupancyScreen() {
         setLoading(false);
       }
     };
-    
+
     requestLocationPermission();
-    
+
     return () => {
       if (locationWatchRef.current) {
         locationWatchRef.current.remove();
@@ -765,7 +768,23 @@ export default function BusOccupancyScreen() {
 
   const renderHeader = () => (
     <>
-      <Text style={styles.title}>🚍 SLTB Bus Occupancy Monitor</Text>
+      {/* Back Arrow and Title */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+        <TouchableOpacity
+          onPress={() => {
+            // @ts-ignore
+            if (navigation.canGoBack && navigation.canGoBack()) {
+              navigation.goBack();
+            } else if (navigation.navigate) {
+              navigation.navigate('Home');
+            }
+          }}
+          style={{ marginRight: 8, padding: 4 }}
+        >
+          <Icon name="arrow-back" size={28} color="#007bff" />
+        </TouchableOpacity>
+        <Text style={styles.title}>🚍 SLTB Bus Occupancy Monitor</Text>
+      </View>
 
       {/* Nearby Buses Section */}
       <View style={styles.card}>
@@ -984,22 +1003,22 @@ export default function BusOccupancyScreen() {
             {allOccupancies.map((item, index) => {
               if (!item) return null;
               const bus = buses.find(b => b.id === `bus_${item.bus_id}`);
-              const isUserUpdate = item.passenger_id && userLocation && 
-                calculateDistance(userLocation.latitude, userLocation.longitude, item.latitude, item.longitude) < 100;
               
               return (
-                <View key={item.occupancy_id} style={[styles.statusItem, isUserUpdate && styles.userStatusItem]}>
+                <View key={item.occupancy_id} style={styles.statusItem}>
                   <View style={styles.statusHeader}>
-                    <Text style={styles.statusBusNumber}>
-                      Bus {item.registration_number}
-                      {isUserUpdate && <Text style={styles.userUpdateIndicator}> (Your Update)</Text>}
+                    <Text style={styles.statusRouteNumber}>
+                      Route {bus?.route_number || 'Unknown'}
                     </Text>
                     <Text style={styles.statusTime}>
                       {new Date(item.updated_at).toLocaleTimeString()}
                     </Text>
                   </View>
+                  <Text style={styles.statusBusNumber}>
+                    {item.registration_number}
+                  </Text>
                   <Text style={styles.statusRoute}>
-                    {bus ? `Route ${bus.route_number} - ${bus.route_name || bus.route}` : `Bus ID: ${item.bus_id}`}
+                    {bus ? `${bus.route_name || bus.route}` : 'Route details unavailable'}
                   </Text>
                   <View style={styles.statusOccupancy}>
                     <Text style={[
@@ -1007,9 +1026,6 @@ export default function BusOccupancyScreen() {
                       { color: OCCUPANCY_LEVELS.find(l => l.value === item.occupancy_level)?.color }
                     ]}>
                       {OCCUPANCY_LEVELS.find(l => l.value === item.occupancy_level)?.label?.toUpperCase() || 'UNKNOWN'}
-                    </Text>
-                    <Text style={styles.statusConfidence}>
-                      Confidence: {Math.round(item.confidence || 0)}%
                     </Text>
                   </View>
                 </View>
@@ -1277,10 +1293,22 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   statusBusNumber: {
-    fontSize: 16,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#495057',
+    marginTop: 2,
+    marginBottom: 4,
+  },
+  statusRouteNumber: {
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#007bff',
-    flex: 1,
+    backgroundColor: '#e3f2fd',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    textAlign: 'center',
+    minWidth: 80,
   },
   userUpdateIndicator: {
     fontSize: 12,

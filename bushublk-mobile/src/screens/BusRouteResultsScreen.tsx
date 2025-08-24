@@ -14,6 +14,7 @@ import {
 import Icon from "react-native-vector-icons/Ionicons";
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
 import axios from "axios";
+import { API_BASE_URL, initializeApiConnection } from '../config/api';
 
 const GOOGLE_MAPS_API_KEY = "AIzaSyAeXR9ct7HrHMCQXSWLrWQl5OlRYjNhbxo"; // <-- Replace with your key
 
@@ -125,21 +126,61 @@ function decodePolyline(encoded) {
 export default function BusRouteResultsScreen({ route, navigation }) {
   const { from, to } = route.params;
   const [loading, setLoading] = useState(true);
-  const [distance, setDistance] = useState(null);
-  const [duration, setDuration] = useState(null);
-  const [fare, setFare] = useState(null);
-  const [routeCoordinates, setRouteCoordinates] = useState([]);
-  const [mapRegion, setMapRegion] = useState(null);
-  const [availableRoutes, setAvailableRoutes] = useState([]);
+  const [distance, setDistance] = useState<number | null>(null);
+  const [duration, setDuration] = useState<string | null>(null);
+  const [fare, setFare] = useState<number | null>(null);
+  const [routeCoordinates, setRouteCoordinates] = useState<Array<{latitude: number, longitude: number}>>([]);
+  const [mapRegion, setMapRegion] = useState<any>(null);
+  const [availableRoutes, setAvailableRoutes] = useState<any[]>([]);
   const [showMap, setShowMap] = useState(false);
+  const [busStops, setBusStops] = useState<Array<{name: string, place_id?: string, type?: string}>>([]);
+  const [numberOfStops, setNumberOfStops] = useState<number>(0);
+  const [calculationMethod, setCalculationMethod] = useState<string>('');
 
   const mapRef = useRef(null);
 
   const fromText = from?.description || "";
   const toText = to?.description || "";
 
+  // Calculate fare using backend API
+  const calculateFareFromAPI = async (originPlaceId: string, destinationPlaceId: string) => {
+    try {
+      console.log('🔄 Calculating fare from API...', { originPlaceId, destinationPlaceId });
+      
+      // Initialize API connection to ensure we have the correct URL
+      const apiUrl = await initializeApiConnection();
+      console.log('🌐 Using API URL:', apiUrl);
+      
+      const response = await axios.post(`${apiUrl}/api/fares/calculate`, {
+        origin: originPlaceId,
+        destination: destinationPlaceId
+      });
+      
+      console.log('✅ Fare API response:', response.data);
+      
+      if (response.data) {
+        return {
+          fare: response.data.fare,
+          numberOfStops: response.data.numberOfCities || response.data.numberOfStops, // Support both for backward compatibility
+          distance: response.data.distance,
+          duration: response.data.duration,
+          busStops: response.data.cities || response.data.busStops || [], // Support both cities and busStops
+          calculationMethod: response.data.calculation?.method || 'unknown'
+        };
+      }
+      return null;
+    } catch (error) {
+      console.error('❌ Error calculating fare from API:', error);
+      if (axios.isAxiosError(error)) {
+        console.error('Response data:', error.response?.data);
+        console.error('Response status:', error.response?.status);
+      }
+      return null;
+    }
+  };
+
   // Helper: Get lat/lng from place_id
-  const getLatLng = async (place_id) => {
+  const getLatLng = async (place_id: string) => {
     try {
       const res = await axios.get(
         `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place_id}&key=${GOOGLE_MAPS_API_KEY}`
@@ -222,38 +263,72 @@ export default function BusRouteResultsScreen({ route, navigation }) {
       setLoading(true);
       setShowMap(false);
 
-      // Find available routes
-      const routes = findAvailableRoutes(fromText, toText);
-      setAvailableRoutes(routes);
+      try {
+        console.log('🚀 Starting fare calculation for:', { from: fromText, to: toText });
 
-      // Get route coordinates, distance, and duration
-      const { coordinates, distance: dist, region, duration: estDuration } =
-        await getRouteCoordinates(from.place_id, to.place_id);
+        // Find available routes
+        const routes = findAvailableRoutes(fromText, toText);
+        setAvailableRoutes(routes);
 
-      if (dist !== null) {
-        setDistance(dist);
-        setRouteCoordinates(coordinates);
-        setMapRegion(region);
-        setShowMap(true);
-        setDuration(estDuration || null);
-
-        // Calculate fare based on distance if no specific route found
-        if (routes.length === 0) {
-          const stageCount = Math.ceil(dist / BASE_STAGE_KM);
-          const cappedStage = Math.min(stageCount, FARE_STAGES.length);
-          let calculatedFare = Math.round(FARE_STAGES[cappedStage - 1] * 1.6);
-          setFare(calculatedFare);
+        // Calculate fare using backend API
+        const fareData = await calculateFareFromAPI(from.place_id, to.place_id);
+        
+        if (fareData) {
+          console.log('✅ Fare calculation successful:', fareData);
+          setFare(fareData.fare);
+          setDistance(fareData.distance);
+          setDuration(fareData.duration);
+          setNumberOfStops(fareData.numberOfStops);
+          setBusStops(fareData.busStops);
+          setCalculationMethod(fareData.calculationMethod);
+          
+          // Get route coordinates for map display
+          const { coordinates, region } = await getRouteCoordinates(from.place_id, to.place_id);
+          if (coordinates.length > 0) {
+            setRouteCoordinates(coordinates);
+            setMapRegion(region);
+            setShowMap(true);
+          }
         } else {
-          // Use the fare from the first available route
-          setFare(routes[0].fare);
+          console.log('⚠️ API failed, falling back to local calculation');
+          // Fallback to local calculation if API fails
+          const { coordinates, distance: dist, region, duration: estDuration } =
+            await getRouteCoordinates(from.place_id, to.place_id);
+
+          if (dist !== null) {
+            setDistance(dist);
+            setRouteCoordinates(coordinates);
+            setMapRegion(region);
+            setShowMap(true);
+            setDuration(estDuration || null);
+
+            // Calculate fare based on distance if no specific route found
+            if (routes.length === 0) {
+              const stageCount = Math.ceil(dist / BASE_STAGE_KM);
+              const cappedStage = Math.min(stageCount, FARE_STAGES.length);
+              let calculatedFare = Math.round(FARE_STAGES[cappedStage - 1] * 1.6);
+              setFare(calculatedFare);
+            } else {
+              // Use the fare from the first available route
+              setFare(routes[0].fare);
+            }
+          } else {
+            console.log('❌ Could not calculate route');
+            setDistance(null);
+            setFare(null);
+            setShowMap(false);
+            setDuration(null);
+          }
         }
-      } else {
+      } catch (error) {
+        console.error('❌ Error in fetchData:', error);
         setDistance(null);
         setFare(null);
         setShowMap(false);
         setDuration(null);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
 
     if (from && to && from.place_id && to.place_id) {
@@ -291,7 +366,7 @@ export default function BusRouteResultsScreen({ route, navigation }) {
         </View>
         <View style={styles.routeInfo}>
           <View style={styles.iconContainer}>
-            <Icon name="clock-outline" size={18} color={AppColors.primary} />
+            <Icon name="time-outline" size={18} color={AppColors.primary} />
           </View>
           <Text style={styles.routeText}>{item.operatingHours}</Text>
         </View>
@@ -356,7 +431,7 @@ export default function BusRouteResultsScreen({ route, navigation }) {
 {loading && (
   <View style={styles.loadingContainer}>
     <ActivityIndicator size="large" color={AppColors.primary} />
-    <Text style={styles.loadingText}>Finding best routes...</Text>
+    <Text style={styles.loadingText}>Calculating fare based on cities along route...</Text>
   </View>
 )}
 
@@ -424,6 +499,14 @@ export default function BusRouteResultsScreen({ route, navigation }) {
       <Text style={styles.infoValue}>{distance?.toFixed(1)} km</Text>
     </View>
     
+    <View style={styles.infoCard}>
+      <View style={styles.infoIconContainer}>
+        <Icon name="bus-outline" size={24} color={AppColors.primary} />
+      </View>
+      <Text style={styles.infoLabel}>Cities</Text>
+      <Text style={styles.infoValue}>{numberOfStops}</Text>
+    </View>
+    
     {fare !== null && (
       <View style={styles.infoCard}>
         <View style={styles.infoIconContainer}>
@@ -442,6 +525,47 @@ export default function BusRouteResultsScreen({ route, navigation }) {
         <Text style={styles.infoLabel}>Duration</Text>
         <Text style={styles.infoValue}>{duration}</Text>
       </View>
+    )}
+  </View>
+)}
+
+{/* Bus Stops Along Route */}
+{busStops.length > 0 && (
+  <View style={styles.stopsContainer}>
+    <View style={styles.sectionHeader}>
+      <Icon name="location-outline" size={24} color={AppColors.primary} />
+      <Text style={styles.sectionTitle}>Cities Along Route</Text>
+      <View style={styles.routeCount}>
+        <Text style={styles.routeCountText}>{busStops.length}</Text>
+      </View>
+    </View>
+    <View style={styles.stopsCard}>
+      {busStops.map((stop, index) => (
+        <View key={stop.place_id || stop.name || `city-${index}`} style={[styles.stopItem, index === busStops.length - 1 && styles.stopItemLast]}>
+          <View style={[styles.stopIcon, stop.type === 'city' && styles.cityIcon]}>
+            <Icon 
+              name={stop.type === 'city' ? 'location' : 'bus'} 
+              size={16} 
+              color={stop.type === 'city' ? AppColors.warning : AppColors.primary} 
+            />
+          </View>
+          <View style={styles.stopContent}>
+            <Text style={styles.stopName}>{stop.name}</Text>
+            {stop.type && (
+              <Text style={styles.stopType}>
+                {stop.type === 'city' ? 'City/Town' : 
+                 stop.type === 'transit_stop' ? 'Transit Stop' : 
+                 stop.type === 'major_station' ? 'Major Station' : 'Bus Stop'}
+              </Text>
+            )}
+          </View>
+        </View>
+      ))}
+    </View>
+    {calculationMethod && (
+      <Text style={styles.calculationNote}>
+        Fare calculated using {calculationMethod === 'city_based' ? 'city data' : calculationMethod === 'transit_based' ? 'transit data' : 'distance estimation'}
+      </Text>
     )}
   </View>
 )}
@@ -477,7 +601,7 @@ export default function BusRouteResultsScreen({ route, navigation }) {
     </View>
     <Text style={styles.noRoutesTitle}>No Direct Routes Found</Text>
     <Text style={styles.noRoutesText}>
-      Fare has been calculated based on distance. You may need to take connecting buses or alternative transport.
+      Fare calculated based on {numberOfStops} cities found along the route. You may need to take connecting buses or alternative transport.
     </Text>
   </View>
 )}
@@ -708,6 +832,11 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: AppColors.text,
   },
+  infoSubtext: {
+    fontSize: 10,
+    color: AppColors.textSecondary,
+    marginTop: 2,
+  },
   routesContainer: {
     marginBottom: 20,
   },
@@ -916,5 +1045,72 @@ const styles = StyleSheet.create({
     color: AppColors.textSecondary,
     textAlign: "center",
     lineHeight: 20,
+  },
+  stopsContainer: {
+    marginBottom: 20,
+  },
+  stopsCard: {
+    backgroundColor: AppColors.card,
+    borderRadius: 16,
+    padding: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: AppColors.shadow,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  stopItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: AppColors.border,
+  },
+  stopItemLast: {
+    borderBottomWidth: 0,
+  },
+  stopIcon: {
+    backgroundColor: AppColors.primaryLight,
+    borderRadius: 12,
+    padding: 6,
+    marginRight: 12,
+  },
+  transitStopIcon: {
+    backgroundColor: AppColors.success + "20",
+  },
+  cityIcon: {
+    backgroundColor: AppColors.warning + "20",
+  },
+  stopContent: {
+    flex: 1,
+  },
+  stopName: {
+    fontSize: 14,
+    color: AppColors.text,
+    fontWeight: "500",
+  },
+  stopType: {
+    fontSize: 12,
+    color: AppColors.textSecondary,
+    marginTop: 2,
+  },
+  stopsSubtitle: {
+    fontSize: 12,
+    color: AppColors.textSecondary,
+    marginBottom: 12,
+    fontStyle: "italic",
+  },
+  calculationNote: {
+    fontSize: 12,
+    color: AppColors.textSecondary,
+    marginTop: 12,
+    fontStyle: "italic",
+    textAlign: "center",
   },
 });

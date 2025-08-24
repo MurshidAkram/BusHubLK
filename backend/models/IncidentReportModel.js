@@ -12,15 +12,15 @@ class IncidentReportModel {
           lfr.passenger_id,
           lfr.incident_date,
           lfr.incident_time,
-          COALESCE(SPLIT_PART(lfr.contact_email, '@', 1), 'Passenger') as passenger_name,
+          COALESCE(CONCAT(pu.first_name, ' ', pu.last_name), SPLIT_PART(lfr.contact_email, '@', 1), 'Passenger') as passenger_name,
           INITCAP(lfr.report_type) as report_type,
           lfr.item_category,
           lfr.item_description,
           lfr.item_photo_url,
           lfr.route_number,
           NULL as bus_number,
-          lfr.contact_email,
-          lfr.contact_phone,
+          COALESCE(pu.email, lfr.contact_email) as contact_email,
+          COALESCE(pu.phone, lfr.contact_phone) as contact_phone,
           CASE 
             WHEN lfr.status = 'active' THEN 'Pending'
             WHEN lfr.status = 'resolved' THEN 'Resolved'
@@ -28,8 +28,8 @@ class IncidentReportModel {
             WHEN lfr.status = 'deleted' THEN 'Deleted'
             ELSE INITCAP(lfr.status)
           END as status,
-          NULL as driver_name,
-          NULL as driver_phone,
+          COALESCE(CONCAT(du.first_name, ' ', du.last_name), 'N/A') as driver_name,
+          COALESCE(du.phone, 'N/A') as driver_phone,
           lfr.approximate_location as location_found,
           lfr.created_at,
           lfr.updated_at,
@@ -37,6 +37,10 @@ class IncidentReportModel {
           lfr.resolved_date as resolution_date,
           NULL as resolution_notes
         FROM lost_found_reports lfr
+        LEFT JOIN passengers p ON lfr.passenger_id = p.passenger_id
+        LEFT JOIN users pu ON p.passenger_id = pu.user_id
+        LEFT JOIN drivers d ON lfr.driver_id = d.driver_id
+        LEFT JOIN users du ON d.driver_id = du.user_id
         WHERE 1=1
       `;
       
@@ -46,15 +50,17 @@ class IncidentReportModel {
       // Apply filters
       if (filters.search && filters.search.trim()) {
         query += ` AND (
-          LOWER(SPLIT_PART(lfr.contact_email, '@', 1)) LIKE LOWER($${paramIndex}) OR 
-          LOWER(lfr.item_description) LIKE LOWER($${paramIndex + 1}) OR 
-          LOWER(lfr.item_category) LIKE LOWER($${paramIndex + 2}) OR
-          lfr.route_number LIKE $${paramIndex + 3} OR
-          LOWER(lfr.approximate_location) LIKE LOWER($${paramIndex + 4})
+          LOWER(CONCAT(pu.first_name, ' ', pu.last_name)) LIKE LOWER($${paramIndex}) OR 
+          LOWER(SPLIT_PART(lfr.contact_email, '@', 1)) LIKE LOWER($${paramIndex + 1}) OR 
+          LOWER(lfr.item_description) LIKE LOWER($${paramIndex + 2}) OR 
+          LOWER(lfr.item_category) LIKE LOWER($${paramIndex + 3}) OR
+          lfr.route_number LIKE $${paramIndex + 4} OR
+          LOWER(lfr.approximate_location) LIKE LOWER($${paramIndex + 5}) OR
+          LOWER(CONCAT(du.first_name, ' ', du.last_name)) LIKE LOWER($${paramIndex + 6})
         )`;
         const searchTerm = `%${filters.search.trim()}%`;
-        params.push(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm);
-        paramIndex += 5;
+        params.push(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm);
+        paramIndex += 7;
       }
 
       if (filters.type && filters.type !== 'All') {
@@ -78,15 +84,9 @@ class IncidentReportModel {
         paramIndex++;
       }
 
-      if (filters.year) {
-        query += ` AND EXTRACT(YEAR FROM lfr.incident_date) = $${paramIndex}`;
-        params.push(parseInt(filters.year));
-        paramIndex++;
-      }
-
-      if (filters.month) {
-        query += ` AND EXTRACT(MONTH FROM lfr.incident_date) = $${paramIndex}`;
-        params.push(parseInt(filters.month));
+      if (filters.date) {
+        query += ` AND lfr.incident_date = $${paramIndex}`;
+        params.push(filters.date);
         paramIndex++;
       }
 
@@ -125,6 +125,10 @@ class IncidentReportModel {
       let query = `
         SELECT COUNT(*) as total 
         FROM lost_found_reports lfr
+        LEFT JOIN passengers p ON lfr.passenger_id = p.passenger_id
+        LEFT JOIN users pu ON p.passenger_id = pu.user_id
+        LEFT JOIN drivers d ON lfr.driver_id = d.driver_id
+        LEFT JOIN users du ON d.driver_id = du.user_id
         WHERE 1=1
       `;
       const params = [];
@@ -133,15 +137,17 @@ class IncidentReportModel {
       // Apply same filters as getAllWithFilters
       if (filters.search && filters.search.trim()) {
         query += ` AND (
-          LOWER(SPLIT_PART(lfr.contact_email, '@', 1)) LIKE LOWER($${paramIndex}) OR 
-          LOWER(lfr.item_description) LIKE LOWER($${paramIndex + 1}) OR 
-          LOWER(lfr.item_category) LIKE LOWER($${paramIndex + 2}) OR
-          lfr.route_number LIKE $${paramIndex + 3} OR
-          LOWER(lfr.approximate_location) LIKE LOWER($${paramIndex + 4})
+          LOWER(CONCAT(pu.first_name, ' ', pu.last_name)) LIKE LOWER($${paramIndex}) OR 
+          LOWER(SPLIT_PART(lfr.contact_email, '@', 1)) LIKE LOWER($${paramIndex + 1}) OR 
+          LOWER(lfr.item_description) LIKE LOWER($${paramIndex + 2}) OR 
+          LOWER(lfr.item_category) LIKE LOWER($${paramIndex + 3}) OR
+          lfr.route_number LIKE $${paramIndex + 4} OR
+          LOWER(lfr.approximate_location) LIKE LOWER($${paramIndex + 5}) OR
+          LOWER(CONCAT(du.first_name, ' ', du.last_name)) LIKE LOWER($${paramIndex + 6})
         )`;
         const searchTerm = `%${filters.search.trim()}%`;
-        params.push(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm);
-        paramIndex += 5;
+        params.push(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm);
+        paramIndex += 7;
       }
 
       if (filters.type && filters.type !== 'All') {
@@ -165,15 +171,9 @@ class IncidentReportModel {
         paramIndex++;
       }
 
-      if (filters.year) {
-        query += ` AND EXTRACT(YEAR FROM lfr.incident_date) = $${paramIndex}`;
-        params.push(parseInt(filters.year));
-        paramIndex++;
-      }
-
-      if (filters.month) {
-        query += ` AND EXTRACT(MONTH FROM lfr.incident_date) = $${paramIndex}`;
-        params.push(parseInt(filters.month));
+      if (filters.date) {
+        query += ` AND lfr.incident_date = $${paramIndex}`;
+        params.push(filters.date);
         paramIndex++;
       }
 
@@ -202,15 +202,15 @@ class IncidentReportModel {
           lfr.passenger_id,
           lfr.incident_date,
           lfr.incident_time,
-          COALESCE(SPLIT_PART(lfr.contact_email, '@', 1), 'Passenger') as passenger_name,
+          COALESCE(CONCAT(pu.first_name, ' ', pu.last_name), SPLIT_PART(lfr.contact_email, '@', 1), 'Passenger') as passenger_name,
           INITCAP(lfr.report_type) as report_type,
           lfr.item_category,
           lfr.item_description,
           lfr.item_photo_url,
           lfr.route_number,
           NULL as bus_number,
-          lfr.contact_email,
-          lfr.contact_phone,
+          COALESCE(pu.email, lfr.contact_email) as contact_email,
+          COALESCE(pu.phone, lfr.contact_phone) as contact_phone,
           CASE 
             WHEN lfr.status = 'active' THEN 'Pending'
             WHEN lfr.status = 'resolved' THEN 'Resolved'
@@ -218,8 +218,8 @@ class IncidentReportModel {
             WHEN lfr.status = 'deleted' THEN 'Deleted'
             ELSE INITCAP(lfr.status)
           END as status,
-          NULL as driver_name,
-          NULL as driver_phone,
+          COALESCE(CONCAT(du.first_name, ' ', du.last_name), 'N/A') as driver_name,
+          COALESCE(du.phone, 'N/A') as driver_phone,
           lfr.approximate_location as location_found,
           lfr.created_at,
           lfr.updated_at,
@@ -227,6 +227,10 @@ class IncidentReportModel {
           lfr.resolved_date as resolution_date,
           NULL as resolution_notes
         FROM lost_found_reports lfr
+        LEFT JOIN passengers p ON lfr.passenger_id = p.passenger_id
+        LEFT JOIN users pu ON p.passenger_id = pu.user_id
+        LEFT JOIN drivers d ON lfr.driver_id = d.driver_id
+        LEFT JOIN users du ON d.driver_id = du.user_id
         WHERE lfr.report_id = $1
       `;
 
@@ -317,15 +321,9 @@ class IncidentReportModel {
       const params = [];
       let paramIndex = 1;
 
-      if (filters.year) {
-        query += ` AND EXTRACT(YEAR FROM lfr.incident_date) = $${paramIndex}`;
-        params.push(parseInt(filters.year));
-        paramIndex++;
-      }
-
-      if (filters.month) {
-        query += ` AND EXTRACT(MONTH FROM lfr.incident_date) = $${paramIndex}`;
-        params.push(parseInt(filters.month));
+      if (filters.date) {
+        query += ` AND lfr.incident_date = $${paramIndex}`;
+        params.push(filters.date);
         paramIndex++;
       }
 
