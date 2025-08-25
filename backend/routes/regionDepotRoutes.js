@@ -9,15 +9,19 @@ const {
   getDepotsByRegion,
   createDepot,
   updateDepot,
-  deleteDepot
+  deleteDepot,
+  getDepotServiceMonitor
 } = require('../controllers/regionDepotController');
 
-const { authenticateJWT, authorizeAdmin } = require('../middlewares/authMiddleware');
+const { authenticateJWT, authorizeAdmin, authorizeRole } = require('../middlewares/authMiddleware');
 const { body, param } = require('express-validator');
+
+// Middleware to authorize regional technical officers and admins
+const authorizeRegionalTechOrAdmin = authorizeRole(['regional_tech', 'admin', 'ceo', 'dgm_technical', 'dgm_operations']);
 
 // Region routes
 router.get('/regions', authenticateJWT, getAllRegions);
-router.get('/regions/:id', 
+router.get('/regions/:id',
   authenticateJWT,
   param('id').isInt().withMessage('Region ID must be an integer'),
   getRegionById
@@ -35,6 +39,17 @@ router.post('/regions',
 
 // Depot routes
 router.get('/depots', authenticateJWT, getAllDepots);
+
+// Get depot service monitor data (bus status counts and last inspection dates)
+// These specific routes must come BEFORE the parameterized routes
+router.get('/depots/service-monitor', authenticateJWT, authorizeRegionalTechOrAdmin, getDepotServiceMonitor);
+router.get('/depots/service-monitor/region/:region_id',
+  authenticateJWT,
+  authorizeRegionalTechOrAdmin,
+  param('region_id').isInt().withMessage('Region ID must be an integer'),
+  getDepotServiceMonitor
+);
+
 router.get('/depots/:id',
   authenticateJWT,
   param('id').isInt().withMessage('Depot ID must be an integer'),

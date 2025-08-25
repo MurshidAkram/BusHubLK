@@ -6,7 +6,7 @@ import {
 
 const API_BASE_URL = 'http://localhost:5000/api';
 
-// --- INTERFACES --- //
+// --- INTERFACES (MODIFIED) --- //
 interface ChatMessage {
     id: number;
     sender_type: 'driver' | 'depot' | 'manager';
@@ -14,11 +14,13 @@ interface ChatMessage {
     created_at: string;
 }
 
+// --- FIX: Added 'Action Taken' and 'Escalated to RTO' to the status type ---
 interface EmergencyReport {
     id: number;
     incident_type: string;
-    status: 'New' | 'In Progress' | 'Pending' | 'Resolved' | 'Escalated to Depot Manager';
+    status: 'New' | 'In Progress' | 'Pending' | 'Resolved' | 'Escalated to Depot Manager' | 'Action Taken' | 'Escalated to RTO';
     driver_name: string;
+    driver_phone: string;
     vehicle_registration: string;
     created_at: string;
     description?: string;
@@ -221,7 +223,9 @@ const DepotEscalateIssues: React.FC = () => {
         const styles = {
             'New':'bg-blue-100 text-blue-800', 'In Progress':'bg-indigo-100 text-indigo-800',
             'Pending': 'bg-yellow-100 text-yellow-800', 'Resolved':'bg-green-100 text-green-800',
-            'Escalated to Depot Manager':'bg-purple-100 text-purple-800'
+            'Escalated to Depot Manager':'bg-purple-100 text-purple-800',
+            'Action Taken': 'bg-orange-100 text-orange-800',
+            'Escalated to RTO': 'bg-red-100 text-red-800'
         };
         return (<span className={`px-3 py-1 text-xs font-medium rounded-full ${styles[status] || 'bg-gray-100'}`}>{status}</span>);
     };
@@ -235,6 +239,11 @@ const DepotEscalateIssues: React.FC = () => {
     });
 
     const incidentTypes = ['All Types', ...new Set(reports.map(r => r.incident_type))];
+
+    // --- FIX: A helper variable to check if the issue has been escalated ---
+    const isEscalated = (status: EmergencyReport['status']) => {
+        return ['Escalated to Depot Manager', 'Action Taken', 'Escalated to RTO'].includes(status);
+    };
 
     return (
         <div className="p-6 bg-gray-50 font-sans">
@@ -262,6 +271,7 @@ const DepotEscalateIssues: React.FC = () => {
                                     <div>
                                         <h3 className="text-lg font-bold text-gray-800">{report.incident_type}</h3>
                                         <p className="text-sm text-gray-500">{report.driver_name} | {report.vehicle_registration}</p>
+                                        <p className="text-sm text-gray-500">📞 {report.driver_phone}</p>
                                     </div>
                                 </div>
                                 <p className="text-sm text-gray-700 mt-3 bg-gray-50 p-3 rounded-md">{report.description}</p>
@@ -280,34 +290,31 @@ const DepotEscalateIssues: React.FC = () => {
                                 </a>
                             </div>
                             <div className="md:col-span-1 space-y-2 flex flex-col items-stretch">
+                                {/* --- FIX: Updated the disabled logic for the dropdown --- */}
                                 <select 
                                     value={report.status}
                                     onChange={(e) => handleUpdateStatus(report.id, e.target.value as EmergencyReport['status'])}
                                     className="w-full border border-gray-300 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    disabled={report.status === 'Escalated to Depot Manager'}
+                                    disabled={isEscalated(report.status)}
                                 >
                                     <option value="In Progress">In Progress</option>
                                     <option value="Pending">Pending</option>
                                     <option value="Resolved">Resolved</option>
                                 </select>
+                                {/* --- FIX: Updated the disabled and className logic for the button --- */}
                                 <button
                                     onClick={() => handleUpdateStatus(report.id, 'Escalated to Depot Manager')}
-                                    className={`flex items-center justify-center gap-2 px-3 py-2 bg-red-600 text-white font-semibold rounded-lg transition-colors text-sm ${report.status !== 'Escalated to Depot Manager' ? 'hover:bg-red-700' : 'opacity-50 cursor-not-allowed'}`}
-                                    disabled={report.status === 'Escalated to Depot Manager'} >
+                                    className={`flex items-center justify-center gap-2 px-3 py-2 bg-red-600 text-white font-semibold rounded-lg transition-colors text-sm ${!isEscalated(report.status) ? 'hover:bg-red-700' : 'opacity-50 cursor-not-allowed'}`}
+                                    disabled={isEscalated(report.status)} >
                                     <ShieldAlert size={16} /> Escalate
                                 </button>
                                 
-                                {/* --- THIS IS THE MODIFIED BUTTON --- */}
                                 <button 
                                     onClick={() => handleToggleChat(report.id)} 
-                                    className={`flex items-center justify-center gap-2 px-3 py-2 text-white font-semibold rounded-lg transition-colors text-sm ${
-                                        report.status === 'Escalated to Depot Manager' 
-                                        ? 'bg-blue-600 hover:bg-blue-700' 
-                                        : 'bg-blue-600 hover:bg-blue-700'
-                                    }`}
+                                    className={`flex items-center justify-center gap-2 px-3 py-2 text-white font-semibold rounded-lg transition-colors text-sm bg-blue-600 hover:bg-blue-700`}
                                 >
                                     <MessageSquare size={16} /> 
-                                    {report.status === 'Escalated to Depot Manager' ? 'Chat with Manager' : 'Chat with Driver'}
+                                    {isEscalated(report.status) ? 'Chat with Manager' : 'Chat with Driver'}
                                     {activeChatId === report.id ? <ChevronUp size={16} /> : <ChevronDown size={16}/>}
                                 </button>
                             </div>
@@ -315,7 +322,7 @@ const DepotEscalateIssues: React.FC = () => {
                         
                         {activeChatId === report.id && (
                             <div className="mt-4 pt-4 border-t">
-                                {report.status === 'Escalated to Depot Manager' ? (
+                                {isEscalated(report.status) ? (
                                     <>
                                         <div className="flex items-center gap-2 text-blue-700 mb-2">
                                             <Users size={18} />

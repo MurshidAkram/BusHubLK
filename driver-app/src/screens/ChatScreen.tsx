@@ -12,11 +12,11 @@ import {
   StatusBar,
   ActivityIndicator,
   Alert,
+  Linking, // 👈 1. IMPORT Linking
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-// We have REMOVED the import for 'driverAPI' for this test
 
 const API_BASE_URL = 'http://192.168.43.114:5000/api'; // Make sure this IP is correct
 
@@ -26,9 +26,9 @@ const ChatScreen = ({ route, navigation }) => {
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
+  const [depotPhoneNumber, setDepotPhoneNumber] = useState(null); // 👈 2. ADD STATE for phone number
   const flatListRef = useRef(null);
 
-  // ========== MODIFIED FUNCTION FOR DIRECT API TEST ==========
   const fetchMessages = useCallback(async () => {
     try {
       const token = await AsyncStorage.getItem("driverToken");
@@ -44,20 +44,43 @@ const ChatScreen = ({ route, navigation }) => {
       }
     } catch (error) {
       console.error("Failed to fetch messages directly:", error);
-    } finally {
-      setIsLoading(false);
     }
   }, [report.id]);
 
+  // 👇 3. ADD A NEW FUNCTION to fetch the depot contact number
+  const fetchDepotContact = useCallback(async () => {
+    if (!report?.driver_id) {
+        console.log("No driver_id found in report, cannot fetch contact.");
+        return;
+    }
+    try {
+      const token = await AsyncStorage.getItem("driverToken");
+      const response = await fetch(`${API_BASE_URL}/emergency/contact/${report.driver_id}`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error('Could not fetch depot contact');
+      
+      const data = await response.json();
+      if (data.phone) {
+        setDepotPhoneNumber(data.phone);
+      }
+    } catch (error) {
+      console.error("Failed to fetch depot contact:", error);
+    }
+  }, [report.driver_id]);
+
   useFocusEffect(
     useCallback(() => {
-      fetchMessages();
+      setIsLoading(true);
+      // 👇 4. FETCH both messages and contact
+      Promise.all([fetchMessages(), fetchDepotContact()]).finally(() => setIsLoading(false));
+      
       const intervalId = setInterval(fetchMessages, 5000);
       return () => clearInterval(intervalId);
-    }, [fetchMessages])
+    }, [fetchMessages, fetchDepotContact]) // 👈 Add fetchDepotContact as a dependency
   );
   
-  // ========== MODIFIED FUNCTION FOR DIRECT API TEST ==========
   const handleSend = async () => {
     if (inputText.trim().length === 0 || isSending) return;
     const textToSend = inputText;
@@ -81,7 +104,6 @@ const ChatScreen = ({ route, navigation }) => {
       });
       if (!response.ok) throw new Error('Failed to send message');
       
-      // Refetch messages to sync with the server
       await fetchMessages();
     } catch (error) {
       console.error("Failed to send message directly:", error);
@@ -92,6 +114,23 @@ const ChatScreen = ({ route, navigation }) => {
     }
   };
   
+  // 👇 5. ADD a handler function for the call button
+  const handleCall = () => {
+    if (!depotPhoneNumber) {
+      Alert.alert("Contact Not Available", "The contact number for the depot could not be found.");
+      return;
+    }
+    Alert.alert(
+      "Confirm Call",
+      `Do you want to call the depot at ${depotPhoneNumber}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Call", onPress: () => Linking.openURL(`tel:${depotPhoneNumber}`) }
+      ],
+      { cancelable: true }
+    );
+  };
+
   const renderMessage = ({ item }) => {
     const isUserMessage = item.sender_type === 'driver';
     return (
@@ -118,12 +157,15 @@ const ChatScreen = ({ route, navigation }) => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" />
+      {/* 👇 6. MODIFY the header to include the call button */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Chat with Depot</Text>
-        <View style={{ width: 24 }} /> 
+        <TouchableOpacity onPress={handleCall} style={styles.callButton} disabled={!depotPhoneNumber}>
+            <Ionicons name="call" size={23} color={depotPhoneNumber ? "white" : "#FFFFFF"} />
+        </TouchableOpacity>
       </View>
 
       <KeyboardAvoidingView 
@@ -159,14 +201,16 @@ const ChatScreen = ({ route, navigation }) => {
   );
 };
 
+// 👇 7. ADD styles for the new button
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#111827' },
   header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12,
     backgroundColor: '#1c5bb4ff', paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 16,
     borderBottomWidth: 1, borderBottomColor: '#374151'
   },
   backButton: { padding: 4 },
+  callButton: { padding: 4 }, // Style for the call button
   headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF' },
   chatArea: { flex: 1, paddingHorizontal: 10 },
   messageWrapper: { marginVertical: 5, maxWidth: '85%' },

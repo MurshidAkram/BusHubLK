@@ -7,12 +7,11 @@ require('dotenv').config(); // Load environment variables at the very beginning
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// --- THIS IS THE FIX ---
-// Added 'PATCH' to the list of allowed methods to resolve the CORS issue.
+// Basic CORS configuration
 app.use(cors({
   origin: true, // Allow all origins in development (for testing)
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], // <-- 'PATCH' is now included
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Mobile-App', 'Accept', 'Origin', 'X-Requested-With'],
   exposedHeaders: ['Content-Length', 'X-Foo', 'X-Bar']
 }));
@@ -194,11 +193,36 @@ app.use('/api/lost-found', lostFoundRoutes);
 console.log('✅ lostFoundRoutes loaded');
 
 try {
-  const emergencyRoutes = require('./routes/emergencyRoutes');
-  app.use('/api/emergency', emergencyRoutes);
-  console.log('✅ emergencyRoutes loaded');
+const notificationRoutes = require('./routes/notificationRoutes');
+app.use('/api/notifications', notificationRoutes);
+console.log('✅ notificationRoutes loaded');
 } catch (error) {
-  console.log('❌ emergencyRoutes error:', error.message);
+console.log('❌ notificationRoutes error:', error.message);
+}
+
+try{
+const driverFoundItemRoutes = require('./routes/driverFoundItemRoutes');
+app.use('/api/driver', driverFoundItemRoutes);
+console.log('✅ driverFoundItemRoutes loaded');
+} catch (error) {
+console.log('❌ driverFoundItemRoutes error:', error.message);
+}
+
+
+try {
+  const depotEngineerRoutes = require('./routes/depotEngineerRoutes');
+  app.use('/api/depot-engineer', depotEngineerRoutes); // Mount at /api/depot-engineer
+  console.log('✅ depotEngineerRoutes loaded');
+} catch (error) {
+  console.log('❌ depotEngineerRoutes error:', error.message);
+}
+
+try {
+  const sparePartsRoutes = require('./routes/sparePartsRoutes');
+  app.use('/api/depot-engineer/spare-parts', sparePartsRoutes);
+  console.log('✅ sparePartsRoutes loaded');
+} catch (error) {
+  console.log('❌ sparePartsRoutes error:', error.message);
 }
 
 try {
@@ -210,21 +234,55 @@ try {
 }
 
 try {
-  const depotManagerRoutes = require('./routes/depotManagerRoutes');
-  app.use('/api/depot-manager', depotManagerRoutes);
-  console.log('✅ depotManagerRoutes loaded');
+  const serviceScheduleRoutes = require('./routes/serviceScheduleRoutes');
+  app.use('/api/depot-engineer/service-schedules', serviceScheduleRoutes);
+  console.log('✅ serviceScheduleRoutes loaded');
 } catch (error) {
-  console.log('❌ depotManagerRoutes error:', error.message);
+  console.log('❌ serviceScheduleRoutes error:', error.message);
 }
 
 try {
-  const depotEngineerRoutes = require('./routes/depotEngineerRoutes');
-  app.use('/api/depot-engineer', depotEngineerRoutes); // Mount at /api/depot-engineer
-  console.log('✅ depotEngineerRoutes loaded');
+  const inspectionRoutes = require('./routes/inspectionRoutes');
+  app.use('/api/inspections', inspectionRoutes);
+  console.log('✅ inspectionRoutes loaded');
 } catch (error) {
-  console.log('❌ depotEngineerRoutes error:', error.message);
+  console.log('❌ inspectionRoutes error:', error.message);
 }
 
+
+try {
+  const dgmTechnicalRoutes = require('./routes/dgmTechnicalRoutes');
+  app.use('/api/dgm-technical', dgmTechnicalRoutes);
+  console.log('✅ dgmTechnicalRoutes loaded');
+} catch (error) {
+  console.log('❌ dgmTechnicalRoutes error:', error.message);
+}
+
+
+try {
+const incidentManagementRoutes = require('./routes/incidentManagementRoutes');
+app.use('/api/incident-management', incidentManagementRoutes);
+console.log('✅ incidentManagementRoutes loaded');
+ } catch (error) {
+console.log('❌ incidentManagementRoutes error:', error.message);
+}
+
+
+try {
+  const rtoRoutes = require('./routes/rtoRoutes');
+  app.use('/api/rto', rtoRoutes);
+  console.log('✅ rtoRoutes loaded');
+} catch (error) {
+  console.log('❌ rtoRoutes error:', error.message);
+}
+
+try {
+  const complaintRoutes = require('./routes/complaintRoutes');
+  app.use('/api/complaints', complaintRoutes);
+  console.log('✅ complaintRoutes loaded');
+} catch (error) {
+  console.log('❌ complaintRoutes error:', error.message);
+}
 
 app.get('/resetPassword.js', (req, res) => {
   res.setHeader('Content-Type', 'application/javascript');
@@ -282,5 +340,3 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log('❌ Network utils error:', error.message);
   }
 });
-
-module.exports = app;
