@@ -93,7 +93,7 @@ const DepotOperationsManagerSidebarContent = () => {
       </NavLink>
 
       <NavLink
-        to="/depot-operations-manager/operations-reports"
+        to="/depot-operations-manager/passenger-complaints"
         className={({ isActive }) =>
           `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
             ? 'bg-indigo-700 text-white' 
@@ -101,9 +101,10 @@ const DepotOperationsManagerSidebarContent = () => {
         }
       >
         <HiDocumentReport className="mr-3 flex-shrink-0 h-5 w-5" />
-        Reports
+        Complaints
       </NavLink>
 
+      
   
     </div>
   );

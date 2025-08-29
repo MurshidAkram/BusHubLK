@@ -26,7 +26,6 @@ import RoutesMngmnt from './pages/dashboards/admin/RoutesMngmnt'
 import DepotManagerSidebarContent from './components/depot-manager/DepotManagerSidebarContent'
 import DepotManagerDashboard from './pages/dashboards/depot-manager'
 import FleetManagement from './pages/dashboards/depot-manager/FleetManagement'
-import ChecklistVerification from './pages/dashboards/depot-manager/ChecklistVerification'
 import DriverManagement from './pages/dashboards/depot-manager/DriverManagement'
 import Assignments from './pages/dashboards/depot-manager/Assignments'
 import Maintenance from './pages/dashboards/depot-manager/Maintenance'
@@ -42,7 +41,8 @@ import ScheduleMonitoring from './pages/dashboards/depot-ops/ScheduleMonitoring'
 import CrewManagement from './pages/dashboards/depot-ops/CrewManagement'
 import IncidentManagement from './pages/dashboards/depot-ops/IncidentManagement'  
 import AnnouncementCenter from './pages/dashboards/depot-ops/AnnouncementCenter'
-import OperationsReports from './pages/dashboards/depot-ops/OperationsReports'
+import Complaints from './pages/dashboards/depot-ops/Complaints'
+
 
 // Depot Engineer Components  
 import DepotEngineerSidebarContent from './components/depot-engineer/DepotEngineerSidebarContent'
@@ -177,7 +177,6 @@ const App = () => {
         <Route path="/depot-manager" element={<DashboardLayout role="Depot Manager" sidebarContent={<DepotManagerSidebarContent />} />}>
           <Route index element={<DepotManagerDashboard />} />
           <Route path="fleet-management" element={<FleetManagement />} />
-          <Route path="checklist-verification" element={<ChecklistVerification />} />
           <Route path="driver-management" element={<DriverManagement />} /> 
           <Route path="assignments" element={<Assignments />} />
           <Route path="maintenance" element={<Maintenance />} />
@@ -197,7 +196,8 @@ const App = () => {
           <Route path="crew-management" element={<CrewManagement />} />
           <Route path="incident-management" element={<IncidentManagement />} />
           <Route path="announcement-center" element={<AnnouncementCenter />} />
-          <Route path="operations-reports" element={<OperationsReports />} />
+          <Route path="passenger-complaints" element={<Complaints />} />
+          
           </Route>
         </Route>
 

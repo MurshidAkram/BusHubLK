@@ -177,9 +177,8 @@ const BusScheduleTable = () => {
   };
 
   return (
-    <div className="container mx-auto p-4">
-      {/* Header Section */}
-      <div className="bg-white rounded-lg shadow-sm p-6 mb-4">
+    <div className="space-y-6 ">
+      <div className="bg-white rounded-lg shadow-sm p-6">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Daily schedules</h1>
         <p className="text-gray-600">Create and manage bus time schedules and timetables.</p>
       </div>
