@@ -189,4 +189,32 @@ router.post('/service-schedules/update-statuses',
     updateAllAutomaticStatuses
 );
 
+// GET /api/depot-engineer/daily-checklists - Get daily checklists for depot
+router.get('/daily-checklists',
+    authenticateJWT,
+    authorizeTechnical,
+    [
+        query('startDate').optional().isISO8601().withMessage('Start date must be in ISO format'),
+        query('endDate').optional().isISO8601().withMessage('End date must be in ISO format')
+    ],
+    depotEngineerController.getDailyChecklistsForDepot
+);
+
+// GET /api/depot-engineer/daily-checklists/incomplete - Get today's incomplete checklists
+router.get('/daily-checklists/incomplete',
+    authenticateJWT,
+    authorizeTechnical,
+    depotEngineerController.getTodayIncompleteChecklists
+);
+
+// GET /api/depot-engineer/buses/:bus_id/checklist-history - Get checklist history for a bus
+router.get('/buses/:bus_id/checklist-history',
+    authenticateJWT,
+    authorizeTechnical,
+    [
+        param('bus_id').isInt().withMessage('Bus ID must be an integer')
+    ],
+    depotEngineerController.getChecklistHistoryForBus
+);
+
 module.exports = router;

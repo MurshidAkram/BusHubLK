@@ -29,32 +29,23 @@ const MaintenanceDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch bus status distribution data
+  // Fetch bus status distribution data and depot count
+  const [totalDepots, setTotalDepots] = useState<number>(0);
   useEffect(() => {
     const fetchBusStatusData = async () => {
       try {
         setLoading(true);
-        
-        // Check if token is available from context
-        if (!token) {
-          throw new Error('No authentication token found');
-        }
-
+        if (!token) throw new Error('No authentication token found');
+        // Fetch bus status summary
         const response = await fetch('http://localhost:5000/api/dgm-technical/dashboard-summary', {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           }
         });
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const result = await response.json();
-        
         if (result.success && result.data) {
-          // Transform the dashboard summary data to match the expected format
           const data = result.data;
           const transformedData = [
             { status: 'Active', count: parseInt(data.buses_active) || 0 },
@@ -66,21 +57,30 @@ const MaintenanceDashboard = () => {
         } else {
           throw new Error(result.message || 'No data received');
         }
+        // Fetch depot count
+        const depotsRes = await fetch('http://localhost:5000/api/depots/service-monitor', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (depotsRes.ok) {
+          const depotsData = await depotsRes.json();
+          setTotalDepots(Array.isArray(depotsData.depots) ? depotsData.depots.length : 0);
+        } else {
+          setTotalDepots(0);
+        }
       } catch (err) {
         console.error('Error fetching bus status data:', err);
         setError('Failed to load bus status data');
-        // Fallback data
         setBusStatusData([
           { status: 'Active', count: 579 },
           { status: 'Maintenance', count: 62 },
           { status: 'Out of Service', count: 27 },
           { status: 'In Service', count: 211 }
         ]);
+        setTotalDepots(18); // fallback
       } finally {
         setLoading(false);
       }
     };
-
     fetchBusStatusData();
   }, [token]);
 
@@ -319,17 +319,18 @@ const MaintenanceDashboard = () => {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Top Metrics Cards - Keep as is */}
+        {/* Top Metrics Cards - Updated */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-red-500">
+          {/* Total Depots Card */}
+          <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-blue-500">
             <div className="flex items-center justify-between">
               <div>
                 <div className="flex items-center mb-2">
-                  <FaExclamationTriangle className="w-5 h-5 text-red-500 mr-2" />
-                  <span className="text-gray-600 text-sm">Active Breakdowns</span>
+                  <FaMapMarkerAlt className="w-5 h-5 text-blue-500 mr-2" />
+                  <span className="text-gray-600 text-sm">Total Depots</span>
                 </div>
-                <div className="text-3xl font-bold text-gray-900">12</div>
-                <div className="text-red-500 text-sm mt-1">+2 from yesterday</div>
+                <div className="text-3xl font-bold text-gray-900">{totalDepots}</div>
+                <div className="text-blue-500 text-sm mt-1">SLTB Depots</div>
               </div>
             </div>
           </div>
@@ -342,7 +343,6 @@ const MaintenanceDashboard = () => {
                   <span className="text-gray-600 text-sm">Completed Inspections</span>
                 </div>
                 <div className="text-3xl font-bold text-gray-900">2</div>
-                {/* <div className="text-green-500 text-sm mt-1">+3 from yesterday</div> */}
               </div>
             </div>
           </div>
@@ -360,15 +360,16 @@ const MaintenanceDashboard = () => {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-purple-500">
+          {/* Active Issues Card */}
+          <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-red-500">
             <div className="flex items-center justify-between">
               <div>
                 <div className="flex items-center mb-2">
-                  <FaTools className="w-5 h-5 text-purple-500 mr-2" />
-                  <span className="text-gray-600 text-sm">Preventive Maintenance</span>
+                  <FaExclamationTriangle className="w-5 h-5 text-red-500 mr-2" />
+                  <span className="text-gray-600 text-sm">Active Issues</span>
                 </div>
-                <div className="text-3xl font-bold text-gray-900">23</div>
-                <div className="text-purple-500 text-sm mt-1">Scheduled this month</div>
+                <div className="text-3xl font-bold text-gray-900">{activeIssues.length}</div>
+                <div className="text-red-500 text-sm mt-1">Open issues</div>
               </div>
             </div>
           </div>

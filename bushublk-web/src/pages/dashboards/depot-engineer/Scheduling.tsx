@@ -695,6 +695,51 @@ const ServiceScheduleApp: React.FC = () => {
           </div>
         </div>
 
+        {/* Overdue Services Alert */}
+        {(stats.overdue_count > 0 || stats.critical_overdue_count > 0) && (
+          <div className="mb-6 space-y-3">
+            {stats.critical_overdue_count > 0 && (
+              <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-lg">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <FaExclamationCircle className="h-5 w-5 text-red-400" />
+                  </div>
+                  <div className="ml-3">
+                    <h3 className="text-sm font-medium text-red-800">
+                      Critical Overdue Services
+                    </h3>
+                    <div className="mt-2 text-sm text-red-700">
+                      <p>
+                        You have <strong>{stats.critical_overdue_count}</strong> critical overdue service{stats.critical_overdue_count > 1 ? 's' : ''} that require immediate attention.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {stats.overdue_count > 0 && (
+              <div className="bg-orange-50 border-l-4 border-orange-400 p-4 rounded-lg">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <FaExclamationTriangle className="h-5 w-5 text-orange-400" />
+                  </div>
+                  <div className="ml-3">
+                    <h3 className="text-sm font-medium text-orange-800">
+                      Overdue Services
+                    </h3>
+                    <div className="mt-2 text-sm text-orange-700">
+                      <p>
+                        You have <strong>{stats.overdue_count}</strong> overdue service{stats.overdue_count > 1 ? 's' : ''} that need to be addressed.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* SLTB Depot Service Summary */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
           <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
