@@ -101,6 +101,46 @@ class RegionDepot {
     );
     return result.rows[0];
   }
+
+  // Get bus status counts for a depot
+  static async getBusStatusCounts(depot_id) {
+    const result = await db.query(
+      `SELECT 
+         COUNT(CASE WHEN status = 'Active' THEN 1 END)::integer as active,
+         COUNT(CASE WHEN status = 'In Service' THEN 1 END)::integer as in_service,
+         COUNT(CASE WHEN status = 'Out of Service' THEN 1 END)::integer as out_of_service,
+         COUNT(CASE WHEN status = 'Maintenance' THEN 1 END)::integer as under_maintenance
+       FROM buses 
+       WHERE depot_id = $1 AND is_active = true AND is_deleted = false`,
+      [depot_id]
+    );
+    return result.rows[0];
+  }
+
+  // Get last completed inspection date for a depot
+  static async getLastInspectionDate(depot_id) {
+    const result = await db.query(
+      `SELECT MAX(date) as last_inspection_date
+       FROM inspections 
+       WHERE depot_id = $1 AND status = 'Completed'`,
+      [depot_id]
+    );
+    return result.rows[0];
+  }
+
+  // Get depots by region for a regional technical officer
+  static async getDepotsByRegionForUser(user_id) {
+    const result = await db.query(
+      `SELECT d.depot_id, d.depot_name, d.region_id, r.region_name
+       FROM depots d
+       JOIN regions r ON d.region_id = r.region_id
+       JOIN regional_technical_officers rto ON rto.region_id = d.region_id
+       WHERE rto.rto_id = $1
+       ORDER BY d.depot_name`,
+      [user_id]
+    );
+    return result.rows;
+  }
 }
 
 module.exports = RegionDepot;

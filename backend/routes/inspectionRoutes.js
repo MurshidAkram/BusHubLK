@@ -10,7 +10,8 @@ const {
   deleteInspection,
   getUserDepots,
   getInspectionById,
-  getInspectionsForDepotEngineer
+  getInspectionsForDepotEngineer,
+  getInspectionsForDepotManager
 } = require('../controllers/inspectionController');
 
 const { authenticateJWT, authorizeRole, authorizeDepotStaff } = require('../middlewares/authMiddleware');
@@ -21,6 +22,9 @@ const authorizeRegionalTech = authorizeRole(['regional_tech']);
 
 // Route for depot engineers to get inspections assigned to their depot
 router.get('/depot-engineer', authenticateJWT, authorizeDepotStaff, getInspectionsForDepotEngineer);
+
+// Route for depot managers to get inspections assigned to their depot
+router.get('/depot-manager', authenticateJWT, authorizeDepotStaff, getInspectionsForDepotManager);
 
 // Get depots for the logged-in regional technical officer
 router.get('/depots', authenticateJWT, authorizeRegionalTech, getUserDepots);

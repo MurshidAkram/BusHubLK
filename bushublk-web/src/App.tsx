@@ -33,6 +33,8 @@ import Maintenance from './pages/dashboards/depot-manager/Maintenance'
 import Announcements from './pages/dashboards/depot-manager/Announcements'
 import Reports from './pages/dashboards/depot-manager/Reports'
 import Settings from './pages/dashboards/depot-manager/Settings'
+import DepotManagerNotifications from './pages/dashboards/depot-manager/Notifications'
+import DepotManagerInspections from './pages/dashboards/depot-manager/Inspections'
 
 // Depot Operations Manager Components  
 import DepotOperationsManagerSidebarContent from './components/depot-ops/DepotOperationsManagerSidebarContent'
@@ -181,6 +183,8 @@ const App = () => {
           <Route path="checklist-verification" element={<ChecklistVerification />} />
           <Route path="driver-management" element={<DriverManagement />} /> 
           <Route path="assignments" element={<Assignments />} />
+          <Route path="notifications" element={<DepotManagerNotifications />} />
+          <Route path="inspections" element={<DepotManagerInspections />} />
           <Route path="maintenance" element={<Maintenance />} />
           <Route path="announcements" element={<Announcements />} />
           <Route path="reports" element={<Reports />} />
