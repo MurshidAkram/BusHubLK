@@ -38,6 +38,7 @@ const MaintenanceDashboard = () => {
   const [regionData, setRegionData] = useState<RegionData[]>([]);
   const [serviceHistoryCount, setServiceHistoryCount] = useState<number>(0);
   const [partsUsageCount, setPartsUsageCount] = useState<number>(0);
+  const [inspectionCount, setInspectionCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -134,24 +135,49 @@ const MaintenanceDashboard = () => {
       }
     };
 
+    const fetchInspectionCount = async () => {
+      try {
+        const queryParams = new URLSearchParams({
+          page: '1',
+          limit: '1',
+          regionId: 'all',
+          depotId: 'all',
+          status: 'all'
+        });
+
+        const response = await fetch(`http://localhost:5000/api/dgm-technical/inspection-history?${queryParams}`);
+        const result = await response.json();
+        
+        if (result.success) {
+          setInspectionCount(result.pagination.totalRecords);
+        }
+      } catch (err) {
+        console.error('Error fetching inspection count:', err);
+        setInspectionCount(0);
+      }
+    };
+
     fetchDashboardData();
     fetchRegionData();
     fetchServiceHistoryCount();
     fetchPartsUsageCount();
+    fetchInspectionCount();
   }, []);
 
-  // Chart for Service & Parts Usage
-  const ServiceAndPartsChart = () => {
-    const colors = ['#3B82F6', '#10B981'];
+  // Chart for Service, Parts Usage & Inspections
+  const ServicePartsInspectionChart = () => {
+    const colors = ['#3B82F6', '#10B981', '#F59E0B'];
     const totalServiceHistory = serviceHistoryCount;
     const totalPartsUsage = partsUsageCount;
+    const totalInspections = inspectionCount;
     
     const chartData = [
       { label: 'Service History', count: totalServiceHistory, color: colors[0] },
-      { label: 'Parts Usage', count: totalPartsUsage, color: colors[1] }
+      { label: 'Parts Usage', count: totalPartsUsage, color: colors[1] },
+      { label: 'Inspections', count: totalInspections, color: colors[2] }
     ];
     
-    const totalCount = totalServiceHistory + totalPartsUsage;
+    const totalCount = totalServiceHistory + totalPartsUsage + totalInspections;
     const [hoveredSlice, setHoveredSlice] = useState<{label: string, count: number, x: number, y: number} | null>(null);
     
     let currentAngle = 0;
@@ -217,6 +243,7 @@ const MaintenanceDashboard = () => {
         <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-4">
           <div className="flex items-center"><div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div><span className="text-xs text-gray-600">Service History</span></div>
           <div className="flex items-center"><div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div><span className="text-xs text-gray-600">Parts Usage</span></div>
+          <div className="flex items-center"><div className="w-3 h-3 bg-yellow-500 rounded-full mr-2"></div><span className="text-xs text-gray-600">Inspections</span></div>
         </div>
       </div>
     );
@@ -298,14 +325,14 @@ const MaintenanceDashboard = () => {
   </div>
 </div>
 
-        {/* Service History & Parts Usage Chart */}
+        {/* Operations Overview Chart */}
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">
           <div className="p-4 border-b border-gray-200 flex justify-between items-center">
-            <h3 className="font-semibold text-gray-800">Service History & Parts Usage Distribution</h3>
+            <h3 className="font-semibold text-gray-800">Operations Overview: Service, Parts & Inspections</h3>
             <FaTools className="text-gray-500" />
           </div>
           <div className="p-4">
-            <ServiceAndPartsChart />
+            <ServicePartsInspectionChart />
           </div>
         </div>
       </div>

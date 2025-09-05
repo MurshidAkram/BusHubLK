@@ -9,7 +9,8 @@ const {
     getFleetOverview,
     getDashboardSummary,
     getServiceHistory,
-    getPartsHistory
+    getPartsHistory,
+    getInspectionHistory
 } = require('../controllers/dgmTechnicalController');
 
 // GET /api/dgm-technical/regions - Get all regions with depot and bus counts
@@ -38,5 +39,8 @@ router.get('/service-history', getServiceHistory);
 
 // GET /api/dgm-technical/parts-history - Get parts replacement history with filtering
 router.get('/parts-history', getPartsHistory);
+
+// GET /api/dgm-technical/inspection-history - Get inspection history with filtering
+router.get('/inspection-history', getInspectionHistory);
 
 module.exports = router;

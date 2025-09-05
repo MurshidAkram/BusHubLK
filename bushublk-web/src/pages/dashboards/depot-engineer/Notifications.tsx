@@ -1,19 +1,19 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { FaBell, FaExclamationTriangle, FaClock, FaCheckCircle, FaTimes, FaCalendarAlt, FaExclamationCircle, FaWrench } from 'react-icons/fa';
+import { FaBell, FaExclamationTriangle, FaClock, FaCheckCircle, FaTimes, FaCalendarAlt, FaExclamationCircle, FaFileAlt, FaExclamation } from 'react-icons/fa';
 import { AppContext } from '../../../context/AppContext';
 
 interface Notification {
   id: number | string;
   title: string;
   message: string;
-  type: 'inspection' | 'urgent' | 'info' | 'success' | 'warning' | 'overdue' | 'critical_overdue' | 'schedule' | 'maintenance' | 'due_today';
+  type: 'inspection' | 'urgent' | 'info' | 'success' | 'warning' | 'overdue' | 'critical_overdue' | 'schedule' | 'condition_report' | 'emergency' | 'due_today';
   read: boolean;
   created_at: string;
   inspection_id?: number;
   schedule_id?: number;
   bus_registration?: string;
   assigned_by?: string;
-  category?: 'inspection' | 'scheduling' | 'maintenance' | 'general';
+  category?: 'inspection' | 'scheduling' | 'condition_reports' | 'emergency_reports';
   priority?: number; // 1 = highest priority (critical), 4 = lowest priority
 }
 
@@ -73,6 +73,36 @@ const Notifications: React.FC = () => {
           console.log('Inspection API not available, continuing with other notifications');
         }
 
+        // Add bus condition reports fetch
+        try {
+          requests.push(
+            fetch('http://localhost:5000/api/bus-condition-reports', {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${context.token}`,
+                'Content-Type': 'application/json'
+              }
+            })
+          );
+        } catch (e) {
+          console.log('Bus condition reports API not available, continuing with other notifications');
+        }
+
+        // Add emergency reports fetch
+        try {
+          requests.push(
+            fetch('http://localhost:5000/api/depot/emergency', {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${context.token}`,
+                'Content-Type': 'application/json'
+              }
+            })
+          );
+        } catch (e) {
+          console.log('Emergency reports API not available, continuing with other notifications');
+        }
+
         const responses = await Promise.all(requests.map(req => 
           req.catch(err => {
             console.log('Request failed:', err);
@@ -83,6 +113,8 @@ const Notifications: React.FC = () => {
         const generalData = await responses[0].json();
         const schedulingData = await responses[1].json();
         const inspectionData = responses[2] ? await responses[2].json() : { success: false };
+        const conditionReportsData = responses[3] ? await responses[3].json() : { success: false };
+        const emergencyReportsData = responses[4] ? await responses[4].json() : { success: false };
 
         if (!responses[0].ok && !generalData.success) {
           console.warn('General notifications failed, continuing with other sources');
@@ -102,13 +134,20 @@ const Notifications: React.FC = () => {
                        (notif.type === 'inspection' ? 'inspection' : 
                         notif.title?.toLowerCase().includes('inspection') ? 'inspection' :
                         notif.message?.toLowerCase().includes('inspection') ? 'inspection' :
-                        notif.type === 'urgent' ? 'general' : 
-                        notif.type === 'warning' ? 'general' : 'general'),
+                        notif.type === 'condition_report' ? 'condition_reports' :
+                        notif.title?.toLowerCase().includes('condition') ? 'condition_reports' :
+                        notif.message?.toLowerCase().includes('condition') ? 'condition_reports' :
+                        notif.type === 'emergency' ? 'emergency_reports' :
+                        notif.title?.toLowerCase().includes('emergency') ? 'emergency_reports' :
+                        notif.message?.toLowerCase().includes('emergency') ? 'emergency_reports' :
+                        notif.type === 'urgent' ? 'emergency_reports' : 'condition_reports'),
               // Set priority based on type
               priority: notif.priority || 
                        (notif.type === 'urgent' ? 2 : 
+                        notif.type === 'emergency' ? 2 :
                         notif.type === 'warning' ? 3 : 
-                        notif.type === 'inspection' ? 3 : 5) // Normal priority for general notifications
+                        notif.type === 'inspection' ? 3 : 
+                        notif.type === 'condition_report' ? 4 : 5) // Normal priority for other notifications
             };
             
             if (notif.type === 'inspection' || mappedNotif.category === 'inspection') {
@@ -127,7 +166,8 @@ const Notifications: React.FC = () => {
           allNotifications = generalNotifications;
           console.log('📊 Notification categories:', {
             inspection: generalNotifications.filter((n: any) => n.category === 'inspection').length,
-            general: generalNotifications.filter((n: any) => n.category === 'general').length,
+            condition_reports: generalNotifications.filter((n: any) => n.category === 'condition_reports').length,
+            emergency_reports: generalNotifications.filter((n: any) => n.category === 'emergency_reports').length,
             total: generalNotifications.length
           });
         }
@@ -151,6 +191,55 @@ const Notifications: React.FC = () => {
           
           allNotifications.push(...inspectionNotifications);
           console.log('Inspection-specific notifications added:', inspectionNotifications.length);
+        }
+
+        // Add bus condition reports notifications
+        if (conditionReportsData.success && conditionReportsData.data) {
+          console.log('🚗 Processing bus condition reports:', conditionReportsData.data.length);
+          const conditionNotifications = conditionReportsData.data
+            .filter((report: any) => {
+              // Only include unreviewed reports (review_status = 'pending' or null)
+              return report.review_status === 'pending' || !report.review_status;
+            })
+            .map((report: any) => ({
+              id: `condition_${report.report_id}_${Date.now()}`,
+              title: `Bus Condition Report: ${report.registration_number || 'Unknown Bus'}`,
+              message: `Driver ${report.driver_first_name || ''} ${report.driver_last_name || ''} reported: ${report.condition_status}. ${report.description || 'No description provided.'}`,
+              type: 'condition_report',
+              category: 'condition_reports',
+              read: false,
+              created_at: report.report_time || report.created_at || new Date().toISOString(),
+              bus_registration: report.registration_number,
+              priority: report.condition_status?.toLowerCase().includes('critical') ? 2 : 
+                       report.condition_status?.toLowerCase().includes('urgent') ? 2 : 4
+            }));
+          
+          allNotifications.push(...conditionNotifications);
+          console.log('🚗 Bus condition notifications added:', conditionNotifications.length);
+        }
+
+        // Add emergency reports notifications (only pending status)
+        if (emergencyReportsData.success && emergencyReportsData.data) {
+          console.log('🚨 Processing emergency reports:', emergencyReportsData.data.length);
+          const emergencyNotifications = emergencyReportsData.data
+            .filter((report: any) => {
+              // Only include reports with exactly "Pending" status
+              return report.status === 'Pending';
+            })
+            .map((report: any) => ({
+              id: `emergency_${report.id}_${Date.now()}`,
+              title: `Emergency Report: ${report.incident_type || 'Unknown Incident'}`,
+              message: `Driver ${report.driver_name || 'Unknown'} reported: ${report.description || 'No description provided'}. Location: ${report.latitude && report.longitude ? `${Number(report.latitude).toFixed(4)}, ${Number(report.longitude).toFixed(4)}` : 'Unknown'}`,
+              type: 'emergency',
+              category: 'emergency_reports',
+              read: false,
+              created_at: report.created_at || new Date().toISOString(),
+              bus_registration: report.vehicle_registration,
+              priority: 1 // Emergency reports always have highest priority
+            }));
+          
+          allNotifications.push(...emergencyNotifications);
+          console.log('🚨 Emergency notifications added:', emergencyNotifications.length);
         }
 
         // Create scheduling notifications from statistics
@@ -241,9 +330,16 @@ const Notifications: React.FC = () => {
           byCategory: {
             inspection: sortedNotifications.filter((n: Notification) => n.category === 'inspection').length,
             scheduling: sortedNotifications.filter((n: Notification) => n.category === 'scheduling').length,
-            maintenance: sortedNotifications.filter((n: Notification) => n.category === 'maintenance').length,
-            general: sortedNotifications.filter((n: Notification) => n.category === 'general').length,
+            condition_reports: sortedNotifications.filter((n: Notification) => n.category === 'condition_reports').length,
+            emergency_reports: sortedNotifications.filter((n: Notification) => n.category === 'emergency_reports').length,
             uncategorized: sortedNotifications.filter((n: Notification) => !n.category).length
+          },
+          byPriority: {
+            critical: sortedNotifications.filter((n: Notification) => n.priority === 1).length,
+            high: sortedNotifications.filter((n: Notification) => n.priority === 2).length,
+            medium: sortedNotifications.filter((n: Notification) => n.priority === 3).length,
+            normal: sortedNotifications.filter((n: Notification) => n.priority === 4).length,
+            low: sortedNotifications.filter((n: Notification) => n.priority === 5).length
           }
         });
 
@@ -364,6 +460,8 @@ const Notifications: React.FC = () => {
         return <FaExclamationTriangle className="text-blue-500" />;
       case 'urgent':
         return <FaExclamationTriangle className="text-red-500" />;
+      case 'emergency':
+        return <FaExclamation className="text-red-600" />;
       case 'critical_overdue':
         return <FaExclamationCircle className="text-red-600" />;
       case 'overdue':
@@ -372,8 +470,8 @@ const Notifications: React.FC = () => {
         return <FaClock className="text-yellow-600" />;
       case 'schedule':
         return <FaCalendarAlt className="text-blue-500" />;
-      case 'maintenance':
-        return <FaWrench className="text-purple-500" />;
+      case 'condition_report':
+        return <FaFileAlt className="text-purple-500" />;
       case 'warning':
         return <FaExclamationTriangle className="text-yellow-500" />;
       case 'success':
@@ -495,8 +593,8 @@ const Notifications: React.FC = () => {
                 { key: 'all', label: 'All Categories', icon: FaBell },
                 { key: 'inspection', label: 'Inspections', icon: FaExclamationTriangle },
                 { key: 'scheduling', label: 'Scheduling', icon: FaCalendarAlt },
-                { key: 'maintenance', label: 'Maintenance', icon: FaWrench },
-                { key: 'general', label: 'General', icon: FaBell }
+                { key: 'condition_reports', label: 'Bus Condition Reports', icon: FaFileAlt },
+                { key: 'emergency_reports', label: 'Emergency Reports', icon: FaExclamation }
               ].map(category => {
                 const categoryCount = category.key === 'all' 
                   ? notifications.length 
@@ -534,19 +632,21 @@ const Notifications: React.FC = () => {
                       ? 'border-red-600 bg-red-50'
                       : notification.type === 'urgent' 
                         ? 'border-red-500 bg-red-50'
-                        : notification.type === 'overdue'
-                          ? 'border-orange-500 bg-orange-50'
-                          : notification.type === 'due_today'
-                            ? 'border-yellow-600 bg-yellow-50'
-                            : notification.type === 'warning'
-                              ? 'border-yellow-500 bg-yellow-50'
-                              : notification.type === 'success'
-                                ? 'border-green-500 bg-green-50'
-                                : notification.type === 'schedule'
-                                  ? 'border-blue-500 bg-blue-50'
-                                  : notification.type === 'maintenance'
-                                    ? 'border-purple-500 bg-purple-50'
-                                    : 'border-blue-500 bg-blue-50'
+                        : notification.type === 'emergency'
+                          ? 'border-red-600 bg-red-50'
+                          : notification.type === 'overdue'
+                            ? 'border-orange-500 bg-orange-50'
+                            : notification.type === 'due_today'
+                              ? 'border-yellow-600 bg-yellow-50'
+                              : notification.type === 'warning'
+                                ? 'border-yellow-500 bg-yellow-50'
+                                : notification.type === 'success'
+                                  ? 'border-green-500 bg-green-50'
+                                  : notification.type === 'schedule'
+                                    ? 'border-blue-500 bg-blue-50'
+                                    : notification.type === 'condition_report'
+                                      ? 'border-purple-500 bg-purple-50'
+                                      : 'border-blue-500 bg-blue-50'
                 }`}
               >
                 <div className="flex items-start justify-between">
@@ -602,9 +702,11 @@ const Notifications: React.FC = () => {
                               ? 'bg-blue-100 text-blue-800'
                               : notification.category === 'inspection'
                                 ? 'bg-yellow-100 text-yellow-800'
-                                : notification.category === 'maintenance'
+                                : notification.category === 'condition_reports'
                                   ? 'bg-purple-100 text-purple-800'
-                                  : 'bg-gray-100 text-gray-800'
+                                  : notification.category === 'emergency_reports'
+                                    ? 'bg-red-100 text-red-800'
+                                    : 'bg-gray-100 text-gray-800'
                           }`}>
                             {notification.category.charAt(0).toUpperCase() + notification.category.slice(1)}
                           </span>

@@ -163,9 +163,9 @@ const DepotEngineerDashboard = () => {
 
   const fetchPendingReports = async () => {
     try {
-      // Try the correct API endpoint for depot engineers
-      const apiUrl = `http://localhost:5000/api/bus-condition-reports/pending`;
-      console.log('🔍 Fetching pending reports from:', apiUrl);
+      // Use the correct API endpoint for all bus condition reports
+      const apiUrl = `http://localhost:5000/api/bus-condition-reports`;
+      console.log('🔍 Fetching condition reports from:', apiUrl);
       console.log('🔑 Using token:', token ? 'Token available' : 'No token');
       
       const response = await axios.get(apiUrl, {
@@ -175,19 +175,39 @@ const DepotEngineerDashboard = () => {
         },
       });
 
-      console.log('📊 Pending reports response:', response.data);
+      console.log('📊 Condition reports response:', response.data);
 
       if (response.data.success) {
-        const reports = response.data.data || response.data.reports || [];
-        setPendingReports(reports);
+        const allReports = response.data.data || [];
+        
+        // Filter for reports that are unreviewed (review_status = 'pending')
+        const pendingReports = allReports.filter((report: any) => {
+          return report.review_status === 'pending' || !report.review_status; // Include reports without review_status as they default to pending
+        });
+        
+        // Transform to match expected interface
+        const transformedReports = pendingReports.map((report: any) => ({
+          report_id: report.report_id?.toString() || '',
+          registration_number: report.registration_number || 'Unknown',
+          condition_status: report.condition_status || '',
+          description: report.description || 'No description provided',
+          driver_first_name: report.driver_first_name || '',
+          driver_last_name: report.driver_last_name || '',
+          report_time: report.report_time || report.created_at || new Date().toISOString()
+        }));
+        
+        setPendingReports(transformedReports);
+        
         // Update stats with pending reports count
         setStats(prevStats => ({
           ...prevStats,
-          criticalIssues: reports.filter((r: PendingReport) => 
-            r.condition_status === 'Major Issues' || r.condition_status === 'Out of Service'
+          criticalIssues: transformedReports.filter((r: PendingReport) => 
+            r.condition_status?.toLowerCase().includes('critical') || 
+            r.condition_status?.toLowerCase().includes('major') ||
+            r.condition_status?.toLowerCase().includes('out of service')
           ).length,
         }));
-        console.log('✅ Pending reports loaded successfully:', reports.length);
+        console.log('✅ Unreviewed condition reports loaded successfully:', transformedReports.length);
       } else {
         console.error('❌ Failed to fetch pending reports:', response.data.message);
       }

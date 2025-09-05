@@ -52,6 +52,26 @@ const Navbar = () => {
               }
             })
           );
+          
+          // Add bus condition reports count
+          requests.push(
+            fetch('http://localhost:5000/api/bus-condition-reports', {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              }
+            })
+          );
+          
+          // Add emergency reports count
+          requests.push(
+            fetch('http://localhost:5000/api/depot/emergency', {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              }
+            })
+          );
         }
 
         const responses = await Promise.all(requests);
@@ -81,6 +101,34 @@ const Navbar = () => {
             
             totalUnreadCount += schedulingCount;
             console.log('Scheduling notifications count:', schedulingCount);
+          }
+        }
+        
+        // Add bus condition reports count (only for depot engineers)
+        if (responses[2] && responses[2].ok && (user?.role === 'depot_engineer' || user?.role === 'depot-engineer')) {
+          const conditionData = await responses[2].json();
+          if (conditionData.success && conditionData.data) {
+            // Count unreviewed condition reports only
+            const conditionCount = conditionData.data.filter((report: any) => {
+              return report.review_status === 'pending' || !report.review_status;
+            }).length;
+            
+            totalUnreadCount += conditionCount;
+            console.log('Condition reports notifications count:', conditionCount);
+          }
+        }
+        
+        // Add emergency reports count (only for depot engineers)
+        if (responses[3] && responses[3].ok && (user?.role === 'depot_engineer' || user?.role === 'depot-engineer')) {
+          const emergencyData = await responses[3].json();
+          if (emergencyData.success && emergencyData.data) {
+            // Count emergency reports with exactly "Pending" status
+            const emergencyCount = emergencyData.data.filter((report: any) => {
+              return report.status === 'Pending';
+            }).length;
+            
+            totalUnreadCount += emergencyCount;
+            console.log('Emergency reports notifications count:', emergencyCount);
           }
         }
         

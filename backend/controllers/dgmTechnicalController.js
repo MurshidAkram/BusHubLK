@@ -599,6 +599,100 @@ const getPartsHistory = async (req, res) => {
     }
 };
 
+// Get inspection history with filtering and pagination for DGM Technical
+const getInspectionHistory = async (req, res) => {
+    try {
+        const {
+            page = 1,
+            limit = 20,
+            regionId = 'all',
+            depotId = 'all',
+            status = 'all'
+        } = req.query;
+
+        const offset = (parseInt(page) - 1) * parseInt(limit);
+        let whereClause = 'WHERE 1=1';
+        const queryParams = [];
+
+        // Add region filter
+        if (regionId !== 'all') {
+            queryParams.push(regionId);
+            whereClause += ` AND r.region_id = $${queryParams.length}`;
+        }
+
+        // Add depot filter
+        if (depotId !== 'all') {
+            queryParams.push(depotId);
+            whereClause += ` AND d.depot_id = $${queryParams.length}`;
+        }
+
+        // Add status filter
+        if (status !== 'all') {
+            queryParams.push(status);
+            whereClause += ` AND i.status = $${queryParams.length}`;
+        }
+
+        // Get total count
+        const countQuery = `
+            SELECT COUNT(*) as total
+            FROM inspections i
+            JOIN depots d ON i.depot_id = d.depot_id
+            JOIN regions r ON d.region_id = r.region_id
+            ${whereClause}
+        `;
+
+        const countResult = await pool.query(countQuery, queryParams);
+        const totalRecords = parseInt(countResult.rows[0].total);
+        const totalPages = Math.ceil(totalRecords / parseInt(limit));
+
+        // Get paginated data
+        const dataQuery = `
+            SELECT
+                i.id,
+                i.inspection_type,
+                i.date,
+                i.time,
+                i.status,
+                i.created_at,
+                i.updated_at,
+                d.depot_id,
+                d.depot_name,
+                r.region_id,
+                r.region_name
+            FROM inspections i
+            JOIN depots d ON i.depot_id = d.depot_id
+            JOIN regions r ON d.region_id = r.region_id
+            ${whereClause}
+            ORDER BY i.date DESC, i.time DESC
+            LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}
+        `;
+
+        queryParams.push(parseInt(limit), offset);
+        const dataResult = await pool.query(dataQuery, queryParams);
+
+        res.status(200).json({
+            success: true,
+            message: 'Inspection history fetched successfully',
+            data: dataResult.rows,
+            pagination: {
+                currentPage: parseInt(page),
+                totalPages,
+                totalRecords,
+                recordsPerPage: parseInt(limit),
+                hasNextPage: parseInt(page) < totalPages,
+                hasPrevPage: parseInt(page) > 1
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching inspection history:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch inspection history',
+            error: error.message
+        });
+    }
+};
+
 module.exports = {
     getAllRegions,
     getDepotsByRegion,
@@ -608,5 +702,6 @@ module.exports = {
     getFleetOverview,
     getDashboardSummary,
     getServiceHistory,
-    getPartsHistory
+    getPartsHistory,
+    getInspectionHistory
 };
