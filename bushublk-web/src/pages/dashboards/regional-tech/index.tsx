@@ -1,16 +1,13 @@
-import React, { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   FaExclamationTriangle, 
   FaCheckCircle, 
-  FaClock, 
   FaWrench, 
   FaCalendarAlt,
   FaMapMarkerAlt,
   FaBus,
-  FaTools,
-  FaClipboardList,
-  FaPhone
+  FaClipboardList
 } from 'react-icons/fa';
 import { HiUsers } from 'react-icons/hi';
 import { AppContext } from '../../../context/AppContext';
@@ -53,6 +50,9 @@ const MaintenanceDashboard = () => {
   
   // Active issues data
   const [activeIssuesCount, setActiveIssuesCount] = useState<number>(0);
+  
+  // Incident statistics for bar chart
+  const [incidentStats, setIncidentStats] = useState<{[key: string]: number}>({});
   useEffect(() => {
     const fetchBusStatusData = async () => {
       try {
@@ -176,6 +176,16 @@ const MaintenanceDashboard = () => {
               report.status !== 'Resolved'
             );
             setActiveIssuesCount(activeIssues.length);
+
+            // Count incidents by type for bar chart
+            const incidentCounts: {[key: string]: number} = {};
+            
+            data.data.forEach((report: any) => {
+              const incidentType = report.incident_type || 'unknown';
+              incidentCounts[incidentType] = (incidentCounts[incidentType] || 0) + 1;
+            });
+
+            setIncidentStats(incidentCounts);
           }
         }
         
@@ -310,6 +320,101 @@ const MaintenanceDashboard = () => {
               <span className="text-xs text-gray-600">{data.label}</span>
             </div>
           ))}
+        </div>
+      </div>
+    );
+  };
+
+  // Incident Statistics Bar Chart Component
+  const IncidentStatisticsChart = () => {
+    // Define all possible incident types with their colors (matching mobile app)
+    const allIncidentTypes = {
+      'Accident': { color: '#EF4444', label: 'Accident' },
+      'Medical': { color: '#059669', label: 'Medical' },
+      'Fire': { color: '#DC2626', label: 'Fire' },
+      'Breakdown': { color: '#F59E0B', label: 'Breakdown' },
+      'Theft': { color: '#9333EA', label: 'Theft' },
+      'Hazard': { color: '#D97706', label: 'Hazard' }
+    };
+
+    // Create chart data ensuring all incident types are included
+    const chartData = Object.entries(allIncidentTypes).map(([type, config]) => ({
+      label: config.label,
+      count: incidentStats[type] || 0, // Use 0 if type doesn't exist in data
+      color: config.color,
+      originalType: type
+    })).sort((a, b) => b.count - a.count); // Sort by count descending
+
+    const maxCount = Math.max(...chartData.map(item => item.count), 1);
+    const [hoveredBar, setHoveredBar] = useState<{label: string, count: number, x: number, y: number} | null>(null);
+
+    return (
+      <div className="w-full h-64 relative">
+        <div className="flex items-end justify-between h-48 px-4">
+          {chartData.map((item, index) => (
+            <div key={index} className="flex flex-col items-center flex-1 max-w-[120px] min-w-[80px]">
+              <div 
+                className="relative cursor-pointer transition-all duration-200 hover:opacity-80 rounded-t w-full"
+                style={{
+                  height: `${item.count > 0 ? (item.count / maxCount) * 160 : 8}px`,
+                  backgroundColor: item.count > 0 ? item.color : '#E5E7EB',
+                  minHeight: '8px',
+                  border: item.count === 0 ? '1px dashed #9CA3AF' : 'none'
+                }}
+                onMouseEnter={(e) => {
+                  setHoveredBar({
+                    label: item.label,
+                    count: item.count,
+                    x: e.clientX,
+                    y: e.clientY
+                  });
+                }}
+                onMouseMove={(e) => {
+                  setHoveredBar(prev => prev ? {
+                    ...prev,
+                    x: e.clientX,
+                    y: e.clientY
+                  } : null);
+                }}
+                onMouseLeave={() => setHoveredBar(null)}
+              >
+                {/* Count at top of each column */}
+                <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 text-sm font-semibold text-gray-700">
+                  {item.count}
+                </div>
+              </div>
+              <div className="mt-3 text-sm text-gray-700 text-center font-medium">
+                {item.label}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Tooltip */}
+        {hoveredBar && (
+          <div 
+            className="fixed z-50 bg-gray-900 text-white px-3 py-2 rounded-lg shadow-lg pointer-events-none"
+            style={{
+              left: hoveredBar.x + 10,
+              top: hoveredBar.y - 40,
+              transform: 'translateX(-50%)'
+            }}
+          >
+            <div className="text-sm font-medium">{hoveredBar.label}</div>
+            <div className="text-xs">{hoveredBar.count} incidents</div>
+          </div>
+        )}
+
+        {/* Legend for zero vs non-zero values */}
+        <div className="absolute bottom-2 right-2 flex items-center space-x-4 text-xs text-gray-500">
+          <div className="flex items-center">
+            <div className="w-3 h-3 bg-blue-500 rounded mr-1"></div>
+            <span>Has incidents</span>
+          </div>
+          <div className="flex items-center">
+            <div className="w-3 h-3 bg-gray-200 border border-dashed border-gray-400 rounded mr-1"></div>
+            <span>No incidents</span>
+          </div>
         </div>
       </div>
     );
@@ -516,6 +621,17 @@ const MaintenanceDashboard = () => {
           </div>
         </div>
 
+        {/* Incident Statistics - Full Width */}
+        <div className="mt-8">
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-semibold text-gray-900">Incident Statistics</h2>
+              <p className="text-sm text-gray-600">Region-wide incident reports by type</p>
+            </div>
+            <IncidentStatisticsChart />
+          </div>
+        </div>
+
         {/* Inspection Scheduler - Full Width Below */}
         <div className="mt-8">
           <div className="bg-white rounded-lg shadow-sm p-6">
@@ -559,11 +675,7 @@ const MaintenanceDashboard = () => {
                     <div className="text-sm text-gray-600 mb-1">
                       <FaMapMarkerAlt className="inline mr-1" /> {inspection.location}
                     </div>
-                    {inspection.buses && (
-                      <div className="text-sm text-gray-600">
-                        <FaBus className="inline mr-1" /> {inspection.buses}
-                      </div>
-                    )}
+                  
                   </div>
                 </div>
               ))}

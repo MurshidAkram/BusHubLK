@@ -693,6 +693,8 @@ const getInspectionHistory = async (req, res) => {
     }
 };
 
+
+
 module.exports = {
     getAllRegions,
     getDepotsByRegion,
