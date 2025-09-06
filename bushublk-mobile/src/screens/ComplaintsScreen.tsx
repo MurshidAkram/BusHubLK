@@ -1,4 +1,4 @@
-import React,{ useState } from "react";
+import React, { useState } from "react";
 import {
   StyleSheet,
   View,
@@ -9,7 +9,9 @@ import {
   Image,
   Platform,
   Alert,
-  ActivityIndicator, // Import ActivityIndicator
+  ActivityIndicator,
+  Animated,
+  Dimensions,
 } from "react-native";
 import { storageAPI } from "../services/api";
 import { useNavigation } from "@react-navigation/native";
@@ -20,31 +22,50 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import * as ImagePicker from "expo-image-picker";
 import DropDownPicker from "react-native-dropdown-picker";
+import { LinearGradient } from 'expo-linear-gradient';
 
-// --- App Color Palette ---
+const { width } = Dimensions.get('window');
+
+// Enhanced Color Palette
 const AppColors = {
-  background: "#F8F9FA",
+  background: "#F8FAFC",
   card: "#FFFFFF",
-  primary: "#0056b3",
-  primaryMuted: "rgba(0, 86, 179, 0.1)",
-  text: "#212529",
-  textSecondary: "#6C757D",
-  border: "#DEE2E6",
-  red: "#dc3545",
-  yellow: "#ffc107",
-  green: "#198754",
-  lightGrey: '#F1F3F5',
+  primary: "#3B82F6",
+  primaryDark: "#1E40AF",
+  primaryLight: "#DBEAFE",
+  secondary: "#64748B",
+  accent: "#F59E0B",
+  text: "#0F172A",
+  textSecondary: "#64748B",
+  textLight: "#94A3B8",
+  border: "#E2E8F0",
+  borderLight: "#F1F5F9",
+  success: "#10B981",
+  warning: "#F59E0B",
+  danger: "#EF4444",
+  purple: "#8B5CF6",
+  indigo: "#6366F1",
+  shadow: "rgba(15, 23, 42, 0.08)",
 };
 
 type ComplaintsScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Complaints'>;
 
 export default function ComplaintsScreen() {
   const navigation = useNavigation<ComplaintsScreenNavigationProp>();
-
-  // --- NEW: Loading state for submission ---
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const fadeAnim = new Animated.Value(0);
 
-  // --- Dropdown State ---
+  React.useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  const [isScrollEnabled, setIsScrollEnabled] = useState(true);
+
+  // Dropdown State
   const [complaintTypeOpen, setComplaintTypeOpen] = useState(false);
   const [complaintTypeValue, setComplaintTypeValue] = useState(null);
   const [complaintTypeItems, setComplaintTypeItems] = useState([
@@ -58,7 +79,7 @@ export default function ComplaintsScreen() {
     { label: "Other", value: "other" },
   ]);
 
-  // --- Form State ---
+  // Form State
   const [routeNumber, setRouteNumber] = useState("");
   const [busNumber, setBusNumber] = useState("");
   const [date, setDate] = useState(new Date());
@@ -69,7 +90,7 @@ export default function ComplaintsScreen() {
   const [contactInfo, setContactInfo] = useState("");
   const [image, setImage] = useState<string | null>(null);
 
-  // --- Date & Time Picker State ---
+  // Date & Time Picker State
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
 
@@ -112,7 +133,7 @@ export default function ComplaintsScreen() {
       return;
     }
 
-    setIsSubmitting(true); // --- NEW: Activate loading state
+    setIsSubmitting(true);
 
     try {
       const token = await storageAPI.getAuthToken();
@@ -161,167 +182,350 @@ export default function ComplaintsScreen() {
       console.error("Error submitting complaint:", error);
       Alert.alert("An Error Occurred", "Please check your connection and try again.");
     } finally {
-      setIsSubmitting(false); // --- NEW: Deactivate loading state
+      setIsSubmitting(false);
+    }
+  };
+
+  const getPriorityColor = (level: string) => {
+    switch (level) {
+      case 'Low': return AppColors.success;
+      case 'Medium': return AppColors.warning;
+      case 'High': return AppColors.danger;
+      default: return AppColors.secondary;
     }
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* --- HEADER --- */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerIconContainer}>
-          <Ionicons name="arrow-back-outline" size={28} color="#FFFFFF" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>File a Complaint</Text>
-        <TouchableOpacity onPress={() => navigation.navigate("ComplaintHistory")} style={styles.headerIconContainer}>
-          <Ionicons name="time-outline" size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-
-        {/* --- CARD 1: INCIDENT DETAILS --- */}
-        <View style={styles.card}>
-          <Text style={styles.cardHeader}>Incident Details</Text>
-          <Text style={styles.label}>Type of Complaint</Text>
-          <DropDownPicker
-            open={complaintTypeOpen}
-            value={complaintTypeValue}
-            items={complaintTypeItems}
-            setOpen={setComplaintTypeOpen}
-            setValue={setComplaintTypeValue}
-            setItems={setComplaintTypeItems}
-            style={styles.dropdownPicker}
-            placeholder="Select a complaint type"
-            placeholderStyle={styles.placeholderText}
-            dropDownContainerStyle={styles.dropdownContainer}
-            listMode="SCROLLVIEW"
-            zIndex={3000}
-            zIndexInverse={1000}
-          />
-
-          <View style={styles.row}>
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Route No.</Text>
-              <View style={styles.inputContainer}>
-                <Ionicons name="bus-outline" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.inputText}
-                  placeholder="e.g., 177"
-                  value={routeNumber}
-                  onChangeText={setRouteNumber}
-                />
-              </View>
-            </View>
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Bus No. (Optional)</Text>
-              <View style={styles.inputContainer}>
-                <Ionicons name="information-circle-outline" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.inputText}
-                  placeholder="e.g., ND-1234"
-                  value={busNumber}
-                  onChangeText={setBusNumber}
-                />
-              </View>
-            </View>
+      <LinearGradient
+        colors={[AppColors.primary, AppColors.primaryDark]}
+        style={styles.headerGradient}
+      >
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerIconContainer}>
+            <Ionicons name="arrow-back-outline" size={28} color="#FFFFFF" />
+          </TouchableOpacity>
+          <View style={styles.headerTitleContainer}>
+            <Text style={styles.headerTitle}>File a Complaint</Text>
+            <Text style={styles.headerSubtitle}>Help us improve our service</Text>
           </View>
-        </View>
-
-        {/* --- CARD 2: TIME & PLACE --- */}
-        <View style={styles.card}>
-          <Text style={styles.cardHeader}>Time & Place</Text>
-          <View style={styles.row}>
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Date</Text>
-              <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.inputContainer}>
-                <Ionicons name="calendar-outline" style={styles.inputIcon} />
-                <Text style={styles.inputText}>{date.toLocaleDateString()}</Text>
-              </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate("ComplaintHistory")} style={styles.headerIconContainer}>
+            <View style={styles.notificationBadge}>
+              <Ionicons name="time-outline" size={24} color="#FFFFFF" />
             </View>
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Time</Text>
-              <TouchableOpacity onPress={() => setShowTimePicker(true)} style={styles.inputContainer}>
-                <Ionicons name="time-outline" style={styles.inputIcon} />
-                <Text style={styles.inputText}>{time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-          <Text style={styles.label}>Location / Bus Stop</Text>
-          <View style={styles.inputContainer}>
-            <Ionicons name="location-outline" style={styles.inputIcon} />
-            <TextInput
-              style={styles.inputText}
-              placeholder="e.g., Kottawa"
-              value={location}
-              onChangeText={setLocation}
-            />
-          </View>
-        </View>
-
-        {/* --- CARD 3: COMPLAINT DETAILS --- */}
-        <View style={styles.card}>
-          <Text style={styles.cardHeader}>Complaint Details</Text>
-          <Text style={styles.label}>Priority Level</Text>
-          <View style={styles.priorityContainer}>
-            {["Low", "Medium", "High"].map((level) => (
-              <TouchableOpacity key={level} style={[styles.priorityButton, priority === level && styles.priorityButtonSelected, { borderColor: level === 'Low' ? AppColors.green : level === 'Medium' ? AppColors.yellow : AppColors.red }]} onPress={() => setPriority(level)}>
-                <Text style={[styles.priorityButtonText, priority === level && styles.priorityButtonTextSelected]}>{level}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          <Text style={styles.label}>Description</Text>
-          <TextInput
-            style={styles.descriptionInput}
-            placeholder="Please describe the incident in detail..."
-            multiline
-            value={description}
-            onChangeText={setDescription}
-          />
-          
-          <Text style={styles.label}>Attach Photo (Optional)</Text>
-          <TouchableOpacity style={styles.uploadBox} onPress={pickImage}>
-            {image ? (
-              <Image source={{ uri: image }} style={styles.previewImage} />
-            ) : (
-              <>
-                <Ionicons name="camera-outline" size={32} color={AppColors.textSecondary} />
-                <Text style={styles.uploadText}>Tap to upload an image</Text>
-              </>
-            )}
           </TouchableOpacity>
         </View>
-        
-        {/* --- CARD 4: CONTACT INFO --- */}
-        <View style={styles.card}>
-            <Text style={styles.cardHeader}>Your Contact Information</Text>
-            <View style={styles.inputContainer}>
-                <Ionicons name="person-circle-outline" style={styles.inputIcon} />
-                <TextInput
-                    style={styles.inputText}
-                    placeholder="Email or Phone Number"
-                    value={contactInfo}
-                    onChangeText={setContactInfo}
-                    keyboardType="email-address"
-                />
+      </LinearGradient>
+
+      <Animated.View style={[styles.animatedContainer, { opacity: fadeAnim }]}>
+        <ScrollView 
+          contentContainerStyle={styles.contentContainer} 
+          showsVerticalScrollIndicator={false} 
+          keyboardShouldPersistTaps="handled"
+          scrollEnabled={isScrollEnabled}
+        >
+          <View style={styles.progressContainer}>
+            <View style={styles.progressBar}>
+              <View style={styles.progressFill} />
             </View>
-            <Text style={styles.helperText}>We'll use this to send you updates about your complaint.</Text>
-        </View>
+            <Text style={styles.progressText}>Step 1 of 1</Text>
+          </View>
 
+          <View style={styles.card}>
+            <View style={styles.cardHeaderContainer}>
+              <View style={styles.cardIconContainer}>
+                <Ionicons name="alert-circle" size={24} color={AppColors.primary} />
+              </View>
+              <View>
+                <Text style={styles.cardHeader}>Incident Details</Text>
+                <Text style={styles.cardSubheader}>What happened?</Text>
+              </View>
+            </View>
+            
+            <View style={styles.inputSection}>
+              <Text style={styles.label}>
+                Type of Complaint <Text style={styles.required}>*</Text>
+              </Text>
+              <DropDownPicker
+                open={complaintTypeOpen}
+                value={complaintTypeValue}
+                items={complaintTypeItems}
+                setOpen={(open) => {
+                  setComplaintTypeOpen(open);
+                  setIsScrollEnabled(!open);
+                }}
+                setValue={setComplaintTypeValue}
+                setItems={setComplaintTypeItems}
+                style={styles.dropdownPicker}
+                dropDownContainerStyle={styles.dropdownContainer}
+                placeholder="Select a complaint type"
+                placeholderStyle={styles.placeholderText}
+                listMode="MODAL"
+                dropDownDirection="BOTTOM"
+              />
+            </View>
 
-        {/* --- SUBMIT BUTTON --- */}
-        <TouchableOpacity style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]} onPress={handleSubmit} disabled={isSubmitting}>
-          {isSubmitting ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.submitButtonText}>Submit Complaint</Text>
-          )}
-        </TouchableOpacity>
-      </ScrollView>
+            <View style={styles.row}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>
+                  Route No. <Text style={styles.required}>*</Text>
+                </Text>
+                <View style={styles.enhancedInputContainer}>
+                  <View style={styles.inputIconContainer}>
+                    <Ionicons name="bus-outline" size={20} color={AppColors.primary} />
+                  </View>
+                  <TextInput
+                    style={styles.inputText}
+                    placeholder="e.g., 177"
+                    value={routeNumber}
+                    onChangeText={setRouteNumber}
+                    placeholderTextColor={AppColors.textLight}
+                  />
+                </View>
+              </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Bus No. (Optional)</Text>
+                <View style={styles.enhancedInputContainer}>
+                  <View style={styles.inputIconContainer}>
+                    <Ionicons name="information-circle-outline" size={20} color={AppColors.secondary} />
+                  </View>
+                  <TextInput
+                    style={styles.inputText}
+                    placeholder="e.g., ND-1234"
+                    value={busNumber}
+                    onChangeText={setBusNumber}
+                    placeholderTextColor={AppColors.textLight}
+                  />
+                </View>
+              </View>
+            </View>
+          </View>
 
-      {showDatePicker && <DateTimePicker value={date} mode="date" display="default" onChange={onDateChange} />}
-      {showTimePicker && <DateTimePicker value={time} mode="time" display="default" onChange={onTimeChange} />}
+          <View style={styles.card}>
+            <View style={styles.cardHeaderContainer}>
+              <View style={styles.cardIconContainer}>
+                <Ionicons name="location" size={24} color={AppColors.indigo} />
+              </View>
+              <View>
+                <Text style={styles.cardHeader}>Time & Place</Text>
+                <Text style={styles.cardSubheader}>When and where did this happen?</Text>
+              </View>
+            </View>
+            
+            <View style={styles.row}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>
+                  Date <Text style={styles.required}>*</Text>
+                </Text>
+                <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.enhancedInputContainer}>
+                  <View style={styles.inputIconContainer}>
+                    <Ionicons name="calendar-outline" size={20} color={AppColors.indigo} />
+                  </View>
+                  <Text style={styles.inputText}>{date.toLocaleDateString()}</Text>
+                  <Ionicons name="chevron-down" size={16} color={AppColors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>
+                  Time <Text style={styles.required}>*</Text>
+                </Text>
+                <TouchableOpacity onPress={() => setShowTimePicker(true)} style={styles.enhancedInputContainer}>
+                  <View style={styles.inputIconContainer}>
+                    <Ionicons name="time-outline" size={20} color={AppColors.indigo} />
+                  </View>
+                  <Text style={styles.inputText}>
+                    {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </Text>
+                  <Ionicons name="chevron-down" size={16} color={AppColors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+            </View>
+            
+            <View style={styles.inputSection}>
+              <Text style={styles.label}>
+                Location / Bus Stop <Text style={styles.required}>*</Text>
+              </Text>
+              <View style={styles.enhancedInputContainer}>
+                <View style={styles.inputIconContainer}>
+                  <Ionicons name="location-outline" size={20} color={AppColors.indigo} />
+                </View>
+                <TextInput
+                  style={styles.inputText}
+                  placeholder="e.g., Kottawa Bus Stand"
+                  value={location}
+                  onChangeText={setLocation}
+                  placeholderTextColor={AppColors.textLight}
+                />
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.card}>
+            <View style={styles.cardHeaderContainer}>
+              <View style={styles.cardIconContainer}>
+                <Ionicons name="document-text" size={24} color={AppColors.purple} />
+              </View>
+              <View>
+                <Text style={styles.cardHeader}>Complaint Details</Text>
+                <Text style={styles.cardSubheader}>Tell us more about the incident</Text>
+              </View>
+            </View>
+            
+            <View style={styles.inputSection}>
+              <Text style={styles.label}>Priority Level</Text>
+              <View style={styles.priorityContainer}>
+                {["Low", "Medium", "High"].map((level) => (
+                  <TouchableOpacity 
+                    key={level} 
+                    style={[
+                      styles.priorityButton, 
+                      priority === level && styles.priorityButtonSelected,
+                      { 
+                        borderColor: getPriorityColor(level),
+                        backgroundColor: priority === level ? getPriorityColor(level) : AppColors.card
+                      }
+                    ]} 
+                    onPress={() => setPriority(level)}
+                  >
+                    <View style={styles.priorityContent}>
+                      <View style={[styles.priorityDot, { backgroundColor: getPriorityColor(level) }]} />
+                      <Text style={[
+                        styles.priorityButtonText, 
+                        priority === level && styles.priorityButtonTextSelected
+                      ]}>
+                        {level}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.inputSection}>
+              <Text style={styles.label}>
+                Description <Text style={styles.required}>*</Text>
+              </Text>
+              <TextInput
+                style={styles.descriptionInput}
+                placeholder="Please describe the incident in detail. Include what happened, who was involved, and any other relevant information..."
+                multiline
+                value={description}
+                onChangeText={setDescription}
+                placeholderTextColor={AppColors.textLight}
+                textAlignVertical="top"
+              />
+            </View>
+            
+            <View style={styles.inputSection}>
+              <Text style={styles.label}>Attach Photo (Optional)</Text>
+              <TouchableOpacity style={styles.uploadBox} onPress={pickImage}>
+                {image ? (
+                  <View style={styles.imageContainer}>
+                    <Image source={{ uri: image }} style={styles.previewImage} />
+                    <TouchableOpacity style={styles.removeImageButton} onPress={() => setImage(null)}>
+                      <Ionicons name="close-circle" size={24} color={AppColors.danger} />
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <View style={styles.uploadContent}>
+                    <View style={styles.uploadIconContainer}>
+                      <Ionicons name="camera-outline" size={32} color={AppColors.primary} />
+                    </View>
+                    <Text style={styles.uploadText}>Tap to upload an image</Text>
+                    <Text style={styles.uploadSubtext}>Photos help us understand the issue better</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+          
+          <View style={styles.card}>
+            <View style={styles.cardHeaderContainer}>
+              <View style={styles.cardIconContainer}>
+                <Ionicons name="person-circle" size={24} color={AppColors.accent} />
+              </View>
+              <View>
+                <Text style={styles.cardHeader}>Contact Information</Text>
+                <Text style={styles.cardSubheader}>How can we reach you?</Text>
+              </View>
+            </View>
+            
+            <View style={styles.inputSection}>
+              <Text style={styles.label}>
+                Email or Phone Number <Text style={styles.required}>*</Text>
+              </Text>
+              <View style={styles.enhancedInputContainer}>
+                <View style={styles.inputIconContainer}>
+                  <Ionicons name="mail-outline" size={20} color={AppColors.accent} />
+                </View>
+                <TextInput
+                  style={styles.inputText}
+                  placeholder="your.email@example.com or +94 77 123 4567"
+                  value={contactInfo}
+                  onChangeText={setContactInfo}
+                  keyboardType="email-address"
+                  placeholderTextColor={AppColors.textLight}
+                />
+              </View>
+              <View style={styles.helperContainer}>
+                <Ionicons name="information-circle-outline" size={16} color={AppColors.textSecondary} />
+                <Text style={styles.helperText}>
+                  We'll use this to send you updates about your complaint status.
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          <TouchableOpacity 
+            style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]} 
+            onPress={handleSubmit} 
+            disabled={isSubmitting}
+          >
+            <LinearGradient
+              colors={isSubmitting ? [AppColors.textSecondary, AppColors.textSecondary] : [AppColors.primary, AppColors.primaryDark]}
+              style={styles.submitButtonGradient}
+            >
+              {isSubmitting ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                  <Text style={styles.submitButtonText}>Submitting...</Text>
+                </View>
+              ) : (
+                <View style={styles.submitContainer}>
+                  <Ionicons name="send" size={20} color="#FFFFFF" />
+                  <Text style={styles.submitButtonText}>Submit Complaint</Text>
+                </View>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
+
+          <View style={styles.footerContainer}>
+            <View style={styles.footerIconContainer}>
+              <Ionicons name="shield-checkmark" size={20} color={AppColors.success} />
+            </View>
+            <Text style={styles.footerText}>
+              Your complaint will be reviewed within 24-48 hours. We take all reports seriously and will investigate accordingly.
+            </Text>
+          </View>
+        </ScrollView>
+      </Animated.View>
+
+      {showDatePicker && (
+        <DateTimePicker 
+          value={date} 
+          mode="date" 
+          display="default" 
+          onChange={onDateChange} 
+        />
+      )}
+      {showTimePicker && (
+        <DateTimePicker 
+          value={time} 
+          mode="time" 
+          display="default" 
+          onChange={onTimeChange} 
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -331,165 +535,330 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: AppColors.background,
   },
-  contentContainer: {
-    paddingHorizontal: 15,
-    paddingBottom: 40,
+  animatedContainer: {
+    flex: 1,
+  },
+  headerGradient: {
+    paddingBottom: 10,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: AppColors.primary,
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    height: 60,
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    height: 70,
+  },
+  headerIconContainer: {
+    padding: 8,
+    borderRadius: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+  },
+  headerTitleContainer: {
+    flex: 1,
+    alignItems: "center",
   },
   headerTitle: {
     color: "#FFFFFF",
-    fontSize: 20,
-    fontWeight: "600",
+    fontSize: 22,
+    fontWeight: "700",
   },
-  headerIconContainer: {
-    padding: 5,
+  headerSubtitle: {
+    color: "rgba(255, 255, 255, 0.8)",
+    fontSize: 14,
+    marginTop: 2,
+  },
+  notificationBadge: {
+    position: "relative",
+  },
+  contentContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 40,
+  },
+  progressContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 20,
+    paddingHorizontal: 5,
+  },
+  progressBar: {
+    flex: 1,
+    height: 4,
+    backgroundColor: AppColors.borderLight,
+    borderRadius: 2,
+    marginRight: 15,
+  },
+  progressFill: {
+    width: "100%",
+    height: "100%",
+    backgroundColor: AppColors.primary,
+    borderRadius: 2,
+  },
+  progressText: {
+    fontSize: 14,
+    color: AppColors.textSecondary,
+    fontWeight: "500",
   },
   card: {
     backgroundColor: AppColors.card,
-    borderRadius: 12,
-    padding: 15,
-    marginBottom: 15,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: AppColors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
     borderWidth: 1,
-    borderColor: AppColors.border,
+    borderColor: AppColors.borderLight,
+    elevation: 0,
+    zIndex: 1,
   },
-  cardHeader: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: AppColors.text,
-    marginBottom: 15,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: AppColors.textSecondary,
-    marginBottom: 8,
-    marginTop: 10,
-  },
-  inputContainer: {
+  cardHeaderContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: AppColors.lightGrey,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    height: 50,
-    borderWidth: 1,
+    marginBottom: 20,
+  },
+  cardIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: AppColors.primaryLight,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 15,
+  },
+  cardHeader: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: AppColors.text,
+  },
+  cardSubheader: {
+    fontSize: 14,
+    color: AppColors.textSecondary,
+    marginTop: 2,
+  },
+  inputSection: {
+    marginBottom: 20,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: AppColors.text,
+    marginBottom: 10,
+  },
+  required: {
+    color: AppColors.danger,
+  },
+  enhancedInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: AppColors.background,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    height: 56,
+    borderWidth: 2,
     borderColor: AppColors.border,
   },
-  inputIcon: {
-    fontSize: 20,
-    color: AppColors.textSecondary,
-    marginRight: 10,
+  inputIconContainer: {
+    width: 32,
+    alignItems: "center",
+    marginRight: 12,
   },
   inputText: {
     flex: 1,
     fontSize: 16,
     color: AppColors.text,
+    fontWeight: "500",
   },
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
+    gap: 15,
   },
   inputGroup: {
-    width: "48%",
+    flex: 1,
   },
   dropdownPicker: {
-    backgroundColor: AppColors.lightGrey,
+    backgroundColor: AppColors.background,
     borderColor: AppColors.border,
-    borderRadius: 10,
+    borderRadius: 12,
+    borderWidth: 2,
+    height: 56,
+    paddingHorizontal: 16,
   },
   dropdownContainer: {
     backgroundColor: AppColors.card,
     borderColor: AppColors.border,
-    borderRadius: 10,
+    borderRadius: 12,
+    borderWidth: 2,
+    elevation: 10,
   },
   placeholderText: {
-    color: AppColors.textSecondary,
+    color: AppColors.textLight,
+    fontSize: 16,
   },
   priorityContainer: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    gap: 12,
   },
   priorityButton: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 10,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    borderRadius: 12,
     alignItems: "center",
-    backgroundColor: AppColors.lightGrey,
-    borderWidth: 1.5,
-    marginHorizontal: 4,
+    borderWidth: 2,
   },
   priorityButtonSelected: {
-    backgroundColor: AppColors.primaryMuted,
-    borderColor: AppColors.primary,
+  },
+  priorityContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  priorityDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   priorityButtonText: {
-    color: AppColors.textSecondary,
+    color: AppColors.text,
     fontWeight: "600",
+    fontSize: 14,
   },
   priorityButtonTextSelected: {
-    color: AppColors.primary,
+    color: "#FFFFFF",
   },
   descriptionInput: {
-    backgroundColor: AppColors.lightGrey,
-    borderRadius: 10,
-    padding: 15,
+    backgroundColor: AppColors.background,
+    borderRadius: 12,
+    padding: 16,
     height: 120,
     fontSize: 16,
     color: AppColors.text,
     textAlignVertical: "top",
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: AppColors.border,
+    fontWeight: "500",
   },
   uploadBox: {
-    height: 120,
-    borderRadius: 12,
+    height: 140,
+    borderRadius: 16,
     borderWidth: 2,
     borderColor: AppColors.border,
     borderStyle: "dashed",
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: AppColors.lightGrey,
-    marginTop: 8,
+    backgroundColor: AppColors.background,
+  },
+  uploadContent: {
+    alignItems: "center",
+  },
+  uploadIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: AppColors.primaryLight,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
   },
   uploadText: {
-    marginTop: 8,
+    color: AppColors.text,
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 4,
+  },
+  uploadSubtext: {
     color: AppColors.textSecondary,
     fontSize: 14,
+  },
+  imageContainer: {
+    width: "100%",
+    height: "100%",
+    position: "relative",
   },
   previewImage: {
     width: "100%",
     height: "100%",
-    borderRadius: 10,
+    borderRadius: 14,
+  },
+  removeImageButton: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    backgroundColor: AppColors.card,
+    borderRadius: 12,
+    padding: 4,
+  },
+  helperContainer: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginTop: 8,
+    gap: 6,
   },
   helperText: {
-    fontSize: 12,
+    flex: 1,
+    fontSize: 14,
     color: AppColors.textSecondary,
-    marginTop: 8,
-    marginLeft: 5,
+    lineHeight: 20,
   },
   submitButton: {
-    backgroundColor: AppColors.primary,
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: "center",
-    marginTop: 20,
-    elevation: 2,
+    marginTop: 10,
+    marginBottom: 20,
+    borderRadius: 16,
+    overflow: "hidden",
+    elevation: 4,
+    shadowColor: AppColors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
   },
   submitButtonDisabled: {
-    backgroundColor: AppColors.textSecondary,
-    opacity: 0.8,
+    elevation: 2,
+    shadowOpacity: 0.1,
+  },
+  submitButtonGradient: {
+    paddingVertical: 18,
+    paddingHorizontal: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loadingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  submitContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
   },
   submitButtonText: {
     color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  footerContainer: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    backgroundColor: AppColors.card,
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 10,
+    gap: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: AppColors.success,
+  },
+  footerIconContainer: {
+    marginTop: 2,
+  },
+  footerText: {
+    flex: 1,
+    fontSize: 14,
+    color: AppColors.textSecondary,
+    lineHeight: 20,
   },
 });
