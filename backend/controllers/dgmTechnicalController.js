@@ -361,7 +361,10 @@ const getDashboardSummary = async (req, res) => {
         (SELECT COUNT(*) FROM buses WHERE is_active = true AND is_deleted = false) as total_buses,
         (SELECT COUNT(*) FROM buses WHERE status = 'Maintenance' AND is_active = true AND is_deleted = false) as buses_in_maintenance,
         (SELECT COUNT(*) FROM buses WHERE status = 'Out of Service' AND is_active = true AND is_deleted = false) as buses_out_of_service,
-        (SELECT COUNT(*) FROM buses WHERE status = 'Active' AND is_active = true AND is_deleted = false) as buses_active
+        (SELECT COUNT(*) FROM buses WHERE status = 'Active' AND is_active = true AND is_deleted = false) as buses_active,
+        (SELECT COUNT(*) FROM emergency_reports WHERE incident_type = 'accident') as total_accidents,
+        (SELECT COUNT(*) FROM emergency_reports WHERE incident_type = 'breakdown') as total_breakdowns,
+        (SELECT COUNT(*) FROM emergency_reports) as total_incidents
     `;
 
         const { rows } = await pool.query(summaryQuery);
@@ -373,7 +376,10 @@ const getDashboardSummary = async (req, res) => {
 
         const dashboardData = {
             ...rows[0],
-            maintenance_percentage: parseFloat(maintenancePercentage)
+            maintenance_percentage: parseFloat(maintenancePercentage),
+            total_accidents: parseInt(rows[0].total_accidents),
+            total_breakdowns: parseInt(rows[0].total_breakdowns),
+            total_incidents: parseInt(rows[0].total_incidents)
         };
 
         res.status(200).json({
@@ -693,7 +699,271 @@ const getInspectionHistory = async (req, res) => {
     }
 };
 
+// Generate Regional Performance and Maintenance Reports
+const generateRegionalReport = async (req, res) => {
+    try {
+        const { dateRange, startDate, endDate, categories } = req.query;
 
+        // Calculate date range
+        let dateCondition = '';
+        let dateParams = [];
+
+        if (dateRange === 'custom' && startDate && endDate) {
+            dateCondition = `AND er.created_at BETWEEN $1 AND $2`;
+            dateParams = [startDate, endDate];
+        } else {
+            const days = {
+                'last_30_days': 30,
+                'last_quarter': 90,
+                'last_6_months': 180
+            }[dateRange] || 30;
+
+            dateCondition = `AND er.created_at >= NOW() - INTERVAL '${days} days'`;
+        }
+
+        // Get regional data with performance metrics
+        const regionalQuery = `
+            SELECT 
+                r.region_id,
+                r.region_name,
+                COUNT(DISTINCT d.depot_id) as depot_count,
+                COUNT(DISTINCT b.bus_id) as total_buses,
+                COUNT(DISTINCT CASE WHEN b.status = 'Active' THEN b.bus_id END) as active_buses,
+                COUNT(DISTINCT CASE WHEN b.status = 'Maintenance' THEN b.bus_id END) as maintenance_buses,
+                COUNT(DISTINCT CASE WHEN b.status = 'Out of Service' THEN b.bus_id END) as out_of_service_buses,
+                COUNT(DISTINCT CASE WHEN er.incident_type = 'accident' THEN er.id END) as accidents,
+                COUNT(DISTINCT CASE WHEN er.incident_type = 'breakdown' THEN er.id END) as breakdowns,
+                COUNT(DISTINCT er.id) as total_incidents,
+                COUNT(DISTINCT ss.id) as total_services,
+                COUNT(DISTINCT CASE WHEN ss.status = 'Completed' THEN ss.id END) as completed_services,
+                AVG(CASE WHEN b.status = 'Active' THEN 1.0 ELSE 0.0 END) * 100 as fleet_utilization,
+                CASE 
+                    WHEN COUNT(DISTINCT ss.id) > 0 
+                    THEN (COUNT(DISTINCT CASE WHEN ss.status = 'Completed' THEN ss.id END) * 100.0 / COUNT(DISTINCT ss.id))
+                    ELSE 0 
+                END as maintenance_compliance
+            FROM regions r
+            LEFT JOIN depots d ON r.region_id = d.region_id
+            LEFT JOIN buses b ON d.depot_id = b.depot_id AND b.is_active = true AND b.is_deleted = false
+            LEFT JOIN emergency_reports er ON b.bus_id = er.bus_id ${dateCondition}
+            LEFT JOIN service_schedules ss ON b.bus_id = ss.bus_id ${dateCondition}
+            GROUP BY r.region_id, r.region_name
+            ORDER BY r.region_name
+        `;
+
+        const { rows: regionalData } = await pool.query(regionalQuery, dateParams);
+
+        // Get total incident counts across all regions (not filtered by region)
+        const incidentSummaryQuery = `
+            SELECT 
+                COUNT(*) as total_incidents,
+                COUNT(CASE WHEN incident_type = 'accident' THEN 1 END) as total_accidents,
+                COUNT(CASE WHEN incident_type = 'breakdown' THEN 1 END) as total_breakdowns
+            FROM emergency_reports
+            WHERE 1=1 ${dateCondition.replace('er.', '')}
+        `;
+
+        const { rows: incidentSummary } = await pool.query(incidentSummaryQuery, dateParams);
+
+        // Calculate summary metrics
+        const summary = {
+            total_entities: regionalData.length,
+            total_buses: regionalData.reduce((sum, region) => sum + parseInt(region.total_buses), 0),
+            total_incidents: parseInt(incidentSummary[0].total_incidents),
+            total_accidents: parseInt(incidentSummary[0].total_accidents),
+            total_breakdowns: parseInt(incidentSummary[0].total_breakdowns),
+            overall_performance: regionalData.length > 0
+                ? regionalData.reduce((sum, region) => sum + parseFloat(region.fleet_utilization), 0) / regionalData.length
+                : 0
+        };
+
+        const reportData = {
+            reportType: 'regional',
+            generatedAt: new Date().toISOString(),
+            dateRange,
+            summary,
+            entities: regionalData.map(region => ({
+                id: region.region_id,
+                name: region.region_name,
+                metrics: {
+                    performance: {
+                        fleet_utilization: parseFloat(region.fleet_utilization),
+                        depot_count: parseInt(region.depot_count),
+                        total_buses: parseInt(region.total_buses),
+                        active_buses: parseInt(region.active_buses)
+                    },
+                    maintenance: {
+                        scheduled_compliance: parseFloat(region.maintenance_compliance),
+                        maintenance_buses: parseInt(region.maintenance_buses),
+                        out_of_service_buses: parseInt(region.out_of_service_buses),
+                        total_services: parseInt(region.total_services),
+                        completed_services: parseInt(region.completed_services)
+                    },
+                    incidents: {
+                        total_incidents: parseInt(region.total_incidents),
+                        accidents: parseInt(region.accidents),
+                        breakdowns: parseInt(region.breakdowns)
+                    }
+                }
+            }))
+        };
+
+        res.status(200).json({
+            success: true,
+            message: 'Regional report generated successfully',
+            data: reportData
+        });
+    } catch (error) {
+        console.error('Error generating regional report:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to generate regional report',
+            error: error.message
+        });
+    }
+};
+
+// Generate Depot-Level Performance and Maintenance Reports
+const generateDepotReport = async (req, res) => {
+    try {
+        const { dateRange, startDate, endDate, regionId, depotId, categories } = req.query;
+
+        // Calculate date range
+        let dateCondition = '';
+        let dateParams = [];
+        let paramCount = 0;
+
+        if (dateRange === 'custom' && startDate && endDate) {
+            paramCount += 2;
+            dateCondition = `AND er.created_at BETWEEN $${paramCount - 1} AND $${paramCount}`;
+            dateParams = [startDate, endDate];
+        } else {
+            const days = {
+                'last_30_days': 30,
+                'last_quarter': 90,
+                'last_6_months': 180
+            }[dateRange] || 30;
+
+            dateCondition = `AND er.created_at >= NOW() - INTERVAL '${days} days'`;
+        }
+
+        // Add filters
+        let whereConditions = [];
+        if (regionId && regionId !== 'all') {
+            paramCount++;
+            whereConditions.push(`r.region_id = $${paramCount}`);
+            dateParams.push(regionId);
+        }
+        if (depotId && depotId !== 'all') {
+            paramCount++;
+            whereConditions.push(`d.depot_id = $${paramCount}`);
+            dateParams.push(depotId);
+        }
+
+        const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+
+        // Get depot data with performance metrics
+        const depotQuery = `
+            SELECT 
+                d.depot_id,
+                d.depot_name,
+                r.region_name,
+                COUNT(DISTINCT b.bus_id) as total_buses,
+                COUNT(DISTINCT CASE WHEN b.status = 'Active' THEN b.bus_id END) as active_buses,
+                COUNT(DISTINCT CASE WHEN b.status = 'Maintenance' THEN b.bus_id END) as maintenance_buses,
+                COUNT(DISTINCT CASE WHEN b.status = 'Out of Service' THEN b.bus_id END) as out_of_service_buses,
+                COUNT(DISTINCT CASE WHEN er.incident_type = 'accident' THEN er.id END) as accidents,
+                COUNT(DISTINCT CASE WHEN er.incident_type = 'breakdown' THEN er.id END) as breakdowns,
+                COUNT(DISTINCT er.id) as total_incidents,
+                COUNT(DISTINCT ss.id) as total_services,
+                COUNT(DISTINCT CASE WHEN ss.status = 'Completed' THEN ss.id END) as completed_services,
+                AVG(CASE WHEN b.status = 'Active' THEN 1.0 ELSE 0.0 END) * 100 as fleet_utilization,
+                CASE 
+                    WHEN COUNT(DISTINCT ss.id) > 0 
+                    THEN (COUNT(DISTINCT CASE WHEN ss.status = 'Completed' THEN ss.id END) * 100.0 / COUNT(DISTINCT ss.id))
+                    ELSE 0 
+                END as maintenance_compliance
+            FROM depots d
+            JOIN regions r ON d.region_id = r.region_id
+            LEFT JOIN buses b ON d.depot_id = b.depot_id AND b.is_active = true AND b.is_deleted = false
+            LEFT JOIN emergency_reports er ON b.bus_id = er.bus_id ${dateCondition}
+            LEFT JOIN service_schedules ss ON b.bus_id = ss.bus_id ${dateCondition}
+            ${whereClause}
+            GROUP BY d.depot_id, d.depot_name, r.region_name
+            ORDER BY r.region_name, d.depot_name
+        `;
+
+        const { rows: depotData } = await pool.query(depotQuery, dateParams);
+
+        // Get total incident counts across all depots (not filtered by depot/region)
+        const incidentSummaryQuery = `
+            SELECT 
+                COUNT(*) as total_incidents,
+                COUNT(CASE WHEN incident_type = 'accident' THEN 1 END) as total_accidents,
+                COUNT(CASE WHEN incident_type = 'breakdown' THEN 1 END) as total_breakdowns
+            FROM emergency_reports
+            WHERE 1=1 ${dateCondition.replace('er.', '')}
+        `;
+
+        const { rows: incidentSummary } = await pool.query(incidentSummaryQuery, dateParams);
+
+        // Calculate summary metrics
+        const summary = {
+            total_entities: depotData.length,
+            total_buses: depotData.reduce((sum, depot) => sum + parseInt(depot.total_buses), 0),
+            total_incidents: parseInt(incidentSummary[0].total_incidents),
+            total_accidents: parseInt(incidentSummary[0].total_accidents),
+            total_breakdowns: parseInt(incidentSummary[0].total_breakdowns),
+            overall_performance: depotData.length > 0
+                ? depotData.reduce((sum, depot) => sum + parseFloat(depot.fleet_utilization), 0) / depotData.length
+                : 0
+        };
+
+        const reportData = {
+            reportType: 'depot',
+            generatedAt: new Date().toISOString(),
+            dateRange,
+            summary,
+            entities: depotData.map(depot => ({
+                id: depot.depot_id,
+                name: depot.depot_name,
+                region: depot.region_name,
+                metrics: {
+                    performance: {
+                        fleet_utilization: parseFloat(depot.fleet_utilization),
+                        total_buses: parseInt(depot.total_buses),
+                        active_buses: parseInt(depot.active_buses)
+                    },
+                    maintenance: {
+                        scheduled_compliance: parseFloat(depot.maintenance_compliance),
+                        maintenance_buses: parseInt(depot.maintenance_buses),
+                        out_of_service_buses: parseInt(depot.out_of_service_buses),
+                        total_services: parseInt(depot.total_services),
+                        completed_services: parseInt(depot.completed_services)
+                    },
+                    incidents: {
+                        total_incidents: parseInt(depot.total_incidents),
+                        accidents: parseInt(depot.accidents),
+                        breakdowns: parseInt(depot.breakdowns)
+                    }
+                }
+            }))
+        };
+
+        res.status(200).json({
+            success: true,
+            message: 'Depot report generated successfully',
+            data: reportData
+        });
+    } catch (error) {
+        console.error('Error generating depot report:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to generate depot report',
+            error: error.message
+        });
+    }
+};
 
 module.exports = {
     getAllRegions,
@@ -705,5 +975,7 @@ module.exports = {
     getDashboardSummary,
     getServiceHistory,
     getPartsHistory,
-    getInspectionHistory
+    getInspectionHistory,
+    generateRegionalReport,
+    generateDepotReport
 };

@@ -23,6 +23,9 @@ interface DashboardSummary {
   buses_out_of_service: number;
   buses_active: number;
   maintenance_percentage: number;
+  total_accidents: number;
+  total_breakdowns: number;
+  total_incidents: number;
 }
 
 interface RegionData {
@@ -297,6 +300,16 @@ const MaintenanceDashboard = () => {
         <SummaryCard title="Under Maintenance" value={dashboardData?.buses_in_maintenance} icon={<FaTools className="text-yellow-500" />} color="text-yellow-600" subtitle="Not available for service" />
         {/* Out of Service */}
         <SummaryCard title="Out of Service" value={dashboardData?.buses_out_of_service} icon={<FaExclamationTriangle className="text-red-500" />} color="text-red-600" subtitle="Not available for service" />
+      </div>
+
+      {/* Incident Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        {/* Total Incidents */}
+        <SummaryCard title="Total Incidents" value={dashboardData?.total_incidents} icon={<FaExclamationTriangle className="text-orange-500" />} color="text-orange-600" subtitle="All reported incidents" />
+        {/* Accidents */}
+        <SummaryCard title="Accidents" value={dashboardData?.total_accidents} icon={<FaExclamationTriangle className="text-red-500" />} color="text-red-600" subtitle="Traffic accidents" />
+        {/* Breakdowns */}
+        <SummaryCard title="Breakdowns" value={dashboardData?.total_breakdowns} icon={<FaTools className="text-yellow-500" />} color="text-yellow-600" subtitle="Mechanical failures" />
       </div>
 
       {/* Critical Alerts and Quick Actions */}
