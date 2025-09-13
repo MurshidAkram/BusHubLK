@@ -174,7 +174,8 @@ export const storageAPI = {
     try {
       const userData = await AsyncStorage.getItem('userData');
       const parsed = userData ? JSON.parse(userData) : null;
-      console.log('[storageAPI.getUserData] userData raw:', userData, 'parsed:', parsed);
+      // Only log when there's actual data or when debugging is needed
+      // console.log('[storageAPI.getUserData] userData raw:', userData, 'parsed:', parsed);
       return parsed;
     } catch (error) {
       console.error('Error getting user data:', error);

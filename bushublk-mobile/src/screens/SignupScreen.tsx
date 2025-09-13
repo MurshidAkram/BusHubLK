@@ -15,7 +15,7 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { storageAPI } from "../services/api";
 import { API_BASE_URL } from "../config/api";
 
 const { width, height } = Dimensions.get("window");
@@ -80,16 +80,17 @@ export default function SignupScreen({ navigation }: any) {
       console.log("Response data:", data);
 
       if (response.ok && data.success) {
-        // Store the token for future requests
-        await AsyncStorage.setItem("authToken", data.token);
-        await AsyncStorage.setItem("userData", JSON.stringify(data.user));
+        // Store the token and user data using the same API as login
+        await storageAPI.storeAuthToken(data.token);
+        await storageAPI.storeUserData(data.user);
 
         setIsLoading(false);
         Alert.alert("Success", `Welcome ${data.user.first_name}! Your account has been created successfully.`, [
           {
             text: "OK",
             onPress: () => {
-              navigation.navigate('Main');
+              // Navigation will be handled automatically by RootNavigator
+              // when it detects the auth token has been stored
               console.log("Passenger registered:", data.user);
             },
           },
