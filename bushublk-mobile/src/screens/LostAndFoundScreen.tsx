@@ -385,7 +385,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
         return;
       }
 
-      const response = await fetch(`${API_BASE_URL}/lost-found/reports/${reportId}/resolve`, {
+      const response = await fetch(`${API_BASE_URL}/api/lost-found/reports/${reportId}/resolve`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -601,7 +601,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
         });
       }
 
-      const response = await fetch(`${API_BASE_URL}/lost-found/reports`, {
+      const response = await fetch(`${API_BASE_URL}/api/lost-found/reports`, {
         method: 'POST',
         headers,
         body,

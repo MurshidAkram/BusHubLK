@@ -17,201 +17,217 @@ const getLatLng = async (place_id, apiKey) => {
     }
 };
 
-// Helper function to extract major city/town names from Google Maps address (conservative approach)
-const extractMajorCityFromGoogleAddress = (addressComponents, formattedAddress) => {
-    if (!addressComponents && !formattedAddress) return null;
-    
-    // Only consider major administrative levels - be very conservative
-    const majorCityTypes = [
-        'locality',                    // Primary city/town only
-        'administrative_area_level_2'  // District level only (major areas)
-    ];
-    
-    // Extract from address components - only major cities
-    if (addressComponents) {
-        for (const component of addressComponents) {
-            if (majorCityTypes.some(type => component.types.includes(type)) && 
-                component.long_name && 
-                component.long_name.trim().length > 3 && // Minimum 4 characters
-                !component.long_name.toLowerCase().includes('sri lanka') &&
-                !component.long_name.toLowerCase().includes('province') &&
-                !component.long_name.toLowerCase().includes('district') &&
-                !component.long_name.toLowerCase().includes('division')) {
-                return component.long_name.trim();
-            }
-        }
-    }
-    
-    // Very conservative fallback from formatted address - only first major part
-    if (formattedAddress) {
-        const addressParts = formattedAddress.split(',').map(part => part.trim());
-        
-        // Only return the first part if it looks like a major city (longer name, not just a road)
-        if (addressParts.length > 0) {
-            const firstPart = addressParts[0];
-            if (firstPart && 
-                firstPart.length > 3 && // Minimum 4 characters for major cities
-                !firstPart.toLowerCase().includes('road') &&
-                !firstPart.toLowerCase().includes('street') &&
-                !firstPart.toLowerCase().includes('lane') &&
-                !firstPart.toLowerCase().includes('avenue') &&
-                !/^\d+/.test(firstPart) && // Not starting with numbers (addresses)
-                !firstPart.toLowerCase().includes('sri lanka') &&
-                !firstPart.toLowerCase().includes('province')) {
-                return firstPart;
-            }
-        }
-    }
-    
-    return null;
-};
-
-// Helper function to find cities along the route (realistic approach matching Google Maps)
-const getBusStopsAlongRoute = async (originCoords, destCoords, apiKey) => {
+// Function to find major bus stops along Sri Lankan routes
+const findMainBusStops = async (originCoords, destCoords, apiKey) => {
     try {
-        // Get driving route 
-        const drivingResponse = await axios.get(
+        console.log('🚌 Finding main bus stops for Sri Lankan route...');
+        
+        // Step 1: Get the driving route
+        const directionsResponse = await axios.get(
             `https://maps.googleapis.com/maps/api/directions/json?origin=${originCoords.lat},${originCoords.lng}&destination=${destCoords.lat},${destCoords.lng}&mode=driving&key=${apiKey}`
         );
 
-        let distance = 0;
-        let duration = '';
-        const majorCities = new Set();
+        if (!directionsResponse.data.routes || directionsResponse.data.routes.length === 0) {
+            throw new Error('No route found');
+        }
 
-        if (drivingResponse.data.routes && drivingResponse.data.routes.length > 0) {
-            const route = drivingResponse.data.routes[0];
-            distance = route.legs[0].distance.value / 1000; // Convert to km
-            duration = route.legs[0].duration.text;
+        const route = directionsResponse.data.routes[0];
+        const leg = route.legs[0];
+        const distance = leg.distance.value / 1000; // km
+        const duration = leg.duration.text;
+        
+        console.log(`📍 Route: ${distance.toFixed(1)}km, ${duration}`);
+
+        // Step 2: Decode the route path
+        const routePath = decodePolyline(route.overview_polyline.points);
+        
+        // Step 3: Search for bus stops based on route type
+        const busStops = [];
+        const foundNames = new Set();
+        
+        // Determine route type and search strategy
+        const isShortRoute = distance < 15; // Under 15km = short route
+        const isMediumRoute = distance >= 15 && distance < 50; // 15-50km = medium route
+        const isLongRoute = distance >= 50; // 50km+ = long intercity route
+        
+        if (isShortRoute) {
+            console.log('🚌 Short route detected - searching for local bus stops');
             
-            console.log(`🗺️ Analyzing route: ${distance}km from ${route.legs[0].start_address} to ${route.legs[0].end_address}`);
+            // For short routes, search more densely and include regular bus stops
+            const searchPoints = Math.max(3, Math.floor(distance / 2)); // 1 search per 2km
             
-            // Extract major cities from start and end
-            const startCity = extractMajorCityFromGoogleAddress(null, route.legs[0].start_address);
-            const endCity = extractMajorCityFromGoogleAddress(null, route.legs[0].end_address);
-            
-            if (startCity) {
-                majorCities.add(startCity);
-                console.log(`🏙️ Start: ${startCity}`);
-            }
-            if (endCity) {
-                majorCities.add(endCity);
-                console.log(`🏙️ End: ${endCity}`);
-            }
-            
-            // Realistic sampling based on actual route distance
-            const routePolyline = route.overview_polyline.points;
-            const routeCoords = decodePolyline(routePolyline);
-            
-            // More realistic sampling - scale with distance properly
-            let maxSamples, samplingInterval;
-            
-            if (distance <= 20) {
-                // Short routes (like Ratmalana to Kollupitiya): Sample every 3-4km
-                maxSamples = Math.ceil(distance / 3.5); // ~4-6 samples for 15km
-                samplingInterval = 4;
-            } else if (distance <= 50) {
-                // Medium routes: Sample every 4-5km
-                maxSamples = Math.ceil(distance / 4.5); // ~8-11 samples for 40km
-                samplingInterval = 5;
-            } else if (distance <= 100) {
-                // Long routes: Sample every 5-6km
-                maxSamples = Math.ceil(distance / 5.5); // ~14-18 samples for 80km
-                samplingInterval = 6;
-            } else {
-                // Very long routes (like Colombo to Kandy): Sample every 6-7km
-                maxSamples = Math.ceil(distance / 6.5); // ~17-20 samples for 115km
-                samplingInterval = 7;
-            }
-            
-            const sampleInterval = Math.max(1, Math.floor(routeCoords.length / maxSamples));
-            
-            console.log(`🔍 Realistic sampling: ${maxSamples} waypoints (every ~${samplingInterval}km) for ${distance}km route`);
-            
-            let samplesProcessed = 0;
-            
-            // Sample waypoints along the route
-            for (let i = sampleInterval; i < routeCoords.length - sampleInterval && samplesProcessed < maxSamples - 2; i += sampleInterval) {
-                const coord = routeCoords[i];
+            for (let i = 0; i < searchPoints; i++) {
+                const progress = i / (searchPoints - 1);
+                const coordIndex = Math.floor(progress * (routePath.length - 1));
+                const coord = routePath[coordIndex];
+                const distanceFromStart = progress * distance;
+                
+                console.log(`🔍 Searching at ${distanceFromStart.toFixed(1)}km...`);
                 
                 try {
-                    // Look for localities and administrative areas
-                    const geocodeResponse = await axios.get(
-                        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${coord.lat},${coord.lng}&key=${apiKey}&result_type=locality|administrative_area_level_2`
+                    // Search for any bus stops with lower criteria for short routes
+                    const busStopsResponse = await axios.get(
+                        `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${coord.lat},${coord.lng}&radius=1000&type=bus_station&key=${apiKey}`
                     );
                     
-                    if (geocodeResponse.data.results && geocodeResponse.data.results.length > 0) {
-                        // Take the first (most relevant) result
-                        const result = geocodeResponse.data.results[0];
-                        const majorCity = extractMajorCityFromGoogleAddress(result.address_components, result.formatted_address);
-                        
-                        if (majorCity && majorCity !== startCity && majorCity !== endCity) {
-                            const wasNew = !majorCities.has(majorCity);
-                            majorCities.add(majorCity);
-                            if (wasNew) {
-                                console.log(`🏙️ Waypoint ${samplesProcessed+1}: ${majorCity} (~${Math.round((i/routeCoords.length) * distance)}km)`);
+                    // Also search for transit stations
+                    const transitResponse = await axios.get(
+                        `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${coord.lat},${coord.lng}&radius=1000&type=transit_station&key=${apiKey}`
+                    );
+                    
+                    // Process results with relaxed criteria for short routes
+                    const allPlaces = [
+                        ...(busStopsResponse.data.results || []),
+                        ...(transitResponse.data.results || [])
+                    ];
+                    
+                    for (const place of allPlaces.slice(0, 3)) {
+                        if (place.rating && place.rating >= 3.0 && 
+                            place.name.length > 3 && 
+                            !foundNames.has(place.name)) {
+                            
+                            foundNames.add(place.name);
+                            busStops.push({
+                                name: place.name,
+                                location: place.geometry.location,
+                                type: 'local_bus_stop',
+                                vicinity: place.vicinity || '',
+                                rating: place.rating,
+                                distanceFromStart: distanceFromStart,
+                                place_id: place.place_id
+                            });
+                        }
+                    }
+                    
+                    // Rate limiting
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                    
+                } catch (searchError) {
+                    console.log(`⚠️ Search error at ${distanceFromStart.toFixed(1)}km: ${searchError.message}`);
+                }
+            }
+            
+        } else if (isMediumRoute || isLongRoute) {
+            console.log(`🚌 ${isLongRoute ? 'Long intercity' : 'Medium'} route detected - searching for major terminals`);
+            
+            // Filter out common city stop names for longer routes
+            const cityStopFilters = [
+                'borella', 'kollupitiya', 'bambalapitiya', 'wellawatte', 'dehiwala',
+                'mount lavinia', 'moratuwa', 'panadura', 'kalutara', 'beruwala',
+                'liberty', 'fort', 'pettah local', 'maradana', 'dematagoda'
+            ];
+            
+            // Calculate search points
+            const searchPoints = Math.min(12, Math.max(4, Math.floor(distance / 10))); // 1 search per 10km
+            
+            for (let i = 1; i < searchPoints - 1; i++) { // Skip first and last points to avoid origin/destination local stops
+                const progress = i / (searchPoints - 1);
+                const coordIndex = Math.floor(progress * (routePath.length - 1));
+                const coord = routePath[coordIndex];
+                const distanceFromStart = progress * distance;
+                
+                console.log(`🔍 Searching at ${distanceFromStart.toFixed(1)}km...`);
+                
+                try {
+                    // Search only for major bus terminals with stricter criteria
+                    const placesResponse = await axios.get(
+                        `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${coord.lat},${coord.lng}&radius=3000&type=bus_station&key=${apiKey}`
+                    );
+                    
+                    // Process only high-quality, major terminals
+                    for (const place of (placesResponse.data.results || [])) {
+                        // Strict quality filters for intercity terminals
+                        if (place.rating && place.rating >= 4.0 && 
+                            place.user_ratings_total >= 50 && 
+                            place.name.length > 5) {
+                            
+                            const lowerName = place.name.toLowerCase();
+                            
+                            // Filter out city-specific stops
+                            const isCityStop = cityStopFilters.some(filter => lowerName.includes(filter));
+                            
+                            // Only include if it's a major terminal or includes 'stand', 'terminal', 'depot'
+                            const isMajorTerminal = lowerName.includes('stand') || 
+                                                  lowerName.includes('terminal') || 
+                                                  lowerName.includes('depot') ||
+                                                  lowerName.includes('interchange');
+                            
+                            if (!isCityStop && isMajorTerminal && !foundNames.has(place.name)) {
+                                foundNames.add(place.name);
+                                busStops.push({
+                                    name: place.name,
+                                    location: place.geometry.location,
+                                    type: 'major_terminal',
+                                    vicinity: place.vicinity || '',
+                                    rating: place.rating,
+                                    distanceFromStart: distanceFromStart,
+                                    place_id: place.place_id
+                                });
                             }
                         }
                     }
                     
-                    samplesProcessed++;
+                    // If no major terminals found, look for significant towns only
+                    if (placesResponse.data.results.length === 0) {
+                        const geocodeResponse = await axios.get(
+                            `https://maps.googleapis.com/maps/api/geocode/json?latlng=${coord.lat},${coord.lng}&result_type=locality&key=${apiKey}`
+                        );
+                        
+                        if (geocodeResponse.data.results && geocodeResponse.data.results.length > 0) {
+                            const location = geocodeResponse.data.results[0];
+                            const components = location.address_components;
+                            
+                            const townComponent = components.find(comp => comp.types.includes('locality'));
+                            
+                            if (townComponent && townComponent.long_name.length > 3 && 
+                                !foundNames.has(townComponent.long_name) &&
+                                !cityStopFilters.some(filter => townComponent.long_name.toLowerCase().includes(filter))) {
+                                
+                                foundNames.add(townComponent.long_name);
+                                busStops.push({
+                                    name: `${townComponent.long_name}`,
+                                    location: location.geometry.location,
+                                    type: 'major_town',
+                                    vicinity: location.formatted_address,
+                                    distanceFromStart: distanceFromStart,
+                                    isTown: true
+                                });
+                            }
+                        }
+                    }
                     
-                    // Moderate delay to respect API limits
-                    await new Promise(resolve => setTimeout(resolve, 200));
+                    // Rate limiting
+                    await new Promise(resolve => setTimeout(resolve, 500));
                     
-                } catch (error) {
-                    console.log(`⚠️ Geocoding error at waypoint ${samplesProcessed+1}`);
-                    samplesProcessed++;
+                } catch (searchError) {
+                    console.log(`⚠️ Search error at ${distanceFromStart.toFixed(1)}km: ${searchError.message}`);
                 }
             }
-            
-            const cityArray = Array.from(majorCities).filter(city => city && city.length > 3).sort();
-            
-            console.log(`✅ FINAL RESULT: Found ${cityArray.length} major cities along ${distance}km route`);
-            console.log(`🏙️ Major cities: ${cityArray.join(' → ')}`);
-            
-            // Return actual detected cities count, minimum 2 for valid routes
-            const finalCityCount = Math.max(2, cityArray.length);
-            
-            return {
-                distance: distance,
-                duration: duration,
-                cities: cityArray,
-                numberOfCities: finalCityCount
-            };
-        }
-
-        // Fallback: Realistic distance-based estimation
-        console.log('📏 Using realistic distance-based estimation...');
-        
-        let estimatedCities;
-        if (distance <= 15) {
-            estimatedCities = Math.max(3, Math.ceil(distance / 3)); // 3-5 cities for short routes
-        } else if (distance <= 30) {
-            estimatedCities = Math.max(5, Math.ceil(distance / 4)); // 5-8 cities for medium-short routes
-        } else if (distance <= 60) {
-            estimatedCities = Math.max(8, Math.ceil(distance / 5)); // 8-12 cities for medium routes
-        } else if (distance <= 100) {
-            estimatedCities = Math.max(12, Math.ceil(distance / 6)); // 12-17 cities for long routes
-        } else {
-            estimatedCities = Math.max(15, Math.ceil(distance / 7)); // 15-20+ cities for very long routes
         }
         
-        console.log(`📏 Realistic estimate: ${estimatedCities} cities for ${distance}km route`);
+        // Sort stops by distance from start
+        const sortedStops = busStops.sort((a, b) => a.distanceFromStart - b.distanceFromStart);
+        
+        console.log(`✅ Found ${sortedStops.length} main stops:`);
+        sortedStops.forEach((stop, i) => {
+            console.log(`   ${i + 1}. ${stop.name} (${stop.distanceFromStart.toFixed(1)}km)`);
+        });
         
         return {
-            distance: distance,
+            distance: distance.toFixed(1),
             duration: duration,
-            cities: [],
-            numberOfCities: estimatedCities
+            numberOfStops: sortedStops.length,
+            busStops: sortedStops,
+            method: sortedStops.length > 6 ? 'comprehensive_search' : 'basic_search'
         };
-
+        
     } catch (error) {
-        console.error('Error finding cities along route:', error);
+        console.error('❌ Error finding bus stops:', error);
         throw error;
     }
 };
 
-// Helper function to decode Google polyline
+// Decode Google polyline
 const decodePolyline = (encoded) => {
     const poly = [];
     let index = 0, len = encoded.length;
@@ -237,79 +253,151 @@ const decodePolyline = (encoded) => {
         const dlng = ((result & 1) ? ~(result >> 1) : (result >> 1));
         lng += dlng;
 
-        poly.push({ lat: lat / 1e5, lng: lng / 1e5 });
+        poly.push({ lat: lat / 1E5, lng: lng / 1E5 });
     }
     return poly;
 };
 
+// Main fare calculation function
 const calculateFare = async (req, res) => {
+    req.startTime = Date.now();
+    
     try {
         const { origin, destination } = req.body;
-
+        
         if (!origin || !destination) {
-            return res.status(400).json({ message: 'Origin and destination are required' });
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Origin and destination are required' 
+            });
         }
 
-        const googleMapsApiKey = process.env.GOOGLE_MAPS_API_KEY;
-        if (!googleMapsApiKey) {
-            return res.status(500).json({ message: 'Google Maps API key not configured' });
-        }
+        console.log(`\n🚌 === FARE CALCULATION REQUEST ===`);
+        console.log(`📍 From: ${origin}`);
+        console.log(`📍 To: ${destination}`);
 
+        const googleMapsApiKey = "AIzaSyAeXR9ct7HrHMCQXSWLrWQl5OlRYjNhbxo";
+        
         // Get coordinates for origin and destination
         const originCoords = await getLatLng(origin, googleMapsApiKey);
         const destCoords = await getLatLng(destination, googleMapsApiKey);
-
+        
         if (!originCoords || !destCoords) {
-            return res.status(400).json({ message: 'Invalid origin or destination' });
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Could not find coordinates for origin or destination' 
+            });
         }
 
-        // Get cities along the route (conservative approach)
-        const routeInfo = await getBusStopsAlongRoute(originCoords, destCoords, googleMapsApiKey);
+        // Find main bus stops along the route
+        const routeInfo = await findMainBusStops(originCoords, destCoords, googleMapsApiKey);
         
-        // Calculate fare based on number of major cities detected
-        let numberOfSections = Math.max(1, routeInfo.numberOfCities);
+        console.log(`\n💰 FARE CALCULATION:`);
+        console.log(`📏 Distance: ${routeInfo.distance}km`);
+        console.log(`🚏 Major intercity stops detected: ${routeInfo.numberOfStops}`);
         
-        console.log(`💰 Fare calculation: ${routeInfo.numberOfCities} major cities detected, ${numberOfSections} billable sections`);
-        console.log(`🏙️ Major cities along route: ${routeInfo.cities.length > 0 ? routeInfo.cities.join(', ') : 'estimated based on distance'}`);
+        // Improved fare calculation for Sri Lankan routes
+        const distance = parseFloat(routeInfo.distance);
+        const stops = routeInfo.numberOfStops;
+        let fareSection;
         
-        // Query the database for the appropriate fare using PostgreSQL syntax
-        const query = 'SELECT fare FROM bus_fares WHERE section <= $1 ORDER BY section DESC LIMIT 1';
-        const fareResult = await db.query(query, [numberOfSections]);
-
-        let calculatedFare;
-        if (fareResult.rows && fareResult.rows.length > 0) {
-            calculatedFare = parseFloat(fareResult.rows[0].fare);
+        if (distance < 10) {
+            // Short local routes (under 10km) - aim for 50-70 LKR range
+            // For 7.5km route targeting 60 LKR, need section 4-5
+            fareSection = Math.max(3, Math.ceil(distance * 0.3) + Math.ceil(stops * 0.4));
+        } else if (distance < 30) {
+            // Medium routes (10-30km)
+            fareSection = Math.max(5, Math.ceil(stops * 1.2) + Math.ceil(distance * 0.2));
+        } else if (distance < 60) {
+            // Long routes (30-60km)
+            fareSection = Math.max(8, Math.ceil(stops * 1.5) + Math.ceil(distance * 0.15));
+        } else if (distance < 100) {
+            // Very long routes (60-100km)
+            fareSection = Math.max(20, Math.ceil(stops * 2.0) + Math.ceil(distance * 0.1));
         } else {
-            // If no fare found in database, use a base calculation
-            calculatedFare = 25; // Base fare in LKR
+            // Intercity routes like Colombo-Kandy (100km+)
+            // For 116km route, aim for section 55-65 to get ~400 LKR
+            fareSection = Math.max(30, Math.ceil(distance * 0.5 + stops * 1.5));
         }
+        
+        console.log(`📊 Using section ${fareSection} for ${distance}km route (${stops} stops detected)`);
+        
+        // Query database for fare
+        const fareQuery = 'SELECT fare FROM bus_fares WHERE section = $1';
+        const fareResult = await db.query(fareQuery, [fareSection]);
+        
+        let finalFare = 0;
+        
+        if (fareResult.rows.length > 0) {
+            finalFare = parseFloat(fareResult.rows[0].fare);
+            console.log(`💵 Found exact fare: LKR ${finalFare} (section ${fareSection})`);
+        } else {
+            // Find closest section
+            const closestQuery = 'SELECT section, fare FROM bus_fares WHERE section <= $1 ORDER BY section DESC LIMIT 1';
+            const closestResult = await db.query(closestQuery, [fareSection]);
+            
+            if (closestResult.rows.length > 0) {
+                const baseFare = parseFloat(closestResult.rows[0].fare);
+                const baseSection = closestResult.rows[0].section;
+                
+                // Extrapolate based on section difference
+                const extraSections = fareSection - baseSection;
+                const farePerSection = baseFare / baseSection;
+                finalFare = baseFare + (extraSections * farePerSection);
+                
+                console.log(`💵 Extrapolated fare: LKR ${finalFare.toFixed(2)} (from section ${baseSection})`);
+            } else {
+                // Fallback estimation
+                finalFare = fareSection * 12; // Average LKR 12 per section
+                console.log(`💵 Estimated fare: LKR ${finalFare} (${fareSection} × LKR 12)`);
+            }
+        }
+        
+        // Round to nearest 5 rupees
+        finalFare = Math.round(finalFare / 5) * 5;
+        
+        console.log(`✅ FINAL FARE: LKR ${finalFare}`);
+        console.log(`🕒 Calculation time: ${((Date.now() - req.startTime) / 1000).toFixed(1)}s\n`);
+        
+        // Format stops for response
+        const formattedStops = routeInfo.busStops.map((stop, index) => ({
+            order: index + 1,
+            name: stop.name,
+            type: stop.type,
+            vicinity: stop.vicinity || null,
+            distanceKm: parseFloat(stop.distanceFromStart.toFixed(1)),
+            place_id: stop.place_id || null
+        }));
 
-        return res.json({
-            fare: calculatedFare,
-            numberOfCities: routeInfo.numberOfCities,
-            numberOfSections: numberOfSections,
-            distance: routeInfo.distance,
-            duration: routeInfo.duration,
-            cities: routeInfo.cities.slice(0, 10).map(city => ({ // Show up to 10 cities
-                name: city.charAt(0).toUpperCase() + city.slice(1), // Capitalize first letter
-                type: 'city'
-            })),
+        res.json({
+            success: true,
+            fare: finalFare,
+            currency: 'LKR',
             route: {
-                origin: { coordinates: originCoords },
-                destination: { coordinates: destCoords }
+                origin: origin,
+                destination: destination,
+                distance: `${routeInfo.distance} km`,
+                duration: routeInfo.duration
             },
             calculation: {
-                method: routeInfo.numberOfCities > 0 ? 'major_cities_detected' : 'distance_estimated',
-                routeDistance: routeInfo.distance,
-                citiesMethod: routeInfo.cities.length > 0 ? 'google_geocoded' : 'conservative_estimated'
+                stopsDetected: routeInfo.numberOfStops,
+                baseFare: finalFare,
+                finalFare: finalFare,
+                method: routeInfo.method
+            },
+            busStops: formattedStops,
+            meta: {
+                timestamp: new Date().toISOString(),
+                processingTime: `${((Date.now() - req.startTime) / 1000).toFixed(1)}s`
             }
         });
 
     } catch (error) {
-        console.error('Error calculating fare:', error);
-        return res.status(500).json({ 
+        console.error('❌ Error calculating fare:', error);
+        res.status(500).json({ 
+            success: false, 
             message: 'Error calculating fare',
-            error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+            error: error.message 
         });
     }
 };
