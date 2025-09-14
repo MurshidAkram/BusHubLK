@@ -902,7 +902,8 @@ export default function BusOccupancyScreen() {
               <Text style={styles.currentBusTitle}>Bus {currentBus.registration_number || currentBus.number}</Text>
             </View>
             <Text style={styles.currentBusRoute}>
-              {currentBus.route_name || currentBus.route} {currentBus.direction ? `(${currentBus.direction})` : ''}
+              {/* Only show route name if available, remove (unknown) */}
+              {currentBus.route_name ? currentBus.route_name : ''}
             </Text>
             <Text style={styles.subValue}>
               Route: {currentBus.route_number} | Status: {currentBus.tracking_status || 'Active'}
@@ -912,12 +913,7 @@ export default function BusOccupancyScreen() {
                 ? `${Math.round(currentBus.minutes_since_update)} minutes ago` 
                 : currentBus.updatedAt || 'Unknown'}
             </Text>
-            <View style={styles.confidenceContainer}>
-              <Text style={[styles.confidenceText, { color: getConfidenceColor(confidence) }]}>
-                {getConfidenceText(confidence)}: {confidence}%
-              </Text>
-              <Text style={styles.detectionReason}>{detectionReason}</Text>
-            </View>
+            {/* Hide confidence, distance, speed, movement correlation, data age from UI */}
             {busStatuses[currentBus.id]?.occupancy && (
               <View style={styles.currentOccupancy}>
                 <Text style={[
@@ -1012,7 +1008,19 @@ export default function BusOccupancyScreen() {
                       Route {bus?.route_number || 'Unknown'}
                     </Text>
                     <Text style={styles.statusTime}>
-                      {new Date(item.updated_at).toLocaleTimeString()}
+                      {(() => {
+                        // Convert to Sri Lankan time (UTC+5:30)
+                        const date = new Date(item.updated_at);
+                        // Get UTC time in ms, add 5.5 hours in ms
+                        const offsetMs = 5.5 * 60 * 60 * 1000;
+                        const slDate = new Date(date.getTime() + offsetMs);
+                        return slDate.toLocaleTimeString('en-US', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit',
+                          hour12: true,
+                        }) + ' (SL)';
+                      })()}
                     </Text>
                   </View>
                   <Text style={styles.statusBusNumber}>
