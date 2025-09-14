@@ -9,6 +9,7 @@ import {
   SafeAreaView,
   ActivityIndicator,
   Modal,
+  ScrollView,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
@@ -19,12 +20,12 @@ import { storageAPI } from '../services/api';
 import { busLiveTrackingAPI } from '../services/busLiveTrackingAPI';
 
 // Enhanced detection constants
-const MOVEMENT_HISTORY_SIZE = 10;
+const MOVEMENT_HISTORY_SIZE = 5;
 const SYNC_CORRELATION_THRESHOLD = 0.7;
 const SPEED_TOLERANCE = 5;
 const DIRECTION_TOLERANCE = 15;
 const HIGH_CONFIDENCE_THRESHOLD = 80;
-const MEDIUM_CONFIDENCE_THRESHOLD = 60;
+const MEDIUM_CONFIDENCE_THRESHOLD = 50;
 const LOCATION_UPDATE_INTERVAL = 5000;
 const BUS_DATA_REFRESH_INTERVAL = 10000; // Refresh bus data every 10 seconds
 
@@ -1038,7 +1039,9 @@ export default function BusOccupancyScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.container}>
+      {/* Remove <ScrollView> wrapper to avoid nesting VirtualizedLists */}
+      {/* Place FlatList or other VirtualizedList-backed components directly here */}
       <FlatList
         data={[]}
         keyExtractor={(item, index) => `empty-${index}`}
@@ -1110,6 +1113,10 @@ export default function BusOccupancyScreen() {
 
 const styles = StyleSheet.create({
   safeArea: {
+    flex: 1,
+    backgroundColor: '#f8f9fa',
+  },
+  container: {
     flex: 1,
     backgroundColor: '#f8f9fa',
   },
