@@ -192,6 +192,15 @@ const lostFoundRoutes = require('./routes/lostFoundRoutes');
 app.use('/api/lost-found', lostFoundRoutes);
 console.log('✅ lostFoundRoutes loaded');
 
+// Add complaint routes
+try {
+  const complaintRoutes = require('./routes/complaintRoutes');
+  app.use('/api/complaints', complaintRoutes);
+  console.log('✅ complaintRoutes loaded');
+} catch (error) {
+  console.log('❌ complaintRoutes error:', error.message);
+}
+
 try {
 const notificationRoutes = require('./routes/notificationRoutes');
 app.use('/api/notifications', notificationRoutes);

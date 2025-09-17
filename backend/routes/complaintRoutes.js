@@ -27,9 +27,16 @@ router.get('/my-complaints', authenticateJWT, complaintController.getUserComplai
 router.get('/:id', authenticateJWT, complaintController.getComplaintById);
 router.delete('/:id', authenticateJWT, complaintController.deleteComplaint);
 
-// --- Admin-only Routes ---
-// These routes should require both authentication and an admin role.
-router.get('/', authenticateJWT, authorizeAdmin, complaintController.getAllComplaints);
-router.put('/:id/status', authenticateJWT, authorizeAdmin, complaintController.updateComplaintStatus);
+// Routes for admin and depot operations
+const authorizeComplaintAccess = (req, res, next) => {
+  if (!['admin', 'depot_operations'].includes(req.user.role)) {
+    return res.status(403).json({ error: 'Access restricted to admin and depot operations staff' });
+  }
+  next();
+};
+
+router.get('/', authenticateJWT, authorizeComplaintAccess, complaintController.getAllComplaints);
+router.put('/:id/status', authenticateJWT, authorizeComplaintAccess, complaintController.updateComplaintStatus);
+
 
 module.exports = router;

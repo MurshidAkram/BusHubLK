@@ -45,6 +45,7 @@ import CrewManagement from './pages/dashboards/depot-ops/CrewManagement'
 import IncidentManagement from './pages/dashboards/depot-ops/IncidentManagement'  
 import AnnouncementCenter from './pages/dashboards/depot-ops/AnnouncementCenter'
 import OperationsReports from './pages/dashboards/depot-ops/OperationsReports'
+import Complaints from './pages/dashboards/depot-ops/Complaints'
 
 // Depot Engineer Components  
 import DepotEngineerSidebarContent from './components/depot-engineer/DepotEngineerSidebarContent'
@@ -203,6 +204,7 @@ const App = () => {
           <Route path="incident-management" element={<IncidentManagement />} />
           <Route path="announcement-center" element={<AnnouncementCenter />} />
           <Route path="operations-reports" element={<OperationsReports />} />
+          <Route path="passenger-complaints" element={<Complaints />} />
           </Route>
         </Route>
 
