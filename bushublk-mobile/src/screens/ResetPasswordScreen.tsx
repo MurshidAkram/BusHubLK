@@ -130,7 +130,7 @@ export default function ResetPasswordScreen() {
     setIsLoading(true);
     try {
       // Corrected Endpoint to match backend router.post('/reset', ...)
-      const response = await fetch(`${API_BASE_URL}/password-reset/reset`, {
+      const response = await fetch(`${API_BASE_URL}/api/password-reset/reset`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

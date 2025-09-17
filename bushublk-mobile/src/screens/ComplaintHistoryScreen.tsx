@@ -1,4 +1,6 @@
-import React, { useState, useCallback } from "react";
+
+import React, { useState, useEffect, useCallback } from "react";
+
 import {
   StyleSheet,
   View,
@@ -28,12 +30,12 @@ const AppColors = {
   warning: "#F59E0B",
   danger: "#EF4444",
   shadow: "rgba(15, 23, 42, 0.08)",
+
 };
 
 export default function ComplaintHistoryScreen() {
   const navigation = useNavigation();
 
-  // --- All of your existing logic and state are preserved ---
   const [complaints, setComplaints] = useState([]);
   const [loading, setLoading] = useState(true); // Initial loading state
   const [refreshing, setRefreshing] = useState(false);
@@ -45,6 +47,7 @@ export default function ComplaintHistoryScreen() {
         Alert.alert("Authentication Error", "Please log in to view your complaints.");
         return;
       }
+
 
       const baseURL = "http://192.168.43.114:5000";
       const response = await fetch(`${baseURL}/api/complaints/my-complaints`, {
@@ -66,6 +69,7 @@ export default function ComplaintHistoryScreen() {
       console.error("Error fetching complaints:", error);
       Alert.alert("Error", "Failed to fetch complaints. Please try again.");
     } finally {
+
       setLoading(false);
       setRefreshing(false);
     }
@@ -74,9 +78,11 @@ export default function ComplaintHistoryScreen() {
   useFocusEffect(
     useCallback(() => {
       setLoading(true); // Show loader when screen is focused
+
       fetchUserComplaints();
     }, [])
   );
+
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -142,12 +148,14 @@ export default function ComplaintHistoryScreen() {
                   <Text style={styles.complaintDate}>Filed on {formatDate(complaint.created_at)}</Text>
                 </View>
                 <View style={[styles.statusBadge, { backgroundColor: statusStyle.backgroundColor }]}>
+
                   <Text style={styles.statusText}>{complaint.status}</Text>
                 </View>
               </View>
 
               <View style={styles.cardBody}>
                 <View style={styles.infoRow}>
+
                   <Ionicons name="bus-outline" size={18} color={AppColors.textSecondary} />
                   <Text style={styles.infoText}>Route <Text style={styles.infoBold}>{complaint.route_number}</Text></Text>
                 </View>
@@ -195,6 +203,7 @@ export default function ComplaintHistoryScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[AppColors.primary]} tintColor={AppColors.primary} />}
       >
         {renderContent()}
+
       </ScrollView>
     </SafeAreaView>
   );
@@ -209,13 +218,16 @@ const styles = StyleSheet.create({
     padding: 20,
     flexGrow: 1,
   },
+
   headerGradient: {
     paddingBottom: 10,
   },
+
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+
     paddingHorizontal: 20,
     paddingVertical: 15,
     height: 70,
@@ -228,6 +240,7 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 22,
     fontWeight: "700",
+
   },
   headerIconContainer: {
     padding: 5,
@@ -241,6 +254,7 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 22,
     fontWeight: "700",
+
     color: AppColors.text,
     marginTop: 20,
   },
@@ -259,6 +273,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
     borderRadius: 12,
     elevation: 2,
+
   },
   submitButtonText: {
     color: "#FFFFFF",
@@ -283,6 +298,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: AppColors.border,
   },
+
   statusIcon: {
     width: 44,
     height: 44,
@@ -304,6 +320,7 @@ const styles = StyleSheet.create({
   complaintDate: {
     fontSize: 13,
     color: AppColors.textSecondary,
+
   },
   statusBadge: {
     paddingHorizontal: 10,
@@ -319,6 +336,7 @@ const styles = StyleSheet.create({
   cardBody: {
     paddingHorizontal: 20,
     paddingTop: 15,
+
   },
   infoRow: {
     flexDirection: "row",
@@ -333,4 +351,5 @@ const styles = StyleSheet.create({
   infoBold: {
     fontWeight: '600',
   }
+
 });
