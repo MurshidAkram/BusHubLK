@@ -58,8 +58,18 @@ static async getRoleSpecificDetails(user_id, role_name) {
         tableName: 'conductors',
         idColumn: 'conductor_id',
         fields: ['depot_id', 'region_id']
-    }
-    // Add other roles that have specific tables, e.g., regional officers
+    },
+    regional_tech: {
+        tableName: 'regional_technical_officers',
+        idColumn: 'rto_id',
+        fields: ['region_id']
+      },
+      regional_operations: {
+        tableName: 'regional_operations_officers',
+        idColumn: 'roo_id',
+        fields: ['region_id']
+      }
+  // Add other roles that have specific tables, e.g., regional officers
   };
 
   const mapping = roleToTableMap[role_name];

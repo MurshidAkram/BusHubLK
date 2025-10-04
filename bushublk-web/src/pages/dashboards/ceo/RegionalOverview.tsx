@@ -20,29 +20,39 @@ type Depot = {
 const data: Record<string, Record<string, Depot[]>> = {
   'Western Province': {
     'Colombo District': [
-      { id: 1, name: 'Colombo Depot',   vehicles: 120, staff: 100, effeciency:80 },
-      { id: 2, name: 'Homagama Depot',  vehicles: 80, staff: 80, effeciency:75 },
-      { id: 3, name: 'Moratuwa Depot',  vehicles: 70, staff: 70, effeciency:90},
+      { id: 1, name: 'Colombo Central Depot',   vehicles: 120, staff: 100, effeciency:80 },
+      { id: 2, name: 'Avissawella Depot',  vehicles: 70, staff: 50, effeciency:90 },
+      { id: 3, name: 'Homagama Depot',  vehicles: 80, staff: 80, effeciency:75 },
+      { id: 4, name: 'Maharagama Depot',  vehicles: 60, staff: 40, effeciency:85 },
+      { id: 5, name: 'Moratuwa Depot',  vehicles: 70, staff: 70, effeciency:90},
+      { id: 6, name: 'Thalangama Depot',  vehicles: 75, staff: 60, effeciency:85 },
     ],
     'Gampaha District': [
-      { id: 4, name: 'Gampaha Depot',   vehicles: 70, staff: 50, effeciency:90 },
-      { id: 5, name: 'Negombo Depot',   vehicles: 65, staff: 45, effeciency:82 },
+      { id: 7, name: 'Gampaha Depot',   vehicles: 70, staff: 50, effeciency:90 },
+      { id: 8, name: 'Kelaniya Depot',  vehicles: 60, staff: 40, effeciency:75 },
+      { id: 9, name: 'Negombo Depot',   vehicles: 65, staff: 45, effeciency:82 },
     ],
     'Kaluthara District': [
-      { id: 8, name: 'Kaluthara Depot',  vehicles: 70, staff: 60, effeciency:90},
-      { id: 8, name: 'Panadura Depot',  vehicles: 60, staff: 50, effeciency:85},
+      { id: 10, name: 'Kaluthara Depot',  vehicles: 70, staff: 60, effeciency:90},
+      { id: 11, name: 'Mathugama Depot',  vehicles: 60, staff: 50, effeciency:75 },
+      { id: 12, name: 'Panadura Depot',  vehicles: 80, staff: 65, effeciency:85},
     ],
   },
   'Central Province': {
     'Kandy District': [
-      { id: 6, name: 'Kandy North Depot', vehicles: 80, staff: 50, effeciency:75 },
-      { id: 7, name: 'Kandy South Depot', vehicles: 75, staff: 40, effeciency:70 },
+      { id: 1, name: 'Kandy North Depot', vehicles: 80, staff: 50, effeciency:75 },
+      { id: 2, name: 'Kandy South Depot', vehicles: 75, staff: 40, effeciency:70 },
+      { id: 3, name: 'Theldeniya Depot', vehicles: 45, staff: 30, effeciency:70 },
     ],
     'Nuwara-Eliya District': [
-      { id: 8, name: 'Nuwara-Eliya Depot', vehicles: 40, staff: 60, effeciency:80 },
+      { id: 4, name: 'Nuwara-Eliya Depot', vehicles: 40, staff: 60, effeciency:80 },
+      { id: 5, name: 'Kothmale Depot', vehicles: 35, staff: 20, effeciency:75 },
+      { id: 6, name: 'Walapane Depot', vehicles: 40, staff: 30, effeciency:90 },
     ],
     'Matale District': [
-      { id: 8, name: 'Matale Depot', vehicles: 40, staff: 60, effeciency:80 },
+      { id: 7, name: 'Matale Depot', vehicles: 50, staff: 40, effeciency:80 },
+      { id: 8, name: 'Dambulla Depot', vehicles: 65, staff: 50, effeciency:90 },
+      { id: 9, name: 'Raththota Depot', vehicles: 45, staff: 30, effeciency:75 },
     ],
   },
   'Southern Province': {

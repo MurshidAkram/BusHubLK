@@ -1,11 +1,18 @@
 const express = require('express');
+const http = require('http'); // Import http module
 const path = require('path');
 const cors = require('cors');
 const morgan = require('morgan');
 require('dotenv').config(); // Load environment variables at the very beginning
 
+const setupWebSocket = require('./websocket'); // Import WebSocket setup
+
+
 const app = express();
+const server = http.createServer(app); // Create HTTP server from Express app
 const PORT = process.env.PORT || 5000;
+const io = setupWebSocket(server);
+
 
 // Basic CORS configuration
 app.use(cors({
