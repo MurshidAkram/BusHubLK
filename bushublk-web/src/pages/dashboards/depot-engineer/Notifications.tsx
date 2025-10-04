@@ -1,16 +1,20 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { FaBell, FaExclamationTriangle, FaClock, FaCheckCircle, FaTimes } from 'react-icons/fa';
+import { FaBell, FaExclamationTriangle, FaClock, FaCheckCircle, FaTimes, FaCalendarAlt, FaExclamationCircle, FaFileAlt, FaExclamation } from 'react-icons/fa';
 import { AppContext } from '../../../context/AppContext';
 
 interface Notification {
-  id: number;
+  id: number | string;
   title: string;
   message: string;
-  type: 'inspection' | 'urgent' | 'info' | 'success' | 'warning';
+  type: 'inspection' | 'urgent' | 'info' | 'success' | 'warning' | 'overdue' | 'critical_overdue' | 'schedule' | 'condition_report' | 'emergency' | 'due_today';
   read: boolean;
   created_at: string;
   inspection_id?: number;
+  schedule_id?: number;
+  bus_registration?: string;
   assigned_by?: string;
+  category?: 'inspection' | 'scheduling' | 'condition_reports' | 'emergency_reports';
+  priority?: number; // 1 = highest priority (critical), 4 = lowest priority
 }
 
 const Notifications: React.FC = () => {
@@ -18,6 +22,7 @@ const Notifications: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
   const [filter, setFilter] = useState<string>('all'); // all, unread, read
+  const [categoryFilter, setCategoryFilter] = useState<string>('all'); 
 
   const context = useContext(AppContext);
 
@@ -33,26 +38,312 @@ const Notifications: React.FC = () => {
           return;
         }
 
-        // Fetch all notifications for the current user
-        const response = await fetch('http://localhost:5000/api/notifications', {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${context.token}`,
-            'Content-Type': 'application/json'
+        // Fetch all notifications including scheduling ones
+        const requests = [
+          // Fetch general notifications
+          fetch('http://localhost:5000/api/notifications', {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${context.token}`,
+              'Content-Type': 'application/json'
+            }
+          }),
+          // Fetch scheduling statistics to create notifications
+          fetch('http://localhost:5000/api/depot-engineer/service-schedules/stats', {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${context.token}`,
+              'Content-Type': 'application/json'
+            }
+          })
+        ];
+
+        // Add inspection notifications fetch if available
+        try {
+          requests.push(
+            fetch('http://localhost:5000/api/inspections/depot-engineer', {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${context.token}`,
+                'Content-Type': 'application/json'
+              }
+            })
+          );
+        } catch (e) {
+          console.log('Inspection API not available, continuing with other notifications');
+        }
+
+        // Add bus condition reports fetch
+        try {
+          requests.push(
+            fetch('http://localhost:5000/api/bus-condition-reports', {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${context.token}`,
+                'Content-Type': 'application/json'
+              }
+            })
+          );
+        } catch (e) {
+          console.log('Bus condition reports API not available, continuing with other notifications');
+        }
+
+        // Add emergency reports fetch
+        try {
+          requests.push(
+            fetch('http://localhost:5000/api/depot/emergency', {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${context.token}`,
+                'Content-Type': 'application/json'
+              }
+            })
+          );
+        } catch (e) {
+          console.log('Emergency reports API not available, continuing with other notifications');
+        }
+
+        const responses = await Promise.all(requests.map(req => 
+          req.catch(err => {
+            console.log('Request failed:', err);
+            return { ok: false, json: () => Promise.resolve({ success: false }) };
+          })
+        ));
+
+        const generalData = await responses[0].json();
+        const schedulingData = await responses[1].json();
+        const inspectionData = responses[2] ? await responses[2].json() : { success: false };
+        const conditionReportsData = responses[3] ? await responses[3].json() : { success: false };
+        const emergencyReportsData = responses[4] ? await responses[4].json() : { success: false };
+
+        if (!responses[0].ok && !generalData.success) {
+          console.warn('General notifications failed, continuing with other sources');
+        }
+
+        let allNotifications = [];
+
+        // Add general notifications
+        if (generalData.success) {
+          console.log('📧 Raw general notifications from API:', generalData.notifications);
+          
+          const generalNotifications = (generalData.notifications || []).map((notif: any) => {
+            const mappedNotif = {
+              ...notif,
+              // Set category based on notification type or content if not already set
+              category: notif.category || 
+                       (notif.type === 'inspection' ? 'inspection' : 
+                        notif.title?.toLowerCase().includes('inspection') ? 'inspection' :
+                        notif.message?.toLowerCase().includes('inspection') ? 'inspection' :
+                        notif.type === 'condition_report' ? 'condition_reports' :
+                        notif.title?.toLowerCase().includes('condition') ? 'condition_reports' :
+                        notif.message?.toLowerCase().includes('condition') ? 'condition_reports' :
+                        notif.type === 'emergency' ? 'emergency_reports' :
+                        notif.title?.toLowerCase().includes('emergency') ? 'emergency_reports' :
+                        notif.message?.toLowerCase().includes('emergency') ? 'emergency_reports' :
+                        notif.type === 'urgent' ? 'emergency_reports' : 'condition_reports'),
+              // Set priority based on type
+              priority: notif.priority || 
+                       (notif.type === 'urgent' ? 2 : 
+                        notif.type === 'emergency' ? 2 :
+                        notif.type === 'warning' ? 3 : 
+                        notif.type === 'inspection' ? 3 : 
+                        notif.type === 'condition_report' ? 4 : 5) // Normal priority for other notifications
+            };
+            
+            if (notif.type === 'inspection' || mappedNotif.category === 'inspection') {
+              console.log('🔍 Found inspection notification:', {
+                id: mappedNotif.id,
+                title: mappedNotif.title,
+                type: mappedNotif.type,
+                category: mappedNotif.category,
+                original_category: notif.category
+              });
+            }
+            
+            return mappedNotif;
+          });
+          
+          allNotifications = generalNotifications;
+          console.log('📊 Notification categories:', {
+            inspection: generalNotifications.filter((n: any) => n.category === 'inspection').length,
+            condition_reports: generalNotifications.filter((n: any) => n.category === 'condition_reports').length,
+            emergency_reports: generalNotifications.filter((n: any) => n.category === 'emergency_reports').length,
+            total: generalNotifications.length
+          });
+        }
+
+        // Add inspection-specific notifications if available
+        if (inspectionData.success && inspectionData.inspections) {
+          const inspectionNotifications = inspectionData.inspections
+            .filter((inspection: any) => inspection.needs_attention || inspection.status === 'pending')
+            .map((inspection: any) => ({
+              id: `inspection_${inspection.id}_${Date.now()}`,
+              title: `Inspection Required: ${inspection.bus_registration}`,
+              message: `Bus ${inspection.bus_registration} requires inspection. ${inspection.notes || 'Please complete the inspection as soon as possible.'}`,
+              type: 'inspection',
+              category: 'inspection',
+              read: false,
+              created_at: inspection.created_at || new Date().toISOString(),
+              inspection_id: inspection.id,
+              bus_registration: inspection.bus_registration,
+              priority: 3
+            }));
+          
+          allNotifications.push(...inspectionNotifications);
+          console.log('Inspection-specific notifications added:', inspectionNotifications.length);
+        }
+
+        // Add bus condition reports notifications
+        if (conditionReportsData.success && conditionReportsData.data) {
+          console.log('🚗 Processing bus condition reports:', conditionReportsData.data.length);
+          const conditionNotifications = conditionReportsData.data
+            .filter((report: any) => {
+              // Only include unreviewed reports (review_status = 'pending' or null)
+              return report.review_status === 'pending' || !report.review_status;
+            })
+            .map((report: any) => ({
+              id: `condition_${report.report_id}_${Date.now()}`,
+              title: `Bus Condition Report: ${report.registration_number || 'Unknown Bus'}`,
+              message: `Driver ${report.driver_first_name || ''} ${report.driver_last_name || ''} reported: ${report.condition_status}. ${report.description || 'No description provided.'}`,
+              type: 'condition_report',
+              category: 'condition_reports',
+              read: false,
+              created_at: report.report_time || report.created_at || new Date().toISOString(),
+              bus_registration: report.registration_number,
+              priority: report.condition_status?.toLowerCase().includes('critical') ? 2 : 
+                       report.condition_status?.toLowerCase().includes('urgent') ? 2 : 4
+            }));
+          
+          allNotifications.push(...conditionNotifications);
+          console.log('🚗 Bus condition notifications added:', conditionNotifications.length);
+        }
+
+        // Add emergency reports notifications (only pending status)
+        if (emergencyReportsData.success && emergencyReportsData.data) {
+          console.log('🚨 Processing emergency reports:', emergencyReportsData.data.length);
+          const emergencyNotifications = emergencyReportsData.data
+            .filter((report: any) => {
+              // Only include reports with exactly "Pending" status
+              return report.status === 'Pending';
+            })
+            .map((report: any) => ({
+              id: `emergency_${report.id}_${Date.now()}`,
+              title: `Emergency Report: ${report.incident_type || 'Unknown Incident'}`,
+              message: `Driver ${report.driver_name || 'Unknown'} reported: ${report.description || 'No description provided'}. Location: ${report.latitude && report.longitude ? `${Number(report.latitude).toFixed(4)}, ${Number(report.longitude).toFixed(4)}` : 'Unknown'}`,
+              type: 'emergency',
+              category: 'emergency_reports',
+              read: false,
+              created_at: report.created_at || new Date().toISOString(),
+              bus_registration: report.vehicle_registration,
+              priority: 1 // Emergency reports always have highest priority
+            }));
+          
+          allNotifications.push(...emergencyNotifications);
+          console.log('🚨 Emergency notifications added:', emergencyNotifications.length);
+        }
+
+        // Create scheduling notifications from statistics
+        if (schedulingData.success && schedulingData.stats) {
+          const stats = schedulingData.stats;
+          
+          // Create critical overdue notification (highest priority)
+          if (stats.critical_overdue_count > 0) {
+            allNotifications.push({
+              id: `critical_overdue_${Date.now()}`,
+              title: 'Critical Overdue Services',
+              message: `You have ${stats.critical_overdue_count} critical overdue service${stats.critical_overdue_count > 1 ? 's' : ''} that require immediate attention.`,
+              type: 'critical_overdue',
+              category: 'scheduling',
+              read: false,
+              created_at: new Date().toISOString(),
+              schedule_id: null,
+              priority: 1
+            });
+          }
+
+          // Create overdue notification (high priority)
+          if (stats.overdue_count > 0) {
+            allNotifications.push({
+              id: `overdue_${Date.now()}`,
+              title: 'Overdue Services',
+              message: `You have ${stats.overdue_count} overdue service${stats.overdue_count > 1 ? 's' : ''} that need to be addressed.`,
+              type: 'overdue',
+              category: 'scheduling',
+              read: false,
+              created_at: new Date().toISOString(),
+              schedule_id: null,
+              priority: 2
+            });
+          }
+
+          // Create due today notification (high priority)
+          if (stats.due_today_count > 0) {
+            allNotifications.push({
+              id: `due_today_${Date.now()}`,
+              title: 'Services Due Today',
+              message: `You have ${stats.due_today_count} service${stats.due_today_count > 1 ? 's' : ''} scheduled for today that need attention.`,
+              type: 'due_today',
+              category: 'scheduling',
+              read: false,
+              created_at: new Date().toISOString(),
+              schedule_id: null,
+              priority: 3
+            });
+          }
+
+          // Create upcoming services notification (normal priority)
+          if (stats.upcoming_count > 0) {
+            allNotifications.push({
+              id: `upcoming_${Date.now()}`,
+              title: 'Upcoming Services',
+              message: `You have ${stats.upcoming_count} service${stats.upcoming_count > 1 ? 's' : ''} scheduled for the next 7 days.`,
+              type: 'schedule',
+              category: 'scheduling',
+              read: false,
+              created_at: new Date().toISOString(),
+              schedule_id: null,
+              priority: 4
+            });
+          }
+        }
+
+        const sortedNotifications = allNotifications.sort((a: Notification, b: Notification) => {
+          // Sort by priority first (1 = highest priority)
+          const priorityA = a.priority || 999;
+          const priorityB = b.priority || 999;
+          
+          if (priorityA !== priorityB) {
+            return priorityA - priorityB;
+          }
+          
+          // Then sort by read status (unread first)
+          if (a.read !== b.read) {
+            return a.read ? 1 : -1;
+          }
+          
+          // Finally sort by creation time (newest first)
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        });
+
+        console.log('🎯 Final notification summary:', {
+          total: sortedNotifications.length,
+          byCategory: {
+            inspection: sortedNotifications.filter((n: Notification) => n.category === 'inspection').length,
+            scheduling: sortedNotifications.filter((n: Notification) => n.category === 'scheduling').length,
+            condition_reports: sortedNotifications.filter((n: Notification) => n.category === 'condition_reports').length,
+            emergency_reports: sortedNotifications.filter((n: Notification) => n.category === 'emergency_reports').length,
+            uncategorized: sortedNotifications.filter((n: Notification) => !n.category).length
+          },
+          byPriority: {
+            critical: sortedNotifications.filter((n: Notification) => n.priority === 1).length,
+            high: sortedNotifications.filter((n: Notification) => n.priority === 2).length,
+            medium: sortedNotifications.filter((n: Notification) => n.priority === 3).length,
+            normal: sortedNotifications.filter((n: Notification) => n.priority === 4).length,
+            low: sortedNotifications.filter((n: Notification) => n.priority === 5).length
           }
         });
 
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.message || `HTTP error! status: ${response.status}`);
-        }
-
-        if (data.success) {
-          setNotifications(data.notifications || []);
-        } else {
-          setError(data.message || 'Failed to load notifications');
-        }
+        setNotifications(sortedNotifications);
       } catch (err: any) {
         console.error('Error fetching notifications:', err);
         setError(err.message || 'Failed to load notifications');
@@ -66,8 +357,22 @@ const Notifications: React.FC = () => {
   }, [context?.token]);
 
   // Mark notification as read
-  const markAsRead = async (notificationId: number) => {
+  const markAsRead = async (notificationId: number | string) => {
     try {
+      // Skip API call for generated notifications (string IDs)
+      if (typeof notificationId === 'string') {
+        setNotifications(prev => 
+          prev.map(notif => 
+            notif.id === notificationId ? { ...notif, read: true } : notif
+          )
+        );
+        // Refresh navbar notification count
+        if ((window as any).refreshNotificationCount) {
+          (window as any).refreshNotificationCount();
+        }
+        return;
+      }
+
       const response = await fetch(`http://localhost:5000/api/notifications/${notificationId}/read`, {
         method: 'PUT',
         headers: {
@@ -82,6 +387,10 @@ const Notifications: React.FC = () => {
             notif.id === notificationId ? { ...notif, read: true } : notif
           )
         );
+        // Refresh navbar notification count
+        if ((window as any).refreshNotificationCount) {
+          (window as any).refreshNotificationCount();
+        }
       }
     } catch (err) {
       console.error('Error marking notification as read:', err);
@@ -101,6 +410,10 @@ const Notifications: React.FC = () => {
 
       if (response.ok) {
         setNotifications(prev => prev.map(notif => ({ ...notif, read: true })));
+        // Refresh navbar notification count
+        if ((window as any).refreshNotificationCount) {
+          (window as any).refreshNotificationCount();
+        }
       }
     } catch (err) {
       console.error('Error marking all notifications as read:', err);
@@ -108,8 +421,18 @@ const Notifications: React.FC = () => {
   };
 
   // Delete notification
-  const deleteNotification = async (notificationId: number) => {
+  const deleteNotification = async (notificationId: number | string) => {
     try {
+      // For generated notifications (string IDs), just remove from state
+      if (typeof notificationId === 'string') {
+        setNotifications(prev => prev.filter(notif => notif.id !== notificationId));
+        // Refresh navbar notification count
+        if ((window as any).refreshNotificationCount) {
+          (window as any).refreshNotificationCount();
+        }
+        return;
+      }
+
       const response = await fetch(`http://localhost:5000/api/notifications/${notificationId}`, {
         method: 'DELETE',
         headers: {
@@ -120,6 +443,10 @@ const Notifications: React.FC = () => {
 
       if (response.ok) {
         setNotifications(prev => prev.filter(notif => notif.id !== notificationId));
+        // Refresh navbar notification count
+        if ((window as any).refreshNotificationCount) {
+          (window as any).refreshNotificationCount();
+        }
       }
     } catch (err) {
       console.error('Error deleting notification:', err);
@@ -133,6 +460,18 @@ const Notifications: React.FC = () => {
         return <FaExclamationTriangle className="text-blue-500" />;
       case 'urgent':
         return <FaExclamationTriangle className="text-red-500" />;
+      case 'emergency':
+        return <FaExclamation className="text-red-600" />;
+      case 'critical_overdue':
+        return <FaExclamationCircle className="text-red-600" />;
+      case 'overdue':
+        return <FaExclamationTriangle className="text-orange-500" />;
+      case 'due_today':
+        return <FaClock className="text-yellow-600" />;
+      case 'schedule':
+        return <FaCalendarAlt className="text-blue-500" />;
+      case 'condition_report':
+        return <FaFileAlt className="text-purple-500" />;
       case 'warning':
         return <FaExclamationTriangle className="text-yellow-500" />;
       case 'success':
@@ -146,9 +485,18 @@ const Notifications: React.FC = () => {
 
   // Filter notifications
   const filteredNotifications = notifications.filter(notification => {
-    if (filter === 'unread') return !notification.read;
-    if (filter === 'read') return notification.read;
-    return true; // all
+    // Filter by read/unread status
+    let passesStatusFilter = true;
+    if (filter === 'unread') passesStatusFilter = !notification.read;
+    if (filter === 'read') passesStatusFilter = notification.read;
+    
+    // Filter by category
+    let passesCategoryFilter = true;
+    if (categoryFilter !== 'all') {
+      passesCategoryFilter = notification.category === categoryFilter;
+    }
+    
+    return passesStatusFilter && passesCategoryFilter;
   });
 
   const unreadCount = notifications.filter(n => !n.read).length;
@@ -236,6 +584,41 @@ const Notifications: React.FC = () => {
           </div>
         </div>
 
+        {/* Category Filter */}
+        <div className="bg-white rounded-lg shadow-sm mb-6">
+          <div className="p-4">
+            <h3 className="text-sm font-medium text-gray-700 mb-3">Filter by Category</h3>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { key: 'all', label: 'All Categories', icon: FaBell },
+                { key: 'inspection', label: 'Inspections', icon: FaExclamationTriangle },
+                { key: 'scheduling', label: 'Scheduling', icon: FaCalendarAlt },
+                { key: 'condition_reports', label: 'Bus Condition Reports', icon: FaFileAlt },
+                { key: 'emergency_reports', label: 'Emergency Reports', icon: FaExclamation }
+              ].map(category => {
+                const categoryCount = category.key === 'all' 
+                  ? notifications.length 
+                  : notifications.filter(n => n.category === category.key).length;
+                
+                return (
+                  <button
+                    key={category.key}
+                    onClick={() => setCategoryFilter(category.key)}
+                    className={`inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      categoryFilter === category.key
+                        ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    <category.icon className="mr-2 h-4 w-4" />
+                    {category.label} ({categoryCount})
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
         {/* Notifications List */}
         <div className="space-y-4">
           {filteredNotifications.length > 0 ? (
@@ -245,13 +628,25 @@ const Notifications: React.FC = () => {
                 className={`bg-white rounded-lg shadow-sm border-l-4 p-6 ${
                   notification.read 
                     ? 'border-gray-300' 
-                    : notification.type === 'urgent' 
-                      ? 'border-red-500 bg-red-50'
-                      : notification.type === 'warning'
-                        ? 'border-yellow-500 bg-yellow-50'
-                        : notification.type === 'success'
-                          ? 'border-green-500 bg-green-50'
-                          : 'border-blue-500 bg-blue-50'
+                    : notification.type === 'critical_overdue' 
+                      ? 'border-red-600 bg-red-50'
+                      : notification.type === 'urgent' 
+                        ? 'border-red-500 bg-red-50'
+                        : notification.type === 'emergency'
+                          ? 'border-red-600 bg-red-50'
+                          : notification.type === 'overdue'
+                            ? 'border-orange-500 bg-orange-50'
+                            : notification.type === 'due_today'
+                              ? 'border-yellow-600 bg-yellow-50'
+                              : notification.type === 'warning'
+                                ? 'border-yellow-500 bg-yellow-50'
+                                : notification.type === 'success'
+                                  ? 'border-green-500 bg-green-50'
+                                  : notification.type === 'schedule'
+                                    ? 'border-blue-500 bg-blue-50'
+                                    : notification.type === 'condition_report'
+                                      ? 'border-purple-500 bg-purple-50'
+                                      : 'border-blue-500 bg-blue-50'
                 }`}
               >
                 <div className="flex items-start justify-between">
@@ -269,6 +664,19 @@ const Notifications: React.FC = () => {
                             New
                           </span>
                         )}
+                        {(notification.type === 'critical_overdue' || notification.type === 'overdue' || notification.type === 'due_today') && (
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                            notification.type === 'critical_overdue' 
+                              ? 'bg-red-100 text-red-800'
+                              : notification.type === 'overdue'
+                                ? 'bg-orange-100 text-orange-800'
+                                : 'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {notification.type === 'critical_overdue' ? 'URGENT' : 
+                             notification.type === 'overdue' ? 'HIGH PRIORITY' : 
+                             'DUE TODAY'}
+                          </span>
+                        )}
                       </div>
                       <p className="text-gray-700 mb-2">{notification.message}</p>
                       <div className="flex items-center space-x-4 text-sm text-gray-500">
@@ -284,6 +692,24 @@ const Notifications: React.FC = () => {
                         </span>
                         {notification.assigned_by && (
                           <span>Assigned by: {notification.assigned_by}</span>
+                        )}
+                        {notification.bus_registration && (
+                          <span>Bus: {notification.bus_registration}</span>
+                        )}
+                        {notification.category && (
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                            notification.category === 'scheduling' 
+                              ? 'bg-blue-100 text-blue-800'
+                              : notification.category === 'inspection'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : notification.category === 'condition_reports'
+                                  ? 'bg-purple-100 text-purple-800'
+                                  : notification.category === 'emergency_reports'
+                                    ? 'bg-red-100 text-red-800'
+                                    : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {notification.category.charAt(0).toUpperCase() + notification.category.slice(1)}
+                          </span>
                         )}
                       </div>
                     </div>

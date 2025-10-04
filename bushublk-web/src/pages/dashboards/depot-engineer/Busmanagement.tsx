@@ -14,6 +14,7 @@ type BusFromAPI = {
   class: string;
   manufacturer: string;
   purchase_date: string;
+  updated_at?: string; // Add updated_at for duration calculation
 };
 
 // Extended type with dummy data
@@ -28,6 +29,7 @@ type Bus = BusFromAPI & {
   serviceHistory: ServiceHistory[];
   partChanges: PartChange[];
   alerts: Alert[];
+  statusDuration?: string; // Duration since status change
 };
 
 type ServiceHistory = {
@@ -93,6 +95,34 @@ const Busmanagement: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const token = context?.token;
+
+  // Utility function to calculate duration since last status change
+  const calculateStatusDuration = (updatedAt: string | undefined, status: string): string => {
+    if (!updatedAt || (status !== 'Maintenance' && status !== 'Out of Service')) {
+      return '';
+    }
+
+    try {
+      const updatedDate = new Date(updatedAt);
+      const now = new Date();
+      const diffInMs = now.getTime() - updatedDate.getTime();
+      
+      const days = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diffInMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      
+      if (days > 0) {
+        return `${days} day${days > 1 ? 's' : ''} ${hours > 0 ? `${hours} hr${hours > 1 ? 's' : ''}` : ''}`;
+      } else if (hours > 0) {
+        return `${hours} hour${hours > 1 ? 's' : ''}`;
+      } else {
+        const minutes = Math.floor((diffInMs % (1000 * 60 * 60)) / (1000 * 60));
+        return `${minutes} minute${minutes > 1 ? 's' : ''}`;
+      }
+    } catch (error) {
+      console.error('Error calculating status duration:', error);
+      return '';
+    }
+  };
 
   // Fetch spare parts usage history for a specific bus
   const fetchPartChangesForBus = async (busId: string): Promise<PartChange[]> => {
@@ -199,8 +229,9 @@ const Busmanagement: React.FC = () => {
         return 'N/A';
       }
 
+      // Use the daily assignment endpoint to get current route assignment
       const response = await axios.get(
-        `http://localhost:5000/api/depot-engineer/buses/${busId}/current-route`,
+        `http://localhost:5000/api/daily-assignments/bus/${busId}/current-route`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -210,9 +241,10 @@ const Busmanagement: React.FC = () => {
 
       console.log('📥 Current route response:', response.data);
 
-      if (response.data.success && response.data.currentRoute) {
-        console.log('✅ Current route found:', response.data.currentRoute.full_route_name);
-        return response.data.currentRoute.full_route_name;
+      if (response.data.success && response.data.assignment) {
+        const routeName = response.data.assignment.route_name || 'Unknown Route';
+        console.log('✅ Current route found:', routeName);
+        return routeName;
       } else {
         console.log('❌ No current route assignment found');
         return 'No route assigned';
@@ -220,7 +252,37 @@ const Busmanagement: React.FC = () => {
     } catch (err) {
       const axiosError = err as AxiosError;
       console.error('💥 Fetch current route error:', axiosError);
-      return 'N/A';
+      
+      // If the endpoint doesn't exist, try alternative approach
+      if (axiosError.response?.status === 404) {
+        try {
+          // Fallback: try to get route from daily assignments for this depot
+          const fallbackResponse = await axios.get(
+            'http://localhost:5000/api/daily-assignments',
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+          
+          if (fallbackResponse.data.success && fallbackResponse.data.assignments) {
+            // Find assignment for this bus
+            const busAssignment = fallbackResponse.data.assignments.find(
+              (assignment: any) => assignment.bus_id.toString() === busId
+            );
+            
+            if (busAssignment && busAssignment.route_name) {
+              console.log('✅ Route found via fallback:', busAssignment.route_name);
+              return busAssignment.route_name;
+            }
+          }
+        } catch (fallbackErr) {
+          console.error('💥 Fallback route fetch error:', fallbackErr);
+        }
+      }
+      
+      return 'No route assigned';
     }
   };
 
@@ -258,10 +320,12 @@ const Busmanagement: React.FC = () => {
         // First, create buses with basic data and empty part changes
         const fetchedBuses: Bus[] = await Promise.all(
           response.data.buses.map(async (bus: any) => {
-            // Fetch real part changes, service history, and current route for this bus
             const partChanges = await fetchPartChangesForBus(bus.bus_id.toString());
             const serviceHistory = await fetchServiceHistoryForBus(bus.bus_id.toString());
             const currentRoute = await fetchCurrentRouteForBus(bus.bus_id.toString());
+            
+            // Calculate status duration for maintenance and out of service buses
+            const statusDuration = calculateStatusDuration(bus.updated_at, bus.status);
             
             return {
               // BusFromAPI properties
@@ -275,6 +339,7 @@ const Busmanagement: React.FC = () => {
               class: bus.class,
               manufacturer: bus.manufacturer,
               purchase_date: bus.purchase_date,
+              updated_at: bus.updated_at,
               
               // Extended properties
               currentRoute: currentRoute, // Real data from bus routes
@@ -286,7 +351,22 @@ const Busmanagement: React.FC = () => {
               location: bus.depot_name,
               serviceHistory: serviceHistory, // Real data from service schedules
               partChanges: partChanges, // Real data from spare parts usage history
-              alerts: bus.status === 'Maintenance' ? [{ type: 'error', message: 'Under maintenance - ETA 2 days' }] : [],
+              statusDuration: statusDuration, // Duration since status change
+              alerts: bus.status === 'Maintenance' 
+                ? [{ 
+                    type: 'error', 
+                    message: statusDuration 
+                      ? `Under maintenance for ${statusDuration} - ETA 2 days` 
+                      : 'Under maintenance - ETA 2 days' 
+                  }] 
+                : bus.status === 'Out of Service'
+                  ? [{
+                      type: 'error',
+                      message: statusDuration
+                        ? `Out of service for ${statusDuration}`
+                        : 'Out of service'
+                    }]
+                  : [],
             };
           })
         );
@@ -450,6 +530,11 @@ const Busmanagement: React.FC = () => {
                   </div>
                   <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(bus.status)}`}>
                     {bus.status}
+                    {bus.statusDuration && (
+                      <div className="text-xs text-gray-600 mt-1 font-normal">
+                        {bus.statusDuration}
+                      </div>
+                    )}
                   </span>
                 </div>
 
@@ -530,6 +615,9 @@ const Busmanagement: React.FC = () => {
                     ['Last Service', selectedBus.lastService || 'N/A'],
                     ['Next Service', selectedBus.nextService || 'N/A'],
                     ['Status', <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(selectedBus.status)}`}>{selectedBus.status}</span>],
+                    ...(selectedBus.statusDuration && (selectedBus.status === 'Maintenance' || selectedBus.status === 'Out of Service') 
+                      ? [['Status Duration', selectedBus.statusDuration] as [string, React.ReactNode]]
+                      : []),
                   ]} />
                 </div>
 

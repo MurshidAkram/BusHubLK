@@ -29,10 +29,114 @@ const Navbar = () => {
                      location.pathname.startsWith('/driver') || 
                      location.pathname.startsWith('/conductor')
 
-  // Fetch notification count
-  useEffect(() => {
-    const fetchNotificationCount = async () => {
-      if (token && isDashboard) {
+  // Fetch notification count function
+  const fetchNotificationCount = async () => {
+    if (token && isDashboard) {
+      try {
+        const requests = [
+          fetch('http://localhost:5000/api/notifications/unread-count', {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          })
+        ];
+
+        // Add scheduling stats request only for depot engineers
+        if (user?.role === 'depot_engineer' || user?.role === 'depot-engineer') {
+          requests.push(
+            fetch('http://localhost:5000/api/depot-engineer/service-schedules/stats', {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              }
+            })
+          );
+          
+          // Add bus condition reports count
+          requests.push(
+            fetch('http://localhost:5000/api/bus-condition-reports', {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              }
+            })
+          );
+          
+          // Add emergency reports count
+          requests.push(
+            fetch('http://localhost:5000/api/depot/emergency', {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              }
+            })
+          );
+        }
+
+        const responses = await Promise.all(requests);
+        let totalUnreadCount = 0;
+        
+        // Add general notification count
+        if (responses[0] && responses[0].ok) {
+          const generalData = await responses[0].json();
+          const generalCount = generalData.unreadCount || 0;
+          totalUnreadCount += generalCount;
+          console.log('General notifications count:', generalCount);
+        }
+        
+        // Add scheduling notification count (only for depot engineers)
+        if (responses[1] && responses[1].ok && (user?.role === 'depot_engineer' || user?.role === 'depot-engineer')) {
+          const schedulingData = await responses[1].json();
+          if (schedulingData.success && schedulingData.stats) {
+            const stats = schedulingData.stats;
+            console.log('Scheduling stats:', stats);
+            
+            let schedulingCount = 0;
+            // Count scheduling notifications that would be created
+            if (stats.critical_overdue_count > 0) schedulingCount += 1;
+            if (stats.overdue_count > 0) schedulingCount += 1;
+            if (stats.due_today_count > 0) schedulingCount += 1;
+            if (stats.upcoming_count > 0) schedulingCount += 1;
+            
+            totalUnreadCount += schedulingCount;
+            console.log('Scheduling notifications count:', schedulingCount);
+          }
+        }
+        
+        // Add bus condition reports count (only for depot engineers)
+        if (responses[2] && responses[2].ok && (user?.role === 'depot_engineer' || user?.role === 'depot-engineer')) {
+          const conditionData = await responses[2].json();
+          if (conditionData.success && conditionData.data) {
+            // Count unreviewed condition reports only
+            const conditionCount = conditionData.data.filter((report: any) => {
+              return report.review_status === 'pending' || !report.review_status;
+            }).length;
+            
+            totalUnreadCount += conditionCount;
+            console.log('Condition reports notifications count:', conditionCount);
+          }
+        }
+        
+        // Add emergency reports count (only for depot engineers)
+        if (responses[3] && responses[3].ok && (user?.role === 'depot_engineer' || user?.role === 'depot-engineer')) {
+          const emergencyData = await responses[3].json();
+          if (emergencyData.success && emergencyData.data) {
+            // Count emergency reports with exactly "Pending" status
+            const emergencyCount = emergencyData.data.filter((report: any) => {
+              return report.status === 'Pending';
+            }).length;
+            
+            totalUnreadCount += emergencyCount;
+            console.log('Emergency reports notifications count:', emergencyCount);
+          }
+        }
+        
+        console.log('Total notification count:', totalUnreadCount);
+        setNotificationCount(totalUnreadCount);
+      } catch (error) {
+        console.error('Error fetching notification count:', error);
+        // Fallback to just general notifications
         try {
           const response = await fetch('http://localhost:5000/api/notifications/unread-count', {
             headers: {
@@ -45,19 +149,22 @@ const Navbar = () => {
             const data = await response.json();
             setNotificationCount(data.unreadCount || 0);
           }
-        } catch (error) {
-          console.error('Error fetching notification count:', error);
+        } catch (fallbackError) {
+          console.error('Error fetching fallback notification count:', fallbackError);
         }
       }
-    };
+    }
+  };
 
+  // Fetch notification count
+  useEffect(() => {
     fetchNotificationCount();
     
     // Refresh notification count every 30 seconds
     const interval = setInterval(fetchNotificationCount, 30000);
     
     return () => clearInterval(interval);
-  }, [token, isDashboard]);
+  }, [token, isDashboard, user?.role]);
 
   // Handle notification click
   const handleNotificationClick = () => {
@@ -76,6 +183,21 @@ const Navbar = () => {
       alert('Notifications feature is not yet implemented for your role.');
     }
   };
+
+  // Function to refresh notification count (can be called from other components)
+  const refreshNotificationCount = () => {
+    if (token && isDashboard) {
+      fetchNotificationCount();
+    }
+  };
+
+  // Expose refresh function globally for other components to use
+  useEffect(() => {
+    (window as any).refreshNotificationCount = refreshNotificationCount;
+    return () => {
+      delete (window as any).refreshNotificationCount;
+    };
+  }, [token, isDashboard, user?.role]);
 
 
   // Function to get dashboard route based on user role

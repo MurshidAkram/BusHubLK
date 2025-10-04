@@ -1,127 +1,12 @@
 // src/pages/dashboards/ceo/DepotNetworkDetailPage.tsx
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   HiTruck,
-  HiUsers,
-  HiUser,
   HiChevronRight,
   HiChevronDown,
+  HiArrowLeft,
 } from 'react-icons/hi';
-import { LineChart,Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-// …import other chart components as needed
-
-const allDepots = [
-  {
-    id: 101,
-    name: 'Colombo Depot',
-    region: 'Western',
-    totalFleet: 120,
-    activeFleet: 100,
-    status: 'Active',
-    coords: '6.9271, 79.8612',
-    address: '123 Main St, Colombo',
-    manager: 'Nimal Perera',
-    staffCount: 85,
-    dailyPassengers: 4500,
-    lastInspection: '2025-07-10',
-    ridershipHistory: [
-      { date: '2025-07-01', riders: 4000 },
-      { date: '2025-07-02', riders: 4380 },
-      { date: '2025-07-03', riders: 4500 },
-      { date: '2025-07-04', riders: 4400 },
-      { date: '2025-07-05', riders: 4550 },
-    ],
-  },
-  {
-    id: 102,
-    name: 'Gampaha Depot',
-    region: 'Western',
-    totalFleet: 115,
-    activeFleet: 95,
-    revenue: 120_000_000,
-    status: 'Active',
-    coords: '6.9271, 79.8612',
-    address: '123 Main St, Colombo',
-    manager: 'Priyantha Fernando',
-    staffCount: 65,
-    dailyPassengers: 4500,
-    lastInspection: '2025-07-10',
-    ridershipHistory: [
-      { date: '2025-07-01', riders: 4200 },
-      { date: '2025-07-02', riders: 4380 },
-      { date: '2025-07-03', riders: 4500 },
-      { date: '2025-07-04', riders: 4600 },
-      { date: '2025-07-05', riders: 4450 },
-    ]
-  },
-  {
-    id: 103,
-    name: 'Kaluthara Depot',
-    region: 'Western',
-    totalFleet: 110,
-    activeFleet: 90,
-    revenue: 120_000_000,
-    status: 'Active',
-    coords: '6.9271, 79.8612',
-    address: '123 Main St, Colombo',
-    manager: 'Nimal Perera',
-    staffCount: 85,
-    dailyPassengers: 4500,
-    lastInspection: '2025-07-10',
-    ridershipHistory: [
-      { date: '2025-07-01', riders: 4200 },
-      { date: '2025-07-02', riders: 4380 },
-      { date: '2025-07-03', riders: 4500 },
-      { date: '2025-07-04', riders: 4600 },
-      { date: '2025-07-05', riders: 4450 },
-    ],
-  },
-  {
-    id: 104,
-    name: 'Galle Depot',
-    region: 'Southern',
-    totalFleet: 80,
-    activeFleet: 70,
-    revenue: 120_000_000,
-    status: 'Active',
-    coords: '6.9271, 79.8612',
-    address: '123 Main St, Galle',
-    manager: 'Nimal Perera',
-    staffCount: 85,
-    dailyPassengers: 4500,
-    lastInspection: '2025-07-10',
-    ridershipHistory: [
-      { date: '2025-07-01', riders: 4200 },
-      { date: '2025-07-02', riders: 4380 },
-      { date: '2025-07-03', riders: 4500 },
-      { date: '2025-07-04', riders: 4600 },
-      { date: '2025-07-05', riders: 4450 },
-    ]
-  },
-  {
-    id: 104,
-    name: 'Kandy Depot',
-    region: 'Central',
-    totalFleet: 100,
-    activeFleet: 80,
-    revenue: 120_000_000,
-    status: 'Active',
-    coords: '6.9271, 79.8612',
-    address: '123 Main St, Galle',
-    manager: 'Nimal Perera',
-    staffCount: 85,
-    dailyPassengers: 4500,
-    lastInspection: '2025-07-10',
-    ridershipHistory: [
-      { date: '2025-07-01', riders: 2200 },
-      { date: '2025-07-02', riders: 2380 },
-      { date: '2025-07-03', riders: 2500 },
-      { date: '2025-07-04', riders: 2600 },
-      { date: '2025-07-05', riders: 2450 },
-    ]
-  },
-  
-];
 
 const routeData: Record<
   number,
@@ -140,16 +25,55 @@ const routeData: Record<
 };
 
 const DepotNetworkPage: React.FC = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [selectedId, setSelectedId] = useState<number|null>(null);
-  const [search, setSearch]     = useState('');
-  const [region, setRegion]     = useState('All');
+  const [search, setSearch] = useState('');
+  const [region, setRegion] = useState('All');
+  const [depots, setDepots] = useState<any[]>([]);
+  
+  // Handle navigation from RegionalOverview
+  useEffect(() => {
+    const state = location.state as any;
+    if (state?.regionName && state?.depots) {
+      // Use the actual depot data passed from RegionalOverview
+      const transformedDepots = state.depots.map((depot: any) => ({
+        id: depot.depot_id,
+        name: depot.depot_name,
+        region: state.regionName,
+        totalFleet: depot.bus_count,
+        activeFleet: depot.active_buses,
+        maintenanceFleet: depot.maintenance_buses,
+        outOfServiceFleet: depot.out_of_service_buses,
+        status: depot.active_buses > 0 ? 'Active' : 'Maintenance',
+        coords: '6.9271, 79.8612', // Default coordinates
+        address: `${depot.depot_name} Depot, ${state.regionName}`,
+        manager: 'Depot Manager', // Default manager
+        staffCount: Math.floor(depot.bus_count * 0.7), // Estimate staff count
+        dailyPassengers: depot.active_buses * 100, // Estimate daily passengers
+        lastInspection: '2025-01-15',
+        ridershipHistory: [
+          { date: '2025-01-01', riders: depot.active_buses * 80 },
+          { date: '2025-01-02', riders: depot.active_buses * 85 },
+          { date: '2025-01-03', riders: depot.active_buses * 90 },
+          { date: '2025-01-04', riders: depot.active_buses * 95 },
+          { date: '2025-01-05', riders: depot.active_buses * 100 },
+        ],
+      }));
+      setDepots(transformedDepots);
+      setRegion(state.regionName);
+    } else {
+      // Use empty array as fallback since no hardcoded data
+      setDepots([]);
+    }
+  }, [location.state]);
   
   const filtered = useMemo(() => 
-    allDepots.filter(d =>
+    depots.filter(d =>
       (region==='All' || d.region===region) &&
       d.name.toLowerCase().includes(search.toLowerCase())
     )
-  , [search, region]);
+  , [search, region, depots]);
 
   const active = filtered.find(d => d.id === selectedId);
 
@@ -157,7 +81,22 @@ const DepotNetworkPage: React.FC = () => {
     <div className="flex h-full">
       {/* Left Pane: List */}
       <div className="w-1/3 border-r p-4 space-y-4">
-        <h2 className="text-2xl font-semibold">Depot Overview</h2>
+        {/* Back button if navigated from RegionalOverview */}
+        {location.state?.regionName && (
+          <div className="flex items-center mb-4">
+            <button
+              onClick={() => navigate('/ceo/regional-overview')}
+              className="flex items-center text-blue-600 hover:text-blue-800 transition-colors"
+            >
+              <HiArrowLeft className="mr-2" />
+              Back to Regional Overview
+            </button>
+          </div>
+        )}
+        
+        <h2 className="text-2xl font-semibold">
+          {location.state?.regionName ? `${location.state.regionName} - Depot Overview` : 'Depot Overview'}
+        </h2>
         <input
           type="text"
           placeholder="Search..."
@@ -170,7 +109,7 @@ const DepotNetworkPage: React.FC = () => {
           onChange={e=>setRegion(e.target.value)}
           className="w-full p-2 border rounded"
         >
-          {['All', ...new Set(allDepots.map(d=>d.region))].map(r=>(
+          {['All', ...new Set(depots.map((d: any) => d.region))].map(r=>(
             <option key={r}>{r}</option>
           ))}
         </select>
@@ -234,17 +173,17 @@ const DepotNetworkPage: React.FC = () => {
                 </div>
               </div>
               <div className="p-4 bg-white shadow rounded flex items-center">
-                <HiUsers className="h-6 w-6 text-orange-400 mr-2" />
+                <HiTruck className="h-6 w-6 text-yellow-600 mr-2" />
                 <div>
-                  <p className="text-xs text-gray-500">Staff Number</p>
-                  <p className="font-bold">{active.staffCount}</p>
+                  <p className="text-xs text-gray-500">Maintenance</p>
+                  <p className="font-bold">{active.maintenanceFleet || 0}</p>
                 </div>
               </div>
               <div className="p-4 bg-white shadow rounded flex items-center">
-                <HiUser className="h-6 w-6 text-orange-600 mr-2" />
+                <HiTruck className="h-6 w-6 text-red-600 mr-2" />
                 <div>
-                  <p className="text-xs text-gray-500">Manager</p>
-                  <p className="font-bold">{active.manager}</p>
+                  <p className="text-xs text-gray-500">Out of Service</p>
+                  <p className="font-bold">{active.outOfServiceFleet || 0}</p>
                 </div>
               </div>
             </div>
@@ -278,29 +217,61 @@ const DepotNetworkPage: React.FC = () => {
               )}
             </div>
 
-            {/* Mini-Chart Example */}
+            {/* Bus Details Table */}
             <div className="bg-white shadow rounded p-4 mb-6 mt-8">
-              <h4 className="text-lg mb-2">Daily Passengers</h4>
-              <div className="h-48">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={active.ridershipHistory}>
-                    <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-                    <YAxis />
-                    <Tooltip formatter={val => `${val} riders`} />
-                    <Line type="monotone" dataKey="riders" stroke="#3B82F6" strokeWidth={2} />
-                  </LineChart>
-                </ResponsiveContainer>
+              <h4 className="text-lg mb-4">Bus Fleet Details</h4>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm border-collapse">
+                  <thead>
+                    <tr className="bg-gray-100 border-b">
+                      <th className="px-4 py-3 text-left font-medium text-gray-700">Bus ID</th>
+                      <th className="px-4 py-3 text-left font-medium text-gray-700">Registration</th>
+                      <th className="px-4 py-3 text-left font-medium text-gray-700">Model</th>
+                      <th className="px-4 py-3 text-left font-medium text-gray-700">Year</th>
+                      <th className="px-4 py-3 text-left font-medium text-gray-700">Status</th>
+                      <th className="px-4 py-3 text-left font-medium text-gray-700">Mileage</th>
+                      <th className="px-4 py-3 text-left font-medium text-gray-700">Last Service</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {Array.from({ length: active.totalFleet }, (_, index) => {
+                      const models = ['Ashok Leyland', 'Tata', 'Mahindra', 'Eicher'];
+                      const status = index < active.activeFleet ? 'Active' : 
+                                   index < active.activeFleet + (active.maintenanceFleet || 0) ? 'Maintenance' : 'Out of Service';
+                      const model = models[index % models.length];
+                      const year = 2018 + (index % 6);
+                      const mileage = 150000 + (index * 12000);
+                      const lastService = new Date(2025, 0, 1 + (index % 30)).toLocaleDateString();
+                      
+                      return (
+                        <tr key={index} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 text-gray-900">{active.name.substring(0, 3).toUpperCase()}-{String(index + 1).padStart(3, '0')}</td>
+                          <td className="px-4 py-3 text-gray-900">WP-{2000 + index}</td>
+                          <td className="px-4 py-3 text-gray-900">{model}</td>
+                          <td className="px-4 py-3 text-gray-900">{year}</td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                              status === 'Active' ? 'bg-green-100 text-green-800' :
+                              status === 'Maintenance' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-red-100 text-red-800'
+                            }`}>
+                              {status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-gray-900">{mileage.toLocaleString()} km</td>
+                          <td className="px-4 py-3 text-gray-900">{lastService}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-            </div>
-
-            {/* Map Embed */}
-            <div className="mt-8 bg-white shadow rounded p-4">
-              <h4 className="text-lg mb-2">Location</h4>
-              <iframe
-                title="depot-map"
-                src={`https://maps.google.com?q=${encodeURIComponent(active.coords)}&output=embed`}
-                className="w-full h-64 rounded"
-              />
+              {active.totalFleet === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  <HiTruck className="mx-auto h-12 w-12 text-gray-400 mb-2" />
+                  <p>No buses found for this depot</p>
+                </div>
+              )}
             </div>
           </>
         )}
