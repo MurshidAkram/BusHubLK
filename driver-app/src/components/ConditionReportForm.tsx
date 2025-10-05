@@ -523,7 +523,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#4F46E5",
+    backgroundColor: "#0076e3",
     marginHorizontal: 3,
   },
   dot1: { opacity: 0.4 },
@@ -535,7 +535,7 @@ const styles = StyleSheet.create({
     marginTop: Platform.OS === "ios" ? 40 : 20,
   },
   headerGradient: {
-    backgroundColor: "#1335dfc2",
+    backgroundColor: "#0076e3",
     paddingTop: Platform.OS === "ios" ? 60 : 40,
     paddingBottom: screenHeight * 0.05,
     paddingHorizontal: screenWidth * 0.05,
@@ -713,7 +713,7 @@ const styles = StyleSheet.create({
     }),
   },
   buttonGradient: {
-    backgroundColor: "#4F46E5",
+    backgroundColor: "#0076e3",
     paddingVertical: screenHeight * 0.022,
     paddingHorizontal: screenWidth * 0.05,
   },

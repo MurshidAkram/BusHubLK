@@ -98,7 +98,14 @@ class DailyAssignment {
                 THEN CONCAT(uconductor.first_name, ' ', uconductor.last_name)
                 ELSE NULL
               END AS conductor_name,
-              da.created_at, da.updated_at
+              da.created_at, da.updated_at,
+              -- Calculate assignment relevance for sorting
+              CASE 
+                WHEN da.assignment_date = CURRENT_DATE THEN 1
+                WHEN da.assignment_date = CURRENT_DATE - INTERVAL '1 day' THEN 2
+                WHEN da.assignment_date = CURRENT_DATE + INTERVAL '1 day' THEN 3
+                ELSE 4
+              END as relevance_score
        FROM dailyassignment da
        JOIN buses b ON da.bus_id = b.bus_id
        JOIN routes r ON da.route_id = r.route_id
@@ -106,21 +113,13 @@ class DailyAssignment {
        JOIN users udriver ON da.driver_id = udriver.user_id
        LEFT JOIN users uconductor ON da.conductor_id = uconductor.user_id
        WHERE da.driver_id = $1 
-         AND da.is_active = true 
-         AND da.assignment_date >= CURRENT_DATE - INTERVAL '1 day'
-         AND da.assignment_date <= CURRENT_DATE + INTERVAL '7 days'
-       ORDER BY 
-         CASE 
-           WHEN da.assignment_date = CURRENT_DATE THEN 1
-           WHEN da.assignment_date > CURRENT_DATE THEN 2
-           ELSE 3
-         END,
-         da.assignment_date ASC, 
-         da.shift_start_time ASC
-       LIMIT 1`,
+         AND da.assignment_date >= CURRENT_DATE - INTERVAL '7 days'
+         AND da.assignment_date <= CURRENT_DATE + INTERVAL '2 days'
+         AND (da.is_active = true OR da.assignment_date >= CURRENT_DATE - INTERVAL '3 days')
+       ORDER BY relevance_score ASC, da.assignment_date DESC, da.shift_start_time ASC`,
       [driver_id]
     );
-    return result.rows[0]; // Return most relevant assignment (today first, then future, then recent past)
+    return result.rows; // Return date-based relevant assignments prioritizing today, yesterday, tomorrow
   }
 
   // Get upcoming assignments for a driver
@@ -151,9 +150,9 @@ class DailyAssignment {
        JOIN users udriver ON da.driver_id = udriver.user_id
        LEFT JOIN users uconductor ON da.conductor_id = uconductor.user_id
        WHERE da.driver_id = $1 
-         AND da.is_active = true 
          AND da.assignment_date >= CURRENT_DATE 
          AND da.assignment_date <= CURRENT_DATE + $2::integer
+         AND da.is_active = true
        ORDER BY da.assignment_date ASC, da.shift_start_time ASC`,
       [driver_id, days]
     );
