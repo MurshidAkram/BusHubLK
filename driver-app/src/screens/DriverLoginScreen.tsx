@@ -116,10 +116,14 @@ export default function DriverLoginScreen() {
     } catch (error) {
       setIsLoading(false);
       console.error("Login error:", error);
-      Alert.alert(
-        "Error",
-        "Network error. Please check your connection and try again."
-      );
+      
+      let errorMessage = "Network error. Please check your connection and try again.";
+      
+      if (error.message) {
+        errorMessage = `Error: ${error.message}\n\nPlease ensure:\n1. You're on the same WiFi\n2. Backend is running\n3. Firewall allows connections`;
+      }
+      
+      Alert.alert("Connection Error", errorMessage);
     }
   };
 

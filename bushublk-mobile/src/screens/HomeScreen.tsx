@@ -17,11 +17,12 @@ import {
   findNodeHandle,
   UIManager,
 } from "react-native";
-import Icon from "react-native-vector-icons/Ionicons";
+import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 import axios from "axios";
 import { storageAPI } from "../services/api";
+import { API_BASE_URL } from "../config/api";
 
 // Type definitions
 interface GooglePlacePrediction {
@@ -243,7 +244,7 @@ export default function HomeScreen() {
     ]);
   };
 
-  // Google Places Autocomplete logic
+  // Google Places Autocomplete logic - Using Backend Proxy
   const fetchPlaceSuggestions = async (
     input: string,
     setSuggestions: React.Dispatch<
@@ -255,18 +256,36 @@ export default function HomeScreen() {
       return;
     }
     try {
+      console.log(`Fetching suggestions for: "${input}"`);
+      
+      // Call backend proxy instead of Google API directly
       const response = await axios.get(
-        `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(
-          input
-        )}&components=country:LK&language=en&key=${Maps_API_KEY}`
+        `${API_BASE_URL}/api/places/autocomplete`,
+        {
+          params: {
+            input: input
+          },
+          timeout: 5000
+        }
       );
+      
+      console.log("Google Places API Response:", response.data);
       if (response.data.status === "OK") {
         setSuggestions(response.data.predictions);
+        console.log(`Found ${response.data.predictions.length} suggestions`);
       } else {
+        console.warn(`Google Places API returned status: ${response.data.status}`);
+        if (response.data.error_message) {
+          console.error("API Error Message:", response.data.error_message);
+        }
         setSuggestions([]);
       }
     } catch (err) {
       console.error("Error fetching place suggestions:", err);
+      if (axios.isAxiosError(err)) {
+        console.error("Response data:", err.response?.data);
+        console.error("Response status:", err.response?.status);
+      }
       setSuggestions([]);
     }
   };
@@ -382,7 +401,7 @@ export default function HomeScreen() {
               style={styles.suggestionItemEnhanced}
               activeOpacity={0.7}
             >
-              <Icon
+              <Ionicons
                 name="location-outline"
                 size={16}
                 color={AppColors.primary}
@@ -432,7 +451,7 @@ export default function HomeScreen() {
               onPress={() => navigation.navigate("Notifications")}
             >
               <View style={styles.iconBackgroundEnhanced}>
-                <Icon name="notifications-outline" size={24} color="#FFFFFF" />
+                <Ionicons name="notifications-outline" size={24} color="#FFFFFF" />
               </View>
             </TouchableOpacity>
             <TouchableOpacity
@@ -440,7 +459,7 @@ export default function HomeScreen() {
               onPress={handleLogout}
             >
               <View style={styles.iconBackgroundEnhanced}>
-                <Icon name="log-out-outline" size={24} color="#FFFFFF" />
+                <Ionicons name="log-out-outline" size={24} color="#FFFFFF" />
               </View>
             </TouchableOpacity>
           </View>
@@ -469,7 +488,7 @@ export default function HomeScreen() {
             style={styles.welcomeBanner}
           >
             <View style={styles.welcomeIconContainer}>
-              <Icon name="bus-outline" size={32} color="#fff" />
+              <Ionicons name="bus-outline" size={32} color="#fff" />
             </View>
             <View style={styles.welcomeTextContainer}>
               <Text style={styles.welcomeTitle}>
@@ -496,7 +515,7 @@ export default function HomeScreen() {
             style={styles.journeyCard}
           >
             <View style={styles.journeyHeader}>
-              <Icon name="map-outline" size={24} color={AppColors.primary} />
+              <Ionicons name="map-outline" size={24} color={AppColors.primary} />
               <Text style={styles.journeyTitle}>Plan Your Journey</Text>
             </View>
 
@@ -508,7 +527,7 @@ export default function HomeScreen() {
                 colors={[AppColors.primaryMuted, "rgba(0, 86, 179, 0.05)"]}
                 style={styles.inputGradient}
               >
-                <Icon
+                <Ionicons
                   name="navigate-circle-outline"
                   size={20}
                   style={styles.inputIcon}
@@ -543,7 +562,7 @@ export default function HomeScreen() {
                       }}
                       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
-                      <Icon name="close-circle" size={20} color="#154dadff" />
+                      <Ionicons name="close-circle" size={20} color="#154dadff" />
                     </TouchableOpacity>
                   )}
                 </View>
@@ -558,7 +577,7 @@ export default function HomeScreen() {
                 colors={[AppColors.primaryMuted, "rgba(0, 86, 179, 0.05)"]}
                 style={styles.inputGradient}
               >
-                <Icon
+                <Ionicons
                   name="location-outline"
                   size={20}
                   style={styles.inputIcon}
@@ -593,7 +612,7 @@ export default function HomeScreen() {
                       }}
                       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
-                      <Icon name="close-circle" size={20} color="#154dadff" />
+                      <Ionicons name="close-circle" size={20} color="#154dadff" />
                     </TouchableOpacity>
                   )}
                 </View>
@@ -622,7 +641,7 @@ export default function HomeScreen() {
                 end={{ x: 1, y: 0 }}
                 style={styles.searchButtonGradient}
               >
-                <Icon
+                <Ionicons
                   name="search-outline"
                   size={20}
                   color="#FFFFFF"
@@ -658,7 +677,7 @@ export default function HomeScreen() {
                       {bus.from} → {bus.to}
                     </Text>
                     <View style={styles.arrivalContainer}>
-                      <Icon
+                      <Ionicons
                         name="time-outline"
                         size={16}
                         color={AppColors.textSecondary}
@@ -695,7 +714,7 @@ export default function HomeScreen() {
                 activeOpacity={0.8}
               >
                 <View style={styles.quickActionIconContainer}>
-                  <Icon
+                  <Ionicons
                     name={action.icon}
                     size={26}
                     color={AppColors.primary}
@@ -724,7 +743,7 @@ export default function HomeScreen() {
                 }}
                 activeOpacity={0.8}
               >
-                <Icon name={service.icon} size={28} color={AppColors.primary} />
+                <Ionicons name={service.icon} size={28} color={AppColors.primary} />
                 <Text style={styles.serviceCardText}>{service.title}</Text>
               </TouchableOpacity>
             ))}

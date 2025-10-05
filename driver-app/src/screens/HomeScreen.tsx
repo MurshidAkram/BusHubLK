@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React from "react";
 import {
   StyleSheet,
   View,
@@ -8,18 +8,15 @@ import {
   StatusBar,
   Platform,
   Image,
-  TextInput,
-  Keyboard,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import {
   Ionicons,
   MaterialCommunityIcons,
-  FontAwesome5,
 } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
-import axios from "axios";
+import TrackingStatusBanner from "../components/TrackingStatusBanner";
 
 // Get device dimensions
 import { Dimensions } from "react-native";
@@ -38,8 +35,6 @@ const AppColors = {
   yellow: "#ffc107",
   green: "#198754",
 };
-
-const GOOGLE_MAPS_API_KEY = "AIzaSyAeXR9ct7HrHMCQXSWLrWQl5OlRYjNhbxo";
 
 // TopHeader component with improved visibility
 const TopHeader = () => (
@@ -102,73 +97,6 @@ const QuickActionButton = ({ icon, text, onPress }) => (
 // Main HomeScreen Component (unchanged)
 export default function HomeScreen() {
   const navigation = useNavigation();
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
-  const [fromPlace, setFromPlace] = useState(null);
-  const [toPlace, setToPlace] = useState(null);
-  const [fromSuggestions, setFromSuggestions] = useState([]);
-  const [toSuggestions, setToSuggestions] = useState([]);
-  const [showFromSuggestions, setShowFromSuggestions] = useState(false);
-  const [showToSuggestions, setShowToSuggestions] = useState(false);
-  const debounceTimeout = useRef(null);
-
-  const fetchPlaceSuggestions = async (input, setSuggestions) => {
-    if (input.length < 1) {
-      setSuggestions([]);
-      return;
-    }
-    try {
-      const response = await axios.get(
-        `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(
-          input
-        )}&components=country:LK&language=en&key=${GOOGLE_MAPS_API_KEY}`
-      );
-      if (response.data.status === "OK") {
-        setSuggestions(response.data.predictions);
-      } else {
-        setSuggestions([]);
-      }
-    } catch {
-      setSuggestions([]);
-    }
-  };
-
-  const debounceFetchSuggestions = (input, setSuggestions) => {
-    if (debounceTimeout.current) {
-      clearTimeout(debounceTimeout.current);
-    }
-    debounceTimeout.current = setTimeout(() => {
-      fetchPlaceSuggestions(input, setSuggestions);
-    }, 300);
-  };
-
-  const handleFromChange = (text) => {
-    setFrom(text);
-    setFromPlace(null);
-    setShowFromSuggestions(text.length > 0);
-    debounceFetchSuggestions(text, setFromSuggestions);
-  };
-
-  const handleToChange = (text) => {
-    setTo(text);
-    setToPlace(null);
-    setShowToSuggestions(text.length > 0);
-    debounceFetchSuggestions(text, setToSuggestions);
-  };
-
-  const selectFromSuggestion = (item) => {
-    setFrom(item.description);
-    setFromPlace(item);
-    setShowFromSuggestions(false);
-    Keyboard.dismiss();
-  };
-
-  const selectToSuggestion = (item) => {
-    setTo(item.description);
-    setToPlace(item);
-    setShowToSuggestions(false);
-    Keyboard.dismiss();
-  };
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -189,144 +117,7 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="always"
       >
-        <LinearGradient
-          colors={["#fff", "#e6f0fa"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.journeyCard}
-        >
-          <Text style={styles.journeyTitle}>Your Current Trip</Text>
-          <View
-            style={[
-              styles.inputGroup,
-              { position: "relative", zIndex: showFromSuggestions ? 200 : 10 },
-            ]}
-          >
-            <Ionicons
-              name="location-outline"
-              size={20}
-              color={AppColors.primary}
-              style={styles.inputIcon}
-            />
-            <View style={{ flex: 1 }}>
-              <TextInput
-                placeholder="From (e.g., Kaduwela)"
-                style={styles.input}
-                placeholderTextColor="#A0A0A0"
-                value={from}
-                onChangeText={handleFromChange}
-                onFocus={() => setShowFromSuggestions(true)}
-                onBlur={() =>
-                  setTimeout(() => setShowFromSuggestions(false), 200)
-                }
-              />
-              {from.length > 0 && (
-                <TouchableOpacity
-                  style={styles.clearIcon}
-                  onPress={() => {
-                    setFrom("");
-                    setFromPlace(null);
-                    setFromSuggestions([]);
-                    setShowFromSuggestions(false);
-                  }}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Ionicons name="close-circle" size={22} color="#bbb" />
-                </TouchableOpacity>
-              )}
-              {showFromSuggestions && fromSuggestions.length > 0 && (
-                <View style={styles.suggestionBox}>
-                  <ScrollView
-                    keyboardShouldPersistTaps="handled"
-                    style={{ maxHeight: 120 }}
-                    nestedScrollEnabled
-                  >
-                    {fromSuggestions.map((item) => (
-                      <TouchableOpacity
-                        key={item.place_id}
-                        onPress={() => selectFromSuggestion(item)}
-                        style={styles.suggestionItem}
-                      >
-                        <Text>{item.description}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-              )}
-            </View>
-          </View>
-          <View
-            style={[
-              styles.inputGroup,
-              { position: "relative", zIndex: showToSuggestions ? 200 : 10 },
-            ]}
-          >
-            <Ionicons
-              name="flag-outline"
-              size={20}
-              color={AppColors.primary}
-              style={styles.inputIcon}
-            />
-            <View style={{ flex: 1 }}>
-              <TextInput
-                placeholder="To (e.g., Kollupitiya)"
-                style={styles.input}
-                placeholderTextColor="#A0A0A0"
-                value={to}
-                onChangeText={handleToChange}
-                onFocus={() => setShowToSuggestions(true)}
-                onBlur={() =>
-                  setTimeout(() => setShowToSuggestions(false), 200)
-                }
-              />
-              {to.length > 0 && (
-                <TouchableOpacity
-                  style={styles.clearIcon}
-                  onPress={() => {
-                    setTo("");
-                    setToPlace(null);
-                    setToSuggestions([]);
-                    setShowToSuggestions(false);
-                  }}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Ionicons name="close-circle" size={22} color="#bbb" />
-                </TouchableOpacity>
-              )}
-              {showToSuggestions && toSuggestions.length > 0 && (
-                <View style={styles.suggestionBox}>
-                  <ScrollView
-                    keyboardShouldPersistTaps="handled"
-                    style={{ maxHeight: 120 }}
-                    nestedScrollEnabled
-                  >
-                    {toSuggestions.map((item) => (
-                      <TouchableOpacity
-                        key={item.place_id}
-                        onPress={() => selectToSuggestion(item)}
-                        style={styles.suggestionItem}
-                      >
-                        <Text>{item.description}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-              )}
-            </View>
-          </View>
-          <TouchableOpacity
-            style={[
-              styles.searchButton,
-              (!fromPlace || !toPlace) && { opacity: 0.5 },
-            ]}
-            onPress={() =>
-              navigation.navigate("MapScreen", { fromPlace, toPlace })
-            }
-            disabled={!fromPlace || !toPlace}
-          >
-            <Text style={styles.searchButtonText}>View Route Details</Text>
-          </TouchableOpacity>
-        </LinearGradient>
+        <TrackingStatusBanner onPress={() => navigation.navigate("Tracking" as never)} />
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.quickActionGrid}>
