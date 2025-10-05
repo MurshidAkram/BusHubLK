@@ -1,8 +1,9 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
+const db = require('../config/db');
 
-// Fix the import path to match your existing structure
+// Fix the import to match your existing structure
 const User = require('../models/userModel');
 const Driver = require('../models/Driver');
 const DailyAssignment = require('../models/DailyAssignmentModel');
@@ -74,6 +75,59 @@ const driverLogin = async (req, res) => {
     // Update last login
     await User.updateLastLogin(user.user_id);
 
+    // Get depot information before generating JWT
+    let depotInfo = null;
+    let regionInfo = null;
+    let depotManagerInfo = null;
+
+    if (driver.depot_id) {
+      try {
+        console.log('Fetching depot info for depot_id:', driver.depot_id);
+        const depotQuery = `
+          SELECT d.depot_name, d.address, r.region_name
+          FROM depots d
+          LEFT JOIN regions r ON d.region_id = r.region_id
+          WHERE d.depot_id = $1
+        `;
+        const depotResult = await db.query(depotQuery, [driver.depot_id]);
+        console.log('Depot query result:', depotResult.rows);
+        if (depotResult.rows && depotResult.rows.length > 0) {
+          depotInfo = depotResult.rows[0];
+          console.log('Depot info found:', depotInfo);
+        }
+
+        // Get depot manager information using the correct schema
+        console.log('Fetching depot manager info for depot_id:', driver.depot_id);
+        const managerQuery = `
+          SELECT u.first_name, u.last_name, u.phone, u.email
+          FROM depot_managers dm
+          JOIN users u ON dm.depot_manager_id = u.user_id
+          WHERE dm.depot_id = $1
+        `;
+        const managerResult = await db.query(managerQuery, [driver.depot_id]);
+        console.log('Manager query result:', managerResult.rows);
+        if (managerResult.rows && managerResult.rows.length > 0) {
+          depotManagerInfo = managerResult.rows[0];
+          console.log('Manager info found:', depotManagerInfo);
+        }
+      } catch (dbError) {
+        console.warn('Could not fetch depot/manager info during login:', dbError);
+      }
+    }
+
+    // If depot info failed but we have region_id, try to get region info directly
+    if (!depotInfo && driver.region_id) {
+      try {
+        const regionQuery = 'SELECT region_name FROM regions WHERE region_id = $1';
+        const regionResult = await db.query(regionQuery, [driver.region_id]);
+        if (regionResult.rows && regionResult.rows.length > 0) {
+          regionInfo = regionResult.rows[0];
+        }
+      } catch (dbError) {
+        console.warn('Could not fetch region info during login:', dbError);
+      }
+    }
+
     // Generate JWT token - IMPORTANT: Use 'userId' to match your auth middleware
     const payload = {
       userId: user.user_id,  // Changed from 'user.id' to 'userId' to match your middleware
@@ -110,7 +164,15 @@ const driverLogin = async (req, res) => {
             region_id: driver.region_id,
             license_number: driver.license_number || null,
             role: 'driver',
-            role_name: user.role_name
+            role_name: user.role_name,
+            // Additional information
+            depot_name: depotInfo?.depot_name || null,
+            depot_location: depotInfo?.address || null,
+            region_name: depotInfo?.region_name || regionInfo?.region_name || null,
+            depot_manager_name: depotManagerInfo ? 
+              `${depotManagerInfo.first_name} ${depotManagerInfo.last_name}` : null,
+            depot_manager_phone: depotManagerInfo?.phone || null,
+            depot_manager_email: depotManagerInfo?.email || null,
           }
         });
       }
@@ -136,6 +198,52 @@ const getDriverProfile = async (req, res) => {
       return res.status(404).json({ error: 'Driver profile not found' });
     }
 
+    // Get depot and region information with depot manager details
+    let depotInfo = null;
+    let regionInfo = null;
+    let depotManagerInfo = null;
+
+    try {
+      // Get depot information
+      const depotResult = await db.query(
+        `SELECT d.depot_name, d.address, r.region_name 
+         FROM depots d
+         JOIN regions r ON d.region_id = r.region_id 
+         WHERE d.depot_id = $1`,
+        [driver.depot_id]
+      );
+      
+      if (depotResult.rows.length > 0) {
+        depotInfo = depotResult.rows[0];
+      }
+
+      // Get depot manager information
+      const managerResult = await db.query(
+        `SELECT u.first_name, u.last_name, u.phone, u.email
+         FROM depot_managers dm
+         JOIN users u ON dm.depot_manager_id = u.user_id
+         WHERE dm.depot_id = $1`,
+        [driver.depot_id]
+      );
+      
+      if (managerResult.rows.length > 0) {
+        depotManagerInfo = managerResult.rows[0];
+      }
+
+      // Get region information
+      const regionResult = await db.query(
+        'SELECT region_name FROM regions WHERE region_id = $1',
+        [driver.region_id]
+      );
+      
+      if (regionResult.rows.length > 0) {
+        regionInfo = regionResult.rows[0];
+      }
+    } catch (infoError) {
+      console.error('Error fetching depot/region info:', infoError);
+      // Continue without this information - don't fail the entire request
+    }
+
     res.json({
       success: true,
       user: {
@@ -151,12 +259,142 @@ const getDriverProfile = async (req, res) => {
         license_number: driver.license_number || null,
         role: 'driver',
         role_name: user.role_name,
-        is_active: user.is_active
+        is_active: user.is_active,
+        // Additional information
+        depot_name: depotInfo?.depot_name || null,
+        depot_location: depotInfo?.address || null,
+        region_name: depotInfo?.region_name || regionInfo?.region_name || null,
+        depot_manager_name: depotManagerInfo ? 
+          `${depotManagerInfo.first_name} ${depotManagerInfo.last_name}` : null,
+        depot_manager_phone: depotManagerInfo?.phone || null,
+        depot_manager_email: depotManagerInfo?.email || null,
       }
     });
   } catch (err) {
     console.error('Get driver profile error:', err);
     res.status(500).json({ error: 'Server error while fetching profile' });
+  }
+};
+
+const updateDriverProfile = async (req, res) => {
+  // Check for validation errors
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ 
+      success: false,
+      error: 'Validation failed',
+      details: errors.array()
+    });
+  }
+
+  try {
+    const userId = req.user.userId;
+    const { email, phone } = req.body;
+
+    // Check if email is already taken by another user
+    const existingUser = await User.findByEmail(email);
+    if (existingUser && existingUser.user_id !== userId) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Email is already in use by another account' 
+      });
+    }
+
+    // Update user data
+    const updateData = { email, phone };
+    const updated = await User.updateUser(userId, updateData);
+    
+    if (!updated) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'User not found or update failed' 
+      });
+    }
+
+    // Get updated profile data
+    const user = await User.findById(userId);
+    const driver = await Driver.findByUserId(userId);
+
+    // Get depot information
+    let depotInfo = null;
+    let regionInfo = null;
+    let depotManagerInfo = null;
+
+    if (driver.depot_id) {
+      try {
+        const depotQuery = `
+          SELECT d.depot_name, d.address, r.region_name
+          FROM depots d
+          LEFT JOIN regions r ON d.region_id = r.region_id
+          WHERE d.depot_id = $1
+        `;
+        const depotResult = await db.query(depotQuery, [driver.depot_id]);
+        if (depotResult.rows && depotResult.rows.length > 0) {
+          depotInfo = depotResult.rows[0];
+        }
+
+        // Get depot manager information
+        const managerQuery = `
+          SELECT u.first_name, u.last_name, u.phone, u.email
+          FROM depot_managers dm
+          JOIN users u ON dm.depot_manager_id = u.user_id
+          WHERE dm.depot_id = $1
+        `;
+        const managerResult = await db.query(managerQuery, [driver.depot_id]);
+        if (managerResult.rows && managerResult.rows.length > 0) {
+          depotManagerInfo = managerResult.rows[0];
+        }
+      } catch (dbError) {
+        console.warn('Could not fetch depot/manager info during update:', dbError);
+      }
+    }
+
+    // If depot info failed but we have region_id, try to get region info directly
+    if (!depotInfo && driver.region_id) {
+      try {
+        const regionQuery = 'SELECT region_name FROM regions WHERE region_id = $1';
+        const regionResult = await db.query(regionQuery, [driver.region_id]);
+        if (regionResult.rows && regionResult.rows.length > 0) {
+          regionInfo = regionResult.rows[0];
+        }
+      } catch (dbError) {
+        console.warn('Could not fetch region info during update:', dbError);
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      user: {
+        id: user.user_id,
+        email: user.email,
+        username: user.username,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        phone: user.phone,
+        driver_id: driver.driver_id,
+        depot_id: driver.depot_id,
+        region_id: driver.region_id,
+        license_number: driver.license_number || null,
+        role: 'driver',
+        role_name: user.role_name,
+        is_active: user.is_active,
+        // Additional information
+        depot_name: depotInfo?.depot_name || null,
+        depot_location: depotInfo?.address || null,
+        region_name: depotInfo?.region_name || regionInfo?.region_name || null,
+        depot_manager_name: depotManagerInfo ? 
+          `${depotManagerInfo.first_name} ${depotManagerInfo.last_name}` : null,
+        depot_manager_phone: depotManagerInfo?.phone || null,
+        depot_manager_email: depotManagerInfo?.email || null,
+      }
+    });
+  } catch (err) {
+    console.error('Update driver profile error:', err);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Server error while updating profile' 
+    });
   }
 };
 
@@ -243,5 +481,6 @@ const getDriverAssignedBuses = async (req, res) => {
 module.exports = {
   driverLogin,
   getDriverProfile,
+  updateDriverProfile,
   getDriverAssignedBuses
 };

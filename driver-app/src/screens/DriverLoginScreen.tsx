@@ -19,11 +19,13 @@ import { useNavigation } from '@react-navigation/native';
 import { CommonActions } from '@react-navigation/native';
 import { driverAPI, storageAPI } from "../services/api";
 import { locationService } from "../services/locationService";
+import { useDriver } from "../context/DriverContext";
 
 const { width, height } = Dimensions.get("window");
 
 export default function DriverLoginScreen() {
   const navigation = useNavigation();
+  const { setDriverData } = useDriver();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -63,7 +65,8 @@ export default function DriverLoginScreen() {
             console.log("Daily assignment found:", {
               bus_id: assignmentResponse.bus_id,
               route_id: assignmentResponse.route_id,
-              assignment_id: assignmentResponse.assignment_id
+              assignment_id: assignmentResponse.assignment_id,
+              registration_number: assignmentResponse.registration_number
             });
             
             userData = { 
@@ -71,7 +74,7 @@ export default function DriverLoginScreen() {
               busId: assignmentResponse.bus_id.toString(), 
               routeId: assignmentResponse.route_id.toString(),
               assignmentId: assignmentResponse.assignment_id,
-              busRegistration: assignmentResponse.bus_registration
+              busRegistration: assignmentResponse.registration_number
             };
             
             // Also set assignment data in location service
@@ -89,6 +92,9 @@ export default function DriverLoginScreen() {
         }
 
         await storageAPI.storeUserData(userData);
+
+        // Update driver context
+        setDriverData(userData);
 
         // Start location tracking after storing user data
         if (userData.busId && userData.routeId) {

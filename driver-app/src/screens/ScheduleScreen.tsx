@@ -765,7 +765,7 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 20,
-    paddingVertical: Platform.OS === "ios" ? 16 : 18,
+    paddingVertical: Platform.OS === "ios" ? 20 : 22,
     ...Platform.select({
       android: {
         elevation: 8,
@@ -782,7 +782,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    minHeight: 44,
+    minHeight: 52,
+    marginTop: 8,
   },
   titleContainer: {
     flexDirection: "row",
@@ -793,6 +794,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.1)",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.2)",
+    marginTop: 4,
   },
   headerTitle: {
     color: "#FFFFFF",
@@ -808,6 +810,7 @@ const styles = StyleSheet.create({
   },
   headerActionButton: {
     padding: 4,
+    marginTop: 4,
   },
   iconBackgroundEnhanced: {
     width: 40,

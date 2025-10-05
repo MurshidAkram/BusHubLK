@@ -40,6 +40,7 @@ interface LocationData {
   accuracy?: number;
   speed?: number;
   heading?: number;
+  placeName?: string; // Add place name to location data
 }
 
 interface TrackingStatus {
@@ -221,6 +222,32 @@ export default function TrackingScreen({ navigation }: any) {
     }
   };
 
+  // Function to get place name from coordinates
+  const getPlaceName = async (latitude: number, longitude: number): Promise<string> => {
+    try {
+      const reverseGeocode = await Location.reverseGeocodeAsync({
+        latitude,
+        longitude,
+      });
+
+      if (reverseGeocode && reverseGeocode.length > 0) {
+        const address = reverseGeocode[0];
+        const parts = [];
+        
+        if (address.name) parts.push(address.name);
+        if (address.street) parts.push(address.street);
+        if (address.district) parts.push(address.district);
+        if (address.city) parts.push(address.city);
+        
+        return parts.length > 0 ? parts.slice(0, 2).join(', ') : 'Unknown Location';
+      }
+      return 'Unknown Location';
+    } catch (error) {
+      console.error("Error getting place name:", error);
+      return 'Unknown Location';
+    }
+  };
+
   const getCurrentLocation = async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -233,6 +260,9 @@ export default function TrackingScreen({ navigation }: any) {
         accuracy: Location.Accuracy.High,
       });
 
+      // Get place name for the current location
+      const placeName = await getPlaceName(location.coords.latitude, location.coords.longitude);
+
       const locationData: LocationData = {
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
@@ -240,6 +270,7 @@ export default function TrackingScreen({ navigation }: any) {
         accuracy: location.coords.accuracy || undefined,
         speed: location.coords.speed || undefined,
         heading: location.coords.heading || undefined,
+        placeName: placeName,
       };
 
       setCurrentLocation(locationData);
@@ -572,6 +603,9 @@ export default function TrackingScreen({ navigation }: any) {
                   </Text>
                   <Text style={styles.historyIndex}>#{index + 1}</Text>
                 </View>
+                <Text style={styles.historyLocation}>
+                  {location.placeName || 'Unknown Location'}
+                </Text>
                 <Text style={styles.historyCoords}>
                   {formatCoordinate(location.latitude)}, {formatCoordinate(location.longitude)}
                 </Text>
@@ -584,39 +618,6 @@ export default function TrackingScreen({ navigation }: any) {
             ))}
           </View>
         )}
-
-        {/* Debug Info Card */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <MaterialCommunityIcons
-              name="bug"
-              size={24}
-              color={AppColors.warning}
-            />
-            <Text style={styles.cardTitle}>Debug Information</Text>
-          </View>
-
-          <View style={styles.debugInfo}>
-            <Text style={styles.debugText}>
-              Platform: {Platform.OS} {Platform.Version}
-            </Text>
-            <Text style={styles.debugText}>
-              User ID: {userData?.user_id || 'N/A'}
-            </Text>
-            <Text style={styles.debugText}>
-              Driver ID: {userData?.driver_id || 'N/A'}
-            </Text>
-            <Text style={styles.debugText}>
-              Assignment ID: {assignmentData?.assignment_id || 'N/A'}
-            </Text>
-            <Text style={styles.debugText}>
-              Assignment Status: {assignmentData?.status || 'N/A'}
-            </Text>
-            <Text style={styles.debugText}>
-              Location History: {locationHistory.length} entries
-            </Text>
-          </View>
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -812,25 +813,21 @@ const styles = StyleSheet.create({
     color: AppColors.textSecondary,
   },
   historyCoords: {
-    fontSize: 13,
+    fontSize: 11,
     color: AppColors.textSecondary,
     fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
+    marginTop: 2,
+  },
+  historyLocation: {
+    fontSize: 14,
+    color: AppColors.text,
+    fontWeight: "500",
+    marginBottom: 4,
   },
   historyAccuracy: {
     fontSize: 12,
     color: AppColors.textSecondary,
     marginTop: 2,
-  },
-  debugInfo: {
-    backgroundColor: AppColors.primaryMuted,
-    padding: 12,
-    borderRadius: 8,
-  },
-  debugText: {
-    fontSize: 12,
-    color: AppColors.textSecondary,
-    marginBottom: 4,
-    fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
   },
   assignmentGrid: {
     flexDirection: "row",
