@@ -26,7 +26,8 @@
           "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true
         }
-      ]
+      ],
+      "expo-font"
     ],
     "ios": {
       "supportsTablet": true,
@@ -34,12 +35,18 @@
         "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs access to location when open and in the background to track bus position for passengers.",
         "NSLocationWhenInUseUsageDescription": "This app needs access to location to track bus position for passengers.",
         "NSLocationAlwaysUsageDescription": "This app needs access to location when in the background to continuously track bus position for passengers.",
-        "UIBackgroundModes": ["location"]
-      }
+        "UIBackgroundModes": [
+          "location",
+          "location"
+        ],
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "bundleIdentifier": "com.anonymous.driverapp"
     },
     "android": {
+      "usesCleartextTraffic": true,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/logoblue.png",
+        "foregroundImage": "./assets/logowithoutbg_blue.png",
         "backgroundColor": "#ffffff"
       },
       "permissions": [
@@ -47,7 +54,13 @@
         "ACCESS_FINE_LOCATION",
         "ACCESS_BACKGROUND_LOCATION",
         "FOREGROUND_SERVICE",
-        "FOREGROUND_SERVICE_LOCATION"
+        "FOREGROUND_SERVICE_LOCATION",
+        "WAKE_LOCK",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION"
       ],
       "intentFilters": [
         {
@@ -64,15 +77,13 @@
           ]
         }
       ],
-      "package": "com.anonymous.driverapp",
-      "androidStatusBar": {
-        "barStyle": "dark-content",
-        "backgroundColor": "#FFFFFF"
+      "package": "com.anonymous.driverapp"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "2497892b-40f2-4a9e-a0c1-aea897cbfa12"
       },
-      "androidNavigationBar": {
-        "barStyle": "dark-content",
-        "backgroundColor": "#FFFFFF"
-      }
+      "apiUrl": "http://192.168.1.30:5000/api"
     }
   }
 }

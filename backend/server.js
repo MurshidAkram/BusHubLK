@@ -67,11 +67,19 @@ app.get('/api/test', (req, res) => {
   });
 });
 
+// Google Places API proxy routes
+try {
+  const placesRoutes = require('./routes/placesRoutes');
+  app.use('/api/places', placesRoutes);
+  console.log('✅ placesRoutes loaded');
+} catch (error) {
+  console.log('❌ placesRoutes error:', error.message);
+}
 
 try {
   const BusTrackingRoutes = require('./routes/BusTrackingRoutes');
   app.use('/api/bus-tracking', BusTrackingRoutes);
-  app.use('/api/live-tracking', BusTrackingRoutes);
+  // Removed duplicate /api/live-tracking registration - using busLiveTrackingRoutes instead
   console.log('✅ BusTrackingRoutes loaded');
 } catch (error) {
   console.log('❌ BusTrackingRoutes error:', error.message);

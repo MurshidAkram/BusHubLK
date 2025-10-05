@@ -290,12 +290,9 @@ export default function ComplaintsScreen() {
                   <Ionicons name="information-circle-outline" size={20} color={AppColors.secondary} style={styles.inputIcon} />
                   <TextInput style={styles.inputText} placeholder="e.g., ND-1234" value={busNumber} onChangeText={setBusNumber} />
                 </View>
-
               </View>
             </View>
           </View>
-        </View>
-
 
           {/* --- CARD 2: TIME & PLACE --- */}
           <View style={styles.card}>
