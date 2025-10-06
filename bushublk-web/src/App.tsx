@@ -68,6 +68,7 @@ import Regionservicemonitor from './pages/dashboards/regional-tech/Regionservice
 import Inspectionschedular from './pages/dashboards/regional-tech/Inspectionschedular'
 import Rtoissuetracker from './pages/dashboards/regional-tech/Rtoissuetracker'
 import Regioncommunityhub from './pages/dashboards/regional-tech/Regioncommunityhub'
+import RTONotifications from './pages/dashboards/regional-tech/RTONotifications'
 
 
 // Regional Operations Officer Components
@@ -232,6 +233,7 @@ const App = () => {
           <Route path="Regionservicemonitor" element={<Regionservicemonitor />} />
           <Route path="Rtoissuetracker" element={<Rtoissuetracker />} />
           <Route path="Regioncommunityhub" element={<Regioncommunityhub />} />
+          <Route path="RTONotifications" element={<RTONotifications />} />
           {/* Add individual pages later */}
         </Route>
         </Route>

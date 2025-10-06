@@ -21,7 +21,7 @@ const routeData: Record<
     { routeName: '15: Gampaha – Negombo', numberofbus: 10, load: 70, dailyRidership: 1100 },
     { routeName: '39: Gampaha – Wattala', numberofbus: 7, load: 65, dailyRidership: 900  },
   ],
-  // …other depot routes
+  // Other depot routes can be added here
 };
 
 const DepotNetworkPage: React.FC = () => {
@@ -49,25 +49,21 @@ const DepotNetworkPage: React.FC = () => {
         coords: '6.9271, 79.8612', // Default coordinates
         address: `${depot.depot_name} Depot, ${state.regionName}`,
         manager: 'Depot Manager', // Default manager
-        staffCount: Math.floor(depot.bus_count * 0.7), // Estimate staff count
-        dailyPassengers: depot.active_buses * 100, // Estimate daily passengers
         lastInspection: '2025-01-15',
-        ridershipHistory: [
-          { date: '2025-01-01', riders: depot.active_buses * 80 },
-          { date: '2025-01-02', riders: depot.active_buses * 85 },
-          { date: '2025-01-03', riders: depot.active_buses * 90 },
-          { date: '2025-01-04', riders: depot.active_buses * 95 },
-          { date: '2025-01-05', riders: depot.active_buses * 100 },
-        ],
       }));
       setDepots(transformedDepots);
       setRegion(state.regionName);
+      
+      // Auto-select first depot if only one depot in the region
+      if (transformedDepots.length === 1) {
+        setSelectedId(transformedDepots[0].id);
+      }
     } else {
       // Use empty array as fallback since no hardcoded data
       setDepots([]);
     }
   }, [location.state]);
-  
+
   const filtered = useMemo(() => 
     depots.filter(d =>
       (region==='All' || d.region===region) &&
@@ -156,7 +152,7 @@ const DepotNetworkPage: React.FC = () => {
               </span>
             </div>
 
-            {/* KPI Row */}
+            {/* KPI Row - 4 cards only */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
               <div className="p-4 bg-white shadow rounded flex items-center">
                 <HiTruck className="h-6 w-6 text-blue-600 mr-2" />
@@ -188,7 +184,9 @@ const DepotNetworkPage: React.FC = () => {
               </div>
             </div>
 
-            <div title="Routes Overview">
+            {/* Routes Overview */}
+            <div className="bg-white shadow rounded p-4 mb-6">
+              <h4 className="text-lg mb-4">Routes Overview</h4>
               {routeData[active.id]?.length ? (
                 <div className="overflow-auto">
                   <table className="w-full text-sm">
@@ -213,12 +211,12 @@ const DepotNetworkPage: React.FC = () => {
                   </table>
                 </div>
               ) : (
-                <p className="text-gray-500">No route data available.</p>
+                <p className="text-gray-500">No route data available for this depot.</p>
               )}
             </div>
 
-            {/* Bus Details Table */}
-            <div className="bg-white shadow rounded p-4 mb-6 mt-8">
+            {/* Bus Fleet Details Table - Replaces the chart */}
+            <div className="bg-white shadow rounded p-4 mb-6">
               <h4 className="text-lg mb-4">Bus Fleet Details</h4>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm border-collapse">
@@ -265,13 +263,13 @@ const DepotNetworkPage: React.FC = () => {
                     })}
                   </tbody>
                 </table>
+                {active.totalFleet === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    <HiTruck className="mx-auto h-12 w-12 text-gray-400 mb-2" />
+                    <p>No buses found for this depot</p>
+                  </div>
+                )}
               </div>
-              {active.totalFleet === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                  <HiTruck className="mx-auto h-12 w-12 text-gray-400 mb-2" />
-                  <p>No buses found for this depot</p>
-                </div>
-              )}
             </div>
           </>
         )}
