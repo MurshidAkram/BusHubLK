@@ -1,16 +1,13 @@
-import React, { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   FaExclamationTriangle, 
   FaCheckCircle, 
-  FaClock, 
   FaWrench, 
   FaCalendarAlt,
   FaMapMarkerAlt,
   FaBus,
-  FaTools,
-  FaClipboardList,
-  FaPhone
+  FaClipboardList
 } from 'react-icons/fa';
 import { HiUsers } from 'react-icons/hi';
 import { AppContext } from '../../../context/AppContext';
@@ -18,6 +15,17 @@ import { AppContext } from '../../../context/AppContext';
 interface BusStatusData {
   status: string;
   count: number;
+}
+
+interface Inspection {
+  id: number;
+  inspection_type: string;
+  date: string;
+  time: string;
+  status: string;
+  depot_id: number;
+  depot_name?: string;
+  region_name?: string;
 }
 
 const MaintenanceDashboard = () => {
@@ -29,32 +37,38 @@ const MaintenanceDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch bus status distribution data
+  // Fetch bus status distribution data and depot count
+  const [totalDepots, setTotalDepots] = useState<number>(0);
+  
+  // Inspection data states
+  const [upcomingInspections, setUpcomingInspections] = useState<Inspection[]>([]);
+  const [completedInspections, setCompletedInspections] = useState<Inspection[]>([]);
+  const [inspectionCounts, setInspectionCounts] = useState({
+    completed: 0,
+    pending: 0
+  });
+  
+  // Active issues data
+  const [activeIssuesCount, setActiveIssuesCount] = useState<number>(0);
+  
+  // Incident statistics for bar chart
+  const [incidentStats, setIncidentStats] = useState<{[key: string]: number}>({});
   useEffect(() => {
     const fetchBusStatusData = async () => {
       try {
         setLoading(true);
+        if (!token) throw new Error('No authentication token found');
         
-        // Check if token is available from context
-        if (!token) {
-          throw new Error('No authentication token found');
-        }
-
+        // Fetch bus status summary
         const response = await fetch('http://localhost:5000/api/dgm-technical/dashboard-summary', {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           }
         });
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const result = await response.json();
-        
         if (result.success && result.data) {
-          // Transform the dashboard summary data to match the expected format
           const data = result.data;
           const transformedData = [
             { status: 'Active', count: parseInt(data.buses_active) || 0 },
@@ -66,18 +80,117 @@ const MaintenanceDashboard = () => {
         } else {
           throw new Error(result.message || 'No data received');
         }
+        
+        // Fetch depot count
+        const depotsRes = await fetch('http://localhost:5000/api/depots/service-monitor', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (depotsRes.ok) {
+          const depotsData = await depotsRes.json();
+          setTotalDepots(Array.isArray(depotsData.depots) ? depotsData.depots.length : 0);
+        } else {
+          setTotalDepots(0);
+        }
+
+        // Fetch inspection data
+        await fetchInspectionData();
+        
+        // Fetch active issues
+        await fetchActiveIssues();
+        
       } catch (err) {
-        console.error('Error fetching bus status data:', err);
-        setError('Failed to load bus status data');
-        // Fallback data
+        console.error('Error fetching dashboard data:', err);
+        setError('Failed to load dashboard data');
         setBusStatusData([
           { status: 'Active', count: 579 },
           { status: 'Maintenance', count: 62 },
           { status: 'Out of Service', count: 27 },
           { status: 'In Service', count: 211 }
         ]);
+        setTotalDepots(18); // fallback
       } finally {
         setLoading(false);
+      }
+    };
+
+    const fetchInspectionData = async () => {
+      try {
+        if (!token) return;
+
+        // Fetch upcoming inspections (pending)
+        const upcomingResponse = await fetch('http://localhost:5000/api/inspections/upcoming', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (upcomingResponse.ok) {
+          const upcomingData = await upcomingResponse.json();
+          const upcoming = upcomingData.inspections || [];
+          setUpcomingInspections(upcoming);
+          
+          // Fetch past inspections (completed)
+          const pastResponse = await fetch('http://localhost:5000/api/inspections/past', {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (pastResponse.ok) {
+            const pastData = await pastResponse.json();
+            const completed = pastData.inspections || [];
+            setCompletedInspections(completed);
+            
+            // Update inspection counts with correct data
+            setInspectionCounts({
+              completed: completed.length,
+              pending: upcoming.length
+            });
+          }
+        }
+        
+      } catch (err) {
+        console.error('Error fetching inspection data:', err);
+      }
+    };
+
+    const fetchActiveIssues = async () => {
+      try {
+        if (!token) return;
+
+        // Fetch RTO reports (emergency reports escalated to RTO)
+        const response = await fetch('http://localhost:5000/api/rto', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.data) {
+            // Count active issues (not resolved)
+            const activeIssues = data.data.filter((report: any) => 
+              report.status !== 'Resolved'
+            );
+            setActiveIssuesCount(activeIssues.length);
+
+            // Count incidents by type for bar chart
+            const incidentCounts: {[key: string]: number} = {};
+            
+            data.data.forEach((report: any) => {
+              const incidentType = report.incident_type || 'unknown';
+              incidentCounts[incidentType] = (incidentCounts[incidentType] || 0) + 1;
+            });
+
+            setIncidentStats(incidentCounts);
+          }
+        }
+        
+      } catch (err) {
+        console.error('Error fetching active issues:', err);
       }
     };
 
@@ -212,56 +325,125 @@ const MaintenanceDashboard = () => {
     );
   };
 
-  const inspections = [
-    {
-      type: 'Periodic Safety Check',
-      date: 'Tomorrow • 9:00 AM',
-      location: 'Colombo Central Depot',
-      buses: 15,
-      priority: 'high'
-    },
-    {
-      type: 'Oil Change Batch',
-      date: 'Jul 15 • All day',
-      location: 'Gampaha Main Depot',
-      buses: 10,
-      priority: 'medium'
-    },
-    {
-      type: 'Tire Rotation',
-      date: 'Jun 18 • 10:00 AM',
-      location: 'Kandy Central Depot',
-      buses: 8,
-      priority: 'low'
-    }
-  ];
+  // Incident Statistics Bar Chart Component
+  const IncidentStatisticsChart = () => {
+    // Define all possible incident types with their colors (matching mobile app)
+    const allIncidentTypes = {
+      'Accident': { color: '#EF4444', label: 'Accident' },
+      'Medical': { color: '#059669', label: 'Medical' },
+      'Fire': { color: '#DC2626', label: 'Fire' },
+      'Breakdown': { color: '#F59E0B', label: 'Breakdown' },
+      'Theft': { color: '#9333EA', label: 'Theft' },
+      'Hazard': { color: '#D97706', label: 'Hazard' }
+    };
 
-  const activeIssues = [
-    {
-      id: 'ISS-2023-045',
-      bus: 'NP-AB-7894',
-      issue: 'Engine overheating',
-      depot: 'Kandy Central',
-      status: 'awaiting parts',
-      daysOpen: 3
-    },
-    {
-      id: 'ISS-2023-046',
-      bus: 'WP-EF-4567',
-      issue: 'Brake system failure',
-      depot: 'Colombo Central',
-      status: 'in progress',
-      daysOpen: 1
-    },
-    {
-      id: 'ISS-2023-047',
-      bus: 'SP-XY-1234',
-      issue: 'AC compressor failure',
-      depot: 'Galle Main',
-      status: 'diagnosing',
-      daysOpen: 2
-    }
-  ];
+    // Create chart data ensuring all incident types are included
+    const chartData = Object.entries(allIncidentTypes).map(([type, config]) => ({
+      label: config.label,
+      count: incidentStats[type] || 0, // Use 0 if type doesn't exist in data
+      color: config.color,
+      originalType: type
+    })).sort((a, b) => b.count - a.count); // Sort by count descending
+
+    const maxCount = Math.max(...chartData.map(item => item.count), 1);
+    const [hoveredBar, setHoveredBar] = useState<{label: string, count: number, x: number, y: number} | null>(null);
+
+    return (
+      <div className="w-full h-64 relative">
+        <div className="flex items-end justify-between h-48 px-4">
+          {chartData.map((item, index) => (
+            <div key={index} className="flex flex-col items-center flex-1 max-w-[120px] min-w-[80px]">
+              <div 
+                className="relative cursor-pointer transition-all duration-200 hover:opacity-80 rounded-t w-full"
+                style={{
+                  height: `${item.count > 0 ? (item.count / maxCount) * 160 : 8}px`,
+                  backgroundColor: item.count > 0 ? item.color : '#E5E7EB',
+                  minHeight: '8px',
+                  border: item.count === 0 ? '1px dashed #9CA3AF' : 'none'
+                }}
+                onMouseEnter={(e) => {
+                  setHoveredBar({
+                    label: item.label,
+                    count: item.count,
+                    x: e.clientX,
+                    y: e.clientY
+                  });
+                }}
+                onMouseMove={(e) => {
+                  setHoveredBar(prev => prev ? {
+                    ...prev,
+                    x: e.clientX,
+                    y: e.clientY
+                  } : null);
+                }}
+                onMouseLeave={() => setHoveredBar(null)}
+              >
+                {/* Count at top of each column */}
+                <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 text-sm font-semibold text-gray-700">
+                  {item.count}
+                </div>
+              </div>
+              <div className="mt-3 text-sm text-gray-700 text-center font-medium">
+                {item.label}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Tooltip */}
+        {hoveredBar && (
+          <div 
+            className="fixed z-50 bg-gray-900 text-white px-3 py-2 rounded-lg shadow-lg pointer-events-none"
+            style={{
+              left: hoveredBar.x + 10,
+              top: hoveredBar.y - 40,
+              transform: 'translateX(-50%)'
+            }}
+          >
+            <div className="text-sm font-medium">{hoveredBar.label}</div>
+            <div className="text-xs">{hoveredBar.count} incidents</div>
+          </div>
+        )}
+
+        {/* Legend for zero vs non-zero values */}
+        <div className="absolute bottom-2 right-2 flex items-center space-x-4 text-xs text-gray-500">
+          <div className="flex items-center">
+            <div className="w-3 h-3 bg-blue-500 rounded mr-1"></div>
+            <span>Has incidents</span>
+          </div>
+          <div className="flex items-center">
+            <div className="w-3 h-3 bg-gray-200 border border-dashed border-gray-400 rounded mr-1"></div>
+            <span>No incidents</span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Helper function to format inspection data for display
+  const formatInspectionsForDisplay = () => {
+    // Get the 3 most recent upcoming inspections
+    const recentUpcoming = upcomingInspections
+      .slice(0, 3)
+      .map(inspection => ({
+        type: inspection.inspection_type,
+        date: new Date(inspection.date).toLocaleDateString() + ' • ' + inspection.time,
+        location: inspection.depot_name || 'Unknown Depot',
+        buses: 'N/A', // This would need to be added to the API if bus count per inspection is needed
+        priority: inspection.status === 'Pending' ? 'medium' : 'low'
+      }));
+
+    // If we have fewer than 3, pad with empty states or show "No upcoming inspections"
+    return recentUpcoming.length > 0 ? recentUpcoming : [
+      {
+        type: 'No upcoming inspections',
+        date: 'Schedule new inspections',
+        location: 'Use the Quick Actions panel',
+        buses: '',
+        priority: 'low'
+      }
+    ];
+  };
 
   const getStatusColor = (status: string) => {
     switch(status) {
@@ -319,56 +501,67 @@ const MaintenanceDashboard = () => {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Top Metrics Cards - Keep as is */}
+        {/* Top Metrics Cards - Updated */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-red-500">
+          {/* Total Depots Card */}
+          <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-blue-500">
             <div className="flex items-center justify-between">
               <div>
                 <div className="flex items-center mb-2">
-                  <FaExclamationTriangle className="w-5 h-5 text-red-500 mr-2" />
-                  <span className="text-gray-600 text-sm">Active Breakdowns</span>
+                  <FaMapMarkerAlt className="w-5 h-5 text-blue-500 mr-2" />
+                  <span className="text-gray-600 text-sm">Total Depots</span>
                 </div>
-                <div className="text-3xl font-bold text-gray-900">12</div>
-                <div className="text-red-500 text-sm mt-1">+2 from yesterday</div>
+                <div className="text-3xl font-bold text-gray-900">{totalDepots}</div>
+                <div className="text-blue-500 text-sm mt-1">SLTB Depots</div>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-green-500">
+          <div 
+            onClick={() => navigate('/regional-technical-officer/Inspectionschedular')}
+            className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-green-500 cursor-pointer hover:bg-gray-50 transition-colors"
+          >
             <div className="flex items-center justify-between">
               <div>
                 <div className="flex items-center mb-2">
                   <FaCheckCircle className="w-5 h-5 text-green-500 mr-2" />
                   <span className="text-gray-600 text-sm">Completed Inspections</span>
                 </div>
-                <div className="text-3xl font-bold text-gray-900">2</div>
-                {/* <div className="text-green-500 text-sm mt-1">+3 from yesterday</div> */}
+                <div className="text-3xl font-bold text-gray-900">{inspectionCounts.completed}</div>
+                <div className="text-green-500 text-sm mt-1">Last 30 days</div>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-blue-500">
+          <div 
+            onClick={() => navigate('/regional-technical-officer/Inspectionschedular')}
+            className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-blue-500 cursor-pointer hover:bg-gray-50 transition-colors"
+          >
             <div className="flex items-center justify-between">
               <div>
                 <div className="flex items-center mb-2">
                   <FaCalendarAlt className="w-5 h-5 text-blue-500 mr-2" />
                   <span className="text-gray-600 text-sm">Pending Inspections</span>
                 </div>
-                <div className="text-3xl font-bold text-gray-900">5</div>
-                <div className="text-blue-500 text-sm mt-1">Due this week</div>
+                <div className="text-3xl font-bold text-gray-900">{inspectionCounts.pending}</div>
+                <div className="text-blue-500 text-sm mt-1">Upcoming</div>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-purple-500">
+          {/* Active Issues Card */}
+          <div 
+            onClick={() => navigate('/regional-technical-officer/Rtoissuetracker')}
+            className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-red-500 cursor-pointer hover:bg-gray-50 transition-colors"
+          >
             <div className="flex items-center justify-between">
               <div>
                 <div className="flex items-center mb-2">
-                  <FaTools className="w-5 h-5 text-purple-500 mr-2" />
-                  <span className="text-gray-600 text-sm">Preventive Maintenance</span>
+                  <FaExclamationTriangle className="w-5 h-5 text-red-500 mr-2" />
+                  <span className="text-gray-600 text-sm">Active Issues</span>
                 </div>
-                <div className="text-3xl font-bold text-gray-900">23</div>
-                <div className="text-purple-500 text-sm mt-1">Scheduled this month</div>
+                <div className="text-3xl font-bold text-gray-900">{activeIssuesCount}</div>
+                <div className="text-red-500 text-sm mt-1">Open reports</div>
               </div>
             </div>
           </div>
@@ -428,16 +621,35 @@ const MaintenanceDashboard = () => {
           </div>
         </div>
 
+        {/* Incident Statistics - Full Width */}
+        <div className="mt-8">
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-semibold text-gray-900">Incident Statistics</h2>
+              <p className="text-sm text-gray-600">Region-wide incident reports by type</p>
+            </div>
+            <IncidentStatisticsChart />
+          </div>
+        </div>
+
         {/* Inspection Scheduler - Full Width Below */}
         <div className="mt-8">
           <div className="bg-white rounded-lg shadow-sm p-6">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-semibold text-gray-900">Inspection Scheduler</h2>
-              <button className="text-blue-600 text-sm hover:text-blue-800">Schedule New</button>
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Upcoming Inspections Overview</h2>
+                <p className="text-sm text-gray-600">Recent pending inspections from your scheduled list</p>
+              </div>
+              <button 
+                onClick={() => navigate('/regional-technical-officer/Inspectionschedular')}
+                className="text-blue-600 text-sm hover:text-blue-800"
+              >
+                View All Inspections
+              </button>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {inspections.map((inspection, index) => (
+              {formatInspectionsForDisplay().map((inspection, index) => (
                 <div key={index} className="border border-gray-200 rounded-lg p-4">
                   <div className="flex justify-between items-start mb-2">
                     <div className="flex items-center">
@@ -463,9 +675,7 @@ const MaintenanceDashboard = () => {
                     <div className="text-sm text-gray-600 mb-1">
                       <FaMapMarkerAlt className="inline mr-1" /> {inspection.location}
                     </div>
-                    <div className="text-sm text-gray-600">
-                      <FaBus className="inline mr-1" /> {inspection.buses} buses
-                    </div>
+                  
                   </div>
                 </div>
               ))}

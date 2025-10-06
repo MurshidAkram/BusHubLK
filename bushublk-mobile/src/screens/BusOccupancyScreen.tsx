@@ -11,7 +11,7 @@ import {
   Modal,
   ScrollView,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/Ionicons';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import * as Location from 'expo-location';
 
@@ -782,7 +782,7 @@ export default function BusOccupancyScreen() {
           }}
           style={{ marginRight: 8, padding: 4 }}
         >
-          <Icon name="arrow-back" size={28} color="#007bff" />
+          <Ionicons name="arrow-back" size={28} color="#007bff" />
         </TouchableOpacity>
         <Text style={styles.title}>🚍 SLTB Bus Occupancy Monitor</Text>
       </View>
@@ -801,7 +801,7 @@ export default function BusOccupancyScreen() {
               }
             }}
           >
-            <Icon name="refresh" size={20} color="#007bff" />
+            <Ionicons name="refresh" size={20} color="#007bff" />
           </TouchableOpacity>
         </View>
         {buses.length > 0 ? (
@@ -898,7 +898,7 @@ export default function BusOccupancyScreen() {
         {currentBus ? (
           <View style={styles.currentBusCard}>
             <View style={styles.currentBusHeader}>
-              <Icon name="bus" size={20} color="#007bff" />
+              <Ionicons name="bus" size={20} color="#007bff" />
               <Text style={styles.currentBusTitle}>Bus {currentBus.registration_number || currentBus.number}</Text>
             </View>
             <Text style={styles.currentBusRoute}>
@@ -981,7 +981,7 @@ export default function BusOccupancyScreen() {
         <View style={styles.occupancyHeader}>
           <Text style={styles.label}>📊 All Bus Occupancy Updates</Text>
           <TouchableOpacity style={styles.refreshButton} onPress={fetchAllOccupancies}>
-            <Icon name="refresh" size={20} color="#007bff" />
+            <Ionicons name="refresh" size={20} color="#007bff" />
           </TouchableOpacity>
         </View>
         {status === 'loading' && (

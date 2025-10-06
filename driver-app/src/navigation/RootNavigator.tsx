@@ -4,10 +4,13 @@ import { createStackNavigator } from "@react-navigation/stack";
 import DriverLoginScreen from "../screens/DriverLoginScreen";
 import ForgotPasswordScreen from "../screens/ForgotPasswordScreen";
 import ResetPasswordScreen from "../screens/ResetPasswordScreen";
+import NotificationScreen from "../screens/NotificationScreen";
 import TabNavigator from "./TabNavigator";
 import { storageAPI } from "../services/api";
 import { deepLinkService } from "../services/deepLinkHandler";
 import { locationService } from "../services/locationService";
+import { DriverProvider } from "../context/DriverContext";
+import { NotificationProvider } from "../context/NotificationContext";
 
 const Stack = createStackNavigator();
 
@@ -128,34 +131,59 @@ export default function RootNavigator() {
   }
 
   return (
-    <NavigationContainer ref={navigationRef}>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {isAuthenticated ? (
-          <Stack.Screen
-            name="Main"
-            component={TabNavigator}
-            key="main-screen"
-          />
-        ) : (
-          <>
-            <Stack.Screen
-              name="Login"
-              component={DriverLoginScreen}
-              key="login-screen"
-            />
-            <Stack.Screen
-              name="ForgotPassword"
-              component={ForgotPasswordScreen}
-              key="forgot-password-screen"
-            />
-            <Stack.Screen
-              name="ResetPassword"
-              component={ResetPasswordScreen}
-              key="reset-password-screen"
-            />
-          </>
-        )}
-      </Stack.Navigator>
-    </NavigationContainer>
+    <DriverProvider>
+      <NotificationProvider>
+        <NavigationContainer ref={navigationRef}>
+          <Stack.Navigator screenOptions={{ headerShown: false }}>
+            {isAuthenticated ? (
+              <>
+                <Stack.Screen
+                  name="Main"
+                  component={TabNavigator}
+                  key="main-screen"
+                />
+                <Stack.Screen
+                  name="Notifications"
+                  component={NotificationScreen}
+                  key="notifications-screen"
+                />
+                <Stack.Screen
+                  name="ForgotPassword"
+                  component={ForgotPasswordScreen}
+                  key="forgot-password-screen"
+                  options={{
+                    title: "Change Password",
+                    headerShown: true,
+                  }}
+                />
+                <Stack.Screen
+                  name="ResetPassword"
+                  component={ResetPasswordScreen}
+                  key="reset-password-screen"
+                />
+              </>
+            ) : (
+              <>
+                <Stack.Screen
+                  name="Login"
+                  component={DriverLoginScreen}
+                  key="login-screen"
+                />
+                <Stack.Screen
+                  name="ForgotPassword"
+                  component={ForgotPasswordScreen}
+                  key="forgot-password-screen"
+                />
+                <Stack.Screen
+                  name="ResetPassword"
+                  component={ResetPasswordScreen}
+                  key="reset-password-screen"
+                />
+              </>
+            )}
+          </Stack.Navigator>
+        </NavigationContainer>
+      </NotificationProvider>
+    </DriverProvider>
   );
 }

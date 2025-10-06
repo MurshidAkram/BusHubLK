@@ -105,11 +105,22 @@ class DailyAssignment {
        JOIN depots d ON da.depot_id = d.depot_id
        JOIN users udriver ON da.driver_id = udriver.user_id
        LEFT JOIN users uconductor ON da.conductor_id = uconductor.user_id
-       WHERE da.driver_id = $1 AND da.is_active = true
-       ORDER BY da.assignment_date DESC, da.shift_start_time DESC`,
+       WHERE da.driver_id = $1 
+         AND da.is_active = true 
+         AND da.assignment_date >= CURRENT_DATE - INTERVAL '1 day'
+         AND da.assignment_date <= CURRENT_DATE + INTERVAL '7 days'
+       ORDER BY 
+         CASE 
+           WHEN da.assignment_date = CURRENT_DATE THEN 1
+           WHEN da.assignment_date > CURRENT_DATE THEN 2
+           ELSE 3
+         END,
+         da.assignment_date ASC, 
+         da.shift_start_time ASC
+       LIMIT 1`,
       [driver_id]
     );
-    return result.rows;
+    return result.rows[0]; // Return most relevant assignment (today first, then future, then recent past)
   }
 
   // Get upcoming assignments for a driver

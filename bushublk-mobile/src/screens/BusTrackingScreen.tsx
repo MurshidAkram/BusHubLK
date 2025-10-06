@@ -12,7 +12,7 @@ import {
   Dimensions,
   Modal,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/Ionicons';
+import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, PROVIDER_GOOGLE, Circle } from 'react-native-maps';
 import { StackScreenProps } from '@react-navigation/stack';
 import * as Location from 'expo-location';
@@ -472,21 +472,21 @@ const fetchRoutes = async () => {
 
         <View style={styles.busDetails}>
           <View style={styles.busDetailRow}>
-            <Icon name="people-outline" size={16} color={occupancyDisplay.color} />
+            <Ionicons name="people-outline" size={16} color={occupancyDisplay.color} />
             <Text style={[styles.busDetailText, { color: occupancyDisplay.color }]}>
               Occupancy: {occupancyDisplay.text}
             </Text>
           </View>
           {occupancyDisplay.freshness && (
             <View style={styles.busDetailRow}>
-              <Icon name="time-outline" size={16} color={AppColors.textSecondary} />
+              <Ionicons name="time-outline" size={16} color={AppColors.textSecondary} />
               <Text style={styles.busDetailText}>
                 Data: {occupancyDisplay.freshness}
               </Text>
             </View>
           )}
           <View style={styles.busDetailRow}>
-            <Icon name="pin-outline" size={16} color={AppColors.textSecondary} />
+            <Ionicons name="pin-outline" size={16} color={AppColors.textSecondary} />
             <Text style={styles.busDetailText}>
               Distance: {item.distanceKm.toFixed(2)} km
             </Text>
@@ -523,16 +523,16 @@ const fetchRoutes = async () => {
 
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Icon name="arrow-back-outline" size={24} color={AppColors.text} />
+          <Ionicons name="arrow-back-outline" size={24} color={AppColors.text} />
         </TouchableOpacity>
         <Text style={styles.title}>Bus Tracking</Text>
         <TouchableOpacity onPress={showAllBuses} style={styles.viewAllButton}>
-          <Icon name="expand-outline" size={24} color={AppColors.primary} />
+          <Ionicons name="expand-outline" size={24} color={AppColors.primary} />
         </TouchableOpacity>
       </View>
 
       <View style={styles.searchContainer}>
-        <Icon name="search-outline" size={20} color={AppColors.textSecondary} />
+        <Ionicons name="search-outline" size={20} color={AppColors.textSecondary} />
         <TextInput
           style={styles.searchInput}
           placeholder="Search route number..."
@@ -541,7 +541,7 @@ const fetchRoutes = async () => {
         />
         {searchQuery.length > 0 && (
           <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <Icon name="close-circle" size={20} color={AppColors.textSecondary} />
+            <Ionicons name="close-circle" size={20} color={AppColors.textSecondary} />
           </TouchableOpacity>
         )}
       </View>
@@ -589,7 +589,7 @@ const fetchRoutes = async () => {
               description="Your current location"
             >
               <View style={{ backgroundColor: '#17a2b8', borderRadius: 12, padding: 4 }}>
-                <Icon name="person" size={18} color="white" />
+                <Ionicons name="person" size={18} color="white" />
               </View>
             </Marker>
           )}
@@ -609,7 +609,7 @@ const fetchRoutes = async () => {
                 styles.busMarker,
                 { backgroundColor: getBusStatusColor(bus.status) }
               ]}>
-                <Icon name="bus" size={16} color="white" />
+                <Ionicons name="bus" size={16} color="white" />
                 <Text style={styles.busMarkerText}>{bus.routeNumber || 'N/A'}</Text>
               </View>
             </Marker>
@@ -646,14 +646,14 @@ const fetchRoutes = async () => {
               setSearchQuery('');
             }}
           >
-            <Icon name="refresh" size={20} color={AppColors.primary} />
+            <Ionicons name="refresh" size={20} color={AppColors.primary} />
             <Text style={styles.mapControlText}>Reset</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.mapControlButton}
             onPress={showAllBuses}
           >
-            <Icon name="locate" size={20} color={AppColors.primary} />
+            <Ionicons name="locate" size={20} color={AppColors.primary} />
             <Text style={styles.mapControlText}>Fit All</Text>
           </TouchableOpacity>
         </View>
@@ -681,7 +681,7 @@ const fetchRoutes = async () => {
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Icon name="bus-outline" size={48} color={AppColors.textSecondary} />
+              <Ionicons name="bus-outline" size={48} color={AppColors.textSecondary} />
               <Text style={styles.emptyText}>
                 {selectedRoute
                   ? `No nearby buses found for route ${selectedRoute}`
@@ -708,7 +708,7 @@ const fetchRoutes = async () => {
                     onPress={() => setShowBusDetails(false)}
                     style={styles.modalCloseButton}
                   >
-                    <Icon name="close" size={24} color={AppColors.text} />
+                    <Ionicons name="close" size={24} color={AppColors.text} />
                   </TouchableOpacity>
                 </View>
 
@@ -769,7 +769,7 @@ const fetchRoutes = async () => {
                       focusOnBus(selectedBus);
                     }}
                   >
-                    <Icon name="navigate" size={20} color="white" />
+                    <Ionicons name="navigate" size={20} color="white" />
                     <Text style={styles.trackButtonText}>Track on Map</Text>
                   </TouchableOpacity>
                 </View>

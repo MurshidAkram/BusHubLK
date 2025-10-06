@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, FlatList, StyleSheet, SafeAreaView, TouchableOpacity } from "react-native";
-import Icon from "react-native-vector-icons/Ionicons";
+import { Ionicons } from "@expo/vector-icons";
 
 const notifications = [
   {
@@ -28,7 +28,7 @@ export default function NotificationsScreen({ navigation }) {
     <SafeAreaView style={styles.container}>
       <View style={styles.headerRow}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Icon name="arrow-back" size={26} color="#0056b3" />
+          <Ionicons name="arrow-back" size={26} color="#0056b3" />
         </TouchableOpacity>
         <Text style={styles.header}>Notifications</Text>
       </View>
@@ -37,7 +37,7 @@ export default function NotificationsScreen({ navigation }) {
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <View style={styles.notificationCard}>
-            <Icon name={item.icon} size={28} color="#0056b3" style={{ marginRight: 12 }} />
+            <Ionicons name={item.icon} size={28} color="#0056b3" style={{ marginRight: 12 }} />
             <View style={{ flex: 1 }}>
               <Text style={styles.title}>{item.title}</Text>
               <Text style={styles.message}>{item.message}</Text>

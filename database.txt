@@ -796,3 +796,43 @@ CREATE INDEX idx_service_schedules_active ON service_schedules(depot_id) WHERE s
 
 ALTER TABLE service_schedules 
 ADD COLUMN is_deleted BOOLEAN DEFAULT false;
+
+
+--  busdailychecklists table for daily part checking by depot engineer
+CREATE TABLE busdailychecklists (
+    checklist_id SERIAL PRIMARY KEY,
+    bus_id INTEGER NOT NULL REFERENCES buses(bus_id) ON DELETE CASCADE,
+    checker_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE, -- depot engineer who performed the check
+    check_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    check_time TIME NOT NULL DEFAULT CURRENT_TIME,
+    
+    -- Main part checking flags
+    engine BOOLEAN DEFAULT FALSE,
+    brakes BOOLEAN DEFAULT FALSE,
+    tires BOOLEAN DEFAULT FALSE,
+    windows BOOLEAN DEFAULT FALSE,
+    doors BOOLEAN DEFAULT FALSE,
+    lights BOOLEAN DEFAULT FALSE,
+    turn_signals BOOLEAN DEFAULT FALSE,
+    fire_extinguisher BOOLEAN DEFAULT FALSE,
+    
+    -- Overall checklist status
+    all_parts_checked BOOLEAN GENERATED ALWAYS AS (
+        engine AND brakes AND tires AND windows AND doors AND lights AND turn_signals AND fire_extinguisher
+    ) STORED,
+    
+    -- Bus status after the checklist is completed
+    status_after_check VARCHAR(20) CHECK (status_after_check IN ('Active', 'In Service', 'Maintenance', 'Out of Service')),
+    
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Ensure one checklist per bus per day
+    UNIQUE(bus_id, check_date)
+);
+
+-- Create indexes for better performance
+CREATE INDEX idx_busdailychecklists_bus_id ON busdailychecklists(bus_id);
+CREATE INDEX idx_busdailychecklists_checker_id ON busdailychecklists(checker_id);
+CREATE INDEX idx_busdailychecklists_check_date ON busdailychecklists(check_date);
+CREATE INDEX idx_busdailychecklists_all_parts_checked ON busdailychecklists(all_parts_checked);

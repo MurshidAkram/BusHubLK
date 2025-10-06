@@ -202,7 +202,7 @@ const calculateFare = async (req, res) => {
         console.log(`📍 From: ${origin}`);
         console.log(`📍 To: ${destination}`);
 
-        const googleMapsApiKey = "AIzaSyAeXR9ct7HrHMCQXSWLrWQl5OlRYjNhbxo";
+        const googleMapsApiKey = "AIzaSyDdK_SJ8L56-s33UpzL6Gn5UYDav9ZMGdg";
         
         // Get coordinates for origin and destination
         const originCoords = await getLatLng(origin, googleMapsApiKey);

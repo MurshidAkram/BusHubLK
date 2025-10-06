@@ -14,7 +14,7 @@ import {
   Linking,
   Platform,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/Ionicons';
+import { Ionicons } from '@expo/vector-icons';
 import { Dropdown } from 'react-native-element-dropdown';
 import * as ImagePicker from 'expo-image-picker';
 import { storageAPI } from '../services/api';
@@ -658,7 +658,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
   const StyledTextInput = React.memo(({ icon, placeholder, value, onChangeText, multiline = false, keyboardType = 'default', error = null, maxLength, autoCapitalize = 'sentences', editable = true }: any) => (
     <View>
       <View style={[styles.inputContainer, error && styles.errorBorder]}>
-        {icon && <Icon name={icon} size={20} color={AppColors.textSecondary} style={styles.inputIcon} />}
+        {icon && <Ionicons name={icon} size={20} color={AppColors.textSecondary} style={styles.inputIcon} />}
         <TextInput
           placeholder={placeholder}
           placeholderTextColor={AppColors.textSecondary}
@@ -765,13 +765,13 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
       <View style={styles.calendarContainer}>
         <View style={styles.calendarHeader}>
           <TouchableOpacity onPress={navigateToPreviousMonth} style={styles.calendarNavButton}>
-            <Icon name="chevron-back" size={24} color={AppColors.primary} />
+            <Ionicons name="chevron-back" size={24} color={AppColors.primary} />
           </TouchableOpacity>
           <Text style={styles.calendarMonth}>
             {calendarMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
           </Text>
           <TouchableOpacity onPress={navigateToNextMonth} style={styles.calendarNavButton}>
-            <Icon name="chevron-forward" size={24} color={AppColors.primary} />
+            <Ionicons name="chevron-forward" size={24} color={AppColors.primary} />
           </TouchableOpacity>
         </View>
         
@@ -908,7 +908,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
           <View style={styles.pickerHeader}>
             <Text style={styles.pickerTitle}>Select {type === 'date' ? 'Date' : 'Time'}</Text>
             <TouchableOpacity onPress={onClose} style={styles.pickerCloseButton}>
-              <Icon name="close" size={24} color={AppColors.text} />
+              <Ionicons name="close" size={24} color={AppColors.text} />
             </TouchableOpacity>
           </View>
           
@@ -951,7 +951,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
           }}
           activeOpacity={0.7}
         >
-          <Icon name="refresh-outline" size={20} color={AppColors.primary} />
+          <Ionicons name="refresh-outline" size={20} color={AppColors.primary} />
         </TouchableOpacity>
       </View>
       
@@ -989,7 +989,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
         </View>
       ) : reports.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Icon name="search-outline" size={60} color={AppColors.textSecondary} />
+          <Ionicons name="search-outline" size={60} color={AppColors.textSecondary} />
           <Text style={styles.emptyTitle}>No items found</Text>
           <Text style={styles.emptyMessage}>
             {searchQuery || selectedCategory !== 'all' 
@@ -1019,7 +1019,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
             
             <View style={styles.itemDetails}>
               <View style={styles.detailRow}>
-                <Icon name="location-outline" size={18} color={AppColors.textSecondary} />
+                <Ionicons name="location-outline" size={18} color={AppColors.textSecondary} />
                 <Text style={styles.detailText}>
                   {report.approximate_location || 'Location not specified'} 
                   {report.route_number && ` - Route ${report.route_number}`}
@@ -1027,14 +1027,14 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
                 </Text>
               </View>
               <View style={styles.detailRow}>
-                <Icon name="time-outline" size={18} color={AppColors.textSecondary} />
+                <Ionicons name="time-outline" size={18} color={AppColors.textSecondary} />
                 <Text style={styles.detailText}>
                   {new Date(report.incident_date).toLocaleDateString()}, {report.incident_time}
                 </Text>
               </View>
               {report.reward_offered && report.reward_offered > 0 && (
                 <View style={styles.detailRow}>
-                  <Icon name="gift-outline" size={18} color={AppColors.success} />
+                  <Ionicons name="gift-outline" size={18} color={AppColors.success} />
                   <Text style={[styles.detailText, { color: AppColors.success, fontWeight: '600' }]}>
                     Reward: Rs. {report.reward_offered}
                   </Text>
@@ -1074,7 +1074,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
                       Linking.openURL(`tel:${report.contact_phone}`);
                     }}
                   >
-                    <Icon name="call-outline" size={16} color={AppColors.primary} />
+                    <Ionicons name="call-outline" size={16} color={AppColors.primary} />
                     <Text style={styles.contactButtonText}>Call</Text>
                   </TouchableOpacity>
                 )}
@@ -1085,7 +1085,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
                       Linking.openURL(`mailto:${report.contact_email}`);
                     }}
                   >
-                    <Icon name="mail-outline" size={16} color={AppColors.primary} />
+                    <Ionicons name="mail-outline" size={16} color={AppColors.primary} />
                     <Text style={styles.contactButtonText}>Email</Text>
                   </TouchableOpacity>
                 )}
@@ -1115,7 +1115,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
         </View>
       ) : myReports.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Icon name="document-outline" size={60} color={AppColors.textSecondary} />
+          <Ionicons name="document-outline" size={60} color={AppColors.textSecondary} />
           <Text style={styles.emptyTitle}>No reports yet</Text>
           <Text style={styles.emptyMessage}>
             You haven't submitted any lost or found reports yet.
@@ -1148,7 +1148,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
             
             <View style={styles.itemDetails}>
               <View style={styles.detailRow}>
-                <Icon name="location-outline" size={18} color={AppColors.textSecondary} />
+                <Ionicons name="location-outline" size={18} color={AppColors.textSecondary} />
                 <Text style={styles.detailText}>
                   {report.approximate_location || 'Location not specified'} 
                   {report.route_number && ` - Route ${report.route_number}`}
@@ -1156,14 +1156,14 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
                 </Text>
               </View>
               <View style={styles.detailRow}>
-                <Icon name="time-outline" size={18} color={AppColors.textSecondary} />
+                <Ionicons name="time-outline" size={18} color={AppColors.textSecondary} />
                 <Text style={styles.detailText}>
                   {new Date(report.incident_date).toLocaleDateString()}, {report.incident_time}
                 </Text>
               </View>
               {report.reward_offered && report.reward_offered > 0 && (
                 <View style={styles.detailRow}>
-                  <Icon name="gift-outline" size={18} color={AppColors.success} />
+                  <Ionicons name="gift-outline" size={18} color={AppColors.success} />
                   <Text style={[styles.detailText, { color: AppColors.success, fontWeight: '600' }]}>
                     Reward: Rs. {report.reward_offered}
                   </Text>
@@ -1171,7 +1171,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
               )}
               {report.status === 'resolved' && report.resolved_date && (
                 <View style={styles.detailRow}>
-                  <Icon name="checkmark-circle-outline" size={18} color={AppColors.success} />
+                  <Ionicons name="checkmark-circle-outline" size={18} color={AppColors.success} />
                   <Text style={[styles.detailText, { color: AppColors.success }]}>
                     Resolved on {new Date(report.resolved_date).toLocaleDateString()}
                   </Text>
@@ -1214,7 +1214,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
                     );
                   }}
                 >
-                  <Icon name="checkmark-circle-outline" size={16} color={AppColors.success} />
+                  <Ionicons name="checkmark-circle-outline" size={16} color={AppColors.success} />
                   <Text style={styles.resolveButtonText}>Mark Resolved</Text>
                 </TouchableOpacity>
               )}
@@ -1274,14 +1274,14 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
                 activeOpacity={0.8}
               >
                 <View style={[styles.toggleIconContainer, formData.reportType === 'lost' && styles.activeToggleIcon]}>
-                  <Icon name="search-outline" size={24} color={formData.reportType === 'lost' ? '#FFFFFF' : AppColors.primary} />
+                  <Ionicons name="search-outline" size={24} color={formData.reportType === 'lost' ? '#FFFFFF' : AppColors.primary} />
                 </View>
                 <View style={styles.toggleTextContainer}>
                   <Text style={[styles.toggleTitle, formData.reportType === 'lost' && styles.activeToggleTitle]}>Lost Item</Text>
                   <Text style={[styles.toggleSubtitle, formData.reportType === 'lost' && styles.activeToggleSubtitle]}>I lost something</Text>
                 </View>
                 {formData.reportType === 'lost' && (
-                  <Icon name="checkmark-circle" size={24} color="#FFFFFF" />
+                  <Ionicons name="checkmark-circle" size={24} color="#FFFFFF" />
                 )}
               </TouchableOpacity>
 
@@ -1291,14 +1291,14 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
                 activeOpacity={0.8}
               >
                 <View style={[styles.toggleIconContainer, formData.reportType === 'found' && styles.activeToggleIcon]}>
-                  <Icon name="hand-right-outline" size={24} color={formData.reportType === 'found' ? '#FFFFFF' : AppColors.primary} />
+                  <Ionicons name="hand-right-outline" size={24} color={formData.reportType === 'found' ? '#FFFFFF' : AppColors.primary} />
                 </View>
                 <View style={styles.toggleTextContainer}>
                   <Text style={[styles.toggleTitle, formData.reportType === 'found' && styles.activeToggleTitle]}>Found Item</Text>
                   <Text style={[styles.toggleSubtitle, formData.reportType === 'found' && styles.activeToggleSubtitle]}>I found something</Text>
                 </View>
                 {formData.reportType === 'found' && (
-                  <Icon name="checkmark-circle" size={24} color="#FFFFFF" />
+                  <Ionicons name="checkmark-circle" size={24} color="#FFFFFF" />
                 )}
               </TouchableOpacity>
             </View>
@@ -1327,7 +1327,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
                   </Text>
                   {formData.itemType === item.key && (
                     <View style={styles.selectedIndicator}>
-                      <Icon name="checkmark" size={16} color="#FFFFFF" />
+                      <Ionicons name="checkmark" size={16} color="#FFFFFF" />
                     </View>
                   )}
                 </TouchableOpacity>
@@ -1339,7 +1339,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
           {/* Continue Button */}
           <TouchableOpacity style={styles.modernPrimaryButton} onPress={validateAndProceed} activeOpacity={0.8}>
             <Text style={styles.modernButtonText}>Continue</Text>
-            <Icon name="arrow-forward" size={20} color="#FFFFFF" />
+            <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
       );
@@ -1350,7 +1350,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
           <View style={styles.modernProgressContainer}>
             <View style={styles.progressIndicator}>
               <View style={[styles.progressDot, styles.completedDot]}>
-                <Icon name="checkmark" size={16} color="#FFFFFF" />
+                <Ionicons name="checkmark" size={16} color="#FFFFFF" />
               </View>
               <View style={[styles.progressLine, styles.completedLine]} />
               <View style={[styles.progressDot, styles.activeDot]}>
@@ -1392,7 +1392,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>Where did this happen?</Text>
             <View style={styles.modernInputContainer}>
-              <Icon name="bus-outline" size={20} color={AppColors.textSecondary} style={styles.modernInputIcon} />
+              <Ionicons name="bus-outline" size={20} color={AppColors.textSecondary} style={styles.modernInputIcon} />
               <TextInput
                 placeholder="Type route number (e.g. 254, 054)"
                 placeholderTextColor={AppColors.textSecondary}
@@ -1432,7 +1432,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
                           {route.start_location} → {route.end_location}
                         </Text>
                       </View>
-                      <Icon name="chevron-forward" size={16} color={AppColors.textSecondary} />
+                      <Ionicons name="chevron-forward" size={16} color={AppColors.textSecondary} />
                     </TouchableOpacity>
                   ))
                 )}
@@ -1444,7 +1444,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>Select Region *</Text>
             <View style={styles.modernInputContainer}>
-              <Icon name="location-outline" size={20} color={AppColors.textSecondary} style={styles.modernInputIcon} />
+              <Ionicons name="location-outline" size={20} color={AppColors.textSecondary} style={styles.modernInputIcon} />
               <Dropdown
                 style={styles.dropdown}
                 placeholderStyle={styles.placeholderStyle}
@@ -1477,19 +1477,19 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
             <Text style={styles.sectionTitle}>When did this happen? *</Text>
             <View style={styles.dateTimeRow}>
               <TouchableOpacity style={styles.dateTimeButton} onPress={() => setShowDatePicker(true)} activeOpacity={0.8}>
-                <Icon name="calendar-outline" size={20} color={AppColors.primary} />
+                <Ionicons name="calendar-outline" size={20} color={AppColors.primary} />
                 <Text style={[styles.dateTimeText, !formData.date && styles.placeholderText]}>
                   {formData.date || 'Select Date'}
                 </Text>
-                <Icon name="chevron-down" size={16} color={AppColors.textSecondary} />
+                <Ionicons name="chevron-down" size={16} color={AppColors.textSecondary} />
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.dateTimeButton} onPress={() => setShowTimePicker(true)} activeOpacity={0.8}>
-                <Icon name="time-outline" size={20} color={AppColors.primary} />
+                <Ionicons name="time-outline" size={20} color={AppColors.primary} />
                 <Text style={[styles.dateTimeText, !formData.time && styles.placeholderText]}>
                   {formData.time ? formatTimeForDisplay(formData.time) : 'Select Time'}
                 </Text>
-                <Icon name="chevron-down" size={16} color={AppColors.textSecondary} />
+                <Ionicons name="chevron-down" size={16} color={AppColors.textSecondary} />
               </TouchableOpacity>
             </View>
             {(errors.date || errors.time) && (
@@ -1500,12 +1500,12 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
           {/* Navigation Buttons */}
           <View style={styles.modernButtonRow}>
             <TouchableOpacity style={styles.modernSecondaryButton} onPress={handleBackPress} activeOpacity={0.8}>
-              <Icon name="arrow-back" size={20} color={AppColors.text} />
+              <Ionicons name="arrow-back" size={20} color={AppColors.text} />
               <Text style={styles.modernSecondaryButtonText}>Back</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.modernPrimaryButton} onPress={validateAndProceed} activeOpacity={0.8}>
               <Text style={styles.modernButtonText}>Continue</Text>
-              <Icon name="arrow-forward" size={20} color="#FFFFFF" />
+              <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
         </View>
@@ -1517,11 +1517,11 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
           <View style={styles.modernProgressContainer}>
             <View style={styles.progressIndicator}>
               <View style={[styles.progressDot, styles.completedDot]}>
-                <Icon name="checkmark" size={16} color="#FFFFFF" />
+                <Ionicons name="checkmark" size={16} color="#FFFFFF" />
               </View>
               <View style={[styles.progressLine, styles.completedLine]} />
               <View style={[styles.progressDot, styles.completedDot]}>
-                <Icon name="checkmark" size={16} color="#FFFFFF" />
+                <Ionicons name="checkmark" size={16} color="#FFFFFF" />
               </View>
               <View style={[styles.progressLine, styles.completedLine]} />
               <View style={[styles.progressDot, styles.activeDot]}>
@@ -1638,7 +1638,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
               }}
             >
               <View style={styles.photoUploadIcon}>
-                <Icon name="camera-outline" size={32} color={AppColors.primary} />
+                <Ionicons name="camera-outline" size={32} color={AppColors.primary} />
               </View>
               <Text style={styles.photoUploadTitle}>Add a photo</Text>
               <Text style={styles.photoUploadSubtitle}>Help others identify the item</Text>
@@ -1655,7 +1655,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>Contact Information</Text>
             <View style={styles.modernInputContainer}>
-              <Icon name="mail-outline" size={20} color={AppColors.textSecondary} style={styles.modernInputIcon} />
+              <Ionicons name="mail-outline" size={20} color={AppColors.textSecondary} style={styles.modernInputIcon} />
               <TextInput
                 placeholder="Your email address"
                 placeholderTextColor={AppColors.textSecondary}
@@ -1669,7 +1669,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
             {errors.email && <Text style={styles.modernErrorText}>{errors.email}</Text>}
 
             <View style={styles.modernInputContainer}>
-              <Icon name="call-outline" size={20} color={AppColors.textSecondary} style={styles.modernInputIcon} />
+              <Ionicons name="call-outline" size={20} color={AppColors.textSecondary} style={styles.modernInputIcon} />
               <TextInput
                 placeholder="Your phone number"
                 placeholderTextColor={AppColors.textSecondary}
@@ -1688,7 +1688,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>Reward Offered (Optional)</Text>
             <View style={styles.modernInputContainer}>
-              <Icon name="gift-outline" size={20} color={AppColors.textSecondary} style={styles.modernInputIcon} />
+              <Ionicons name="gift-outline" size={20} color={AppColors.textSecondary} style={styles.modernInputIcon} />
               <TextInput
                 placeholder="Enter reward amount (Rs.)"
                 placeholderTextColor={AppColors.textSecondary}
@@ -1705,7 +1705,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
 
           {/* Privacy Notice */}
           <View style={styles.modernPrivacyNote}>
-            <Icon name="shield-checkmark-outline" size={24} color={AppColors.primary} />
+            <Ionicons name="shield-checkmark-outline" size={24} color={AppColors.primary} />
             <Text style={styles.modernPrivacyText}>
               Your contact information is secure and will only be used to connect you with potential matches.
             </Text>
@@ -1714,7 +1714,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
           {/* Navigation Buttons */}
           <View style={styles.modernButtonRow}>
             <TouchableOpacity style={styles.modernSecondaryButton} onPress={handleBackPress} activeOpacity={0.8}>
-              <Icon name="arrow-back" size={20} color={AppColors.text} />
+              <Ionicons name="arrow-back" size={20} color={AppColors.text} />
               <Text style={styles.modernSecondaryButtonText}>Back</Text>
             </TouchableOpacity>
             <TouchableOpacity 
@@ -1726,7 +1726,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
               <Text style={styles.modernButtonText}>
                 {submitting ? 'Submitting...' : 'Submit Report'}
               </Text>
-              <Icon name="checkmark" size={20} color="#FFFFFF" />
+              <Ionicons name="checkmark" size={20} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
         </View>
@@ -1736,7 +1736,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
         <View style={styles.modernSuccessContainer}>
           <View style={styles.successAnimation}>
             <View style={styles.successIconContainer}>
-              <Icon name="checkmark-circle" size={80} color={AppColors.primary} />
+              <Ionicons name="checkmark-circle" size={80} color={AppColors.primary} />
             </View>
           </View>
           
@@ -1794,7 +1794,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton} activeOpacity={0.7}>
-            <Icon name="arrow-back" size={24} color={AppColors.text} />
+            <Ionicons name="arrow-back" size={24} color={AppColors.text} />
           </TouchableOpacity>
           
           <View style={styles.headerTitleContainer}>

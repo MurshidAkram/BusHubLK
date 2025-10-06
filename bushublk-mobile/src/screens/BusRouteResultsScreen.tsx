@@ -11,7 +11,7 @@ import {
   Platform,
   StatusBar,
 } from "react-native";
-import Icon from "react-native-vector-icons/Ionicons";
+import { Ionicons } from "@expo/vector-icons";
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
 import axios from "axios";
 import { API_BASE_URL, initializeApiConnection } from '../config/api';
@@ -289,19 +289,19 @@ export default function BusRouteResultsScreen({ route, navigation }) {
       <View style={styles.routeDetails}>
         <View style={styles.routeInfo}>
           <View style={styles.iconContainer}>
-            <Icon name="time-outline" size={18} color={AppColors.primary} />
+            <Ionicons name="time-outline" size={18} color={AppColors.primary} />
           </View>
           <Text style={styles.routeText}>{item.frequency}</Text>
         </View>
         <View style={styles.routeInfo}>
           <View style={styles.iconContainer}>
-            <Icon name="time-outline" size={18} color={AppColors.primary} />
+            <Ionicons name="time-outline" size={18} color={AppColors.primary} />
           </View>
           <Text style={styles.routeText}>{item.operatingHours}</Text>
         </View>
         <View style={styles.routeInfo}>
           <View style={styles.iconContainer}>
-            <Icon name="speedometer-outline" size={18} color={AppColors.primary} />
+            <Ionicons name="speedometer-outline" size={18} color={AppColors.primary} />
           </View>
           <Text style={styles.routeText}>{item.estimatedDuration}</Text>
         </View>
@@ -310,7 +310,7 @@ export default function BusRouteResultsScreen({ route, navigation }) {
       {item.via && item.via.length > 0 && (
         <View style={styles.viaContainer}>
           <View style={styles.viaHeader}>
-            <Icon name="trail-sign-outline" size={16} color={AppColors.primary} />
+            <Ionicons name="trail-sign-outline" size={16} color={AppColors.primary} />
             <Text style={styles.viaLabel}>Route Via</Text>
           </View>
           <Text style={styles.viaText}>{item.via.join(" → ")}</Text>
@@ -332,7 +332,7 @@ export default function BusRouteResultsScreen({ route, navigation }) {
           onPress={() => navigation.goBack()}
           style={styles.backButton}
         >
-          <Icon name="arrow-back" size={24} color={AppColors.card} />
+          <Ionicons name="arrow-back" size={24} color={AppColors.card} />
         </TouchableOpacity>
         <View style={styles.headerContent}>
           <Text style={styles.headerTitle}>Route Results</Text>
@@ -368,7 +368,7 @@ export default function BusRouteResultsScreen({ route, navigation }) {
 {showMap && mapRegion && routeCoordinates.length > 0 && (
   <View style={styles.mapContainer}>
     <View style={styles.mapHeader}>
-      <Icon name="map-outline" size={20} color={AppColors.primary} />
+      <Ionicons name="map-outline" size={20} color={AppColors.primary} />
       <Text style={styles.mapTitle}>Route Map</Text>
     </View>
     <View style={styles.mapWrapper}>
@@ -393,7 +393,7 @@ export default function BusRouteResultsScreen({ route, navigation }) {
           pinColor="green"
         >
           <View style={styles.customMarker}>
-            <Icon name="location" size={24} color={AppColors.success} />
+            <Ionicons name="location" size={24} color={AppColors.success} />
           </View>
         </Marker>
         <Marker
@@ -403,7 +403,7 @@ export default function BusRouteResultsScreen({ route, navigation }) {
           pinColor="red"
         >
           <View style={styles.customMarker}>
-            <Icon name="flag" size={24} color={AppColors.warning} />
+            <Ionicons name="flag" size={24} color={AppColors.warning} />
           </View>
         </Marker>
         <Polyline
@@ -422,7 +422,7 @@ export default function BusRouteResultsScreen({ route, navigation }) {
   <View style={styles.infoGrid}>
     <View style={styles.infoCard}>
       <View style={styles.infoIconContainer}>
-        <Icon name="navigate-outline" size={24} color={AppColors.primary} />
+        <Ionicons name="navigate-outline" size={24} color={AppColors.primary} />
       </View>
       <Text style={styles.infoLabel}>Distance</Text>
       <Text style={styles.infoValue}>{distance?.toFixed(1)} km</Text>
@@ -430,7 +430,7 @@ export default function BusRouteResultsScreen({ route, navigation }) {
     
     <View style={styles.infoCard}>
       <View style={styles.infoIconContainer}>
-        <Icon name="bus-outline" size={24} color={AppColors.primary} />
+        <Ionicons name="bus-outline" size={24} color={AppColors.primary} />
       </View>
       <Text style={styles.infoLabel}>Bus Stops</Text>
       <Text style={styles.infoValue}>{numberOfStops}</Text>
@@ -439,7 +439,7 @@ export default function BusRouteResultsScreen({ route, navigation }) {
     {fare !== null && (
       <View style={styles.infoCard}>
         <View style={styles.infoIconContainer}>
-          <Icon name="cash-outline" size={24} color={AppColors.success} />
+          <Ionicons name="cash-outline" size={24} color={AppColors.success} />
         </View>
         <Text style={styles.infoLabel}>Est. Fare</Text>
         <Text style={styles.infoValue}>Rs. {fare}</Text>
@@ -449,7 +449,7 @@ export default function BusRouteResultsScreen({ route, navigation }) {
     {duration && (
       <View style={styles.infoCard}>
         <View style={styles.infoIconContainer}>
-          <Icon name="time-outline" size={24} color={AppColors.warning} />
+          <Ionicons name="time-outline" size={24} color={AppColors.warning} />
         </View>
         <Text style={styles.infoLabel}>Duration</Text>
         <Text style={styles.infoValue}>{duration}</Text>
@@ -462,7 +462,7 @@ export default function BusRouteResultsScreen({ route, navigation }) {
 {busStops.length > 0 && (
   <View style={styles.stopsContainer}>
     <View style={styles.sectionHeader}>
-      <Icon name="location-outline" size={24} color={AppColors.primary} />
+      <Ionicons name="location-outline" size={24} color={AppColors.primary} />
       <Text style={styles.sectionTitle}>Bus Stops Along Route</Text>
       <View style={styles.routeCount}>
         <Text style={styles.routeCountText}>{busStops.length}</Text>
@@ -473,7 +473,7 @@ export default function BusRouteResultsScreen({ route, navigation }) {
     {stopsDetected > 0 && (
       <View style={styles.routeStatsCard}>
         <View style={styles.statItem}>
-          <Icon name="location" size={16} color={AppColors.primary} />
+          <Ionicons name="location" size={16} color={AppColors.primary} />
           <Text style={styles.statLabel}>Stops Detected:</Text>
           <Text style={styles.statValue}>{stopsDetected}</Text>
         </View>
@@ -505,7 +505,7 @@ export default function BusRouteResultsScreen({ route, navigation }) {
             )}
           </View>
           <View style={[styles.stopIcon, stop.type === 'city' && styles.cityIcon]}>
-            <Icon 
+            <Ionicons 
               name={stop.type === 'city' ? 'location' : 'bus'} 
               size={16} 
               color={stop.type === 'city' ? AppColors.warning : AppColors.primary} 
@@ -526,7 +526,7 @@ export default function BusRouteResultsScreen({ route, navigation }) {
 {availableRoutes.length > 0 && (
   <View style={styles.routesContainer}>
     <View style={styles.sectionHeader}>
-      <Icon name="bus-outline" size={24} color={AppColors.primary} />
+      <Ionicons name="bus-outline" size={24} color={AppColors.primary} />
       <Text style={styles.sectionTitle}>Available Bus Routes</Text>
       <View style={styles.routeCount}>
         <Text style={styles.routeCountText}>{availableRoutes.length}</Text>
@@ -561,7 +561,7 @@ export default function BusRouteResultsScreen({ route, navigation }) {
 {fare === null && !loading && (
   <View style={styles.errorCard}>
     <View style={styles.errorIcon}>
-      <Icon name="alert-circle-outline" size={32} color={AppColors.warning} />
+      <Ionicons name="alert-circle-outline" size={32} color={AppColors.warning} />
     </View>
     <Text style={styles.errorTitle}>Route Not Found</Text>
     <Text style={styles.errorText}>

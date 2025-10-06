@@ -937,8 +937,14 @@ const Servicehistoryexplorer = () => {
                   <h3 className="text-lg font-semibold text-gray-800 mb-4">Bus Information</h3>
                   <div className="space-y-4">
                     <div>
-                      <p className="text-sm text-gray-500">Registration Number</p>
-                      <p className="text-gray-800 font-medium">{selectedRecord.registration_number}</p>
+                      <p className="text-sm text-gray-500">
+                        {activeTab === 'inspections' ? 'Inspection Type' : 'Registration Number'}
+                      </p>
+                      <p className="text-gray-800 font-medium">
+                        {activeTab === 'inspections' 
+                          ? (selectedRecord as InspectionRecord).inspection_type 
+                          : (selectedRecord as ServiceRecord | PartsRecord).registration_number}
+                      </p>
                     </div>
                     {'model' in selectedRecord && (
                       <div>
@@ -1036,7 +1042,7 @@ const Servicehistoryexplorer = () => {
                         <span className="text-gray-800">{new Date(selectedRecord.created_at).toLocaleString()}</span>
                       </div>
                     )}
-                    {'updated_at' in selectedRecord && (
+                    {'updated_at' in selectedRecord && selectedRecord.updated_at && (
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-500">Last Modified:</span>
                         <span className="text-gray-800">{new Date(selectedRecord.updated_at).toLocaleString()}</span>

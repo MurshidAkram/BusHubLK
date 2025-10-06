@@ -67,11 +67,19 @@ app.get('/api/test', (req, res) => {
   });
 });
 
+// Google Places API proxy routes
+try {
+  const placesRoutes = require('./routes/placesRoutes');
+  app.use('/api/places', placesRoutes);
+  console.log('✅ placesRoutes loaded');
+} catch (error) {
+  console.log('❌ placesRoutes error:', error.message);
+}
 
 try {
   const BusTrackingRoutes = require('./routes/BusTrackingRoutes');
   app.use('/api/bus-tracking', BusTrackingRoutes);
-  app.use('/api/live-tracking', BusTrackingRoutes);
+  // Removed duplicate /api/live-tracking registration - using busLiveTrackingRoutes instead
   console.log('✅ BusTrackingRoutes loaded');
 } catch (error) {
   console.log('❌ BusTrackingRoutes error:', error.message);
@@ -202,19 +210,19 @@ try {
 }
 
 try {
-const notificationRoutes = require('./routes/notificationRoutes');
-app.use('/api/notifications', notificationRoutes);
-console.log('✅ notificationRoutes loaded');
+  const notificationRoutes = require('./routes/notificationRoutes');
+  app.use('/api/notifications', notificationRoutes);
+  console.log('✅ notificationRoutes loaded');
 } catch (error) {
-console.log('❌ notificationRoutes error:', error.message);
+  console.log('❌ notificationRoutes error:', error.message);
 }
 
-try{
-const driverFoundItemRoutes = require('./routes/driverFoundItemRoutes');
-app.use('/api/driver', driverFoundItemRoutes);
-console.log('✅ driverFoundItemRoutes loaded');
+try {
+  const driverFoundItemRoutes = require('./routes/driverFoundItemRoutes');
+  app.use('/api/driver', driverFoundItemRoutes);
+  console.log('✅ driverFoundItemRoutes loaded');
 } catch (error) {
-console.log('❌ driverFoundItemRoutes error:', error.message);
+  console.log('❌ driverFoundItemRoutes error:', error.message);
 }
 
 
@@ -275,13 +283,21 @@ try {
   console.log('❌ dgmTechnicalRoutes error:', error.message);
 }
 
+try {
+  const ceoRoutes = require('./routes/ceoRoutes');
+  app.use('/api/ceo', ceoRoutes);
+  console.log('✅ ceoRoutes loaded');
+} catch (error) {
+  console.log('❌ ceoRoutes error:', error.message);
+}
+
 
 try {
-const incidentManagementRoutes = require('./routes/incidentManagementRoutes');
-app.use('/api/incident-management', incidentManagementRoutes);
-console.log('✅ incidentManagementRoutes loaded');
- } catch (error) {
-console.log('❌ incidentManagementRoutes error:', error.message);
+  const incidentManagementRoutes = require('./routes/incidentManagementRoutes');
+  app.use('/api/incident-management', incidentManagementRoutes);
+  console.log('✅ incidentManagementRoutes loaded');
+} catch (error) {
+  console.log('❌ incidentManagementRoutes error:', error.message);
 }
 
 
