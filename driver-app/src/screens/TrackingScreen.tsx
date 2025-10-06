@@ -15,8 +15,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
+import { useFocusEffect } from "@react-navigation/native";
 import { storageAPI, driverAPI } from "../services/api";
-import { locationService } from "../services/locationService";
+import BackgroundLocationService from "../services/backgroundLocationService";
 
 // App Color Palette
 const AppColors = {
@@ -39,6 +40,7 @@ interface LocationData {
   accuracy?: number;
   speed?: number;
   heading?: number;
+  placeName?: string; // Add place name to location data
 }
 
 interface TrackingStatus {
@@ -93,6 +95,15 @@ export default function TrackingScreen({ navigation }: any) {
     getCurrentLocation();
     checkTrackingStatus();
   }, []);
+
+  // Auto-refresh tracking status when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      checkTrackingStatus();
+      loadAssignmentDataFromService();
+      getCurrentLocation();
+    }, [])
+  );
 
   useEffect(() => {
     if (userData?.driver_id) {
@@ -169,25 +180,6 @@ export default function TrackingScreen({ navigation }: any) {
           
           setAssignmentData(response);
           
-          // Validate assignment data before setting in location service
-          if (response.assignment_id && response.bus_id && response.route_id) {
-            console.log('✅ TrackingScreen: Setting valid assignment data in location service');
-            // Set assignment data in location service for live tracking
-            locationService.setCurrentAssignment({
-              bus_id: response.bus_id,
-              route_id: response.route_id,
-              driver_id: userData.driver_id,
-              assignment_id: response.assignment_id,
-            });
-          } else {
-            console.error('❌ TrackingScreen: Invalid assignment data, not setting in location service:', {
-              assignment_id: response.assignment_id,
-              bus_id: response.bus_id,
-              route_id: response.route_id,
-              driver_id: userData.driver_id,
-            });
-          }
-          
           // Update tracking status with assignment data
           setTrackingStatus(prev => ({
             ...prev,
@@ -195,7 +187,7 @@ export default function TrackingScreen({ navigation }: any) {
             routeId: response.route_id?.toString() || null,
           }));
           
-          console.log(`📋 Assignment loaded for live tracking:`, {
+          console.log(`📋 Assignment loaded for display:`, {
             bus_id: response.bus_id,
             route_id: response.route_id,
             driver_id: userData.driver_id,
@@ -212,6 +204,50 @@ export default function TrackingScreen({ navigation }: any) {
     }
   };
 
+  // Load assignment from BackgroundLocationService (set by ScheduleScreen)
+  const loadAssignmentDataFromService = async () => {
+    try {
+      const activeAssignment = await BackgroundLocationService.getActiveAssignment();
+      if (activeAssignment) {
+        console.log("📋 Active assignment from BackgroundLocationService:", activeAssignment);
+        // Update tracking status with data from the service
+        setTrackingStatus(prev => ({
+          ...prev,
+          busId: activeAssignment.busId?.toString() || null,
+          routeId: activeAssignment.routeId?.toString() || null,
+        }));
+      }
+    } catch (error) {
+      console.error("Error loading assignment from service:", error);
+    }
+  };
+
+  // Function to get place name from coordinates
+  const getPlaceName = async (latitude: number, longitude: number): Promise<string> => {
+    try {
+      const reverseGeocode = await Location.reverseGeocodeAsync({
+        latitude,
+        longitude,
+      });
+
+      if (reverseGeocode && reverseGeocode.length > 0) {
+        const address = reverseGeocode[0];
+        const parts = [];
+        
+        if (address.name) parts.push(address.name);
+        if (address.street) parts.push(address.street);
+        if (address.district) parts.push(address.district);
+        if (address.city) parts.push(address.city);
+        
+        return parts.length > 0 ? parts.slice(0, 2).join(', ') : 'Unknown Location';
+      }
+      return 'Unknown Location';
+    } catch (error) {
+      console.error("Error getting place name:", error);
+      return 'Unknown Location';
+    }
+  };
+
   const getCurrentLocation = async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -224,6 +260,9 @@ export default function TrackingScreen({ navigation }: any) {
         accuracy: Location.Accuracy.High,
       });
 
+      // Get place name for the current location
+      const placeName = await getPlaceName(location.coords.latitude, location.coords.longitude);
+
       const locationData: LocationData = {
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
@@ -231,6 +270,7 @@ export default function TrackingScreen({ navigation }: any) {
         accuracy: location.coords.accuracy || undefined,
         speed: location.coords.speed || undefined,
         heading: location.coords.heading || undefined,
+        placeName: placeName,
       };
 
       setCurrentLocation(locationData);
@@ -243,57 +283,22 @@ export default function TrackingScreen({ navigation }: any) {
     }
   };
 
-  const checkTrackingStatus = () => {
-    // Check if location service is active
-    const isActive = locationService.locationSubscription !== null;
+  const checkTrackingStatus = async () => {
+    // Check if background tracking is active (set by ScheduleScreen)
+    const isActive = await BackgroundLocationService.isTrackingActive();
     setTrackingStatus(prev => ({
       ...prev,
       isActive,
       lastUpdate: isActive ? new Date().toISOString() : prev.lastUpdate,
     }));
-  };
-
-  const toggleTracking = async () => {
-    try {
-      if (trackingStatus.isActive) {
-        locationService.stopLocationTracking();
-        setTrackingStatus(prev => ({ ...prev, isActive: false }));
-        Alert.alert('Tracking Stopped', 'Location tracking has been stopped.');
-      } else {
-        // Use assignment data if available, otherwise fall back to userData
-        const busId = assignmentData?.bus_id?.toString() || userData?.busId;
-        const routeId = assignmentData?.route_id?.toString() || userData?.routeId;
-        
-        if (busId && routeId) {
-          const success = await locationService.startSmartLocationTracking(
-            busId, 
-            routeId, 
-            assignmentData?.bus_registration
-          );
-          if (success) {
-            setTrackingStatus(prev => ({ 
-              ...prev, 
-              isActive: true,
-              busId: busId,
-              routeId: routeId,
-              lastUpdate: new Date().toISOString(),
-            }));
-            Alert.alert('Tracking Started', `Background location tracking started for Bus ${assignmentData?.bus_registration || busId} on Route ${assignmentData?.route_number || routeId}.`);
-          }
-        } else {
-          Alert.alert('Error', 'Bus ID or Route ID is missing. Please ensure you have an active assignment.');
-        }
-      }
-    } catch (error) {
-      console.error("Error toggling tracking:", error);
-      Alert.alert('Error', 'Failed to toggle tracking.');
-    }
+    console.log("🔍 Tracking status check:", isActive ? "ACTIVE" : "INACTIVE");
   };
 
   const onRefresh = async () => {
     setRefreshing(true);
     await getCurrentLocation();
-    checkTrackingStatus();
+    await checkTrackingStatus();
+    await loadAssignmentDataFromService();
     if (userData?.driver_id) {
       await loadAssignmentData();
     }
@@ -513,17 +518,14 @@ export default function TrackingScreen({ navigation }: any) {
             </View>
           )}
 
-          <TouchableOpacity
-            style={[
-              styles.toggleButton,
-              { backgroundColor: trackingStatus.isActive ? AppColors.danger : AppColors.success }
-            ]}
-            onPress={toggleTracking}
-          >
-            <Text style={styles.toggleButtonText}>
-              {trackingStatus.isActive ? 'Stop Tracking' : 'Start Tracking'}
-            </Text>
-          </TouchableOpacity>
+          {!trackingStatus.isActive && (
+            <View style={styles.infoMessage}>
+              <MaterialCommunityIcons name="information" size={20} color={AppColors.textSecondary} />
+              <Text style={styles.infoMessageText}>
+                Tracking is controlled from the Schedule screen. Start your schedule to begin tracking.
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Current Location Card */}
@@ -601,6 +603,9 @@ export default function TrackingScreen({ navigation }: any) {
                   </Text>
                   <Text style={styles.historyIndex}>#{index + 1}</Text>
                 </View>
+                <Text style={styles.historyLocation}>
+                  {location.placeName || 'Unknown Location'}
+                </Text>
                 <Text style={styles.historyCoords}>
                   {formatCoordinate(location.latitude)}, {formatCoordinate(location.longitude)}
                 </Text>
@@ -613,39 +618,6 @@ export default function TrackingScreen({ navigation }: any) {
             ))}
           </View>
         )}
-
-        {/* Debug Info Card */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <MaterialCommunityIcons
-              name="bug"
-              size={24}
-              color={AppColors.warning}
-            />
-            <Text style={styles.cardTitle}>Debug Information</Text>
-          </View>
-
-          <View style={styles.debugInfo}>
-            <Text style={styles.debugText}>
-              Platform: {Platform.OS} {Platform.Version}
-            </Text>
-            <Text style={styles.debugText}>
-              User ID: {userData?.user_id || 'N/A'}
-            </Text>
-            <Text style={styles.debugText}>
-              Driver ID: {userData?.driver_id || 'N/A'}
-            </Text>
-            <Text style={styles.debugText}>
-              Assignment ID: {assignmentData?.assignment_id || 'N/A'}
-            </Text>
-            <Text style={styles.debugText}>
-              Assignment Status: {assignmentData?.status || 'N/A'}
-            </Text>
-            <Text style={styles.debugText}>
-              Location History: {locationHistory.length} entries
-            </Text>
-          </View>
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -759,6 +731,21 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: AppColors.text,
   },
+  infoMessage: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: AppColors.primaryMuted,
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 12,
+  },
+  infoMessageText: {
+    fontSize: 13,
+    color: AppColors.textSecondary,
+    marginLeft: 8,
+    flex: 1,
+    lineHeight: 18,
+  },
   toggleButton: {
     marginTop: 16,
     paddingVertical: 12,
@@ -826,25 +813,21 @@ const styles = StyleSheet.create({
     color: AppColors.textSecondary,
   },
   historyCoords: {
-    fontSize: 13,
+    fontSize: 11,
     color: AppColors.textSecondary,
     fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
+    marginTop: 2,
+  },
+  historyLocation: {
+    fontSize: 14,
+    color: AppColors.text,
+    fontWeight: "500",
+    marginBottom: 4,
   },
   historyAccuracy: {
     fontSize: 12,
     color: AppColors.textSecondary,
     marginTop: 2,
-  },
-  debugInfo: {
-    backgroundColor: AppColors.primaryMuted,
-    padding: 12,
-    borderRadius: 8,
-  },
-  debugText: {
-    fontSize: 12,
-    color: AppColors.textSecondary,
-    marginBottom: 4,
-    fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
   },
   assignmentGrid: {
     flexDirection: "row",

@@ -7,10 +7,14 @@ const {
   getBusOccupancy,
   updateBusOccupancy,
   deleteBusOccupancy,
+  getAverageOccupancyLevels,
 } = require('../controllers/BusOccupancyController');
 
 // GET /api/bus-occupancy - Fetch all occupancy records
 router.get('/', getAllBusOccupancies);
+
+// GET /api/bus-occupancy/average - Get average occupancy levels for multiple buses
+router.get('/average', getAverageOccupancyLevels);
 
 // GET /api/bus-occupancy/:busId - Fetch occupancy records for a specific bus
 router.get('/:busId', getBusOccupancy);

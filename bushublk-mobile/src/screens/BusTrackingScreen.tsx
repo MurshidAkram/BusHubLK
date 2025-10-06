@@ -12,12 +12,13 @@ import {
   Dimensions,
   Modal,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/Ionicons';
+import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, PROVIDER_GOOGLE, Circle } from 'react-native-maps';
 import { StackScreenProps } from '@react-navigation/stack';
 import * as Location from 'expo-location';
 import { HomeStackParamList } from '../navigation/navigationTypes';
 import { busLiveTrackingAPI } from '../services/busLiveTrackingAPI';
+import { busOccupancyAPI, AverageOccupancyData } from '../services/busOccupancyAPI';
 import { API_BASE_URL } from '../config/api';
 
 type Props = StackScreenProps<HomeStackParamList, 'BusTracking'>;
@@ -47,6 +48,15 @@ interface BusLocation {
   occupancyLevel: string;
   confidence: number;
   distanceKm: number;
+  // Dynamic occupancy data from passenger reports
+  dynamicOccupancy?: {
+    level: string;
+    reportCount: number;
+    avgConfidence: number;
+    dataFreshness: string;
+    lastReportTime: Date | null;
+    minutesSinceLastReport: number | null;
+  };
 }
 
 interface BusRoute {
@@ -74,9 +84,11 @@ export default function BusTrackingScreen({ navigation }: Props) {
     latitudeDelta: 0.05,
     longitudeDelta: 0.05,
   });
+  const [occupancyData, setOccupancyData] = useState<{ [busId: string]: AverageOccupancyData }>({});
 
   const mapRef = useRef<MapView>(null);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const occupancyPollingRef = useRef<NodeJS.Timeout | null>(null);
 
   // Request location permission
   const requestLocationPermission = async () => {
@@ -181,6 +193,45 @@ const fetchRoutes = async () => {
     }
   };
 
+  // Fetch dynamic occupancy data from passenger reports
+  const fetchOccupancyData = async () => {
+    if (busLocations.length === 0) return;
+    
+    try {
+      const busIds = busLocations.map(bus => parseInt(bus.busId));
+      console.log('🔄 Fetching dynamic occupancy data for buses:', busIds);
+      
+      const response = await busOccupancyAPI.getAverageOccupancyLevels(busIds, 30); // 30-minute window
+      setOccupancyData(response.data);
+      
+      console.log('✅ Updated occupancy data for buses:', Object.keys(response.data).length);
+    } catch (err: any) {
+      console.error('❌ Error fetching occupancy data:', err.message);
+      // Don't show error to user as this is supplementary data
+    }
+  };
+
+  // Merge dynamic occupancy data with bus locations
+  const enhanceBusesWithOccupancyData = useCallback((buses: BusLocation[]) => {
+    return buses.map(bus => {
+      const dynamicData = occupancyData[bus.busId];
+      if (dynamicData && dynamicData.calculated_occupancy_level !== 'unknown') {
+        return {
+          ...bus,
+          dynamicOccupancy: {
+            level: dynamicData.calculated_occupancy_level,
+            reportCount: dynamicData.report_count,
+            avgConfidence: dynamicData.avg_confidence,
+            dataFreshness: dynamicData.data_freshness,
+            lastReportTime: dynamicData.last_report_time ? new Date(dynamicData.last_report_time) : null,
+            minutesSinceLastReport: dynamicData.minutes_since_last_report,
+          }
+        };
+      }
+      return bus;
+    });
+  }, [occupancyData]);
+
   // Initialize and set up polling
   useEffect(() => {
     const init = async () => {
@@ -195,6 +246,9 @@ const fetchRoutes = async () => {
     return () => {
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
+      }
+      if (occupancyPollingRef.current) {
+        clearInterval(occupancyPollingRef.current);
       }
     };
   }, []); // Remove userLocation dependency to prevent multiple initializations
@@ -222,9 +276,33 @@ const fetchRoutes = async () => {
     };
   }, [userLocation]);
 
+  // Separate effect for occupancy data polling
+  useEffect(() => {
+    if (busLocations.length === 0) return;
+
+    // Initial fetch when buses are available
+    fetchOccupancyData();
+
+    // Start polling for occupancy data every 5 minutes
+    if (occupancyPollingRef.current) {
+      clearInterval(occupancyPollingRef.current);
+    }
+    
+    occupancyPollingRef.current = setInterval(() => {
+      fetchOccupancyData();
+    }, 300000); // Poll every 5 minutes (300,000 ms)
+
+    return () => {
+      if (occupancyPollingRef.current) {
+        clearInterval(occupancyPollingRef.current);
+      }
+    };
+  }, [busLocations.length]); // Re-run when number of buses changes
+
   // Filter buses using useMemo to prevent unnecessary re-renders
   const filteredBuses = useMemo(() => {
-    let filtered = busLocations.filter(bus => {
+    const enhancedBuses = enhanceBusesWithOccupancyData(busLocations);
+    let filtered = enhancedBuses.filter(bus => {
       if (selectedRoute && bus.routeNumber !== selectedRoute) {
         return false;
       }
@@ -234,9 +312,9 @@ const fetchRoutes = async () => {
       return bus.status === 'active';
     });
 
-    console.log('Filtered buses:', filtered);
+    console.log('Filtered buses with occupancy data:', filtered);
     return filtered;
-  }, [busLocations, selectedRoute, searchQuery]);
+  }, [busLocations, selectedRoute, searchQuery, enhanceBusesWithOccupancyData]);
 
   // Update map region when filtered buses change
   useEffect(() => {
@@ -309,6 +387,36 @@ const fetchRoutes = async () => {
     return AppColors.danger;
   };
 
+  const getOccupancyLevelColor = (level: string) => {
+    const levelInfo = busOccupancyAPI.getOccupancyLevelInfo(level);
+    return levelInfo.color;
+  };
+
+  const getOccupancyDisplayText = (bus: BusLocation) => {
+    // Use dynamic occupancy data if available and fresh
+    if (bus.dynamicOccupancy && bus.dynamicOccupancy.dataFreshness !== 'no_data') {
+      const levelInfo = busOccupancyAPI.getOccupancyLevelInfo(bus.dynamicOccupancy.level);
+      const freshnessInfo = busOccupancyAPI.getDataFreshnessInfo(bus.dynamicOccupancy.dataFreshness);
+      return {
+        text: `${levelInfo.label} (${bus.dynamicOccupancy.reportCount} reports)`,
+        color: levelInfo.color,
+        confidence: bus.dynamicOccupancy.avgConfidence,
+        freshness: freshnessInfo.label,
+        source: 'passenger_reports'
+      };
+    }
+    
+    // Fallback to basic occupancy data
+    const occupancy = bus.passengerCount / 60;
+    return {
+      text: `${bus.passengerCount}/60 (${Math.round(occupancy * 100)}%) ${bus.occupancyLevel}`,
+      color: getOccupancyColor(occupancy),
+      confidence: bus.confidence,
+      freshness: '',
+      source: 'system_data'
+    };
+  };
+
   const renderRouteItem = ({ item }: { item: BusRoute }) => (
     <TouchableOpacity
       style={[
@@ -340,6 +448,7 @@ const fetchRoutes = async () => {
   const renderBusItem = ({ item }: { item: BusLocation }) => {
     const occupancy = item.passengerCount / 60; // Assume capacity is 60
     const timeSinceUpdate = Math.floor((Date.now() - item.lastUpdated.getTime()) / 60000);
+    const occupancyDisplay = getOccupancyDisplayText(item);
 
     return (
       <TouchableOpacity
@@ -363,13 +472,21 @@ const fetchRoutes = async () => {
 
         <View style={styles.busDetails}>
           <View style={styles.busDetailRow}>
-            <Icon name="people-outline" size={16} color={getOccupancyColor(occupancy)} />
-            <Text style={[styles.busDetailText, { color: getOccupancyColor(occupancy) }]}>
-              Occupancy: {item.passengerCount}/60 ({Math.round(occupancy * 100)}%) {item.occupancyLevel}
+            <Ionicons name="people-outline" size={16} color={occupancyDisplay.color} />
+            <Text style={[styles.busDetailText, { color: occupancyDisplay.color }]}>
+              Occupancy: {occupancyDisplay.text}
             </Text>
           </View>
+          {occupancyDisplay.freshness && (
+            <View style={styles.busDetailRow}>
+              <Ionicons name="time-outline" size={16} color={AppColors.textSecondary} />
+              <Text style={styles.busDetailText}>
+                Data: {occupancyDisplay.freshness}
+              </Text>
+            </View>
+          )}
           <View style={styles.busDetailRow}>
-            <Icon name="pin-outline" size={16} color={AppColors.textSecondary} />
+            <Ionicons name="pin-outline" size={16} color={AppColors.textSecondary} />
             <Text style={styles.busDetailText}>
               Distance: {item.distanceKm.toFixed(2)} km
             </Text>
@@ -380,10 +497,25 @@ const fetchRoutes = async () => {
           <Text style={styles.lastUpdatedText}>
             Updated {timeSinceUpdate === 0 ? 'now' : `${timeSinceUpdate}m ago`}
           </Text>
+          {occupancyDisplay.source === 'passenger_reports' && (
+            <Text style={[styles.lastUpdatedText, { color: AppColors.success }]}>
+              📊 Passenger Reports
+            </Text>
+          )}
         </View>
       </TouchableOpacity>
     );
   };
+
+  // Always fetch user location and nearby buses when screen is focused
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', async () => {
+      await requestLocationPermission();
+      await getUserLocation();
+      fetchBusLocations();
+    });
+    return unsubscribe;
+  }, [navigation]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -391,16 +523,16 @@ const fetchRoutes = async () => {
 
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Icon name="arrow-back-outline" size={24} color={AppColors.text} />
+          <Ionicons name="arrow-back-outline" size={24} color={AppColors.text} />
         </TouchableOpacity>
         <Text style={styles.title}>Bus Tracking</Text>
         <TouchableOpacity onPress={showAllBuses} style={styles.viewAllButton}>
-          <Icon name="expand-outline" size={24} color={AppColors.primary} />
+          <Ionicons name="expand-outline" size={24} color={AppColors.primary} />
         </TouchableOpacity>
       </View>
 
       <View style={styles.searchContainer}>
-        <Icon name="search-outline" size={20} color={AppColors.textSecondary} />
+        <Ionicons name="search-outline" size={20} color={AppColors.textSecondary} />
         <TextInput
           style={styles.searchInput}
           placeholder="Search route number..."
@@ -409,7 +541,7 @@ const fetchRoutes = async () => {
         />
         {searchQuery.length > 0 && (
           <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <Icon name="close-circle" size={20} color={AppColors.textSecondary} />
+            <Ionicons name="close-circle" size={20} color={AppColors.textSecondary} />
           </TouchableOpacity>
         )}
       </View>
@@ -449,6 +581,19 @@ const fetchRoutes = async () => {
           showsMyLocationButton={true}
           onRegionChangeComplete={setMapRegion}
         >
+          {/* Show user's location marker explicitly */}
+          {userLocation && (
+            <Marker
+              coordinate={{ latitude: userLocation.latitude, longitude: userLocation.longitude }}
+              title="You"
+              description="Your current location"
+            >
+              <View style={{ backgroundColor: '#17a2b8', borderRadius: 12, padding: 4 }}>
+                <Ionicons name="person" size={18} color="white" />
+              </View>
+            </Marker>
+          )}
+          {/* Show nearby buses within radius */}
           {filteredBuses.map((bus) => (
             <Marker
               key={bus.busId}
@@ -457,18 +602,28 @@ const fetchRoutes = async () => {
                 longitude: bus.longitude,
               }}
               title={`Bus ${bus.registrationNumber} (${bus.routeNumber || 'N/A'})`}
-              description={`Occupancy: ${bus.occupancyLevel}`}
+              description={`Occupancy: ${getOccupancyDisplayText(bus).text.split(' (')[0]}`}
               onPress={() => setSelectedBus(bus)}
             >
               <View style={[
                 styles.busMarker,
                 { backgroundColor: getBusStatusColor(bus.status) }
               ]}>
-                <Icon name="bus" size={16} color="white" />
+                <Ionicons name="bus" size={16} color="white" />
                 <Text style={styles.busMarkerText}>{bus.routeNumber || 'N/A'}</Text>
               </View>
             </Marker>
           ))}
+          {/* Show radius circle around user location */}
+          {userLocation && (
+            <Circle
+              center={{ latitude: userLocation.latitude, longitude: userLocation.longitude }}
+              radius={5000} // 5km radius
+              strokeColor={AppColors.info}
+              fillColor={AppColors.info + '20'}
+              strokeWidth={2}
+            />
+          )}
           {selectedBus && (
             <Circle
               center={{
@@ -491,14 +646,14 @@ const fetchRoutes = async () => {
               setSearchQuery('');
             }}
           >
-            <Icon name="refresh" size={20} color={AppColors.primary} />
+            <Ionicons name="refresh" size={20} color={AppColors.primary} />
             <Text style={styles.mapControlText}>Reset</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.mapControlButton}
             onPress={showAllBuses}
           >
-            <Icon name="locate" size={20} color={AppColors.primary} />
+            <Ionicons name="locate" size={20} color={AppColors.primary} />
             <Text style={styles.mapControlText}>Fit All</Text>
           </TouchableOpacity>
         </View>
@@ -526,7 +681,7 @@ const fetchRoutes = async () => {
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Icon name="bus-outline" size={48} color={AppColors.textSecondary} />
+              <Ionicons name="bus-outline" size={48} color={AppColors.textSecondary} />
               <Text style={styles.emptyText}>
                 {selectedRoute
                   ? `No nearby buses found for route ${selectedRoute}`
@@ -553,7 +708,7 @@ const fetchRoutes = async () => {
                     onPress={() => setShowBusDetails(false)}
                     style={styles.modalCloseButton}
                   >
-                    <Icon name="close" size={24} color={AppColors.text} />
+                    <Ionicons name="close" size={24} color={AppColors.text} />
                   </TouchableOpacity>
                 </View>
 
@@ -574,13 +729,28 @@ const fetchRoutes = async () => {
                   </View>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Occupancy:</Text>
-                    <Text style={[styles.detailValue, { color: getOccupancyColor(selectedBus.passengerCount / 60) }]}>
-                      {selectedBus.passengerCount}/60
-                      ({Math.round((selectedBus.passengerCount / 60) * 100)}%) {selectedBus.occupancyLevel}
+                    <Text style={[styles.detailValue, { color: getOccupancyDisplayText(selectedBus).color }]}>
+                      {getOccupancyDisplayText(selectedBus).text}
                     </Text>
                   </View>
+                  {selectedBus.dynamicOccupancy && (
+                    <>
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Report Quality:</Text>
+                        <Text style={styles.detailValue}>
+                          {selectedBus.dynamicOccupancy.avgConfidence}% avg confidence
+                        </Text>
+                      </View>
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Data Freshness:</Text>
+                        <Text style={styles.detailValue}>
+                          {busOccupancyAPI.getDataFreshnessInfo(selectedBus.dynamicOccupancy.dataFreshness).label}
+                        </Text>
+                      </View>
+                    </>
+                  )}
                   <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Confidence:</Text>
+                    <Text style={styles.detailLabel}>System Confidence:</Text>
                     <Text style={styles.detailValue}>{(selectedBus.confidence * 100).toFixed(0)}%</Text>
                   </View>
                   <View style={styles.detailRow}>
@@ -599,7 +769,7 @@ const fetchRoutes = async () => {
                       focusOnBus(selectedBus);
                     }}
                   >
-                    <Icon name="navigate" size={20} color="white" />
+                    <Ionicons name="navigate" size={20} color="white" />
                     <Text style={styles.trackButtonText}>Track on Map</Text>
                   </TouchableOpacity>
                 </View>

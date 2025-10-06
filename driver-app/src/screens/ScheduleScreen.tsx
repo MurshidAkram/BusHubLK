@@ -18,6 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { driverAPI, storageAPI } from "../services/api";
 import { locationService } from "../services/locationService";
+import BackgroundLocationService from "../services/backgroundLocationService";
 
 // Get device dimensions
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
@@ -125,13 +126,16 @@ const WeatherIcon = ({ weather }: { weather: string }) => {
 };
 
 // Simplified schedule card component
-const ScheduleCard = ({ schedule, index, isTodayAssignment }: { 
+const ScheduleCard = ({ schedule, index, isTodayAssignment, navigation }: { 
   schedule: DailyAssignment; 
   index: number; 
-  isTodayAssignment: boolean; 
+  isTodayAssignment: boolean;
+  navigation: any;
 }) => {
   const slideAnim = useRef(new Animated.Value(50)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const [isTracking, setIsTracking] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
 
   useEffect(() => {
     Animated.parallel([
@@ -148,21 +152,31 @@ const ScheduleCard = ({ schedule, index, isTodayAssignment }: {
         useNativeDriver: true,
       }),
     ]).start();
+
+    // Check if tracking is active for this assignment
+    checkTrackingStatus();
   }, []);
+
+  const checkTrackingStatus = async () => {
+    try {
+      const isActive = await BackgroundLocationService.isTrackingActive();
+      const activeAssignment = await BackgroundLocationService.getActiveAssignment();
+      
+      // Check if this schedule matches the active assignment
+      if (isActive && activeAssignment && activeAssignment.busId === schedule.bus_id) {
+        setIsTracking(true);
+      }
+    } catch (error) {
+      console.error('Error checking tracking status:', error);
+    }
+  };
 
   const handleStartRoute = async () => {
     try {
-      // Debug: Log the complete schedule object to see its structure
-      console.log('🔍 Complete schedule object:', JSON.stringify(schedule, null, 2));
-      console.log('🔍 Schedule field values:', {
-        assignment_id: schedule.assignment_id,
-        bus_id: schedule.bus_id,
-        route_id: schedule.route_id,
-        driver_id: schedule.driver_id,
-      });
+      setIsStarting(true);
 
       // Validate that required fields are present
-      if (!schedule.assignment_id || !schedule.bus_id || !schedule.route_id) {
+      if (!schedule.assignment_id || !schedule.bus_id || !schedule.route_id || !schedule.driver_id) {
         console.error('❌ Missing required assignment fields:', {
           assignment_id: schedule.assignment_id,
           bus_id: schedule.bus_id,
@@ -174,10 +188,28 @@ const ScheduleCard = ({ schedule, index, isTodayAssignment }: {
           "This assignment is missing required information. Please contact support or try refreshing the schedule.",
           [{ text: "OK" }]
         );
+        setIsStarting(false);
         return;
       }
 
-      // Set the current assignment in location service with proper data structure
+      // Start background location tracking
+      const success = await BackgroundLocationService.startTracking(
+        schedule.driver_id,
+        schedule.bus_id,
+        schedule.route_id
+      );
+
+      if (!success) {
+        Alert.alert(
+          "Permission Required",
+          "Background location permission is required to track your route. Please enable it in your device settings.",
+          [{ text: "OK" }]
+        );
+        setIsStarting(false);
+        return;
+      }
+
+      // Set the current assignment in location service
       locationService.setCurrentAssignment({
         bus_id: schedule.bus_id,
         route_id: schedule.route_id,
@@ -185,15 +217,20 @@ const ScheduleCard = ({ schedule, index, isTodayAssignment }: {
         assignment_id: schedule.assignment_id,
       });
 
+      setIsTracking(true);
+      setIsStarting(false);
+
       Alert.alert(
-        "Route Started",
-        `Started tracking for Bus ${schedule.bus_registration || schedule.bus_id} on Route ${schedule.route_number || schedule.route_id}`,
+        "🚌 Route Started",
+        `Background tracking started for Bus ${schedule.bus_registration || schedule.bus_id} on Route ${schedule.route_number || schedule.route_id}.\n\nYour location will be tracked even when the app is closed.`,
         [
-          {
+          { 
             text: "OK",
             onPress: () => {
-              // Could navigate to tracking screen or start location tracking
-              console.log("🚌 Route started for assignment:", schedule.assignment_id);
+              // Navigate to Tracking screen to show active tracking
+              if (navigation) {
+                navigation.navigate('Tracking');
+              }
             }
           }
         ]
@@ -201,7 +238,41 @@ const ScheduleCard = ({ schedule, index, isTodayAssignment }: {
     } catch (error) {
       console.error("Error starting route:", error);
       Alert.alert("Error", "Failed to start route tracking");
+      setIsStarting(false);
     }
+  };
+
+  const handleEndRoute = async () => {
+    Alert.alert(
+      "End Schedule?",
+      "Are you sure you want to end this schedule? Location tracking will stop.",
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        {
+          text: "End Schedule",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              // Stop background tracking
+              await BackgroundLocationService.stopTracking();
+              setIsTracking(false);
+
+              Alert.alert(
+                "✅ Schedule Ended",
+                "Location tracking has been stopped successfully.",
+                [{ text: "OK" }]
+              );
+            } catch (error) {
+              console.error("Error ending route:", error);
+              Alert.alert("Error", "Failed to stop route tracking");
+            }
+          }
+        }
+      ]
+    );
   };
 
   // Helper function to format date display
@@ -378,24 +449,57 @@ const ScheduleCard = ({ schedule, index, isTodayAssignment }: {
           )}
         </View>
 
-        {/* Action Button - Only for today */}
+        {/* Action Buttons - Only for today */}
         {isTodayAssignment && (
-          <TouchableOpacity style={styles.actionButton} onPress={handleStartRoute}>
-            <LinearGradient
-              colors={["rgba(255, 255, 255, 0.2)", "rgba(255, 255, 255, 0.1)"]}
-              style={styles.actionButtonGradient}
-            >
-              <Ionicons name="play-outline" size={18} color="#FFFFFF" />
-              <Text style={styles.actionButtonText}>Start Today's Route</Text>
-            </LinearGradient>
-          </TouchableOpacity>
+          <View style={styles.actionButtonsContainer}>
+            {!isTracking ? (
+              <TouchableOpacity 
+                style={styles.actionButton} 
+                onPress={handleStartRoute}
+                disabled={isStarting}
+              >
+                <LinearGradient
+                  colors={["rgba(255, 255, 255, 0.2)", "rgba(255, 255, 255, 0.1)"]}
+                  style={styles.actionButtonGradient}
+                >
+                  {isStarting ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  ) : (
+                    <>
+                      <Ionicons name="play-outline" size={18} color="#FFFFFF" />
+                      <Text style={styles.actionButtonText}>Start Schedule</Text>
+                    </>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+            ) : (
+              <>
+                <View style={styles.trackingIndicator}>
+                  <View style={styles.trackingDot} />
+                  <Text style={styles.trackingText}>Tracking Active</Text>
+                </View>
+                <TouchableOpacity 
+                  style={[styles.actionButton, styles.endButton]} 
+                  onPress={handleEndRoute}
+                >
+                  <LinearGradient
+                    colors={["rgba(239, 68, 68, 0.9)", "rgba(220, 38, 38, 0.9)"]}
+                    style={styles.actionButtonGradient}
+                  >
+                    <Ionicons name="stop-outline" size={18} color="#FFFFFF" />
+                    <Text style={styles.actionButtonText}>End Schedule</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
         )}
       </LinearGradient>
     </Animated.View>
   );
 };
 
-const ScheduleScreen = () => {
+const ScheduleScreen = ({ navigation }: any) => {
   const [schedules, setSchedules] = useState<DailyAssignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -635,6 +739,7 @@ const ScheduleScreen = () => {
                 schedule={schedule}
                 index={index}
                 isTodayAssignment={isToday(schedule.assignment_date)}
+                navigation={navigation}
               />
             ))}
           </View>
@@ -660,7 +765,7 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 20,
-    paddingVertical: Platform.OS === "ios" ? 16 : 18,
+    paddingVertical: Platform.OS === "ios" ? 20 : 22,
     ...Platform.select({
       android: {
         elevation: 8,
@@ -677,7 +782,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    minHeight: 44,
+    minHeight: 52,
+    marginTop: 8,
   },
   titleContainer: {
     flexDirection: "row",
@@ -688,6 +794,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.1)",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.2)",
+    marginTop: 4,
   },
   headerTitle: {
     color: "#FFFFFF",
@@ -703,6 +810,7 @@ const styles = StyleSheet.create({
   },
   headerActionButton: {
     padding: 4,
+    marginTop: 4,
   },
   iconBackgroundEnhanced: {
     width: 40,
@@ -900,6 +1008,36 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: "hidden",
     marginTop: 4,
+  },
+  actionButtonsContainer: {
+    marginTop: 4,
+  },
+  endButton: {
+    marginTop: 8,
+  },
+  trackingIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: "rgba(16, 185, 129, 0.2)",
+    borderRadius: 12,
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  trackingDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#10B981",
+    marginRight: 8,
+  },
+  trackingText: {
+    color: "#FFFFFF",
+    fontSize: Platform.OS === "ios" ? 14 : 13,
+    fontWeight: "600",
+    fontFamily: Platform.OS === "ios" ? "System" : "Roboto",
   },
   actionButtonGradient: {
     flexDirection: "row",

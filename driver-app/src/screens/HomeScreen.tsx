@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React from "react";
 import {
   StyleSheet,
   View,
@@ -8,18 +8,18 @@ import {
   StatusBar,
   Platform,
   Image,
-  TextInput,
-  Keyboard,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import {
   Ionicons,
   MaterialCommunityIcons,
-  FontAwesome5,
 } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
-import axios from "axios";
+import TrackingStatusBanner from "../components/TrackingStatusBanner";
+import { useDriver } from "../context/DriverContext";
+import { useNotifications } from "../context/NotificationContext";
+import { useNotificationLogic } from "../hooks/useNotificationLogic";
 
 // Get device dimensions
 import { Dimensions } from "react-native";
@@ -39,51 +39,82 @@ const AppColors = {
   green: "#198754",
 };
 
-const GOOGLE_MAPS_API_KEY = "AIzaSyAeXR9ct7HrHMCQXSWLrWQl5OlRYjNhbxo";
-
 // TopHeader component with improved visibility
-const TopHeader = () => (
-  <View style={styles.header}>
-    <View style={styles.headerLeftContainer}>
-      <View style={styles.logoWrapper}>
-        <Image
-          source={require("../../assets/logowithoutbg_white.png")}
-          style={styles.headerLogo}
-          resizeMode="contain"
+const TopHeader = () => {
+  const navigation = useNavigation();
+  const { unreadCount } = useNotifications();
+
+  return (
+    <View style={styles.header}>
+      <View style={styles.headerLeftContainer}>
+        <View style={styles.logoWrapper}>
+          <Image
+            source={require("../../assets/logowithoutbg_white.png")}
+            style={styles.headerLogo}
+            resizeMode="contain"
+          />
+        </View>
+        <Text style={styles.headerTitle}>
+          BusHubLK
+        </Text>
+      </View>
+      <View style={styles.headerIconContainer}>
+        <TouchableOpacity 
+          style={styles.headerIcon} 
+          onPress={() => (navigation as any).navigate("Notifications")}
+        >
+          <Ionicons name="notifications-outline" size={28} color="#FFFFFF" />
+          {unreadCount > 0 && (
+            <View style={styles.notificationBadge}>
+              <Text style={styles.notificationBadgeText}>
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+};
+
+// WelcomeBanner component with dynamic data
+const WelcomeBanner = () => {
+  const { driverData, isLoading, error } = useDriver();
+  
+  const getDriverName = () => {
+    if (isLoading) return "Loading...";
+    if (error) return "Driver";
+    return driverData?.first_name || "Driver";
+  };
+  
+  const getBusRegistration = () => {
+    if (isLoading) return "Loading...";
+    if (error) return "Please contact depot";
+    if (!driverData?.busRegistration) return "No Assignment Today";
+    return driverData.busRegistration;
+  };
+
+  return (
+    <LinearGradient
+      colors={["#0056b3", "#0076e3", "#1e88e5"]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.welcomeBanner}
+    >
+      <View style={styles.busIconContainer}>
+        <MaterialCommunityIcons
+          name="bus"
+          size={48}
+          color="#fff"
         />
       </View>
-      <Text style={styles.headerTitle}>
-        BusHubLK
-      </Text>
-    </View>
-    <View style={styles.headerIconContainer}>
-      <TouchableOpacity style={styles.headerIcon} onPress={() => {}}>
-        <Ionicons name="notifications-outline" size={28} color="#FFFFFF" />
-      </TouchableOpacity>
-    </View>
-  </View>
-);
-
-// WelcomeBanner component (unchanged)
-const WelcomeBanner = () => (
-  <LinearGradient
-    colors={["#0056b3", "#0076e3"]}
-    start={{ x: 0, y: 0 }}
-    end={{ x: 1, y: 1 }}
-    style={styles.welcomeBanner}
-  >
-    <MaterialCommunityIcons
-      name="bus"
-      size={36}
-      color="#fff"
-      style={{ marginRight: 14 }}
-    />
-    <View>
-      <Text style={styles.welcomeTitle}>Ready to Start, Michael?</Text>
-      <Text style={styles.welcomeSubtitle}>Your bus is: WP-NA-8752</Text>
-    </View>
-  </LinearGradient>
-);
+      <View style={styles.welcomeTextContainer}>
+        <Text style={styles.welcomeTitle}>Ready to Start, {getDriverName()}?</Text>
+        <Text style={styles.welcomeSubtitle}>Your bus for today is: {getBusRegistration()}</Text>
+      </View>
+    </LinearGradient>
+  );
+};
 
 // QuickActionButton component (unchanged)
 const QuickActionButton = ({ icon, text, onPress }) => (
@@ -99,76 +130,18 @@ const QuickActionButton = ({ icon, text, onPress }) => (
   </TouchableOpacity>
 );
 
-// Main HomeScreen Component (unchanged)
+// Main HomeScreen Component
 export default function HomeScreen() {
   const navigation = useNavigation();
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
-  const [fromPlace, setFromPlace] = useState(null);
-  const [toPlace, setToPlace] = useState(null);
-  const [fromSuggestions, setFromSuggestions] = useState([]);
-  const [toSuggestions, setToSuggestions] = useState([]);
-  const [showFromSuggestions, setShowFromSuggestions] = useState(false);
-  const [showToSuggestions, setShowToSuggestions] = useState(false);
-  const debounceTimeout = useRef(null);
+  const { refreshDriverData } = useDriver();
+  
+  // Initialize notification logic
+  useNotificationLogic();
 
-  const fetchPlaceSuggestions = async (input, setSuggestions) => {
-    if (input.length < 1) {
-      setSuggestions([]);
-      return;
-    }
-    try {
-      const response = await axios.get(
-        `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(
-          input
-        )}&components=country:LK&language=en&key=${GOOGLE_MAPS_API_KEY}`
-      );
-      if (response.data.status === "OK") {
-        setSuggestions(response.data.predictions);
-      } else {
-        setSuggestions([]);
-      }
-    } catch {
-      setSuggestions([]);
-    }
-  };
-
-  const debounceFetchSuggestions = (input, setSuggestions) => {
-    if (debounceTimeout.current) {
-      clearTimeout(debounceTimeout.current);
-    }
-    debounceTimeout.current = setTimeout(() => {
-      fetchPlaceSuggestions(input, setSuggestions);
-    }, 300);
-  };
-
-  const handleFromChange = (text) => {
-    setFrom(text);
-    setFromPlace(null);
-    setShowFromSuggestions(text.length > 0);
-    debounceFetchSuggestions(text, setFromSuggestions);
-  };
-
-  const handleToChange = (text) => {
-    setTo(text);
-    setToPlace(null);
-    setShowToSuggestions(text.length > 0);
-    debounceFetchSuggestions(text, setToSuggestions);
-  };
-
-  const selectFromSuggestion = (item) => {
-    setFrom(item.description);
-    setFromPlace(item);
-    setShowFromSuggestions(false);
-    Keyboard.dismiss();
-  };
-
-  const selectToSuggestion = (item) => {
-    setTo(item.description);
-    setToPlace(item);
-    setShowToSuggestions(false);
-    Keyboard.dismiss();
-  };
+  // Pull to refresh functionality
+  const onRefresh = React.useCallback(() => {
+    refreshDriverData();
+  }, [refreshDriverData]);
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -189,144 +162,7 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="always"
       >
-        <LinearGradient
-          colors={["#fff", "#e6f0fa"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.journeyCard}
-        >
-          <Text style={styles.journeyTitle}>Your Current Trip</Text>
-          <View
-            style={[
-              styles.inputGroup,
-              { position: "relative", zIndex: showFromSuggestions ? 200 : 10 },
-            ]}
-          >
-            <Ionicons
-              name="location-outline"
-              size={20}
-              color={AppColors.primary}
-              style={styles.inputIcon}
-            />
-            <View style={{ flex: 1 }}>
-              <TextInput
-                placeholder="From (e.g., Kaduwela)"
-                style={styles.input}
-                placeholderTextColor="#A0A0A0"
-                value={from}
-                onChangeText={handleFromChange}
-                onFocus={() => setShowFromSuggestions(true)}
-                onBlur={() =>
-                  setTimeout(() => setShowFromSuggestions(false), 200)
-                }
-              />
-              {from.length > 0 && (
-                <TouchableOpacity
-                  style={styles.clearIcon}
-                  onPress={() => {
-                    setFrom("");
-                    setFromPlace(null);
-                    setFromSuggestions([]);
-                    setShowFromSuggestions(false);
-                  }}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Ionicons name="close-circle" size={22} color="#bbb" />
-                </TouchableOpacity>
-              )}
-              {showFromSuggestions && fromSuggestions.length > 0 && (
-                <View style={styles.suggestionBox}>
-                  <ScrollView
-                    keyboardShouldPersistTaps="handled"
-                    style={{ maxHeight: 120 }}
-                    nestedScrollEnabled
-                  >
-                    {fromSuggestions.map((item) => (
-                      <TouchableOpacity
-                        key={item.place_id}
-                        onPress={() => selectFromSuggestion(item)}
-                        style={styles.suggestionItem}
-                      >
-                        <Text>{item.description}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-              )}
-            </View>
-          </View>
-          <View
-            style={[
-              styles.inputGroup,
-              { position: "relative", zIndex: showToSuggestions ? 200 : 10 },
-            ]}
-          >
-            <Ionicons
-              name="flag-outline"
-              size={20}
-              color={AppColors.primary}
-              style={styles.inputIcon}
-            />
-            <View style={{ flex: 1 }}>
-              <TextInput
-                placeholder="To (e.g., Kollupitiya)"
-                style={styles.input}
-                placeholderTextColor="#A0A0A0"
-                value={to}
-                onChangeText={handleToChange}
-                onFocus={() => setShowToSuggestions(true)}
-                onBlur={() =>
-                  setTimeout(() => setShowToSuggestions(false), 200)
-                }
-              />
-              {to.length > 0 && (
-                <TouchableOpacity
-                  style={styles.clearIcon}
-                  onPress={() => {
-                    setTo("");
-                    setToPlace(null);
-                    setToSuggestions([]);
-                    setShowToSuggestions(false);
-                  }}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Ionicons name="close-circle" size={22} color="#bbb" />
-                </TouchableOpacity>
-              )}
-              {showToSuggestions && toSuggestions.length > 0 && (
-                <View style={styles.suggestionBox}>
-                  <ScrollView
-                    keyboardShouldPersistTaps="handled"
-                    style={{ maxHeight: 120 }}
-                    nestedScrollEnabled
-                  >
-                    {toSuggestions.map((item) => (
-                      <TouchableOpacity
-                        key={item.place_id}
-                        onPress={() => selectToSuggestion(item)}
-                        style={styles.suggestionItem}
-                      >
-                        <Text>{item.description}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-              )}
-            </View>
-          </View>
-          <TouchableOpacity
-            style={[
-              styles.searchButton,
-              (!fromPlace || !toPlace) && { opacity: 0.5 },
-            ]}
-            onPress={() =>
-              navigation.navigate("MapScreen", { fromPlace, toPlace })
-            }
-            disabled={!fromPlace || !toPlace}
-          >
-            <Text style={styles.searchButtonText}>View Route Details</Text>
-          </TouchableOpacity>
-        </LinearGradient>
+        <TrackingStatusBanner onPress={() => navigation.navigate("Tracking" as never)} />
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.quickActionGrid}>
@@ -366,7 +202,7 @@ const styles = StyleSheet.create({
   },
   backgroundImage: {
     position: "absolute",
-    top: screenHeight * 0.35,
+    top: screenHeight * 0.55,
     left: screenWidth * 0.1,
     width: screenWidth * 0.8,
     height: screenHeight * 0.4,
@@ -375,7 +211,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingBottom: Platform.OS === 'android' ? 100 : 120, // Increased for new tab bar
     paddingTop: 20,
   },
   header: {
@@ -384,8 +220,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     backgroundColor: AppColors.primary,
     paddingHorizontal: 15,
-    paddingVertical: Platform.OS === "ios" ? 15 : 16,
-    height: Platform.OS === "ios" ? 70 : 65,
+    paddingVertical: Platform.OS === "ios" ? 18 : 20,
+    height: Platform.OS === "ios" ? 85 : 80,
     ...Platform.select({
       android: {
         elevation: 4,
@@ -454,37 +290,62 @@ const styles = StyleSheet.create({
   welcomeBanner: {
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: 18,
-    padding: 18,
+    borderRadius: 22,
+    padding: 24,
     marginHorizontal: 20,
-    marginBottom: 18,
-    marginTop: 30,
-    minHeight: Platform.OS === "android" ? 80 : 75,
+    marginBottom: 20,
+    marginTop: 35,
+    minHeight: Platform.OS === "android" ? 100 : 95,
+    ...Platform.select({
+      android: {
+        elevation: 6,
+      },
+      ios: {
+        shadowColor: "#000",
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 4 },
+      },
+    }),
+  },
+  busIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 18,
     ...Platform.select({
       android: {
         elevation: 2,
       },
       ios: {
         shadowColor: "#000",
-        shadowOpacity: 0.06,
+        shadowOpacity: 0.1,
         shadowRadius: 4,
         shadowOffset: { width: 0, height: 2 },
       },
     }),
   },
+  welcomeTextContainer: {
+    flex: 1,
+    justifyContent: "center",
+  },
   welcomeTitle: {
     color: "#fff",
-    fontSize: Platform.OS === "ios" ? 18 : 17,
+    fontSize: Platform.OS === "ios" ? 20 : 19,
     fontWeight: "bold",
-    lineHeight: Platform.OS === "ios" ? 24 : 22,
+    lineHeight: Platform.OS === "ios" ? 26 : 24,
     includeFontPadding: false,
     textAlignVertical: "center",
+    marginBottom: 4,
   },
   welcomeSubtitle: {
-    color: "#fff",
-    fontSize: Platform.OS === "ios" ? 14 : 13,
-    marginTop: 2,
-    lineHeight: Platform.OS === "ios" ? 18 : 17,
+    color: "rgba(255, 255, 255, 0.9)",
+    fontSize: Platform.OS === "ios" ? 15 : 14,
+    fontWeight: "500",
+    lineHeight: Platform.OS === "ios" ? 20 : 18,
     includeFontPadding: false,
     textAlignVertical: "center",
   },
@@ -649,5 +510,24 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: Platform.OS === "ios" ? 16 : 15,
     includeFontPadding: false,
+  },
+  notificationBadge: {
+    position: "absolute",
+    top: -2,
+    right: -2,
+    backgroundColor: AppColors.red,
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
+  },
+  notificationBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "bold",
+    lineHeight: 16,
   },
 });

@@ -1,8 +1,9 @@
 import React from "react";
-import { View, Text } from "react-native";
+import { View, Text, Platform, StyleSheet } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createStackNavigator } from "@react-navigation/stack";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // --- Import all your screens ---
 import HomeScreen from "../screens/HomeScreen";
@@ -17,6 +18,7 @@ import SettingsScreen from "../screens/SettingScreen";
 import MapScreen from "../screens/MapScreen";
 import ScheduleScreen from "../screens/ScheduleScreen";
 import ChatScreen from "../screens/ChatScreen";
+import NotificationTestScreen from "../screens/NotificationTestScreen";
 
 // Create Stack Navigators for each tab
 const HomeStack = createStackNavigator();
@@ -81,6 +83,7 @@ const SettingsStackNavigator = () => {
       }}
     >
       <SettingsStack.Screen name="SettingsMain" component={SettingsScreen} />
+      <SettingsStack.Screen name="NotificationTest" component={NotificationTestScreen} />
     </SettingsStack.Navigator>
   );
 };
@@ -89,6 +92,8 @@ const Tab = createBottomTabNavigator();
 
 // Main Tab Navigator
 const TabNavigator = () => {
+  const insets = useSafeAreaInsets();
+  
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -108,18 +113,24 @@ const TabNavigator = () => {
             iconName = "help-outline";
           }
 
-          return <Ionicons name={iconName} size={size} color={color} />;
+          return <Ionicons name={iconName} size={focused ? 26 : 24} color={color} />;
         },
         tabBarActiveTintColor: "#005A9C",
-        tabBarInactiveTintColor: "gray",
+        tabBarInactiveTintColor: "#8e8e93",
         tabBarStyle: {
-          height: 60,
-          paddingBottom: 5,
-          paddingTop: 5,
+          ...styles.tabBar,
+          height: Platform.OS === 'android' ? 70 + insets.bottom : 85 + insets.bottom,
+          paddingBottom: Platform.OS === 'android' ? 
+            Math.max(insets.bottom, 10) : 
+            Math.max(insets.bottom, 20),
         },
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: "600",
+          marginTop: Platform.OS === 'android' ? 0 : 2,
+        },
+        tabBarItemStyle: {
+          paddingTop: Platform.OS === 'android' ? 8 : 5,
         },
       })}
     >
@@ -146,5 +157,30 @@ const TabNavigator = () => {
     </Tab.Navigator>
   );
 };
+
+// Styles for better Android compatibility
+const styles = StyleSheet.create({
+  tabBar: {
+    backgroundColor: "#ffffff",
+    borderTopWidth: 1,
+    borderTopColor: "#e1e1e1",
+    paddingHorizontal: 0,
+    ...Platform.select({
+      android: {
+        elevation: 8,
+        shadowColor: "#000",
+      },
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: {
+          width: 0,
+          height: -2,
+        },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      },
+    }),
+  },
+});
 
 export default TabNavigator;

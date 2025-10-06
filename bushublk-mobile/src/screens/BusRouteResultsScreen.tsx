@@ -11,9 +11,10 @@ import {
   Platform,
   StatusBar,
 } from "react-native";
-import Icon from "react-native-vector-icons/Ionicons";
+import { Ionicons } from "@expo/vector-icons";
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
 import axios from "axios";
+import { API_BASE_URL, initializeApiConnection } from '../config/api';
 
 const GOOGLE_MAPS_API_KEY = "AIzaSyAeXR9ct7HrHMCQXSWLrWQl5OlRYjNhbxo"; // <-- Replace with your key
 
@@ -36,57 +37,7 @@ const AppColors = {
   },
 };
 
-const BASE_STAGE_KM = 3.2;
-const FARE_STAGES: number[] = [
-  17, 23, 30, 36, 43, 50, 56, 62, 68, 75, 81, 88, 94, 100, 106, 113, 119, 126, 132, 139, 145, 152, 158, 165, 171, 178, 184, 191, 197, 204, 210, 217, 223, 230, 236, 243, 249, 256, 262, 269, 275, 282, 288, 295, 301, 308, 314, 321, 327, 334
-];
 
-const BUS_ROUTES = [
-  {
-    routeNumber: "138",
-    operator: "SLTB",
-    from: "Colombo",
-    to: "Kandy",
-    via: ["Kadawatha", "Gampaha", "Kegalle"],
-    frequency: "Every 30 mins",
-    operatingHours: "5:00 AM - 10:00 PM",
-    fare: 600,
-    estimatedDuration: "3.5 hours",
-  },
-  {
-    routeNumber: "1",
-    operator: "SLTB",
-    from: "Colombo",
-    to: "Galle",
-    via: ["Mount Lavinia", "Kalutara", "Bentota"],
-    frequency: "Every 20 mins",
-    operatingHours: "4:30 AM - 11:00 PM",
-    fare: 600,
-    estimatedDuration: "3 hours",
-  },
-  {
-    routeNumber: "4",
-    operator: "SLTB",
-    from: "Colombo",
-    to: "Matara",
-    via: ["Mount Lavinia", "Kalutara", "Galle", "Unawatuna"],
-    frequency: "Every 45 mins",
-    operatingHours: "5:00 AM - 9:30 PM",
-    fare: 700,
-    estimatedDuration: "4 hours",
-  },
-  {
-    routeNumber: "100",
-    operator: "Private",
-    from: "Colombo",
-    to: "Kandy",
-    frequency: "Every hour",
-    operatingHours: "6:00 AM - 8:00 PM",
-    fare: 620,
-    estimatedDuration: "2.5 hours",
-    via: ["Mawanella", "Peradeniya"],
-  },
-];
 
 function decodePolyline(encoded) {
   const poly = [];
@@ -125,21 +76,67 @@ function decodePolyline(encoded) {
 export default function BusRouteResultsScreen({ route, navigation }) {
   const { from, to } = route.params;
   const [loading, setLoading] = useState(true);
-  const [distance, setDistance] = useState(null);
-  const [duration, setDuration] = useState(null);
-  const [fare, setFare] = useState(null);
-  const [routeCoordinates, setRouteCoordinates] = useState([]);
-  const [mapRegion, setMapRegion] = useState(null);
-  const [availableRoutes, setAvailableRoutes] = useState([]);
+  const [distance, setDistance] = useState<number | null>(null);
+  const [duration, setDuration] = useState<string | null>(null);
+  const [fare, setFare] = useState<number | null>(null);
+  const [routeCoordinates, setRouteCoordinates] = useState<Array<{latitude: number, longitude: number}>>([]);
+  const [mapRegion, setMapRegion] = useState<any>(null);
+  const [availableRoutes, setAvailableRoutes] = useState<any[]>([]);
   const [showMap, setShowMap] = useState(false);
+  const [busStops, setBusStops] = useState<Array<{name: string, place_id?: string, type?: string, order?: number, distanceKm?: number, vicinity?: string}>>([]);
+  const [numberOfStops, setNumberOfStops] = useState<number>(0);
+  const [calculationMethod, setCalculationMethod] = useState<string>('');
+  const [stopsDetected, setStopsDetected] = useState<number>(0);
 
   const mapRef = useRef(null);
 
   const fromText = from?.description || "";
   const toText = to?.description || "";
 
+  // Calculate fare using backend API
+  const calculateFareFromAPI = async (originPlaceId: string, destinationPlaceId: string) => {
+    try {
+      console.log('🔄 Calculating fare from API...', { originPlaceId, destinationPlaceId });
+      
+      // Initialize API connection to ensure we have the correct URL
+      const apiUrl = await initializeApiConnection();
+      console.log('🌐 Using API URL:', apiUrl);
+      
+      const response = await axios.post(`${apiUrl}/api/fares/calculate`, {
+        origin: originPlaceId,
+        destination: destinationPlaceId
+      });
+      
+      console.log('✅ Fare API response:', response.data);
+      
+      if (response.data && response.data.success) {
+        // Parse distance from string format "116.1 km" to number
+        const distanceStr = response.data.route?.distance || '0 km';
+        const distanceNum = parseFloat(distanceStr.replace(' km', ''));
+        
+        return {
+          fare: response.data.fare,
+          numberOfStops: response.data.calculation?.stopsDetected || 0,
+          distance: distanceNum,
+          duration: response.data.route?.duration || '',
+          busStops: response.data.busStops || [],
+          calculationMethod: response.data.calculation?.method || 'unknown',
+          stopsDetected: response.data.calculation?.stopsDetected || 0
+        };
+      }
+      return null;
+    } catch (error) {
+      console.error('❌ Error calculating fare from API:', error);
+      if (axios.isAxiosError(error)) {
+        console.error('Response data:', error.response?.data);
+        console.error('Response status:', error.response?.status);
+      }
+      return null;
+    }
+  };
+
   // Helper: Get lat/lng from place_id
-  const getLatLng = async (place_id) => {
+  const getLatLng = async (place_id: string) => {
     try {
       const res = await axios.get(
         `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place_id}&key=${GOOGLE_MAPS_API_KEY}`
@@ -194,27 +191,10 @@ export default function BusRouteResultsScreen({ route, navigation }) {
     }
   };
 
-  // Find available bus routes
+  // Find available bus routes (removed mock data - can be enhanced later)
   const findAvailableRoutes = (from, to) => {
-    const clean = (str) =>
-      str.toLowerCase().replace(/,? sri lanka/i, "").trim();
-    const fromClean = clean(from);
-    const toClean = clean(to);
-
-    return BUS_ROUTES.filter((route) => {
-      const routeFromClean = clean(route.from);
-      const routeToClean = clean(route.to);
-
-      return (
-        (fromClean.includes(routeFromClean) && toClean.includes(routeToClean)) ||
-        (fromClean.includes(routeToClean) && toClean.includes(routeFromClean)) ||
-        (route.via &&
-          route.via.some(
-            (via) =>
-              fromClean.includes(clean(via)) || toClean.includes(clean(via))
-          ))
-      );
-    });
+    // This would be connected to a real bus routes database in the future
+    return [];
   };
 
   useEffect(() => {
@@ -222,38 +202,62 @@ export default function BusRouteResultsScreen({ route, navigation }) {
       setLoading(true);
       setShowMap(false);
 
-      // Find available routes
-      const routes = findAvailableRoutes(fromText, toText);
-      setAvailableRoutes(routes);
+      try {
+        console.log('🚀 Starting fare calculation for:', { from: fromText, to: toText });
 
-      // Get route coordinates, distance, and duration
-      const { coordinates, distance: dist, region, duration: estDuration } =
-        await getRouteCoordinates(from.place_id, to.place_id);
+        // Find available routes
+        const routes = findAvailableRoutes(fromText, toText);
+        setAvailableRoutes(routes);
 
-      if (dist !== null) {
-        setDistance(dist);
-        setRouteCoordinates(coordinates);
-        setMapRegion(region);
-        setShowMap(true);
-        setDuration(estDuration || null);
-
-        // Calculate fare based on distance if no specific route found
-        if (routes.length === 0) {
-          const stageCount = Math.ceil(dist / BASE_STAGE_KM);
-          const cappedStage = Math.min(stageCount, FARE_STAGES.length);
-          let calculatedFare = Math.round(FARE_STAGES[cappedStage - 1] * 1.6);
-          setFare(calculatedFare);
+        // Calculate fare using backend API
+        const fareData = await calculateFareFromAPI(from.place_id, to.place_id);
+        
+        if (fareData) {
+          console.log('✅ Fare calculation successful:', fareData);
+          setFare(fareData.fare);
+          setDistance(fareData.distance);
+          setDuration(fareData.duration);
+          setNumberOfStops(fareData.numberOfStops);
+          setBusStops(fareData.busStops);
+          setCalculationMethod(fareData.calculationMethod);
+          setStopsDetected(fareData.stopsDetected || 0);
+          
+          // Get route coordinates for map display
+          const { coordinates, region } = await getRouteCoordinates(from.place_id, to.place_id);
+          if (coordinates.length > 0) {
+            setRouteCoordinates(coordinates);
+            setMapRegion(region);
+            setShowMap(true);
+          }
         } else {
-          // Use the fare from the first available route
-          setFare(routes[0].fare);
+          console.log('⚠️ API failed, falling back to map coordinates only');
+          // Get route coordinates for map display even if fare calculation fails
+          const { coordinates, distance: dist, region, duration: estDuration } =
+            await getRouteCoordinates(from.place_id, to.place_id);
+
+          if (dist !== null) {
+            setDistance(dist);
+            setRouteCoordinates(coordinates);
+            setMapRegion(region);
+            setShowMap(true);
+            setDuration(estDuration || null);
+          } else {
+            console.log('❌ Could not calculate route');
+            setDistance(null);
+            setFare(null);
+            setShowMap(false);
+            setDuration(null);
+          }
         }
-      } else {
+      } catch (error) {
+        console.error('❌ Error in fetchData:', error);
         setDistance(null);
         setFare(null);
         setShowMap(false);
         setDuration(null);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
 
     if (from && to && from.place_id && to.place_id) {
@@ -285,19 +289,19 @@ export default function BusRouteResultsScreen({ route, navigation }) {
       <View style={styles.routeDetails}>
         <View style={styles.routeInfo}>
           <View style={styles.iconContainer}>
-            <Icon name="time-outline" size={18} color={AppColors.primary} />
+            <Ionicons name="time-outline" size={18} color={AppColors.primary} />
           </View>
           <Text style={styles.routeText}>{item.frequency}</Text>
         </View>
         <View style={styles.routeInfo}>
           <View style={styles.iconContainer}>
-            <Icon name="clock-outline" size={18} color={AppColors.primary} />
+            <Ionicons name="time-outline" size={18} color={AppColors.primary} />
           </View>
           <Text style={styles.routeText}>{item.operatingHours}</Text>
         </View>
         <View style={styles.routeInfo}>
           <View style={styles.iconContainer}>
-            <Icon name="speedometer-outline" size={18} color={AppColors.primary} />
+            <Ionicons name="speedometer-outline" size={18} color={AppColors.primary} />
           </View>
           <Text style={styles.routeText}>{item.estimatedDuration}</Text>
         </View>
@@ -306,7 +310,7 @@ export default function BusRouteResultsScreen({ route, navigation }) {
       {item.via && item.via.length > 0 && (
         <View style={styles.viaContainer}>
           <View style={styles.viaHeader}>
-            <Icon name="trail-sign-outline" size={16} color={AppColors.primary} />
+            <Ionicons name="trail-sign-outline" size={16} color={AppColors.primary} />
             <Text style={styles.viaLabel}>Route Via</Text>
           </View>
           <Text style={styles.viaText}>{item.via.join(" → ")}</Text>
@@ -328,7 +332,7 @@ export default function BusRouteResultsScreen({ route, navigation }) {
           onPress={() => navigation.goBack()}
           style={styles.backButton}
         >
-          <Icon name="arrow-back" size={24} color={AppColors.card} />
+          <Ionicons name="arrow-back" size={24} color={AppColors.card} />
         </TouchableOpacity>
         <View style={styles.headerContent}>
           <Text style={styles.headerTitle}>Route Results</Text>
@@ -356,7 +360,7 @@ export default function BusRouteResultsScreen({ route, navigation }) {
 {loading && (
   <View style={styles.loadingContainer}>
     <ActivityIndicator size="large" color={AppColors.primary} />
-    <Text style={styles.loadingText}>Finding best routes...</Text>
+    <Text style={styles.loadingText}>Calculating fare based on cities along route...</Text>
   </View>
 )}
 
@@ -364,7 +368,7 @@ export default function BusRouteResultsScreen({ route, navigation }) {
 {showMap && mapRegion && routeCoordinates.length > 0 && (
   <View style={styles.mapContainer}>
     <View style={styles.mapHeader}>
-      <Icon name="map-outline" size={20} color={AppColors.primary} />
+      <Ionicons name="map-outline" size={20} color={AppColors.primary} />
       <Text style={styles.mapTitle}>Route Map</Text>
     </View>
     <View style={styles.mapWrapper}>
@@ -389,7 +393,7 @@ export default function BusRouteResultsScreen({ route, navigation }) {
           pinColor="green"
         >
           <View style={styles.customMarker}>
-            <Icon name="location" size={24} color={AppColors.success} />
+            <Ionicons name="location" size={24} color={AppColors.success} />
           </View>
         </Marker>
         <Marker
@@ -399,7 +403,7 @@ export default function BusRouteResultsScreen({ route, navigation }) {
           pinColor="red"
         >
           <View style={styles.customMarker}>
-            <Icon name="flag" size={24} color={AppColors.warning} />
+            <Ionicons name="flag" size={24} color={AppColors.warning} />
           </View>
         </Marker>
         <Polyline
@@ -418,16 +422,24 @@ export default function BusRouteResultsScreen({ route, navigation }) {
   <View style={styles.infoGrid}>
     <View style={styles.infoCard}>
       <View style={styles.infoIconContainer}>
-        <Icon name="navigate-outline" size={24} color={AppColors.primary} />
+        <Ionicons name="navigate-outline" size={24} color={AppColors.primary} />
       </View>
       <Text style={styles.infoLabel}>Distance</Text>
       <Text style={styles.infoValue}>{distance?.toFixed(1)} km</Text>
     </View>
     
+    <View style={styles.infoCard}>
+      <View style={styles.infoIconContainer}>
+        <Ionicons name="bus-outline" size={24} color={AppColors.primary} />
+      </View>
+      <Text style={styles.infoLabel}>Bus Stops</Text>
+      <Text style={styles.infoValue}>{numberOfStops}</Text>
+    </View>
+    
     {fare !== null && (
       <View style={styles.infoCard}>
         <View style={styles.infoIconContainer}>
-          <Icon name="cash-outline" size={24} color={AppColors.success} />
+          <Ionicons name="cash-outline" size={24} color={AppColors.success} />
         </View>
         <Text style={styles.infoLabel}>Est. Fare</Text>
         <Text style={styles.infoValue}>Rs. {fare}</Text>
@@ -437,7 +449,7 @@ export default function BusRouteResultsScreen({ route, navigation }) {
     {duration && (
       <View style={styles.infoCard}>
         <View style={styles.infoIconContainer}>
-          <Icon name="time-outline" size={24} color={AppColors.warning} />
+          <Ionicons name="time-outline" size={24} color={AppColors.warning} />
         </View>
         <Text style={styles.infoLabel}>Duration</Text>
         <Text style={styles.infoValue}>{duration}</Text>
@@ -446,11 +458,75 @@ export default function BusRouteResultsScreen({ route, navigation }) {
   </View>
 )}
 
+{/* Bus Stops Along Route */}
+{busStops.length > 0 && (
+  <View style={styles.stopsContainer}>
+    <View style={styles.sectionHeader}>
+      <Ionicons name="location-outline" size={24} color={AppColors.primary} />
+      <Text style={styles.sectionTitle}>Bus Stops Along Route</Text>
+      <View style={styles.routeCount}>
+        <Text style={styles.routeCountText}>{busStops.length}</Text>
+      </View>
+    </View>
+    
+    {/* Route Statistics */}
+    {stopsDetected > 0 && (
+      <View style={styles.routeStatsCard}>
+        <View style={styles.statItem}>
+          <Ionicons name="location" size={16} color={AppColors.primary} />
+          <Text style={styles.statLabel}>Stops Detected:</Text>
+          <Text style={styles.statValue}>{stopsDetected}</Text>
+        </View>
+      </View>
+    )}
+    
+    <View style={styles.stopsCard}>
+      {busStops.map((stop, index) => (
+        <View key={stop.place_id || stop.name || `stop-${index}`} style={[styles.stopItem, index === busStops.length - 1 && styles.stopItemLast]}>
+          <View style={styles.stopNumber}>
+            <Text style={styles.stopNumberText}>{index + 1}</Text>
+          </View>
+          <View style={styles.stopContent}>
+            <Text style={styles.stopName}>{stop.name}</Text>
+            {stop.vicinity && (
+              <Text style={styles.stopVicinity}>{stop.vicinity}</Text>
+            )}
+            {stop.type && (
+              <Text style={styles.stopType}>
+                {stop.type === 'city' ? 'City/Town' : 
+                 stop.type === 'transit_stop' ? 'Transit Stop' : 
+                 stop.type === 'major_station' ? 'Major Station' : 'Bus Stop'}
+              </Text>
+            )}
+            {stop.distanceKm && (
+              <Text style={styles.stopDistance}>
+                {stop.distanceKm.toFixed(1)}km from origin
+              </Text>
+            )}
+          </View>
+          <View style={[styles.stopIcon, stop.type === 'city' && styles.cityIcon]}>
+            <Ionicons 
+              name={stop.type === 'city' ? 'location' : 'bus'} 
+              size={16} 
+              color={stop.type === 'city' ? AppColors.warning : AppColors.primary} 
+            />
+          </View>
+        </View>
+      ))}
+    </View>
+    {calculationMethod && (
+      <Text style={styles.calculationNote}>
+        Fare calculated using {calculationMethod === 'city_based' ? 'city data' : calculationMethod === 'transit_based' ? 'transit data' : 'distance estimation'}
+      </Text>
+    )}
+  </View>
+)}
+
 {/* Available Bus Routes */}
 {availableRoutes.length > 0 && (
   <View style={styles.routesContainer}>
     <View style={styles.sectionHeader}>
-      <Icon name="bus-outline" size={24} color={AppColors.primary} />
+      <Ionicons name="bus-outline" size={24} color={AppColors.primary} />
       <Text style={styles.sectionTitle}>Available Bus Routes</Text>
       <View style={styles.routeCount}>
         <Text style={styles.routeCountText}>{availableRoutes.length}</Text>
@@ -477,7 +553,7 @@ export default function BusRouteResultsScreen({ route, navigation }) {
     </View>
     <Text style={styles.noRoutesTitle}>No Direct Routes Found</Text>
     <Text style={styles.noRoutesText}>
-      Fare has been calculated based on distance. You may need to take connecting buses or alternative transport.
+      Fare calculated based on {numberOfStops} bus stops found along the route. You may need to take connecting buses or alternative transport.
     </Text>
   </View>
 )}
@@ -485,7 +561,7 @@ export default function BusRouteResultsScreen({ route, navigation }) {
 {fare === null && !loading && (
   <View style={styles.errorCard}>
     <View style={styles.errorIcon}>
-      <Icon name="alert-circle-outline" size={32} color={AppColors.warning} />
+      <Ionicons name="alert-circle-outline" size={32} color={AppColors.warning} />
     </View>
     <Text style={styles.errorTitle}>Route Not Found</Text>
     <Text style={styles.errorText}>
@@ -708,6 +784,11 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: AppColors.text,
   },
+  infoSubtext: {
+    fontSize: 10,
+    color: AppColors.textSecondary,
+    marginTop: 2,
+  },
   routesContainer: {
     marginBottom: 20,
   },
@@ -916,5 +997,124 @@ const styles = StyleSheet.create({
     color: AppColors.textSecondary,
     textAlign: "center",
     lineHeight: 20,
+  },
+  stopsContainer: {
+    marginBottom: 20,
+  },
+  stopsCard: {
+    backgroundColor: AppColors.card,
+    borderRadius: 16,
+    padding: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: AppColors.shadow,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  stopItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: AppColors.border,
+  },
+  stopItemLast: {
+    borderBottomWidth: 0,
+  },
+  stopIcon: {
+    backgroundColor: AppColors.primaryLight,
+    borderRadius: 12,
+    padding: 6,
+    marginRight: 12,
+  },
+  transitStopIcon: {
+    backgroundColor: AppColors.success + "20",
+  },
+  cityIcon: {
+    backgroundColor: AppColors.warning + "20",
+  },
+  stopContent: {
+    flex: 1,
+  },
+  stopName: {
+    fontSize: 14,
+    color: AppColors.text,
+    fontWeight: "500",
+  },
+  stopType: {
+    fontSize: 12,
+    color: AppColors.textSecondary,
+    marginTop: 2,
+  },
+  stopsSubtitle: {
+    fontSize: 12,
+    color: AppColors.textSecondary,
+    marginBottom: 12,
+    fontStyle: "italic",
+  },
+  calculationNote: {
+    fontSize: 12,
+    color: AppColors.textSecondary,
+    marginTop: 12,
+    fontStyle: "italic",
+    textAlign: "center",
+  },
+  routeStatsCard: {
+    backgroundColor: AppColors.primaryLight,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+    flexDirection: "row",
+    justifyContent: "space-around",
+  },
+  statItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    justifyContent: "center",
+  },
+  statLabel: {
+    fontSize: 12,
+    color: AppColors.primary,
+    marginLeft: 4,
+    fontWeight: "500",
+  },
+  statValue: {
+    fontSize: 12,
+    color: AppColors.primary,
+    marginLeft: 4,
+    fontWeight: "bold",
+  },
+  stopNumber: {
+    backgroundColor: AppColors.primary,
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  stopNumberText: {
+    fontSize: 12,
+    color: AppColors.card,
+    fontWeight: "bold",
+  },
+  stopVicinity: {
+    fontSize: 12,
+    color: AppColors.textSecondary,
+    marginTop: 2,
+    fontStyle: "italic",
+  },
+  stopDistance: {
+    fontSize: 11,
+    color: AppColors.primary,
+    marginTop: 2,
+    fontWeight: "500",
   },
 });

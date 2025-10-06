@@ -9,7 +9,7 @@ import {
   Switch,
   StatusBar,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/Ionicons';
+import { Ionicons } from '@expo/vector-icons';
 
 // --- Color Palette ---
 const AppColors = {
@@ -70,7 +70,7 @@ const PrivacyView = ({ onBack }) => (
 const SubPageHeader = ({ title, onBack }) => (
     <View style={styles.subPageHeader}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
-            <Icon name="arrow-back-outline" size={28} color={AppColors.text} />
+            <Ionicons name="arrow-back-outline" size={28} color={AppColors.text} />
         </TouchableOpacity>
         <Text style={styles.subPageHeaderTitle}>{title}</Text>
     </View>
@@ -119,9 +119,9 @@ const MainSettingsView = ({ onNavigate }) => {
 // --- Individual Settings Item Component ---
 const SettingsItem = ({ icon, text, type = 'navigate', value, onValueChange, onPress }) => (
   <TouchableOpacity style={styles.menuItem} activeOpacity={0.7} onPress={onPress}>
-    <Icon name={icon} size={22} color={AppColors.primary} style={styles.menuIcon} />
+    <Ionicons name={icon} size={22} color={AppColors.primary} style={styles.menuIcon} />
     <Text style={styles.menuItemText}>{text}</Text>
-    {type === 'navigate' && <Icon name="chevron-forward-outline" size={22} color={AppColors.textSecondary} />}
+    {type === 'navigate' && <Ionicons name="chevron-forward-outline" size={22} color={AppColors.textSecondary} />}
     {type === 'toggle' && <Switch trackColor={{ false: "#767577", true: AppColors.primary }} thumbColor={"#f4f3f4"} value={value} onValueChange={onValueChange} />}
     {type === 'value' && <Text style={styles.menuItemValue}>English</Text>}
   </TouchableOpacity>

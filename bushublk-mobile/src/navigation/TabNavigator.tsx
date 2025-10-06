@@ -1,7 +1,7 @@
 import React from "react";
 import { StyleSheet } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import Icon from "react-native-vector-icons/Ionicons";
+import { Ionicons } from "@expo/vector-icons";
 
 // Import your screens
 import HomeScreen from "../screens/HomeScreen";
@@ -21,7 +21,7 @@ const TabNavigator = () => {
         tabBarShowLabel: false,
         tabBarStyle: styles.tabBar,
         tabBarIcon: ({ focused, color }) => {
-          let iconName;
+          let iconName: keyof typeof Ionicons.glyphMap;
           const iconSize = focused ? 30 : 26; // Slightly larger icons
 
           // Assign icons to routes
@@ -33,9 +33,11 @@ const TabNavigator = () => {
             iconName = focused ? "person-circle" : "person-circle-outline";
           } else if (route.name === "Settings") {
             iconName = focused ? "settings" : "settings-outline";
+          } else {
+            iconName = "help-outline";
           }
 
-          return <Icon name={iconName} size={iconSize} color={color} />;
+          return <Ionicons name={iconName} size={iconSize} color={color} />;
         },
         tabBarActiveTintColor: "#0056b3",
         tabBarInactiveTintColor: "#6C757D",

@@ -31,8 +31,17 @@ interface AppContextType {
 interface BusResponse {
   success: boolean;
   message: string;
-  buses?: Bus[]; // Changed to optional as not all responses will have 'buses'
-  bus?: Bus;    // Added 'bus' (singular) for update responses
+  buses?: Bus[];
+  bus?: Bus;
+}
+
+interface PartCondition {
+  part_name: string;
+  checked: boolean;
+}
+
+interface PartCheckingData {
+  main_parts: PartCondition[];
 }
 
 const Busavailability = () => {
@@ -52,6 +61,18 @@ const Busavailability = () => {
   const [showEditModal, setShowEditModal] = useState<boolean>(false);
   const [selectedBus, setSelectedBus] = useState<Bus | null>(null);
   const [editedStatus, setEditedStatus] = useState<Bus['status']>('Active');
+  const [partCheckingData, setPartCheckingData] = useState<PartCheckingData>({
+    main_parts: [
+      { part_name: 'Engine', checked: false },
+      { part_name: 'Brakes', checked: false },
+      { part_name: 'Tires', checked: false },
+      { part_name: 'Windows', checked: false },
+      { part_name: 'Doors', checked: false },
+      { part_name: 'Lights', checked: false },
+      { part_name: 'Turn Signals', checked: false },
+      { part_name: 'Fire Extinguisher', checked: false }
+    ]
+  });
 
   const itemsPerPage = 10;
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -72,7 +93,7 @@ const Busavailability = () => {
         return;
       }
 
-      let apiUrl = 'http://localhost:5000/api/buses'; // Default fallback
+      let apiUrl = 'http://localhost:5000/api/buses';
       if (userRole === 'depot_engineer') {
         apiUrl = 'http://localhost:5000/api/depot-engineer/buses';
       } else if (userRole === 'depot_manager' || userRole === 'depot_operations') {
@@ -83,14 +104,14 @@ const Busavailability = () => {
         }
         apiUrl = `http://localhost:5000/api/buses/depot/${userDepotId}`;
       }
-      console.log('Fetching from:', apiUrl); // Debug log
+      console.log('Fetching from:', apiUrl);
 
       const response = await axios.get<BusResponse>(apiUrl, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
-      if (response.data.success && response.data.buses) { // Ensure this is `buses` for GET
+      if (response.data.success && response.data.buses) {
         setBuses(response.data.buses);
       } else {
         setError(`Failed to fetch buses: ${response.data.message}`);
@@ -99,7 +120,7 @@ const Busavailability = () => {
       const axiosError = err as AxiosError;
       console.error('API Error:', axiosError);
       if (axiosError.response) {
-        setError(`Failed to fetch buses: ${axiosError.response.status} - ${axiosError.response.data?.message || axiosError.response.statusText}`);
+        setError(`Failed to fetch buses: ${axiosError.response.status} - ${(axiosError.response.data as any)?.message || axiosError.response.statusText}`);
       } else if (axiosError.request) {
         setError('Failed to fetch buses. The API endpoint might be down or unreachable.');
       } else {
@@ -170,7 +191,17 @@ const Busavailability = () => {
   };
 
   const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setEditedStatus(e.target.value as Bus['status']);
+    const newStatus = e.target.value as Bus['status'];
+    setEditedStatus(newStatus);
+  };
+
+  const updatePartCondition = (partIndex: number, checked: boolean) => {
+    setPartCheckingData(prev => ({
+      ...prev,
+      main_parts: prev.main_parts.map((part, index) => 
+        index === partIndex ? { ...part, checked } : part
+      )
+    }));
   };
 
   const handleSaveChanges = async () => {
@@ -179,18 +210,38 @@ const Busavailability = () => {
     try {
       setLoading(true);
       setError(null);
+      
+      // Prepare part checking flags for database
+      const partCheckingFlags = {
+        // Main parts flags
+        engine: partCheckingData.main_parts[0]?.checked || false,
+        brakes: partCheckingData.main_parts[1]?.checked || false,
+        tires: partCheckingData.main_parts[2]?.checked || false,
+        windows: partCheckingData.main_parts[3]?.checked || false,
+        doors: partCheckingData.main_parts[4]?.checked || false,
+        lights: partCheckingData.main_parts[5]?.checked || false,
+        turn_signals: partCheckingData.main_parts[6]?.checked || false,
+        fire_extinguisher: partCheckingData.main_parts[7]?.checked || false,
+        
+        // Part checking metadata
+        checking_date: new Date().toISOString(),
+        checker_id: context?.user?.userId
+      };
+
       const response = await axios.put<BusResponse>(
         `http://localhost:5000/api/depot-engineer/buses/${selectedBus.bus_id}/status`,
-        { status: editedStatus },
+        { 
+          status: editedStatus,
+          part_checking_data: partCheckingFlags
+        },
         {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         }
       );
-      // CORRECTED: Check for 'bus' (singular) in the response for updates
+      
       if (response.data.success && response.data.bus) {
-          // Update the specific bus in the local state with the new status
           setBuses(prevBuses =>
               prevBuses.map(bus =>
                   bus.bus_id === selectedBus.bus_id ? { ...bus, status: editedStatus } : bus
@@ -198,17 +249,28 @@ const Busavailability = () => {
           );
           setShowEditModal(false);
           setSelectedBus(null);
-          // Optionally, show a success message temporarily
-          // setError(null); // Clear any previous error message
+          // Reset part checking data for next check
+          setPartCheckingData({
+            main_parts: [
+              { part_name: 'Engine', checked: false },
+              { part_name: 'Brakes', checked: false },
+              { part_name: 'Tires', checked: false },
+              { part_name: 'Windows', checked: false },
+              { part_name: 'Doors', checked: false },
+              { part_name: 'Lights', checked: false },
+              { part_name: 'Turn Signals', checked: false },
+              { part_name: 'Fire Extinguisher', checked: false }
+            ]
+          });
       } else {
-          // This else block handles cases where success is false or 'bus' property is missing
           setError('Failed to update bus status: ' + (response.data.message || 'Unknown error.'));
       }
     } catch (err) {
       const axiosError = err as AxiosError;
       console.error('Error updating bus status:', axiosError);
       if (axiosError.response) {
-        setError(`Failed to update status: ${axiosError.response.status} - ${axiosError.response.data?.message || axiosError.response.statusText}`);
+        const errorData = axiosError.response.data as any;
+        setError(`Failed to update status: ${axiosError.response.status} - ${errorData?.message || axiosError.response.statusText}`);
       } else {
         setError('Failed to update bus status. Please try again later.');
       }
@@ -255,7 +317,7 @@ const Busavailability = () => {
       {showFilters && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 p-6 bg-white border border-gray-200 rounded-lg shadow-sm">
           <div className="space-y-2">
-            <label htmlFor="status" className="block text-sm font-medium text-gray-700 flex items-center">
+            <label htmlFor="status" className="text-sm font-medium text-gray-700 flex items-center">
               <span className="bg-blue-100 text-blue-800 p-1 rounded mr-2">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
@@ -279,7 +341,7 @@ const Busavailability = () => {
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="class" className="block text-sm font-medium text-gray-700 flex items-center">
+            <label htmlFor="class" className="text-sm font-medium text-gray-700 flex items-center">
               <span className="bg-purple-100 text-purple-800 p-1 rounded mr-2">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                   <path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z" />
@@ -297,8 +359,6 @@ const Busavailability = () => {
               placeholder="e.g., Luxury, Standard"
             />
           </div>
-
-         
 
           <div className="md:col-span-3 flex justify-end pt-2">
             <button
@@ -319,18 +379,9 @@ const Busavailability = () => {
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Reg. Number
               </th>
-              {/* <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Depot
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Region
-              </th> */}
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Class
               </th>
-              {/* <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Manufacturer
-              </th> */}
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Model
               </th>
@@ -353,10 +404,7 @@ const Busavailability = () => {
               currentBuses.map((bus) => (
                 <tr key={bus.bus_id}>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{bus.registration_number}</td>
-                  {/* <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{bus.depot_name || 'N/A'}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{bus.region_name || 'N/A'}</td> */}
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{bus.class}</td>
-                  {/* <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{bus.manufacturer}</td> */}
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{bus.model}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{bus.year}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{bus.mileage}</td>
@@ -376,7 +424,7 @@ const Busavailability = () => {
                         onClick={() => handleEditClick(bus)}
                         className="text-blue-600 hover:text-blue-900 ml-4"
                       >
-                        Edit Status
+                        Part Check
                       </button>
                     )}
                   </td>
@@ -384,7 +432,7 @@ const Busavailability = () => {
               ))
             ) : (
               <tr>
-                <td colSpan={10} className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                <td colSpan={7} className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
                   No buses found.
                 </td>
               </tr>
@@ -413,34 +461,94 @@ const Busavailability = () => {
       </nav>
 
       {showEditModal && selectedBus && (
-         <div className="fixed inset-0 backdrop-blur-sm bg-white/10 flex items-center justify-center z-50 p-4">
-          <div className="relative p-8 bg-white w-96 max-w-full mx-auto rounded-lg shadow-lg">
-            <h3 className="text-xl font-bold text-gray-900 mb-4">Edit Bus Status</h3>
-            <button
-              onClick={handleCancelEdit}
-              className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
-            >
-              <HiX className="h-6 w-6" />
-            </button>
-            <div className="mt-4">
-              <p className="text-sm text-gray-700 mb-2">Registration Number: <span className="font-semibold">{selectedBus.registration_number}</span></p>
-              <p className="text-sm text-gray-700 mb-4">Current Status: <span className="font-semibold">{selectedBus.status}</span></p>
+        <div className="fixed inset-0 backdrop-blur-sm bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="relative p-6 bg-white w-full max-w-4xl mx-auto rounded-lg shadow-xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-2xl font-bold text-gray-900">
+                Daily Part Checking & Status Update
+              </h3>
+              <button
+                onClick={handleCancelEdit}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <HiX className="h-6 w-6" />
+              </button>
+            </div>
 
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium text-gray-500">Current Status:</span>
-                <select
-                  value={editedStatus}
-                  onChange={handleStatusChange}
-                  className="border border-gray-300 rounded-md px-2 py-1 text-sm"
-                >
-                  <option value="Active">Active</option>
-                  <option value="In Service">In Service</option>
-                  <option value="Maintenance">Maintenance</option>
-                  <option value="Out of Service">Out of Service</option>
-                </select>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Bus Information */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h4 className="font-semibold text-lg mb-3">Bus Information</h4>
+                <div className="space-y-2">
+                  <p className="text-sm"><span className="font-medium">Registration:</span> {selectedBus.registration_number}</p>
+                  <p className="text-sm"><span className="font-medium">Model:</span> {selectedBus.manufacturer} {selectedBus.model}</p>
+                  <p className="text-sm"><span className="font-medium">Year:</span> {selectedBus.year}</p>
+                  <p className="text-sm"><span className="font-medium">Current Status:</span> 
+                    <span className={`ml-2 px-2 py-1 rounded-full text-xs ${
+                      selectedBus.status === 'Active' ? 'bg-green-100 text-green-800' :
+                      selectedBus.status === 'In Service' ? 'bg-blue-100 text-blue-800' :
+                      selectedBus.status === 'Maintenance' ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-red-100 text-red-800'
+                    }`}>
+                      {selectedBus.status}
+                    </span>
+                  </p>
+                </div>
+
+                {/* Status Change */}
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Update Status (After Part Check)</label>
+                  <p className="text-xs text-gray-600 mb-2">⚠️ Complete the daily part checking first, then select the appropriate status</p>
+                  <select
+                    value={editedStatus}
+                    onChange={handleStatusChange}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="Active">Active - Ready for Service</option>
+                    <option value="In Service">In Service - Currently Operating</option>
+                    <option value="Maintenance">Maintenance - Requires Repair/Service</option>
+                    <option value="Out of Service">Out of Service - Not Available</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Part Checking Checklist - Always visible for depot engineers */}
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <h4 className="font-semibold text-lg mb-3 flex items-center">
+                  🔧 Daily Part Checking 
+                  <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                    {partCheckingData.main_parts.filter(part => part.checked).length}/
+                    {partCheckingData.main_parts.length} Checked
+                  </span>
+                </h4>
+                
+                
+                <div className="space-y-4 max-h-96 overflow-y-auto">
+                  {/* Main Parts Checklist */}
+                  <div className="bg-white p-3 rounded border">
+                    <h5 className="font-medium text-blue-600 mb-3">🚌 Main Bus Components</h5>
+                    <div className="grid grid-cols-2 gap-2">
+                      {partCheckingData.main_parts.map((part, index) => (
+                        <div key={index} className="flex items-center space-x-2 mb-2 p-2 rounded">
+                          <input
+                            type="checkbox"
+                            checked={part.checked}
+                            onChange={(e) => updatePartCondition(index, e.target.checked)}
+                            className="rounded"
+                          />
+                          <span className="text-sm">
+                            {part.part_name}
+                            {part.checked ? ' ✓' : ''}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
+            {/* Action Buttons */}
             <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
               <button
                 onClick={handleCancelEdit}
@@ -450,7 +558,7 @@ const Busavailability = () => {
               </button>
               <button
                 onClick={handleSaveChanges}
-                className="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-blue-500 hover:bg-blue-600"
+                className="px-6 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
               >
                 Save Changes
               </button>

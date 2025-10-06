@@ -11,7 +11,7 @@ const PORT = process.env.PORT || 5000;
 app.use(cors({
   origin: true, // Allow all origins in development (for testing)
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Mobile-App', 'Accept', 'Origin', 'X-Requested-With'],
   exposedHeaders: ['Content-Length', 'X-Foo', 'X-Bar']
 }));
@@ -67,11 +67,19 @@ app.get('/api/test', (req, res) => {
   });
 });
 
+// Google Places API proxy routes
+try {
+  const placesRoutes = require('./routes/placesRoutes');
+  app.use('/api/places', placesRoutes);
+  console.log('✅ placesRoutes loaded');
+} catch (error) {
+  console.log('❌ placesRoutes error:', error.message);
+}
 
 try {
   const BusTrackingRoutes = require('./routes/BusTrackingRoutes');
   app.use('/api/bus-tracking', BusTrackingRoutes);
-  app.use('/api/live-tracking', BusTrackingRoutes);
+  // Removed duplicate /api/live-tracking registration - using busLiveTrackingRoutes instead
   console.log('✅ BusTrackingRoutes loaded');
 } catch (error) {
   console.log('❌ BusTrackingRoutes error:', error.message);
@@ -191,9 +199,31 @@ const lostFoundRoutes = require('./routes/lostFoundRoutes');
 app.use('/api/lost-found', lostFoundRoutes);
 console.log('✅ lostFoundRoutes loaded');
 
-const crewRoutes = require('./routes/crewRoutes');
-app.use('/api/crew', crewRoutes);
-console.log('✅ crewRoutes loaded');
+// Add complaint routes
+try {
+  const complaintRoutes = require('./routes/complaintRoutes');
+  app.use('/api/complaints', complaintRoutes);
+  console.log('✅ complaintRoutes loaded');
+} catch (error) {
+  console.log('❌ complaintRoutes error:', error.message);
+}
+
+try {
+  const notificationRoutes = require('./routes/notificationRoutes');
+  app.use('/api/notifications', notificationRoutes);
+  console.log('✅ notificationRoutes loaded');
+} catch (error) {
+  console.log('❌ notificationRoutes error:', error.message);
+}
+
+try {
+  const driverFoundItemRoutes = require('./routes/driverFoundItemRoutes');
+  app.use('/api/driver', driverFoundItemRoutes);
+  console.log('✅ driverFoundItemRoutes loaded');
+} catch (error) {
+  console.log('❌ driverFoundItemRoutes error:', error.message);
+}
+
 
 try {
   const depotEngineerRoutes = require('./routes/depotEngineerRoutes');
@@ -203,6 +233,80 @@ try {
   console.log('❌ depotEngineerRoutes error:', error.message);
 }
 
+try {
+  const sparePartsRoutes = require('./routes/sparePartsRoutes');
+  app.use('/api/depot-engineer/spare-parts', sparePartsRoutes);
+  console.log('✅ sparePartsRoutes loaded');
+} catch (error) {
+  console.log('❌ sparePartsRoutes error:', error.message);
+}
+
+try {
+  const depotEmergencyRoutes = require('./routes/depotEmergencyRoutes');
+  app.use('/api/depot/emergency', depotEmergencyRoutes);
+  console.log('✅ depotEmergencyRoutes loaded');
+} catch (error) {
+  console.log('❌ depotEmergencyRoutes error:', error.message);
+}
+
+try {
+  const serviceScheduleRoutes = require('./routes/serviceScheduleRoutes');
+  app.use('/api/depot-engineer/service-schedules', serviceScheduleRoutes);
+  console.log('✅ serviceScheduleRoutes loaded');
+} catch (error) {
+  console.log('❌ serviceScheduleRoutes error:', error.message);
+}
+
+try {
+  const inspectionRoutes = require('./routes/inspectionRoutes');
+  app.use('/api/inspections', inspectionRoutes);
+  console.log('✅ inspectionRoutes loaded');
+} catch (error) {
+  console.log('❌ inspectionRoutes error:', error.message);
+}
+
+
+try {
+  const dgmTechnicalRoutes = require('./routes/dgmTechnicalRoutes');
+  app.use('/api/dgm-technical', dgmTechnicalRoutes);
+  console.log('✅ dgmTechnicalRoutes loaded');
+} catch (error) {
+  console.log('❌ dgmTechnicalRoutes error:', error.message);
+}
+
+try {
+  const ceoRoutes = require('./routes/ceoRoutes');
+  app.use('/api/ceo', ceoRoutes);
+  console.log('✅ ceoRoutes loaded');
+} catch (error) {
+  console.log('❌ ceoRoutes error:', error.message);
+}
+
+
+try {
+  const incidentManagementRoutes = require('./routes/incidentManagementRoutes');
+  app.use('/api/incident-management', incidentManagementRoutes);
+  console.log('✅ incidentManagementRoutes loaded');
+} catch (error) {
+  console.log('❌ incidentManagementRoutes error:', error.message);
+}
+
+
+try {
+  const rtoRoutes = require('./routes/rtoRoutes');
+  app.use('/api/rto', rtoRoutes);
+  console.log('✅ rtoRoutes loaded');
+} catch (error) {
+  console.log('❌ rtoRoutes error:', error.message);
+}
+
+try {
+  const complaintRoutes = require('./routes/complaintRoutes');
+  app.use('/api/complaints', complaintRoutes);
+  console.log('✅ complaintRoutes loaded');
+} catch (error) {
+  console.log('❌ complaintRoutes error:', error.message);
+}
 
 app.get('/resetPassword.js', (req, res) => {
   res.setHeader('Content-Type', 'application/javascript');
@@ -260,5 +364,3 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log('❌ Network utils error:', error.message);
   }
 });
-
-module.exports = app;
