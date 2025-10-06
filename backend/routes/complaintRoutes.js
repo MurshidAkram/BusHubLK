@@ -38,4 +38,5 @@ const authorizeComplaintAccess = (req, res, next) => {
 router.get('/', authenticateJWT, authorizeComplaintAccess, complaintController.getAllComplaints);
 router.put('/:id/status', authenticateJWT, authorizeComplaintAccess, complaintController.updateComplaintStatus);
 
+
 module.exports = router;

@@ -1,4 +1,5 @@
 import React, { useState, useRef } from "react";
+
 import {
   StyleSheet,
   View,
@@ -50,6 +51,7 @@ type ComplaintsScreenNavigationProp = StackNavigationProp<RootStackParamList, 'C
 export default function ComplaintsScreen() {
   const navigation = useNavigation<ComplaintsScreenNavigationProp>();
 
+
   // --- All of your state and logic is preserved below ---
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -61,6 +63,7 @@ export default function ComplaintsScreen() {
       useNativeDriver: true,
     }).start();
   }, [fadeAnim]);
+
 
   // Dropdown State
   const [complaintTypeOpen, setComplaintTypeOpen] = useState(false);
@@ -76,7 +79,6 @@ export default function ComplaintsScreen() {
     { label: "Other", value: "other" },
   ]);
 
-  // Form State
   const [routeNumber, setRouteNumber] = useState("");
   const [busNumber, setBusNumber] = useState("");
   const [date, setDate] = useState(new Date());
@@ -91,7 +93,7 @@ export default function ComplaintsScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
 
-  // Your exact functions, unchanged
+
   const onDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
     setShowDatePicker(false);
     if (selectedDate) {
@@ -125,14 +127,16 @@ export default function ComplaintsScreen() {
     }
   };
 
-  // --- YOUR handleSubmit function, exactly as you provided it ---
   const handleSubmit = async () => {
     if (!complaintTypeValue || !routeNumber || !location || !description || !contactInfo) {
       Alert.alert("Missing Information", "Please fill all required fields before submitting.");
       return;
     }
 
+
     setIsSubmitting(true);
+
+
 
     try {
       const token = await storageAPI.getAuthToken();
@@ -172,6 +176,7 @@ export default function ComplaintsScreen() {
 
       const result = await response.json();
 
+
       if (response.ok) {
         Alert.alert("Success", "Your complaint has been submitted successfully!");
         navigation.navigate("ComplaintHistory");
@@ -182,6 +187,7 @@ export default function ComplaintsScreen() {
       console.error("Error submitting complaint:", error);
       Alert.alert("An Error Occurred", "Please check your connection and try again.");
     } finally {
+
       setIsSubmitting(false);
     }
   };
@@ -192,11 +198,13 @@ export default function ComplaintsScreen() {
       case 'Medium': return AppColors.warning;
       case 'High': return AppColors.danger;
       default: return AppColors.secondary;
+
     }
   };
 
   return (
     <SafeAreaView style={styles.container}>
+
       {/* --- The New Header UI --- */}
       <LinearGradient
         colors={[AppColors.primary, AppColors.primaryDark]}
@@ -282,9 +290,12 @@ export default function ComplaintsScreen() {
                   <Ionicons name="information-circle-outline" size={20} color={AppColors.secondary} style={styles.inputIcon} />
                   <TextInput style={styles.inputText} placeholder="e.g., ND-1234" value={busNumber} onChangeText={setBusNumber} />
                 </View>
+
               </View>
             </View>
           </View>
+        </View>
+
 
           {/* --- CARD 2: TIME & PLACE --- */}
           <View style={styles.card}>
@@ -298,10 +309,12 @@ export default function ComplaintsScreen() {
                 <Text style={styles.label}>Time</Text>
                 <TouchableOpacity onPress={() => setShowTimePicker(true)} style={styles.enhancedInputContainer}><Ionicons name="time-outline" size={20} color={AppColors.indigo} style={styles.inputIcon} /><Text style={styles.inputText}>{time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text></TouchableOpacity>
               </View>
+
             </View>
             <Text style={styles.label}>Location / Bus Stop</Text>
             <View style={styles.enhancedInputContainer}><Ionicons name="location-outline" size={20} color={AppColors.indigo} style={styles.inputIcon} /><TextInput style={styles.inputText} placeholder="e.g., Kottawa" value={location} onChangeText={setLocation} /></View>
           </View>
+
 
           {/* --- CARD 3: COMPLAINT DETAILS --- */}
           <View style={styles.card}>
@@ -337,6 +350,7 @@ export default function ComplaintsScreen() {
         </ScrollView>
       </Animated.View>
 
+
       {showDatePicker && <DateTimePicker value={date} mode="date" display="default" onChange={onDateChange} />}
       {showTimePicker && <DateTimePicker value={time} mode="time" display="default" onChange={onTimeChange} />}
     </SafeAreaView>
@@ -345,6 +359,7 @@ export default function ComplaintsScreen() {
 
 // --- The New StyleSheet for the Modern UI ---
 const styles = StyleSheet.create({
+
     container:{flex:1,backgroundColor:AppColors.background},
     animatedContainer:{flex:1},
     headerGradient:{paddingBottom:10,},
@@ -402,4 +417,5 @@ const styles = StyleSheet.create({
     submitButton:{backgroundColor:AppColors.primary,paddingVertical:18,borderRadius:16,alignItems:"center",marginTop:10,elevation:4,shadowColor:AppColors.primary,shadowOffset:{width:0,height:4},shadowOpacity:0.3,shadowRadius:8},
     submitButtonDisabled:{backgroundColor:AppColors.textSecondary},
     submitButtonText:{color:"#FFFFFF",fontSize:18,fontWeight:"700"},
+
 });

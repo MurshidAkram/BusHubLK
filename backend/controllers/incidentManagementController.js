@@ -14,8 +14,7 @@ const getAllReports = async (req, res) => {
       type: req.query.type || '',
       category: req.query.category || '',
       status: req.query.status || '',
-      year: req.query.year || '',
-      month: req.query.month || ''
+      date: req.query.date || ''
     };
 
     console.log('🔍 Applied filters:', filters);
@@ -185,8 +184,7 @@ const getStatistics = async (req, res) => {
     console.log('📊 Getting statistics with filters:', req.query);
     
     const filters = {
-      year: req.query.year || '',
-      month: req.query.month || ''
+      date: req.query.date || ''
     };
 
     const stats = await IncidentReportModel.getStatistics(filters);
