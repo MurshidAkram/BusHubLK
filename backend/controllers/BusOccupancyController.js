@@ -216,10 +216,140 @@ const deleteBusOccupancy = async (req, res) => {
   }
 };
 
+// Get average occupancy levels for multiple buses (for BusTrackingScreen)
+const getAverageOccupancyLevels = async (req, res) => {
+  try {
+    const { busIds, timeWindowMinutes = 30 } = req.query;
+    
+    if (!busIds) {
+      return res.status(400).json({ message: 'busIds parameter is required' });
+    }
+    
+    // Parse busIds - can be comma-separated string or array
+    let busIdArray;
+    if (typeof busIds === 'string') {
+      busIdArray = busIds.split(',').map(id => parseInt(id.trim(), 10)).filter(id => !isNaN(id));
+    } else if (Array.isArray(busIds)) {
+      busIdArray = busIds.map(id => parseInt(id, 10)).filter(id => !isNaN(id));
+    } else {
+      return res.status(400).json({ message: 'Invalid busIds format' });
+    }
+    
+    if (busIdArray.length === 0) {
+      return res.status(400).json({ message: 'No valid bus IDs provided' });
+    }
+    
+    console.log(`📊 Calculating average occupancy for buses: ${busIdArray.join(', ')} within last ${timeWindowMinutes} minutes`);
+    
+    // Calculate average occupancy for each bus based on recent passenger reports
+    const result = await pool.query(`
+      WITH recent_reports AS (
+        SELECT 
+          bo.bus_id,
+          b.registration_number,
+          bo.occupancy_level,
+          bo.updated_at,
+          bo.confidence,
+          CASE bo.occupancy_level
+            WHEN 'not_crowded' THEN 1
+            WHEN 'not_too_crowded' THEN 2
+            WHEN 'crowded' THEN 3
+            WHEN 'very_crowded' THEN 4
+            ELSE 2 -- Default to 'not_too_crowded'
+          END as occupancy_score,
+          ROW_NUMBER() OVER (PARTITION BY bo.bus_id ORDER BY bo.updated_at DESC) as rn
+        FROM bus_occupancy bo
+        JOIN buses b ON bo.bus_id = b.bus_id
+        WHERE bo.bus_id = ANY($1)
+          AND bo.updated_at >= NOW() - INTERVAL '${timeWindowMinutes} minutes'
+      ),
+      weighted_averages AS (
+        SELECT 
+          bus_id,
+          registration_number,
+          COUNT(*) as report_count,
+          ROUND(AVG(occupancy_score * confidence / 100.0)) as avg_weighted_score,
+          ROUND(AVG(confidence)) as avg_confidence,
+          MAX(updated_at) as last_report_time,
+          CASE 
+            WHEN ROUND(AVG(occupancy_score * confidence / 100.0)) <= 1 THEN 'not_crowded'
+            WHEN ROUND(AVG(occupancy_score * confidence / 100.0)) <= 2 THEN 'not_too_crowded'
+            WHEN ROUND(AVG(occupancy_score * confidence / 100.0)) <= 3 THEN 'crowded'
+            ELSE 'very_crowded'
+          END as calculated_occupancy_level
+        FROM recent_reports
+        GROUP BY bus_id, registration_number
+      )
+      SELECT 
+        bus_id,
+        registration_number,
+        report_count,
+        calculated_occupancy_level,
+        avg_confidence,
+        last_report_time,
+        EXTRACT(EPOCH FROM (NOW() - last_report_time)) / 60 as minutes_since_last_report
+      FROM weighted_averages
+      ORDER BY bus_id
+    `, [busIdArray]);
+    
+    // Create response object with all requested buses, including those with no reports
+    const occupancyData = {};
+    
+    // Initialize all requested buses with default values
+    busIdArray.forEach(busId => {
+      occupancyData[busId] = {
+        bus_id: busId,
+        registration_number: null,
+        calculated_occupancy_level: 'unknown',
+        report_count: 0,
+        avg_confidence: 0,
+        last_report_time: null,
+        minutes_since_last_report: null,
+        data_freshness: 'no_data'
+      };
+    });
+    
+    // Update with actual data from database
+    result.rows.forEach(row => {
+      const freshnessLevel = row.minutes_since_last_report <= 5 ? 'very_fresh' :
+                           row.minutes_since_last_report <= 15 ? 'fresh' :
+                           row.minutes_since_last_report <= 30 ? 'moderate' : 'stale';
+      
+      occupancyData[row.bus_id] = {
+        bus_id: row.bus_id,
+        registration_number: row.registration_number,
+        calculated_occupancy_level: row.calculated_occupancy_level,
+        report_count: parseInt(row.report_count),
+        avg_confidence: Math.round(row.avg_confidence),
+        last_report_time: row.last_report_time,
+        minutes_since_last_report: Math.round(row.minutes_since_last_report),
+        data_freshness: freshnessLevel
+      };
+    });
+    
+    console.log(`✅ Calculated occupancy for ${Object.keys(occupancyData).length} buses`);
+    
+    res.status(200).json({
+      success: true,
+      data: occupancyData,
+      metadata: {
+        time_window_minutes: parseInt(timeWindowMinutes),
+        buses_requested: busIdArray.length,
+        buses_with_data: result.rows.length,
+        calculation_time: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    console.error('Error in getAverageOccupancyLevels:', error);
+    res.status(500).json({ message: 'Server Error', error: error.message });
+  }
+};
+
 module.exports = {
   createBusOccupancy,
   getAllBusOccupancies,
   getBusOccupancy,
   updateBusOccupancy,
   deleteBusOccupancy,
+  getAverageOccupancyLevels,
 };

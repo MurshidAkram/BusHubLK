@@ -9,8 +9,9 @@ import {
   SafeAreaView,
   ActivityIndicator,
   Modal,
+  ScrollView,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/Ionicons';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import * as Location from 'expo-location';
 
@@ -19,12 +20,12 @@ import { storageAPI } from '../services/api';
 import { busLiveTrackingAPI } from '../services/busLiveTrackingAPI';
 
 // Enhanced detection constants
-const MOVEMENT_HISTORY_SIZE = 10;
+const MOVEMENT_HISTORY_SIZE = 5;
 const SYNC_CORRELATION_THRESHOLD = 0.7;
 const SPEED_TOLERANCE = 5;
 const DIRECTION_TOLERANCE = 15;
 const HIGH_CONFIDENCE_THRESHOLD = 80;
-const MEDIUM_CONFIDENCE_THRESHOLD = 60;
+const MEDIUM_CONFIDENCE_THRESHOLD = 50;
 const LOCATION_UPDATE_INTERVAL = 5000;
 const BUS_DATA_REFRESH_INTERVAL = 10000; // Refresh bus data every 10 seconds
 
@@ -781,7 +782,7 @@ export default function BusOccupancyScreen() {
           }}
           style={{ marginRight: 8, padding: 4 }}
         >
-          <Icon name="arrow-back" size={28} color="#007bff" />
+          <Ionicons name="arrow-back" size={28} color="#007bff" />
         </TouchableOpacity>
         <Text style={styles.title}>🚍 SLTB Bus Occupancy Monitor</Text>
       </View>
@@ -800,7 +801,7 @@ export default function BusOccupancyScreen() {
               }
             }}
           >
-            <Icon name="refresh" size={20} color="#007bff" />
+            <Ionicons name="refresh" size={20} color="#007bff" />
           </TouchableOpacity>
         </View>
         {buses.length > 0 ? (
@@ -897,11 +898,12 @@ export default function BusOccupancyScreen() {
         {currentBus ? (
           <View style={styles.currentBusCard}>
             <View style={styles.currentBusHeader}>
-              <Icon name="bus" size={20} color="#007bff" />
+              <Ionicons name="bus" size={20} color="#007bff" />
               <Text style={styles.currentBusTitle}>Bus {currentBus.registration_number || currentBus.number}</Text>
             </View>
             <Text style={styles.currentBusRoute}>
-              {currentBus.route_name || currentBus.route} {currentBus.direction ? `(${currentBus.direction})` : ''}
+              {/* Only show route name if available, remove (unknown) */}
+              {currentBus.route_name ? currentBus.route_name : ''}
             </Text>
             <Text style={styles.subValue}>
               Route: {currentBus.route_number} | Status: {currentBus.tracking_status || 'Active'}
@@ -911,12 +913,7 @@ export default function BusOccupancyScreen() {
                 ? `${Math.round(currentBus.minutes_since_update)} minutes ago` 
                 : currentBus.updatedAt || 'Unknown'}
             </Text>
-            <View style={styles.confidenceContainer}>
-              <Text style={[styles.confidenceText, { color: getConfidenceColor(confidence) }]}>
-                {getConfidenceText(confidence)}: {confidence}%
-              </Text>
-              <Text style={styles.detectionReason}>{detectionReason}</Text>
-            </View>
+            {/* Hide confidence, distance, speed, movement correlation, data age from UI */}
             {busStatuses[currentBus.id]?.occupancy && (
               <View style={styles.currentOccupancy}>
                 <Text style={[
@@ -984,7 +981,7 @@ export default function BusOccupancyScreen() {
         <View style={styles.occupancyHeader}>
           <Text style={styles.label}>📊 All Bus Occupancy Updates</Text>
           <TouchableOpacity style={styles.refreshButton} onPress={fetchAllOccupancies}>
-            <Icon name="refresh" size={20} color="#007bff" />
+            <Ionicons name="refresh" size={20} color="#007bff" />
           </TouchableOpacity>
         </View>
         {status === 'loading' && (
@@ -1011,7 +1008,19 @@ export default function BusOccupancyScreen() {
                       Route {bus?.route_number || 'Unknown'}
                     </Text>
                     <Text style={styles.statusTime}>
-                      {new Date(item.updated_at).toLocaleTimeString()}
+                      {(() => {
+                        // Convert to Sri Lankan time (UTC+5:30)
+                        const date = new Date(item.updated_at);
+                        // Get UTC time in ms, add 5.5 hours in ms
+                        const offsetMs = 5.5 * 60 * 60 * 1000;
+                        const slDate = new Date(date.getTime() + offsetMs);
+                        return slDate.toLocaleTimeString('en-US', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit',
+                          hour12: true,
+                        }) + ' (SL)';
+                      })()}
                     </Text>
                   </View>
                   <Text style={styles.statusBusNumber}>
@@ -1038,7 +1047,9 @@ export default function BusOccupancyScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.container}>
+      {/* Remove <ScrollView> wrapper to avoid nesting VirtualizedLists */}
+      {/* Place FlatList or other VirtualizedList-backed components directly here */}
       <FlatList
         data={[]}
         keyExtractor={(item, index) => `empty-${index}`}
@@ -1110,6 +1121,10 @@ export default function BusOccupancyScreen() {
 
 const styles = StyleSheet.create({
   safeArea: {
+    flex: 1,
+    backgroundColor: '#f8f9fa',
+  },
+  container: {
     flex: 1,
     backgroundColor: '#f8f9fa',
   },
