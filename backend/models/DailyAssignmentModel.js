@@ -43,7 +43,7 @@ class DailyAssignment {
       const result = await db.query(
         `INSERT INTO dailyassignment 
           (depot_id, bus_id, route_id, driver_id, conductor_id, shift_start_time, shift_end_time, status, is_active, assignment_date)
-         VALUES ($1, -1, $2, -1, -2, $3, $4, 'template', TRUE, '1970-01-01')
+         VALUES ($1, 30, $2, 56, 57, $3, $4, 'template', TRUE, '1970-01-01')
          RETURNING *`,
         [depot_id, route_id, shift_start_time, shift_end_time]
       );
