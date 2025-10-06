@@ -100,6 +100,7 @@ import Servicehistoryexplorer from './pages/dashboards/dgm-tech/Servicehistoryex
 import GenerateReports from './pages/dashboards/dgm-tech/GenerateReports'
 //import Dgmtechnicalissue from './pages/dashboards/dgm-tech/Dgmtechnicalissue'
 import Dgmcommunityhub from './pages/dashboards/dgm-tech/Dgmcommunityhub'
+import Dgmtech_notification from './pages/dashboards/dgm-tech/Dgmtech_notification'
 
 
 // CEO Components
@@ -279,6 +280,7 @@ const App = () => {
     <Route path="GenerateReports" element={<GenerateReports />} />
     {/* <Route path="Dgmtechnicalissue" element={<Dgmtechnicalissue />} /> */}
     <Route path="Dgmcommunityhub" element={<Dgmcommunityhub />} />
+    <Route path="Dgmtech_notification" element={<Dgmtech_notification />} />
   </Route>
 </Route>
 
