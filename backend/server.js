@@ -235,6 +235,14 @@ try {
 }
 
 try {
+  const emergencyRoutes = require('./routes/emergencyRoutes');
+  app.use('/api/emergency', emergencyRoutes);
+  console.log('✅ emergencyRoutes loaded');
+} catch (error) {
+  console.log('❌ emergencyRoutes error:', error.message);
+}
+
+try {
   const depotEmergencyRoutes = require('./routes/depotEmergencyRoutes');
   app.use('/api/depot/emergency', depotEmergencyRoutes);
   console.log('✅ depotEmergencyRoutes loaded');
