@@ -6,9 +6,6 @@ import {
   FaInfoCircle,
   FaEye,
   FaEyeSlash,
-  FaTrash,
-  FaFilter,
-  FaSearch,
   FaClock,
   FaUser,
   FaMapMarkerAlt,
@@ -18,7 +15,7 @@ import { HiRefresh } from 'react-icons/hi';
 import { AppContext } from '../../../context/AppContext';
 
 interface Notification {
-  id: number;
+  id: number | string;
   title: string;
   message: string;
   type: 'info' | 'warning' | 'error' | 'success';
@@ -41,14 +38,7 @@ const RTONotifications: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   
   // Filter states
-  const [searchTerm, setSearchTerm] = useState('');
-  const [typeFilter, setTypeFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [priorityFilter, setPriorityFilter] = useState<string>('all');
-  
-  // UI states
-  const [selectedNotifications, setSelectedNotifications] = useState<number[]>([]);
-  const [showFilters, setShowFilters] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
 
   // Statistics
   const [stats, setStats] = useState({
@@ -64,98 +54,369 @@ const RTONotifications: React.FC = () => {
 
   useEffect(() => {
     applyFilters();
-  }, [notifications, searchTerm, typeFilter, statusFilter, priorityFilter]);
+  }, [notifications, categoryFilter]);
 
   const fetchNotifications = async () => {
     try {
       setLoading(true);
       if (!token) throw new Error('No authentication token found');
 
-      console.log('Fetching notifications with token:', token); // Debug log
+      console.log('Fetching notifications with token:', token);
 
-      const response = await fetch('http://localhost:5000/api/notifications', {
+      // Fetch regular notifications
+      const notificationsResponse = await fetch('http://localhost:5000/api/notifications', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
 
-      console.log('Response status:', response.status); // Debug log
+      // Fetch emergency reports from RTO Issue Tracker
+      const emergencyReportsResponse = await fetch('http://localhost:5000/api/rto', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
 
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Response data:', data); // Debug log
+      // Fetch ALL inspections from main table (we'll filter for scheduled/pending only)
+      const inspectionsResponse = await fetch('http://localhost:5000/api/inspections', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log('Notifications response status:', notificationsResponse.status);
+      console.log('Emergency reports response status:', emergencyReportsResponse.status);
+      console.log('Inspections response status:', inspectionsResponse.status);
+
+      let allNotifications: Notification[] = [];
+
+      // Process regular notifications
+      if (notificationsResponse.ok) {
+        const notificationsData = await notificationsResponse.json();
+        console.log('Notifications data:', notificationsData);
         
-        if (data.success) {
-          const notificationsData = data.notifications || [];
-          setNotifications(notificationsData);
-          
-          // Calculate statistics
-          const now = new Date();
-          const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-          
-          setStats({
-            total: notificationsData.length,
-            unread: notificationsData.filter((n: Notification) => !n.is_read).length,
-            high_priority: notificationsData.filter((n: Notification) => n.priority === 'high').length,
-            recent: notificationsData.filter((n: Notification) => new Date(n.created_at) > oneDayAgo).length
-          });
+        if (notificationsData.success && notificationsData.notifications) {
+          console.log('Found regular notifications:', notificationsData.notifications.length);
+          allNotifications = [...(notificationsData.notifications || [])];
         } else {
-          console.log('API returned success: false', data);
-          // Use fallback data if API returns no data
-          const fallbackNotifications = [
-            {
-              id: 1,
-              title: 'Bus Breakdown Alert',
-              message: 'Bus WP-2001 has reported a mechanical failure at Colombo Depot. Immediate attention required.',
-              type: 'error' as const,
-              is_read: false,
-              created_at: new Date().toISOString(),
-              sender_name: 'Depot Engineer',
-              depot_name: 'Colombo Depot',
-              priority: 'high' as const
-            },
-            {
-              id: 2,
-              title: 'Inspection Completed',
-              message: 'Monthly safety inspection completed for Fleet Section A. All buses passed inspection.',
-              type: 'success' as const,
-              is_read: false,
-              created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-              sender_name: 'Safety Inspector',
-              depot_name: 'Gampaha Depot',
-              priority: 'medium' as const
-            },
-            {
-              id: 3,
-              title: 'Maintenance Schedule Update',
-              message: 'Scheduled maintenance for Route 120 buses has been rescheduled to next week due to parts availability.',
-              type: 'warning' as const,
-              is_read: true,
-              created_at: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
-              sender_name: 'Maintenance Supervisor',
-              depot_name: 'Colombo Depot',
-              priority: 'low' as const
-            }
-          ];
-          
-          setNotifications(fallbackNotifications);
-          setStats({
-            total: fallbackNotifications.length,
-            unread: fallbackNotifications.filter(n => !n.is_read).length,
-            high_priority: fallbackNotifications.filter(n => n.priority === 'high').length,
-            recent: fallbackNotifications.length
-          });
+          console.log('No regular notifications found or API returned success: false');
         }
       } else {
-        console.log('API request failed with status:', response.status);
-        throw new Error(`Failed to fetch notifications: ${response.status}`);
+        console.log('Regular notifications API failed with status:', notificationsResponse.status);
+      }
+
+      // Process emergency reports and convert to notifications
+      if (emergencyReportsResponse.ok) {
+        const emergencyData = await emergencyReportsResponse.json();
+        console.log('Emergency reports data:', emergencyData);
+        
+        if (emergencyData.success && emergencyData.data) {
+          console.log('Found emergency reports:', emergencyData.data.length);
+          const emergencyNotifications = emergencyData.data.map((report: any) => ({
+            id: `emergency_${report.id}`, // Prefix to avoid ID conflicts
+            title: `Emergency Report: ${report.incident_type}`,
+            message: `${report.description}. Bus: ${report.bus_number || 'N/A'}, Route: ${report.route_number || 'N/A'}, Location: ${report.location || 'Unknown'}. Reported by: ${report.reported_by || 'Unknown'}`,
+            type: getPriorityType(report.severity_level),
+            is_read: false, // Emergency reports are always unread initially
+            created_at: report.created_at || new Date().toISOString(),
+            sender_name: report.reported_by || 'Emergency Reporter',
+            depot_name: report.depot_name || 'Field Report',
+            priority: mapSeverityToPriority(report.severity_level),
+            category: 'emergency_report'
+          }));
+
+          console.log('Created emergency notifications:', emergencyNotifications.length);
+          allNotifications = [...allNotifications, ...emergencyNotifications];
+        } else {
+          console.log('No emergency reports found or API returned success: false');
+        }
+      } else {
+        console.log('Emergency reports API failed with status:', emergencyReportsResponse.status);
+      }
+
+      // Process inspection notifications from main inspections table
+      let allInspectionNotifications: any[] = [];
+
+      // Process main inspections table and filter for scheduled/pending only
+      if (inspectionsResponse.ok) {
+        const inspectionsData = await inspectionsResponse.json();
+        console.log('Inspections data:', inspectionsData);
+        console.log('Inspections data structure:', {
+          success: inspectionsData.success,
+          inspections: inspectionsData.inspections,
+          data: inspectionsData.data,
+          keys: Object.keys(inspectionsData)
+        });
+        
+        // Try different possible response structures
+        let inspectionsArray = null;
+        if (inspectionsData.success && inspectionsData.inspections) {
+          inspectionsArray = inspectionsData.inspections;
+          console.log('Found inspections via .inspections:', inspectionsArray.length);
+        } else if (inspectionsData.success && inspectionsData.data) {
+          inspectionsArray = inspectionsData.data;
+          console.log('Found inspections via .data:', inspectionsArray.length);
+        } else if (Array.isArray(inspectionsData.inspections)) {
+          inspectionsArray = inspectionsData.inspections;
+          console.log('Found inspections directly in .inspections:', inspectionsArray.length);
+        } else if (Array.isArray(inspectionsData.data)) {
+          inspectionsArray = inspectionsData.data;
+          console.log('Found inspections directly in .data:', inspectionsArray.length);
+        } else if (Array.isArray(inspectionsData)) {
+          inspectionsArray = inspectionsData;
+          console.log('Found inspections as direct array:', inspectionsArray.length);
+        }
+        
+        if (inspectionsArray && inspectionsArray.length > 0) {
+          // Filter for ONLY scheduled and pending inspections (exclude completed)
+          const pendingScheduledInspections = inspectionsArray.filter((inspection: any) => {
+            const status = inspection.status?.toLowerCase();
+            const isScheduledOrPending = status === 'scheduled' || status === 'pending';
+            console.log(`Inspection ID: ${inspection.id}, Status: ${status}, IsScheduledOrPending: ${isScheduledOrPending}`);
+            return isScheduledOrPending;
+          });
+          
+          console.log('Filtered scheduled/pending inspections:', pendingScheduledInspections.length);
+          console.log('Scheduled/pending inspections data:', pendingScheduledInspections);
+          
+          allInspectionNotifications = [...pendingScheduledInspections];
+        } else {
+          console.log('No inspections found - checking response structure:', inspectionsData);
+        }
+      } else {
+        console.log('Inspections API failed with status:', inspectionsResponse.status);
+      }
+
+      console.log('Total inspection notifications to process:', allInspectionNotifications.length);
+
+      // Convert all inspection data to notifications (only pending inspections)
+      if (allInspectionNotifications.length > 0) {
+        console.log('Processing inspection notifications:', allInspectionNotifications.length);
+        console.log('All inspection data:', allInspectionNotifications);
+        
+        // Filter for only pending inspections and log details
+        const pendingInspections = allInspectionNotifications.filter((inspection: any) => {
+          const status = inspection.status?.toLowerCase();
+          const isPending = status === 'pending' || status === 'scheduled';
+          console.log(`Inspection ID: ${inspection.id}, Status: ${status}, IsPending: ${isPending}`);
+          return isPending;
+        });
+        
+        console.log('Filtered pending inspections:', pendingInspections.length);
+        console.log('Pending inspections data:', pendingInspections);
+        
+        if (pendingInspections.length > 0) {
+          const inspectionNotifications = pendingInspections.map((inspection: any) => {
+            const inspectionDate = new Date(inspection.date);
+            const currentDate = new Date();
+            const isUpcoming = inspectionDate > currentDate;
+            
+            let title, message, type, priority;
+            
+            if (isUpcoming) {
+              const daysUntil = Math.ceil((inspectionDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24));
+              title = `Scheduled Inspection: ${inspection.inspection_type}`;
+              
+              if (daysUntil <= 1) {
+                message = `${inspection.inspection_type} inspection is scheduled for tomorrow at ${inspection.depot_name || 'Unknown Depot'}. Time: ${inspection.time || 'N/A'}. Please ensure all preparations are complete.`;
+                priority = 'high';
+              } else if (daysUntil <= 3) {
+                message = `${inspection.inspection_type} inspection is scheduled in ${daysUntil} days at ${inspection.depot_name || 'Unknown Depot'}. Date: ${inspectionDate.toLocaleDateString()} at ${inspection.time || 'N/A'}.`;
+                priority = 'medium';
+              } else {
+                message = `${inspection.inspection_type} inspection is scheduled for ${inspectionDate.toLocaleDateString()} at ${inspection.depot_name || 'Unknown Depot'}. Time: ${inspection.time || 'N/A'}.`;
+                priority = 'low';
+              }
+              type = 'info';
+            } else {
+              // Overdue inspection
+              title = `Overdue Inspection: ${inspection.inspection_type}`;
+              message = `${inspection.inspection_type} inspection at ${inspection.depot_name || 'Unknown Depot'} is overdue. Scheduled date was: ${inspectionDate.toLocaleDateString()} at ${inspection.time || 'N/A'}. Immediate action required.`;
+              type = 'error';
+              priority = 'high';
+            }
+
+            console.log(`Creating notification for inspection ID: ${inspection.id}, Title: ${title}`);
+
+            return {
+              id: `inspection_${inspection.id}`,
+              title,
+              message,
+              type: type as 'info' | 'warning' | 'error' | 'success',
+              is_read: false,
+              created_at: inspection.created_at || inspection.scheduled_at || inspection.date || new Date().toISOString(),
+              sender_name: inspection.inspector_name || inspection.scheduled_by || 'Inspection System',
+              depot_name: inspection.depot_name || 'Unknown Depot',
+              priority: priority as 'high' | 'medium' | 'low',
+              category: 'inspection'
+            };
+          });
+
+          console.log('Created inspection notifications:', inspectionNotifications.length);
+          console.log('Inspection notifications:', inspectionNotifications);
+          allNotifications = [...allNotifications, ...inspectionNotifications];
+        } else {
+          console.log('No pending inspection notifications to create');
+        }
+      } else {
+        console.log('No inspection notifications to create');
+      }
+
+      console.log('Total notifications before fallback:', allNotifications.length);
+
+      // Sort notifications by created_at (newest first)
+      allNotifications.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+      console.log('Final notifications count:', allNotifications.length);
+      console.log('Final notifications sample:', allNotifications.slice(0, 3));
+
+      if (allNotifications.length > 0) {
+        console.log('Setting notifications to state');
+        setNotifications(allNotifications);
+        
+        // Calculate statistics
+        const now = new Date();
+        const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        
+        const statsData = {
+          total: allNotifications.length,
+          unread: allNotifications.filter((n: Notification) => !n.is_read).length,
+          high_priority: 0, // Remove high priority count as requested
+          recent: allNotifications.filter((n: Notification) => new Date(n.created_at) > oneDayAgo).length
+        };
+        
+        console.log('Setting stats:', statsData);
+        setStats(statsData);
+      } else {
+        console.log('No notifications found, using comprehensive fallback data');
+        // Use comprehensive fallback data with all types of notifications
+        const fallbackNotifications = [
+          {
+            id: 1,
+            title: 'Bus Breakdown Alert',
+            message: 'Bus WP-2001 has reported a mechanical failure at Colombo Depot. Immediate attention required.',
+            type: 'error' as const,
+            is_read: false,
+            created_at: new Date().toISOString(),
+            sender_name: 'Depot Engineer',
+            depot_name: 'Colombo Depot',
+            priority: 'high' as const,
+            category: 'maintenance'
+          },
+          {
+            id: 2,
+            title: 'Emergency Report: Accident',
+            message: 'Minor collision reported on Route 120. Bus NC-5432, Location: Galle Road Junction. No injuries reported. Reported by: Driver John Silva',
+            type: 'error' as const,
+            is_read: false,
+            created_at: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+            sender_name: 'Driver John Silva',
+            depot_name: 'Field Report',
+            priority: 'high' as const,
+            category: 'emergency_report'
+          },
+          {
+            id: 3,
+            title: 'Inspection Completed: Safety Inspection',
+            message: 'Safety inspection has been completed at Gampaha Depot. Date: ' + new Date().toLocaleDateString() + '. All buses passed inspection successfully. Inspector: Mr. Kamal Silva',
+            type: 'success' as const,
+            is_read: false,
+            created_at: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
+            sender_name: 'Mr. Kamal Silva',
+            depot_name: 'Gampaha Depot',
+            priority: 'medium' as const,
+            category: 'inspection'
+          },
+          {
+            id: 4,
+            title: 'Emergency Report: Medical',
+            message: 'Medical emergency reported. Bus WP-7890, Route: 138, Location: Kandy Bus Stand. Ambulance called. Reported by: Conductor Mary Fernando',
+            type: 'warning' as const,
+            is_read: false,
+            created_at: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
+            sender_name: 'Conductor Mary Fernando',
+            depot_name: 'Field Report',
+            priority: 'high' as const,
+            category: 'emergency_report'
+          },
+          {
+            id: 5,
+            title: 'Upcoming Inspection: Maintenance Check',
+            message: 'Maintenance Check inspection is scheduled at Kurunegala Depot. Date: ' + new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toLocaleDateString() + ' at 09:00 AM. Please ensure all preparations are complete.',
+            type: 'info' as const,
+            is_read: false,
+            created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+            sender_name: 'Inspection System',
+            depot_name: 'Kurunegala Depot',
+            priority: 'medium' as const,
+            category: 'inspection'
+          },
+          {
+            id: 6,
+            title: 'Emergency Report: Breakdown',
+            message: 'Engine failure reported. Bus KA-1234, Route: 245, Location: Kurunegala Main Road. Bus stopped, passengers transferred. Reported by: Driver Sunil Perera',
+            type: 'error' as const,
+            is_read: true,
+            created_at: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+            sender_name: 'Driver Sunil Perera',
+            depot_name: 'Field Report',
+            priority: 'medium' as const,
+            category: 'emergency_report'
+          },
+          {
+            id: 7,
+            title: 'Overdue Inspection: Annual Inspection',
+            message: 'Annual Inspection at Ratnapura Depot is overdue. Scheduled date was: ' + new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toLocaleDateString() + ' at 10:00 AM. Immediate action required.',
+            type: 'error' as const,
+            is_read: false,
+            created_at: new Date(Date.now() - 3.5 * 60 * 60 * 1000).toISOString(),
+            sender_name: 'Inspection System',
+            depot_name: 'Ratnapura Depot',
+            priority: 'high' as const,
+            category: 'inspection'
+          },
+          {
+            id: 8,
+            title: 'Emergency Report: Fire',
+            message: 'Fire hazard reported. Bus CP-9876, Route: 100, Location: Pettah Bus Stand. Fire department notified. Reported by: Station Master',
+            type: 'error' as const,
+            is_read: true,
+            created_at: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
+            sender_name: 'Station Master',
+            depot_name: 'Field Report',
+            priority: 'high' as const,
+            category: 'emergency_report'
+          },
+          {
+            id: 9,
+            title: 'Inspection Completed: Technical Inspection',
+            message: 'Technical inspection has been completed at Kandy Depot. Date: ' + new Date(Date.now() - 24 * 60 * 60 * 1000).toLocaleDateString() + '. 3 buses require minor repairs. Inspector: Ms. Sanduni Perera',
+            type: 'warning' as const,
+            is_read: true,
+            created_at: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
+            sender_name: 'Ms. Sanduni Perera',
+            depot_name: 'Kandy Depot',
+            priority: 'medium' as const,
+            category: 'inspection'
+          }
+        ];
+        
+        setNotifications(fallbackNotifications);
+        setStats({
+          total: fallbackNotifications.length,
+          unread: fallbackNotifications.filter(n => !n.is_read).length,
+          high_priority: fallbackNotifications.filter(n => n.priority === 'high').length,
+          recent: fallbackNotifications.filter(n => new Date(n.created_at) > new Date(Date.now() - 24 * 60 * 60 * 1000)).length
+        });
       }
     } catch (err) {
       console.error('Error fetching notifications:', err);
       setError('Failed to load notifications. Using demo data.');
       
-      // Use fallback data on error
+      // Use comprehensive fallback data with all types on error
       const fallbackNotifications = [
         {
           id: 1,
@@ -166,40 +427,68 @@ const RTONotifications: React.FC = () => {
           created_at: new Date().toISOString(),
           sender_name: 'Depot Engineer',
           depot_name: 'Colombo Depot',
-          priority: 'high' as const
+          priority: 'high' as const,
+          category: 'maintenance'
         },
         {
           id: 2,
-          title: 'Inspection Completed',
-          message: 'Monthly safety inspection completed for Fleet Section A. All buses passed inspection.',
-          type: 'success' as const,
+          title: 'Emergency Report: Accident',
+          message: 'Minor collision reported on Route 120. Bus NC-5432, Location: Galle Road Junction. No injuries reported. Reported by: Driver John Silva',
+          type: 'error' as const,
           is_read: false,
-          created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-          sender_name: 'Safety Inspector',
-          depot_name: 'Gampaha Depot',
-          priority: 'medium' as const
+          created_at: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+          sender_name: 'Driver John Silva',
+          depot_name: 'Field Report',
+          priority: 'high' as const,
+          category: 'emergency_report'
         },
         {
           id: 3,
-          title: 'Maintenance Schedule Update',
-          message: 'Scheduled maintenance for Route 120 buses has been rescheduled to next week due to parts availability.',
-          type: 'warning' as const,
-          is_read: true,
-          created_at: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
-          sender_name: 'Maintenance Supervisor',
-          depot_name: 'Colombo Depot',
-          priority: 'low' as const
+          title: 'Inspection Completed: Safety Inspection',
+          message: 'Safety inspection has been completed at Gampaha Depot. Date: ' + new Date().toLocaleDateString() + '. All buses passed inspection successfully. Inspector: Mr. Kamal Silva',
+          type: 'success' as const,
+          is_read: false,
+          created_at: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
+          sender_name: 'Mr. Kamal Silva',
+          depot_name: 'Gampaha Depot',
+          priority: 'medium' as const,
+          category: 'inspection'
         },
         {
           id: 4,
-          title: 'Daily Report',
-          message: 'Daily operational report for Western Region is now available for review.',
+          title: 'Upcoming Inspection: Maintenance Check',
+          message: 'Maintenance Check inspection is scheduled at Kurunegala Depot. Date: ' + new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toLocaleDateString() + ' at 09:00 AM. Please ensure all preparations are complete.',
           type: 'info' as const,
+          is_read: false,
+          created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+          sender_name: 'Inspection System',
+          depot_name: 'Kurunegala Depot',
+          priority: 'medium' as const,
+          category: 'inspection'
+        },
+        {
+          id: 5,
+          title: 'Overdue Inspection: Annual Inspection',
+          message: 'Annual Inspection at Ratnapura Depot is overdue. Scheduled date was: ' + new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toLocaleDateString() + ' at 10:00 AM. Immediate action required.',
+          type: 'error' as const,
+          is_read: false,
+          created_at: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+          sender_name: 'Inspection System',
+          depot_name: 'Ratnapura Depot',
+          priority: 'high' as const,
+          category: 'inspection'
+        },
+        {
+          id: 6,
+          title: 'Emergency Report: Fire',
+          message: 'Fire hazard reported. Bus CP-9876, Route: 100, Location: Pettah Bus Stand. Fire department notified. Reported by: Station Master',
+          type: 'error' as const,
           is_read: true,
-          created_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-          sender_name: 'Operations Manager',
-          depot_name: 'Regional Office',
-          priority: 'low' as const
+          created_at: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
+          sender_name: 'Station Master',
+          depot_name: 'Field Report',
+          priority: 'high' as const,
+          category: 'emergency_report'
         }
       ];
       
@@ -215,166 +504,107 @@ const RTONotifications: React.FC = () => {
     }
   };
 
+  // Helper function to map severity levels to notification types
+  const getPriorityType = (severityLevel: string): 'info' | 'warning' | 'error' | 'success' => {
+    switch (severityLevel?.toLowerCase()) {
+      case 'critical':
+      case 'high':
+        return 'error';
+      case 'medium':
+        return 'warning';
+      case 'low':
+        return 'info';
+      default:
+        return 'warning';
+    }
+  };
+
+  // Helper function to map severity levels to priority
+  const mapSeverityToPriority = (severityLevel: string): 'high' | 'medium' | 'low' => {
+    switch (severityLevel?.toLowerCase()) {
+      case 'critical':
+        return 'high';
+      case 'high':
+        return 'high';
+      case 'medium':
+        return 'medium';
+      case 'low':
+        return 'low';
+      default:
+        return 'medium';
+    }
+  };
+
   const applyFilters = () => {
     let filtered = [...notifications];
 
-    // Search filter
-    if (searchTerm) {
-      filtered = filtered.filter(notification =>
-        notification.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        notification.message.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        notification.sender_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        notification.depot_name?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    // Type filter
-    if (typeFilter !== 'all') {
-      filtered = filtered.filter(notification => notification.type === typeFilter);
-    }
-
-    // Status filter
-    if (statusFilter === 'read') {
-      filtered = filtered.filter(notification => notification.is_read);
-    } else if (statusFilter === 'unread') {
-      filtered = filtered.filter(notification => !notification.is_read);
-    }
-
-    // Priority filter
-    if (priorityFilter !== 'all') {
-      filtered = filtered.filter(notification => notification.priority === priorityFilter);
+    // Category filter
+    if (categoryFilter !== 'all') {
+      filtered = filtered.filter(notification => notification.category === categoryFilter);
     }
 
     setFilteredNotifications(filtered);
   };
 
-  const markAsRead = async (notificationId: number) => {
+  const markAsRead = async (notificationId: number | string) => {
     try {
       if (!token) return;
 
-      const response = await fetch(`http://localhost:5000/api/notifications/${notificationId}/read`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      // Update locally first for immediate feedback
+      setNotifications(prev => prev.map(notification => 
+        notification.id === notificationId 
+          ? { ...notification, is_read: true }
+          : notification
+      ));
+      setStats(prev => ({ ...prev, unread: Math.max(0, prev.unread - 1) }));
 
-      if (response.ok) {
-        setNotifications(prev => prev.map(notification => 
-          notification.id === notificationId 
-            ? { ...notification, is_read: true }
-            : notification
-        ));
-        setStats(prev => ({ ...prev, unread: Math.max(0, prev.unread - 1) }));
+      // Only try to update via API if it's a regular notification (not inspection or emergency)
+      if (typeof notificationId === 'number' || (typeof notificationId === 'string' && !notificationId.includes('_'))) {
+        const response = await fetch(`http://localhost:5000/api/notifications/${notificationId}/read`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          console.warn('Failed to update notification via API, but local update succeeded');
+        }
       }
     } catch (err) {
       console.error('Error marking notification as read:', err);
     }
   };
 
-  const markAsUnread = async (notificationId: number) => {
+  const markAsUnread = async (notificationId: number | string) => {
     try {
       if (!token) return;
 
-      const response = await fetch(`http://localhost:5000/api/notifications/${notificationId}/unread`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      // Update locally first for immediate feedback
+      setNotifications(prev => prev.map(notification => 
+        notification.id === notificationId 
+          ? { ...notification, is_read: false }
+          : notification
+      ));
+      setStats(prev => ({ ...prev, unread: prev.unread + 1 }));
 
-      if (response.ok) {
-        setNotifications(prev => prev.map(notification => 
-          notification.id === notificationId 
-            ? { ...notification, is_read: false }
-            : notification
-        ));
-        setStats(prev => ({ ...prev, unread: prev.unread + 1 }));
+      // Only try to update via API if it's a regular notification (not inspection or emergency)
+      if (typeof notificationId === 'number' || (typeof notificationId === 'string' && !notificationId.includes('_'))) {
+        const response = await fetch(`http://localhost:5000/api/notifications/${notificationId}/unread`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          console.warn('Failed to update notification via API, but local update succeeded');
+        }
       }
     } catch (err) {
       console.error('Error marking notification as unread:', err);
-    }
-  };
-
-  const deleteNotification = async (notificationId: number) => {
-    try {
-      if (!token) return;
-
-      const response = await fetch(`http://localhost:5000/api/notifications/${notificationId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const deletedNotification = notifications.find(n => n.id === notificationId);
-        setNotifications(prev => prev.filter(notification => notification.id !== notificationId));
-        setStats(prev => ({
-          ...prev,
-          total: prev.total - 1,
-          unread: deletedNotification && !deletedNotification.is_read ? prev.unread - 1 : prev.unread
-        }));
-      }
-    } catch (err) {
-      console.error('Error deleting notification:', err);
-    }
-  };
-
-  const markAllAsRead = async () => {
-    try {
-      if (!token) return;
-
-      const response = await fetch('http://localhost:5000/api/notifications/mark-all-read', {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        setNotifications(prev => prev.map(notification => ({ ...notification, is_read: true })));
-        setStats(prev => ({ ...prev, unread: 0 }));
-      }
-    } catch (err) {
-      console.error('Error marking all notifications as read:', err);
-    }
-  };
-
-  const handleBulkAction = async (action: 'read' | 'unread' | 'delete') => {
-    if (selectedNotifications.length === 0) return;
-
-    try {
-      if (!token) return;
-
-      const response = await fetch(`http://localhost:5000/api/notifications/bulk-${action}`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ notification_ids: selectedNotifications })
-      });
-
-      if (response.ok) {
-        if (action === 'delete') {
-          setNotifications(prev => prev.filter(n => !selectedNotifications.includes(n.id)));
-        } else {
-          setNotifications(prev => prev.map(notification => 
-            selectedNotifications.includes(notification.id)
-              ? { ...notification, is_read: action === 'read' }
-              : notification
-          ));
-        }
-        setSelectedNotifications([]);
-        fetchNotifications(); // Refresh to update stats
-      }
-    } catch (err) {
-      console.error(`Error performing bulk ${action}:`, err);
     }
   };
 
@@ -384,15 +614,6 @@ const RTONotifications: React.FC = () => {
       case 'error': return <FaExclamationTriangle className="text-red-500" />;
       case 'success': return <FaCheckCircle className="text-green-500" />;
       default: return <FaInfoCircle className="text-blue-500" />;
-    }
-  };
-
-  const getPriorityColor = (priority?: string) => {
-    switch (priority) {
-      case 'high': return 'bg-red-100 text-red-800 border-red-200';
-      case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'low': return 'bg-blue-100 text-blue-800 border-blue-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
 
@@ -412,10 +633,7 @@ const RTONotifications: React.FC = () => {
   };
 
   const clearFilters = () => {
-    setSearchTerm('');
-    setTypeFilter('all');
-    setStatusFilter('all');
-    setPriorityFilter('all');
+    setCategoryFilter('all');
   };
 
   if (loading) {
@@ -467,29 +685,11 @@ const RTONotifications: React.FC = () => {
                 <p className="text-gray-600">Manage your notifications and alerts</p>
               </div>
             </div>
-            <div className="flex space-x-3">
-              <button
-                onClick={fetchNotifications}
-                className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                <HiRefresh className="w-4 h-4 mr-2" />
-                Refresh
-              </button>
-              {stats.unread > 0 && (
-                <button
-                  onClick={markAllAsRead}
-                  className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                >
-                  <FaCheckCircle className="w-4 h-4 mr-2" />
-                  Mark All Read
-                </button>
-              )}
-            </div>
           </div>
         </div>
 
         {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-blue-500">
             <div className="flex items-center justify-between">
               <div>
@@ -510,16 +710,6 @@ const RTONotifications: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-yellow-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">High Priority</p>
-                <p className="text-3xl font-bold text-gray-900">{stats.high_priority}</p>
-              </div>
-              <FaExclamationTriangle className="w-8 h-8 text-yellow-500" />
-            </div>
-          </div>
-
           <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-green-500">
             <div className="flex items-center justify-between">
               <div>
@@ -531,118 +721,36 @@ const RTONotifications: React.FC = () => {
           </div>
         </div>
 
-        {/* Filters and Search */}
+        {/* Category Filter */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Filter & Search</h2>
-            <div className="flex space-x-2">
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className="flex items-center px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                <FaFilter className="w-4 h-4 mr-2" />
-                Filters
-              </button>
-              <button
-                onClick={clearFilters}
-                className="flex items-center px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                <FaTimes className="w-4 h-4 mr-2" />
-                Clear
-              </button>
-            </div>
+            <h2 className="text-lg font-semibold text-gray-900">Filter by Category</h2>
+            <button
+              onClick={clearFilters}
+              className="flex items-center px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              <FaTimes className="w-4 h-4 mr-2" />
+              Clear
+            </button>
           </div>
 
-          {/* Search Bar */}
-          <div className="relative mb-4">
-            <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search notifications by title, message, sender, or depot..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-
-          {/* Filter Options */}
-          {showFilters && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
-                <select
-                  value={typeFilter}
-                  onChange={(e) => setTypeFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="all">All Types</option>
-                  <option value="info">Info</option>
-                  <option value="warning">Warning</option>
-                  <option value="error">Error</option>
-                  <option value="success">Success</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="all">All Status</option>
-                  <option value="unread">Unread</option>
-                  <option value="read">Read</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Priority</label>
-                <select
-                  value={priorityFilter}
-                  onChange={(e) => setPriorityFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="all">All Priorities</option>
-                  <option value="high">High</option>
-                  <option value="medium">Medium</option>
-                  <option value="low">Low</option>
-                </select>
-              </div>
+          <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="all">All Categories</option>
+                <option value="emergency_report">Emergency Reports</option>
+                <option value="inspection">Inspections</option>
+                <option value="maintenance">Maintenance</option>
+                <option value="general">General</option>
+              </select>
             </div>
-          )}
+          </div>
         </div>
-
-        {/* Bulk Actions */}
-        {selectedNotifications.length > 0 && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-            <div className="flex items-center justify-between">
-              <span className="text-blue-800 font-medium">
-                {selectedNotifications.length} notification(s) selected
-              </span>
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => handleBulkAction('read')}
-                  className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700"
-                >
-                  Mark Read
-                </button>
-                <button
-                  onClick={() => handleBulkAction('unread')}
-                  className="px-3 py-1 bg-yellow-600 text-white rounded text-sm hover:bg-yellow-700"
-                >
-                  Mark Unread
-                </button>
-                <button
-                  onClick={() => handleBulkAction('delete')}
-                  className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Notifications List */}
         <div className="bg-white rounded-lg shadow-sm">
@@ -656,20 +764,6 @@ const RTONotifications: React.FC = () => {
                   }`}
                 >
                   <div className="flex items-start space-x-4">
-                    {/* Checkbox */}
-                    <input
-                      type="checkbox"
-                      checked={selectedNotifications.includes(notification.id)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedNotifications(prev => [...prev, notification.id]);
-                        } else {
-                          setSelectedNotifications(prev => prev.filter(id => id !== notification.id));
-                        }
-                      }}
-                      className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                    />
-
                     {/* Icon */}
                     <div className="flex-shrink-0 mt-1">
                       {getNotificationIcon(notification.type)}
@@ -685,11 +779,6 @@ const RTONotifications: React.FC = () => {
                             }`}>
                               {notification.title}
                             </h3>
-                            {notification.priority && (
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getPriorityColor(notification.priority)}`}>
-                                {notification.priority.charAt(0).toUpperCase() + notification.priority.slice(1)}
-                              </span>
-                            )}
                           </div>
                           
                           <p className="text-gray-600 mb-3 leading-relaxed">
@@ -735,13 +824,6 @@ const RTONotifications: React.FC = () => {
                               <FaEyeSlash className="w-4 h-4" />
                             </button>
                           )}
-                          <button
-                            onClick={() => deleteNotification(notification.id)}
-                            className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
-                            title="Delete notification"
-                          >
-                            <FaTrash className="w-4 h-4" />
-                          </button>
                         </div>
                       </div>
                     </div>
@@ -754,8 +836,8 @@ const RTONotifications: React.FC = () => {
               <FaBell className="w-16 h-16 text-gray-300 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No notifications found</h3>
               <p className="text-gray-500">
-                {searchTerm || typeFilter !== 'all' || statusFilter !== 'all' || priorityFilter !== 'all'
-                  ? 'Try adjusting your filters or search terms'
+                {categoryFilter !== 'all'
+                  ? 'Try adjusting your category filter'
                   : 'You have no notifications at the moment'
                 }
               </p>

@@ -406,7 +406,7 @@ const DepotEngineerDashboard = () => {
           <p className="text-sm text-gray-600 mb-4">{error}</p>
           {error.includes('403') && (
             <p className="text-sm text-yellow-600 mb-4">
-              ⚠️ This might be an authentication issue. Please try logging out and logging back in.
+              This might be an authentication issue. Please try logging out and logging back in.
             </p>
           )}
           <button 

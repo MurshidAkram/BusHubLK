@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { 
   HiGlobeAlt,
   HiOfficeBuilding,
@@ -14,15 +14,76 @@ import {
   HiArrowUp,
   HiArrowDown,
   HiLightBulb,
-  HiFlag
+  HiFlag,
+  HiRefresh
 } from 'react-icons/hi';
+import { AppContext } from '../../../context/AppContext';
 
 const CEODashboard = () => {
-  // Mock data - replace with actual API calls
+  const context = useContext(AppContext);
+  const token = context?.token;
+  
+  // State for dashboard metrics
+  const [dashboardMetrics, setDashboardMetrics] = useState({
+    totalRegions: 0,
+    totalDepots: 0,
+    totalFleet: 0,
+    activeBuses: 0
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch dashboard data from backend
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+        if (!token) throw new Error('No authentication token found');
+
+        // Fetch fleet summary data from CEO API
+        const response = await fetch('http://localhost:5000/api/ceo/fleet-summary', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            setDashboardMetrics({
+              totalRegions: parseInt(data.data.total_regions) || 0,
+              totalDepots: parseInt(data.data.total_depots) || 0,
+              totalFleet: parseInt(data.data.total_buses) || 0,
+              activeBuses: parseInt(data.data.active_buses) || 0
+            });
+            setError(null);
+          } else {
+            throw new Error(data.message || 'Failed to fetch data');
+          }
+        } else {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+      } catch (err) {
+        console.error('Error fetching dashboard data:', err);
+        setError('Failed to load dashboard data');
+        // Use fallback data
+        setDashboardMetrics({
+          totalRegions: 12,
+          totalDepots: 45,
+          totalFleet: 2850,
+          activeBuses: 2365
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, [token]);
+
+  // Mock data for other sections (unchanged for now)
   const executiveMetrics = {
-    totalRevenue: 2450000000, // in LKR
-    totalDepots: 45,
-    totalFleet: 2850,
     totalEmployees: 8420,
     totalRoutes: 320,
     totalPassengers: 185000, // daily
@@ -173,14 +234,27 @@ const CEODashboard = () => {
       </div>
 
       {/* Executive KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
       
+        <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl shadow-lg p-6 text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-blue-100 text-sm font-medium">Total Regions</p>
+              <p className="text-2xl font-bold">{loading ? '-' : dashboardMetrics.totalRegions}</p>
+              <p className="text-blue-100 text-xs mt-1">Nationwide</p>
+            </div>
+            <div className="p-3 bg-blue-500 bg-opacity-30 rounded-full">
+              <HiGlobeAlt className="h-6 w-6" />
+            </div>
+          </div>
+        </div>
+
         <div className="bg-gradient-to-br from-green-600 to-green-700 rounded-xl shadow-lg p-6 text-white">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-green-100 text-sm font-medium">Total Depots</p>
-              <p className="text-2xl font-bold">{executiveMetrics.totalDepots}</p>
-              <p className="text-green-100 text-xs mt-1">Nationwide</p>
+              <p className="text-2xl font-bold">{loading ? '-' : dashboardMetrics.totalDepots}</p>
+              <p className="text-green-100 text-xs mt-1">All Regions</p>
             </div>
             <div className="p-3 bg-green-500 bg-opacity-30 rounded-full">
               <HiOfficeBuilding className="h-6 w-6" />
@@ -191,9 +265,9 @@ const CEODashboard = () => {
         <div className="bg-gradient-to-br from-purple-600 to-purple-700 rounded-xl shadow-lg p-6 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-purple-100 text-sm font-medium">Fleet Size</p>
-              <p className="text-2xl font-bold">{executiveMetrics.totalFleet.toLocaleString()}</p>
-              <p className="text-purple-100 text-xs mt-1">Active Vehicles</p>
+              <p className="text-purple-100 text-sm font-medium">Total Fleet</p>
+              <p className="text-2xl font-bold">{loading ? '-' : dashboardMetrics.totalFleet.toLocaleString()}</p>
+              <p className="text-purple-100 text-xs mt-1">All Vehicles</p>
             </div>
             <div className="p-3 bg-purple-500 bg-opacity-30 rounded-full">
               <HiTruck className="h-6 w-6" />
@@ -204,25 +278,12 @@ const CEODashboard = () => {
         <div className="bg-gradient-to-br from-orange-600 to-orange-700 rounded-xl shadow-lg p-6 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-orange-100 text-sm font-medium">Total Employees</p>
-              <p className="text-2xl font-bold">{executiveMetrics.totalEmployees.toLocaleString()}</p>
-              <p className="text-orange-100 text-xs mt-1">All Roles</p>
+              <p className="text-orange-100 text-sm font-medium">Active Buses</p>
+              <p className="text-2xl font-bold">{loading ? '-' : dashboardMetrics.activeBuses.toLocaleString()}</p>
+              <p className="text-orange-100 text-xs mt-1">In Service</p>
             </div>
             <div className="p-3 bg-orange-500 bg-opacity-30 rounded-full">
-              <HiUsers className="h-6 w-6" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 rounded-xl shadow-lg p-6 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-indigo-100 text-sm font-medium">Daily Passengers</p>
-              <p className="text-2xl font-bold">{executiveMetrics.totalPassengers.toLocaleString()}</p>
-              <p className="text-indigo-100 text-xs mt-1">Per Day</p>
-            </div>
-            <div className="p-3 bg-indigo-500 bg-opacity-30 rounded-full">
-              <HiGlobeAlt className="h-6 w-6" />
+              <HiCheckCircle className="h-6 w-6" />
             </div>
           </div>
         </div>

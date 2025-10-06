@@ -1,5 +1,5 @@
 // src/pages/dashboards/ceo/DepotNetworkDetailPage.tsx
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useContext } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   HiTruck,
@@ -7,6 +7,7 @@ import {
   HiChevronDown,
   HiArrowLeft,
 } from 'react-icons/hi';
+import { AppContext } from '../../../context/AppContext';
 
 const routeData: Record<
   number,
@@ -27,10 +28,87 @@ const routeData: Record<
 const DepotNetworkPage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const context = useContext(AppContext);
+  const token = context?.token;
+  
   const [selectedId, setSelectedId] = useState<number|null>(null);
   const [search, setSearch] = useState('');
   const [region, setRegion] = useState('All');
   const [depots, setDepots] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  // Fetch all depots when no navigation state is available
+  const fetchAllDepots = async () => {
+    try {
+      setLoading(true);
+      if (!token) throw new Error('No authentication token found');
+
+      const response = await fetch('http://localhost:5000/api/ceo/depots', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data) {
+          const transformedDepots = data.data.map((depot: any) => ({
+            id: depot.depot_id,
+            name: depot.depot_name,
+            region: depot.region_name,
+            totalFleet: depot.bus_count || 0,
+            activeFleet: depot.active_buses || 0,
+            maintenanceFleet: depot.maintenance_buses || 0,
+            outOfServiceFleet: depot.out_of_service_buses || 0,
+            status: depot.active_buses > 0 ? 'Active' : 'Maintenance',
+            coords: '6.9271, 79.8612',
+            address: `${depot.depot_name} Depot, ${depot.region_name}`,
+            manager: 'Depot Manager',
+            lastInspection: '2025-01-15',
+          }));
+          setDepots(transformedDepots);
+        }
+      } else {
+        throw new Error('Failed to fetch depots');
+      }
+    } catch (err) {
+      console.error('Error fetching depots:', err);
+      // Fallback to mock data
+      setDepots([
+        {
+          id: 101,
+          name: 'Colombo Central Depot',
+          region: 'Western',
+          totalFleet: 120,
+          activeFleet: 100,
+          maintenanceFleet: 15,
+          outOfServiceFleet: 5,
+          status: 'Active',
+          coords: '6.9271, 79.8612',
+          address: 'Colombo Central Depot, Western',
+          manager: 'Depot Manager',
+          lastInspection: '2025-01-15',
+        },
+        {
+          id: 102,
+          name: 'Gampaha Depot',
+          region: 'Western',
+          totalFleet: 80,
+          activeFleet: 70,
+          maintenanceFleet: 8,
+          outOfServiceFleet: 2,
+          status: 'Active',
+          coords: '6.9271, 79.8612',
+          address: 'Gampaha Depot, Western',
+          manager: 'Depot Manager',
+          lastInspection: '2025-01-15',
+        }
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
   
   // Handle navigation from RegionalOverview
   useEffect(() => {
@@ -53,16 +131,17 @@ const DepotNetworkPage: React.FC = () => {
       }));
       setDepots(transformedDepots);
       setRegion(state.regionName);
+      setLoading(false);
       
       // Auto-select first depot if only one depot in the region
       if (transformedDepots.length === 1) {
         setSelectedId(transformedDepots[0].id);
       }
     } else {
-      // Use empty array as fallback since no hardcoded data
-      setDepots([]);
+      // Fetch all depots when accessing directly
+      fetchAllDepots();
     }
-  }, [location.state]);
+  }, [location.state, token]);
 
   const filtered = useMemo(() => 
     depots.filter(d =>
@@ -111,25 +190,35 @@ const DepotNetworkPage: React.FC = () => {
         </select>
 
         <ul className="mt-4 divide-y overflow-auto">
-          {filtered.map(depot => {
-            const isActive = depot.id === selectedId;
-            return (
-              <li
-                key={depot.id}
-                onClick={()=>setSelectedId(isActive ? null : depot.id)}
-                className={`py-2 flex justify-between items-center cursor-pointer ${
-                  isActive ? 'bg-blue-50' : 'hover:bg-gray-50'
-                }`}
-              >
-                <span>{depot.name}</span>
-                {isActive ? (
-                  <HiChevronDown className="h-5 w-5" />
-                ) : (
-                  <HiChevronRight className="h-5 w-5" />
-                )}
-              </li>
-            );
-          })}
+          {loading ? (
+            <li className="py-4 text-center text-gray-500">
+              Loading depots...
+            </li>
+          ) : filtered.length > 0 ? (
+            filtered.map(depot => {
+              const isActive = depot.id === selectedId;
+              return (
+                <li
+                  key={depot.id}
+                  onClick={()=>setSelectedId(isActive ? null : depot.id)}
+                  className={`py-2 flex justify-between items-center cursor-pointer ${
+                    isActive ? 'bg-blue-50' : 'hover:bg-gray-50'
+                  }`}
+                >
+                  <span>{depot.name}</span>
+                  {isActive ? (
+                    <HiChevronDown className="h-5 w-5" />
+                  ) : (
+                    <HiChevronRight className="h-5 w-5" />
+                  )}
+                </li>
+              );
+            })
+          ) : (
+            <li className="py-4 text-center text-gray-500">
+              No depots found
+            </li>
+          )}
         </ul>
       </div>
 

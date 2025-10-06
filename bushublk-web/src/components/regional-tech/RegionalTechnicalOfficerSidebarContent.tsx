@@ -11,7 +11,8 @@ import {
   HiExclamationCircle,
   HiUserGroup,
   HiShieldCheck,
-  HiUsers
+  HiUsers,
+  HiBell
 } from 'react-icons/hi';
 
 const RegionalTechnicalOfficerSidebarContent = () => {
@@ -84,7 +85,7 @@ const RegionalTechnicalOfficerSidebarContent = () => {
             : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`
         }
       >
-         <HiUsers className="mr-3 flex-shrink-0 h-5 w-5" />
+         <HiBell className="mr-3 flex-shrink-0 h-5 w-5" />
       Notification
       </NavLink>
     
