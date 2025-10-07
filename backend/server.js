@@ -308,6 +308,14 @@ try {
   console.log('❌ complaintRoutes error:', error.message);
 }
 
+// --- THIS IS THE IMPORTANT LINE FOR CREW ROUTES ---
+const crewRoutes = require('./routes/crewRoutes');
+app.use('/api/crew', crewRoutes);
+console.log('✅ crewRoutes loaded');
+// ---------------------------------------------------
+
+// Other routes...
+
 app.get('/resetPassword.js', (req, res) => {
   res.setHeader('Content-Type', 'application/javascript');
   res.sendFile(path.join(__dirname, 'public/resetPassword.js'));
