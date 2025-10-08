@@ -313,7 +313,9 @@ const crewRoutes = require('./routes/crewRoutes');
 app.use('/api/crew', crewRoutes);
 console.log('✅ crewRoutes loaded');
 // ---------------------------------------------------
-
+const depotRoutes = require('./routes/depotRoutes');
+app.use('/api/depots', depotRoutes);
+console.log('✅ depotRoutes loaded');
 // Other routes...
 
 app.get('/resetPassword.js', (req, res) => {
