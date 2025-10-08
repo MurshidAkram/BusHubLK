@@ -10,11 +10,14 @@ import {
   Alert,
   RefreshControl,
   ActivityIndicator,
+  Modal,
+  Dimensions,
 } from "react-native";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { storageAPI } from "../services/api";
+import { API_BASE_URL } from "../config/api";
 import { LinearGradient } from 'expo-linear-gradient';
 
 // --- Using the same modern color palette for consistency ---
@@ -27,7 +30,7 @@ const AppColors = {
   textSecondary: "#64748B",
   border: "#E2E8F0",
   success: "#10B981",
-  warning: "#F59E0B",
+  warning: "#3B82F6", // Changed from yellow to blue
   danger: "#EF4444",
   shadow: "rgba(15, 23, 42, 0.08)",
 
@@ -39,6 +42,8 @@ export default function ComplaintHistoryScreen() {
   const [complaints, setComplaints] = useState([]);
   const [loading, setLoading] = useState(true); // Initial loading state
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedComplaint, setSelectedComplaint] = useState<any>(null);
+  const [modalVisible, setModalVisible] = useState(false);
 
   const fetchUserComplaints = async () => {
     try {
@@ -48,26 +53,46 @@ export default function ComplaintHistoryScreen() {
         return;
       }
 
-
-      const baseURL = "http://192.168.43.114:5000";
-      const response = await fetch(`${baseURL}/api/complaints/my-complaints`, {
+      console.log('🔍 Fetching complaints from:', `${API_BASE_URL}/api/complaints/my-complaints`);
+      
+      // Create a timeout promise
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('timeout')), 15000)
+      );
+      
+      const fetchPromise = fetch(`${API_BASE_URL}/api/complaints/my-complaints`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`
         },
       });
+      
+      // Race between fetch and timeout
+      console.log('⏱️ Starting complaints fetch with 15s timeout...');
+      const response = await Promise.race([fetchPromise, timeoutPromise]) as Response;
+      console.log('✅ Complaints response received:', response.status, response.statusText);
 
       const result = await response.json();
 
       if (response.ok) {
+        console.log('📋 Complaints loaded successfully:', result.complaints?.length || 0, 'complaints');
         setComplaints(result.complaints);
       } else {
+        console.error('❌ Server error:', response.status, result);
         Alert.alert("Error", result.message || "Failed to fetch complaints");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching complaints:", error);
-      Alert.alert("Error", "Failed to fetch complaints. Please try again.");
+      
+      // Don't show timeout errors to users - they're normal during poor connectivity
+      if (error.message && error.message.includes('timeout')) {
+        console.log('🕐 Complaints API timeout - continuing silently without showing alert to user');
+        return;
+      }
+      
+      // Only show errors for actual server failures
+      Alert.alert("Error", "Unable to load complaints. Please try again later.");
     } finally {
 
       setLoading(false);
@@ -109,6 +134,16 @@ export default function ComplaintHistoryScreen() {
         return { backgroundColor: AppColors.textSecondary, icon: "help-circle-outline" };
     }
   };
+
+  const handleComplaintPress = (complaint: any) => {
+    setSelectedComplaint(complaint);
+    setModalVisible(true);
+  };
+
+  const closeModal = () => {
+    setModalVisible(false);
+    setSelectedComplaint(null);
+  };
   
   const renderContent = () => {
     if (loading) {
@@ -138,7 +173,12 @@ export default function ComplaintHistoryScreen() {
         {complaints.map((complaint: any) => {
           const statusStyle = getStatusStyle(complaint.status);
           return (
-            <View key={complaint.id} style={styles.card}>
+            <TouchableOpacity 
+              key={complaint.id} 
+              style={styles.card}
+              onPress={() => handleComplaintPress(complaint)}
+              activeOpacity={0.7}
+            >
               <View style={styles.cardHeader}>
                 <View style={[styles.statusIcon, { backgroundColor: statusStyle.backgroundColor }]}>
                   <Ionicons name={statusStyle.icon as any} size={22} color="#FFFFFF" />
@@ -148,7 +188,6 @@ export default function ComplaintHistoryScreen() {
                   <Text style={styles.complaintDate}>Filed on {formatDate(complaint.created_at)}</Text>
                 </View>
                 <View style={[styles.statusBadge, { backgroundColor: statusStyle.backgroundColor }]}>
-
                   <Text style={styles.statusText}>{complaint.status}</Text>
                 </View>
               </View>
@@ -174,7 +213,13 @@ export default function ComplaintHistoryScreen() {
                   <Text style={styles.infoText}>Incident on {formatDate(complaint.incident_date)}</Text>
                 </View>
               </View>
-            </View>
+              
+              {/* Click to view details indicator */}
+              <View style={styles.viewMoreContainer}>
+                <Text style={styles.viewMoreText}>Tap to view details</Text>
+                <Ionicons name="chevron-forward-outline" size={16} color={AppColors.primary} />
+              </View>
+            </TouchableOpacity>
           );
         })}
       </View>
@@ -205,6 +250,79 @@ export default function ComplaintHistoryScreen() {
         {renderContent()}
 
       </ScrollView>
+
+      {/* Detailed Complaint Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={closeModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Complaint Details</Text>
+              <TouchableOpacity onPress={closeModal} style={styles.closeButton}>
+                <Ionicons name="close-outline" size={28} color={AppColors.text} />
+              </TouchableOpacity>
+            </View>
+
+            {selectedComplaint && (
+              <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailLabel}>Complaint Type</Text>
+                  <Text style={styles.detailValue}>{selectedComplaint.complaint_type.replace(/_/g, " ")}</Text>
+                </View>
+
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailLabel}>Status</Text>
+                  <View style={[styles.statusBadge, { backgroundColor: getStatusStyle(selectedComplaint.status).backgroundColor }]}>
+                    <Text style={styles.statusText}>{selectedComplaint.status}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailLabel}>Route Information</Text>
+                  <Text style={styles.detailValue}>Route {selectedComplaint.route_number}</Text>
+                  {selectedComplaint.bus_number && (
+                    <Text style={styles.detailValue}>Bus No. {selectedComplaint.bus_number}</Text>
+                  )}
+                </View>
+
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailLabel}>Location</Text>
+                  <Text style={styles.detailValue}>{selectedComplaint.location}</Text>
+                </View>
+
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailLabel}>Incident Date</Text>
+                  <Text style={styles.detailValue}>{formatDate(selectedComplaint.incident_date)}</Text>
+                </View>
+
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailLabel}>Filed Date</Text>
+                  <Text style={styles.detailValue}>{formatDate(selectedComplaint.created_at)}</Text>
+                </View>
+
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailLabel}>Priority</Text>
+                  <Text style={styles.detailValue}>{selectedComplaint.priority || 'Medium'}</Text>
+                </View>
+
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailLabel}>Description</Text>
+                  <Text style={styles.detailDescription}>{selectedComplaint.description || 'No description provided'}</Text>
+                </View>
+
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailLabel}>Contact Information</Text>
+                  <Text style={styles.detailValue}>{selectedComplaint.contact_info || 'Not provided'}</Text>
+                </View>
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -350,6 +468,86 @@ const styles = StyleSheet.create({
   },
   infoBold: {
     fontWeight: '600',
-  }
+  },
+  viewMoreContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderTopWidth: 1,
+    borderTopColor: AppColors.border,
+  },
+  viewMoreText: {
+    fontSize: 14,
+    color: AppColors.primary,
+    marginRight: 5,
+    fontWeight: '500',
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: AppColors.card,
+    borderRadius: 20,
+    margin: 20,
+    maxHeight: '80%',
+    width: Dimensions.get('window').width - 40,
+    shadowColor: AppColors.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: AppColors.border,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: AppColors.text,
+  },
+  closeButton: {
+    padding: 5,
+  },
+  modalBody: {
+    padding: 20,
+  },
+  detailSection: {
+    marginBottom: 20,
+  },
+  detailLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: AppColors.textSecondary,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  detailValue: {
+    fontSize: 16,
+    color: AppColors.text,
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  detailDescription: {
+    fontSize: 16,
+    color: AppColors.text,
+    lineHeight: 24,
+    backgroundColor: AppColors.background,
+    padding: 15,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: AppColors.border,
+  },
 
 });

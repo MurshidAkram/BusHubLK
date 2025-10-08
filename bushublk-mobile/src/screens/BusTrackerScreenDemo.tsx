@@ -5,7 +5,6 @@ import {
   Text,
   TouchableOpacity,
   StatusBar,
-  SafeAreaView,
   TextInput,
   FlatList,
   ActivityIndicator,
@@ -13,6 +12,7 @@ import {
   Dimensions,
   Modal,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, PROVIDER_GOOGLE, Circle } from 'react-native-maps';
 import { StackScreenProps } from '@react-navigation/stack';

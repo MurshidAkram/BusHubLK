@@ -19,6 +19,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { driverAPI, storageAPI } from "../services/api";
 import { locationService } from "../services/locationService";
 import BackgroundLocationService from "../services/backgroundLocationService";
+import { LocationManager } from "../utils/locationManager";
 
 // Get device dimensions
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
@@ -256,18 +257,22 @@ const ScheduleCard = ({ schedule, index, isTodayAssignment, navigation }: {
           style: "destructive",
           onPress: async () => {
             try {
-              // Stop background tracking
-              await BackgroundLocationService.stopTracking();
+              console.log("🛑 Ending schedule - using unified LocationManager...");
+              
+              // Use unified LocationManager for complete cleanup
+              await LocationManager.completeShutdown();
+              
               setIsTracking(false);
+              console.log("✅ All location tracking systems stopped via LocationManager");
 
               Alert.alert(
                 "✅ Schedule Ended",
-                "Location tracking has been stopped successfully.",
+                "All location tracking has been completely stopped and schedule completed successfully.",
                 [{ text: "OK" }]
               );
             } catch (error) {
               console.error("Error ending route:", error);
-              Alert.alert("Error", "Failed to stop route tracking");
+              Alert.alert("Error", "Failed to stop route tracking completely. Some tracking may still be active.");
             }
           }
         }

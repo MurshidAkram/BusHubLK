@@ -4,7 +4,7 @@ import { API_BASE_URL } from '../config/api';
 
 const liveTrackingApi = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  timeout: 15000, // Increased from 10s to 15s for better mobile connectivity
   headers: {
     'Content-Type': 'application/json',
   },
@@ -34,12 +34,18 @@ liveTrackingApi.interceptors.response.use(
     return response;
   },
   async (error) => {
-    console.error('Response error:', {
-      message: error.message,
-      status: error.response?.status,
-      data: error.response?.data,
-      url: error.config?.url,
-    });
+    // Reduce log spam for timeout errors
+    if (error.message && error.message.includes('timeout')) {
+      console.log('⏱️ API timeout for:', error.config?.url);
+    } else {
+      console.error('Response error:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+        url: error.config?.url,
+      });
+    }
+    
     if (error.response?.status === 401) {
       await AsyncStorage.multiRemove(['authToken', 'userData']);
     }
@@ -62,6 +68,12 @@ export const busLiveTrackingAPI = {
       });
       return response.data;
     } catch (error: any) {
+      // Handle timeout errors silently - don't spam the logs
+      if (error.message && error.message.includes('timeout')) {
+        console.log('⏱️ Nearby buses API timeout - this is normal during poor connectivity');
+        throw error; // Still throw so calling code can handle appropriately
+      }
+      
       console.error('Failed to fetch nearby buses:', {
         message: error.message,
         status: error.response?.status,
