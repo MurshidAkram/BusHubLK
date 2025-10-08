@@ -1,19 +1,22 @@
 import React, { useState, useRef } from "react";
-
 import {
   StyleSheet,
   View,
   Text,
-  ScrollView,
   TouchableOpacity,
-  TextInput,
-  Image,
-  Platform,
   Alert,
   ActivityIndicator,
+  Platform,
+  Keyboard,
+  Pressable,
+  ScrollView,
+  TextInput,
+  TouchableWithoutFeedback,
+  Image,
   Animated,
 } from "react-native";
 import { storageAPI } from "../services/api";
+import { API_BASE_URL } from "../config/api";
 import { useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { RootStackParamList } from "../types/navigation";
@@ -116,7 +119,7 @@ export default function ComplaintsScreen() {
     }
 
     let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [4, 3],
       quality: 0.7,
@@ -166,13 +169,34 @@ export default function ComplaintsScreen() {
         } as any);
       }
 
-      // Using your specified baseURL
-      const baseURL = 'http://192.168.43.114:5000';
-      const response = await fetch(`${baseURL}/api/complaints/submit`, {
+      // Use the configured API base URL instead of hardcoded IP
+      const submitUrl = `${API_BASE_URL}/api/complaints/submit`;
+      
+      console.log('🚀 Starting complaint submission to:', submitUrl);
+      console.log('📦 FormData contents:', {
+        complaintType: complaintTypeValue,
+        routeNumber,
+        busNumber,
+        location,
+        priority,
+        hasImage: !!image
+      });
+      
+      // Create a timeout promise
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('timeout')), 25000) // Increased to 25s
+      );
+      
+      const fetchPromise = fetch(submitUrl, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData,
       });
+      
+      // Race between fetch and timeout
+      console.log('⏱️ Starting fetch with 25s timeout...');
+      const response = await Promise.race([fetchPromise, timeoutPromise]) as Response;
+      console.log('✅ Response received:', response.status, response.statusText);
 
       const result = await response.json();
 
@@ -183,9 +207,24 @@ export default function ComplaintsScreen() {
       } else {
         Alert.alert("Submission Failed", result.message || "Could not submit your complaint.");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error submitting complaint:", error);
-      Alert.alert("An Error Occurred", "Please check your connection and try again.");
+      
+      // Handle different types of errors with specific messages
+      if (error.message && error.message.includes('timeout')) {
+        console.log('🕐 Complaint submission timed out after 25 seconds');
+        Alert.alert(
+          "Connection Timeout", 
+          "Your complaint submission is taking longer than expected. This might be due to:\n\n• Slow internet connection\n• Server overload\n• Large image file\n\nPlease try again or contact support."
+        );
+      } else if (error.message && error.message.includes('Network request failed')) {
+        Alert.alert(
+          "Network Error", 
+          "Unable to connect to the server. Please check:\n\n• Your internet connection\n• Server availability\n• Try again in a moment"
+        );
+      } else {
+        Alert.alert("An Error Occurred", `Please check your connection and try again.\n\nError: ${error.message}`);
+      }
     } finally {
 
       setIsSubmitting(false);

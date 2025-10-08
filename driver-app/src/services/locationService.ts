@@ -18,9 +18,13 @@ class LocationService {
   updateCounter: number = 0;
   lastSuccessfulUpdate: Date | null = null;
 
-  setCurrentAssignment(assignment: AssignmentData) {
+  setCurrentAssignment(assignment: AssignmentData | null) {
     this.currentAssignment = assignment;
-    console.log("📍 Current assignment set:", assignment);
+    if (assignment) {
+      console.log("📍 Current assignment set:", assignment);
+    } else {
+      console.log("🧹 Assignment data cleared");
+    }
     // Refresh token when assignment changes
     this.cachedAuthToken = null;
   }
