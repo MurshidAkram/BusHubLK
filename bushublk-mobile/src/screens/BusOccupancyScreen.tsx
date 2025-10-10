@@ -6,19 +6,19 @@ import {
   TouchableOpacity,
   FlatList,
   Alert,
+  SafeAreaView,
   ActivityIndicator,
   Modal,
   ScrollView,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import Icon from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import * as Location from 'expo-location';
 
 import { API_BASE_URL } from '../config/api';
 import { storageAPI } from '../services/api';
 import { busLiveTrackingAPI } from '../services/busLiveTrackingAPI';
-import { formatSriLankaTime } from '../utils/timeUtils';
+import { getMinutesSince } from '../utils/timeUtils';
 
 // Enhanced detection constants
 const MOVEMENT_HISTORY_SIZE = 5;
@@ -113,54 +113,57 @@ const fetchNearbyBuses = async (latitude: number, longitude: number, radiusKm: n
     // BusTrackingScreen shows this works, so let's use the same approach
     if (data && Array.isArray(data)) {
       console.log(`✅ API returned ${data.length} buses`);
-      const mappedBuses = data.map((bus: any) => ({
-        id: `bus_${bus.bus_id}`,
-        bus_id: bus.bus_id,
-        registration_number: bus.registration_number,
-        route_number: bus.route_number,
-        route_name: bus.route_name || `Route ${bus.route_number}`, // Fallback if route_name is missing
-        latitude: parseFloat(bus.latitude),
-        longitude: parseFloat(bus.longitude),
-        speed: bus.speed || 0,
-        heading: bus.heading,
-        last_update: bus.last_update || bus.updated_at,
-        tracking_status: bus.tracking_status,
-        passenger_count: bus.passenger_count || 0,
-        occupancy_level: bus.occupancy_level || 'unknown',
-        minutes_since_update: bus.minutes_since_update || 0,
-        // Legacy compatibility
-        number: bus.route_number,
-        route: bus.route_name || `Route ${bus.route_number}`,
-        direction: bus.heading ? (bus.heading > 180 ? 'Down' : 'Up') : 'Unknown',
-        estimatedSpeed: bus.speed || 0,
-        occupancy: bus.occupancy_level || 'unknown',
-        updatedAt: formatSriLankaTime(bus.last_update || bus.updated_at, 'short'),
-      }));
-      console.log(`✅ Successfully mapped ${mappedBuses.length} buses:`, mappedBuses);
-      return mappedBuses;
+      const mappedBuses = data.map((bus: any) => {
+        // Calculate actual minutes since update using time utils (like BusTrackingScreen)
+        const actualMinutesSinceUpdate = getMinutesSince(bus.updated_at || bus.last_update);
+        
+        return {
+          id: `bus_${bus.bus_id}`,
+          bus_id: bus.bus_id,
+          registration_number: bus.registration_number,
+          route_number: bus.route_number,
+          route_name: bus.route_name || `Route ${bus.route_number}`, // Fallback if route_name is missing
+          latitude: parseFloat(bus.latitude),
+          longitude: parseFloat(bus.longitude),
+          speed: bus.speed || 0,
+          heading: bus.heading,
+          last_update: bus.last_update || bus.updated_at,
+          tracking_status: bus.tracking_status,
+          passenger_count: bus.passenger_count || 0,
+          occupancy_level: bus.occupancy_level || 'unknown',
+          minutes_since_update: actualMinutesSinceUpdate, // Use calculated value instead of API field
+          // Legacy compatibility
+          number: bus.route_number,
+          route: bus.route_name || `Route ${bus.route_number}`,
+          direction: bus.heading ? (bus.heading > 180 ? 'Down' : 'Up') : 'Unknown',
+          estimatedSpeed: bus.speed || 0,
+          occupancy: bus.occupancy_level || 'unknown',
+          updatedAt: new Date(bus.last_update || bus.updated_at).toLocaleTimeString(),
+        };
+      });
+      
+      // Filter out buses that haven't updated in more than 2 minutes
+      const activeBuses = mappedBuses.filter(bus => {
+        const isActive = bus.tracking_status === 'active' && bus.minutes_since_update <= 2;
+        if (!isActive) {
+          console.log(`🚫 Filtering out bus ${bus.registration_number}: status=${bus.tracking_status}, minutes_since_update=${bus.minutes_since_update}`);
+        }
+        return isActive;
+      });
+      
+      console.log(`✅ Successfully mapped ${mappedBuses.length} buses, ${activeBuses.length} are active (≤2 min):`, activeBuses);
+      return activeBuses;
     } else {
       console.log('⚠️ No nearby buses found in response or response is not an array');
       return [];
     }
-  } catch (error: any) {
+  } catch (error) {
     console.error('❌ Error fetching nearby buses:', error);
-    
-    // Don't show timeout errors to users - they're normal during poor connectivity
-    if (error.message && error.message.includes('timeout')) {
-      console.log('🕐 API timeout - continuing silently without showing alert to user');
-      return [];
-    }
-    
-    // Only show alerts for actual server errors, not network issues
-    if (error.response?.status >= 400) {
-      Alert.alert(
-        'Server Error',
-        'Unable to fetch nearby bus data from server. Please try again later.',
-        [{ text: 'OK' }]
-      );
-    } else {
-      console.log('🌐 Network connectivity issue - continuing silently');
-    }
+    Alert.alert(
+      'Connection Error',
+      'Unable to fetch nearby bus data. Please ensure:\n• You have internet connection\n• Backend server is running\n• Driver apps are actively tracking buses',
+      [{ text: 'OK' }]
+    );
     return [];
   }
 };
@@ -317,6 +320,12 @@ const useEnhancedBusDetection = (userLocation: UserLocation | null, buses: Bus[]
     
     buses.forEach(bus => {
       const busHistory = busMovementHistory[bus.id] || [];
+      
+      // Skip buses that are not active or haven't updated in more than 2 minutes
+      if (bus.tracking_status !== 'active' || bus.minutes_since_update > 2) {
+        console.log(`🚫 Skipping bus ${bus.registration_number} for detection: status=${bus.tracking_status}, minutes_since_update=${bus.minutes_since_update}`);
+        return;
+      }
       
       if (busHistory.length < 3) return;
       
@@ -795,7 +804,7 @@ export default function BusOccupancyScreen() {
           }}
           style={{ marginRight: 8, padding: 4 }}
         >
-          <Ionicons name="arrow-back" size={28} color="#007bff" />
+          <Icon name="arrow-back" size={28} color="#007bff" />
         </TouchableOpacity>
         <Text style={styles.title}>🚍 SLTB Bus Occupancy Monitor</Text>
       </View>
@@ -814,13 +823,13 @@ export default function BusOccupancyScreen() {
               }
             }}
           >
-            <Ionicons name="refresh" size={20} color="#007bff" />
+            <Icon name="refresh" size={20} color="#007bff" />
           </TouchableOpacity>
         </View>
         {buses.length > 0 ? (
           <>
             <Text style={styles.nearbyBusesNote}>
-              Buses within 5km radius (tap for details):
+              Active buses within 5km radius (updated ≤2 min ago):
             </Text>
             <View style={styles.nearbyBusesContainer}>
               {buses.slice(0, 3).map((bus, index) => {
@@ -900,101 +909,18 @@ export default function BusOccupancyScreen() {
         ) : (
           <Text style={styles.noBusText}>
             {userLocation ? 
-              'No buses found nearby. Ensure driver apps are running and tracking location.' : 
+              'No active buses found nearby. Only buses updated within 2 minutes are shown.' : 
               'Getting your location...'}
           </Text>
         )}
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.label}>🚌 Bus Detection Status</Text>
-        {currentBus ? (
-          <View style={styles.currentBusCard}>
-            <View style={styles.currentBusHeader}>
-              <Ionicons name="bus" size={20} color="#007bff" />
-              <Text style={styles.currentBusTitle}>Bus {currentBus.registration_number || currentBus.number}</Text>
-            </View>
-            <Text style={styles.currentBusRoute}>
-              {/* Only show route name if available, remove (unknown) */}
-              {currentBus.route_name ? currentBus.route_name : ''}
-            </Text>
-            <Text style={styles.subValue}>
-              Route: {currentBus.route_number} | Status: {currentBus.tracking_status || 'Active'}
-            </Text>
-            <Text style={styles.subValue}>
-              Last Update: {currentBus.minutes_since_update !== undefined 
-                ? `${Math.round(currentBus.minutes_since_update)} minutes ago` 
-                : currentBus.updatedAt || 'Unknown'}
-            </Text>
-            {/* Hide confidence, distance, speed, movement correlation, data age from UI */}
-            {busStatuses[currentBus.id]?.occupancy && (
-              <View style={styles.currentOccupancy}>
-                <Text style={[
-                  styles.currentOccupancyText,
-                  { color: OCCUPANCY_LEVELS.find(l => l.value === busStatuses[currentBus.id].occupancy)?.color }
-                ]}>
-                  Current: {OCCUPANCY_LEVELS.find(l => l.value === busStatuses[currentBus.id].occupancy)?.label?.toUpperCase() || 'UNKNOWN'}
-                </Text>
-                <Text style={styles.currentOccupancyTime}>Updated at {busStatuses[currentBus.id].updatedAt}</Text>
-              </View>
-            )}
-            <View style={styles.occupancyButtonsContainer}>
-              {OCCUPANCY_LEVELS.map((level) => (
-                <TouchableOpacity
-                  key={level.value}
-                  style={[styles.occupancyButton, { backgroundColor: level.color }]}
-                  onPress={() => updateOccupancy(level.value)}
-                >
-                  <Text style={styles.occupancyButtonText}>{level.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            <TouchableOpacity
-              style={[styles.updateButton]}
-              onPress={() => setShowOccupancyModal(true)}
-            >
-              <Text style={styles.updateButtonText}>Update Occupancy</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <>
-            <Text style={styles.noBusText}>
-              {buses.length === 0 
-                ? 'No active buses found. Driver apps must be running and tracking location for buses to appear.'
-                : 'No bus detected. Please wait while we track your location and sync with nearby buses.'
-              }
-            </Text>
-            {buses.length > 0 && (
-              <Text style={styles.subValue}>
-                📡 Found {buses.length} active buses nearby. Move closer to a bus or ensure you're aboard one.
-              </Text>
-            )}
-            <View style={styles.occupancyButtonsContainer}>
-              {OCCUPANCY_LEVELS.map((level) => (
-                <TouchableOpacity
-                  key={level.value}
-                  style={[styles.occupancyButton, styles.disabledButton]}
-                  onPress={() => Alert.alert('Error', 'You can only update occupancy when you are inside a bus.')}
-                >
-                  <Text style={styles.occupancyButtonText}>{level.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            <TouchableOpacity
-              style={[styles.updateButton, styles.disabledButton]}
-              onPress={() => Alert.alert('Error', 'You can only update occupancy when you are inside a bus.')}
-            >
-              <Text style={styles.updateButtonText}>Update Occupancy</Text>
-            </TouchableOpacity>
-          </>
-        )}
-      </View>
 
       <View style={styles.card}>
         <View style={styles.occupancyHeader}>
-          <Text style={styles.label}>📊 All Bus Occupancy Updates</Text>
+          <Text style={styles.label}>📊 Recent Occupancy Updates</Text>
           <TouchableOpacity style={styles.refreshButton} onPress={fetchAllOccupancies}>
-            <Ionicons name="refresh" size={20} color="#007bff" />
+            <Icon name="refresh" size={20} color="#007bff" />
           </TouchableOpacity>
         </View>
         {status === 'loading' && (
