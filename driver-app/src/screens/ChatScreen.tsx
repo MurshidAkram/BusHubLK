@@ -37,6 +37,23 @@ type Report = {
   [key: string]: unknown;
 };
 
+const AppColors = {
+  background: '#F8F9FA',
+  card: '#FFFFFF',
+  primary: '#0056b3',
+  primaryLight: '#0076e3',
+  text: '#212529',
+  textSecondary: '#6C757D',
+  border: '#DEE2E6',
+  activeBlue: '#E7F1FF',
+};
+
+type Report = {
+  id: number;
+  driver_id: number;
+  [key: string]: unknown;
+};
+
 type ChatMessage = {
   id: number;
   text: string;

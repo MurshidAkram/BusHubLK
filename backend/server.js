@@ -252,6 +252,14 @@ try {
 }
 
 try {
+  const depotManagerRoutes = require('./routes/depotManagerRoutes');
+  app.use('/api/depot-manager', depotManagerRoutes);
+  console.log('✅ depotManagerRoutes loaded');
+} catch (error) {
+  console.log('❌ depotManagerRoutes error:', error.message);
+}
+
+try {
   const emergencyRoutes = require('./routes/emergencyRoutes');
   app.use('/api/emergency', emergencyRoutes);
   console.log('✅ emergencyRoutes loaded');

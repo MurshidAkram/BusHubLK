@@ -10,6 +10,8 @@ export interface AverageOccupancyData {
   last_report_time: string | null;
   minutes_since_last_report: number | null;
   data_freshness: 'very_fresh' | 'fresh' | 'moderate' | 'stale' | 'no_data';
+  route_number: string | null;
+  route_name: string | null;
 }
 
 export interface AverageOccupancyResponse {
