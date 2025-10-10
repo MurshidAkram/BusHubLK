@@ -18,6 +18,7 @@ import * as Location from 'expo-location';
 import { API_BASE_URL } from '../config/api';
 import { storageAPI } from '../services/api';
 import { busLiveTrackingAPI } from '../services/busLiveTrackingAPI';
+import { formatSriLankaTime } from '../utils/timeUtils';
 
 // Enhanced detection constants
 const MOVEMENT_HISTORY_SIZE = 5;
@@ -133,7 +134,7 @@ const fetchNearbyBuses = async (latitude: number, longitude: number, radiusKm: n
         direction: bus.heading ? (bus.heading > 180 ? 'Down' : 'Up') : 'Unknown',
         estimatedSpeed: bus.speed || 0,
         occupancy: bus.occupancy_level || 'unknown',
-        updatedAt: new Date(bus.last_update || bus.updated_at).toLocaleTimeString(),
+        updatedAt: formatSriLankaTime(bus.last_update || bus.updated_at, 'short'),
       }));
       console.log(`✅ Successfully mapped ${mappedBuses.length} buses:`, mappedBuses);
       return mappedBuses;

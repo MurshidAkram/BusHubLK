@@ -18,7 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_BASE_URL = 'http://192.168.43.114:5000/api'; // Make sure this IP is correct
+const API_BASE_URL = 'http://10.23.0.103:5000/api'; // Make sure this IP is correct
 
 const ChatScreen = ({ route, navigation }) => {
   const { report } = route.params;
