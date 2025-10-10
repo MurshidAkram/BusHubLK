@@ -219,9 +219,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     backgroundColor: AppColors.primary,
-    paddingHorizontal: 15,
-    paddingVertical: Platform.OS === "ios" ? 18 : 20,
-    height: Platform.OS === "ios" ? 85 : 80,
+    paddingHorizontal: 16,
+    paddingVertical: Platform.OS === "ios" ? 12 : 12,
+    minHeight: Platform.OS === "ios" ? 60 : 60,
     ...Platform.select({
       android: {
         elevation: 4,
@@ -254,10 +254,10 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: "#FFFFFF",
-    fontSize: Platform.OS === "ios" ? 20 : 18,
-    fontWeight: "900",
+    fontSize: 18,
+    fontWeight: "600",
     fontFamily: Platform.OS === "ios" ? "System" : "Roboto",
-    lineHeight: Platform.OS === "ios" ? 26 : 24,
+    lineHeight: Platform.OS === "ios" ? 22 : 22,
     includeFontPadding: false,
     textAlignVertical: "center",
   },
