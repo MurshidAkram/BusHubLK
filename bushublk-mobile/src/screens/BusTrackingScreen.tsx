@@ -5,13 +5,13 @@ import {
   Text,
   TouchableOpacity,
   StatusBar,
-  SafeAreaView,
   TextInput,
   FlatList,
   ActivityIndicator,
   Dimensions,
   Modal,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, PROVIDER_GOOGLE, Circle } from 'react-native-maps';
 import { StackScreenProps } from '@react-navigation/stack';
@@ -185,7 +185,20 @@ const fetchRoutes = async () => {
       })));
     } catch (err: any) {
       console.error('Error fetching nearby buses:', err.message, err.response?.data);
-      setError(`Failed to fetch bus locations: ${err.message}`);
+      
+      // Don't show timeout errors to users - they're usually due to network issues
+      // and the app should continue working without showing error messages
+      if (err.message && err.message.includes('timeout')) {
+        console.log('🕐 API timeout - continuing silently without showing error to user');
+        return; // Don't set error state for timeouts
+      }
+      
+      // Only show errors for actual failures (4xx, 5xx responses)
+      if (err.response?.status >= 400) {
+        setError(`Unable to fetch bus locations. Please try again.`);
+      } else {
+        console.log('🌐 Network connectivity issue - continuing silently');
+      }
     } finally {
       if (busLocations.length === 0) {
         setLoading(false);

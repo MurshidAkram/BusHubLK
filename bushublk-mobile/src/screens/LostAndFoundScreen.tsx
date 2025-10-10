@@ -7,13 +7,13 @@ import {
   TouchableOpacity,
   TextInput,
   StatusBar,
-  SafeAreaView,
   Alert,
   ActivityIndicator,
   Image,
   Linking,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Dropdown } from 'react-native-element-dropdown';
 import * as ImagePicker from 'expo-image-picker';
@@ -1316,7 +1316,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
                   activeOpacity={0.8}
                 >
                   <View style={[styles.categoryIconContainer, { backgroundColor: item.color + '20' }]}>
-                    <Icon
+                    <Ionicons
                       name={item.icon}
                       size={28}
                       color={formData.itemType === item.key ? '#FFFFFF' : item.color}
@@ -1564,7 +1564,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
                             }
                             
                             const result = await ImagePicker.launchCameraAsync({
-                              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                              mediaTypes: ['images'],
                               allowsEditing: true,
                               aspect: [4, 3],
                               quality: 0.7,
@@ -1600,7 +1600,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
                             }
                             
                             const result = await ImagePicker.launchImageLibraryAsync({
-                              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                              mediaTypes: ['images'],
                               allowsEditing: true,
                               aspect: [4, 3],
                               quality: 0.7,

@@ -17,6 +17,7 @@ const Stack = createStackNavigator();
 export default function RootNavigator() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [trackingManagementInitialized, setTrackingManagementInitialized] = useState(false);
   const navigationRef = useRef(null);
 
   const initializeApp = useCallback(async () => {
@@ -77,43 +78,86 @@ export default function RootNavigator() {
     return () => clearInterval(interval);
   }, [checkAuthStatus, isInitialized]);
 
-  // Start/stop location tracking based on auth state
+  // Start/stop location tracking based on auth state (only run once on initial load)
   useEffect(() => {
     async function manageLocationTracking() {
       // Don't manage location tracking until app is properly initialized
-      if (!isInitialized) {
+      if (!isInitialized || trackingManagementInitialized) {
         return;
       }
 
+      console.log("🔧 Initializing location tracking management...");
+      
       if (isAuthenticated) {
         const userData = await storageAPI.getUserData();
         if (userData && userData.busId && userData.routeId) {
-          console.log("🚍 Starting background location tracking for bus:", userData.busId, "route:", userData.routeId);
+          // Check if there's an active assignment that should be tracking
+          const hasActiveTracking = await checkShouldStartTracking(userData);
           
-          // Set assignment data in location service if available
-          if (userData.assignmentId) {
-            locationService.setCurrentAssignment({
-              bus_id: parseInt(userData.busId),
-              route_id: parseInt(userData.routeId),
-              driver_id: userData.driver_id,
-              assignment_id: userData.assignmentId
-            });
+          if (hasActiveTracking) {
+            console.log("🚍 Resuming location tracking for bus:", userData.busId, "route:", userData.routeId);
+            
+            // Set assignment data in location service if available
+            if (userData.assignmentId) {
+              locationService.setCurrentAssignment({
+                bus_id: parseInt(userData.busId),
+                route_id: parseInt(userData.routeId),
+                driver_id: userData.driver_id,
+                assignment_id: userData.assignmentId
+              });
+            }
+            
+            locationService.startSmartLocationTracking(userData.busId, userData.routeId, userData.busRegistration);
+          } else {
+            console.log("🛑 No active schedule or tracking manually stopped - not auto-starting tracking");
           }
-          
-          locationService.startSmartLocationTracking(userData.busId, userData.routeId, userData.busRegistration);
         } else {
           console.warn("Bus ID or Route ID missing in user data - no active daily assignment");
         }
-      } else {
-        // Only log and stop tracking if we were previously authenticated (not during initial load)
-        if (isInitialized) {
-          console.log("🛑 Stopping location tracking due to logout");
-          locationService.stopLocationTracking();
-        }
       }
+      
+      setTrackingManagementInitialized(true);
     }
     manageLocationTracking();
-  }, [isAuthenticated, isInitialized]);
+  }, [isAuthenticated, isInitialized, trackingManagementInitialized]);
+
+  // Handle logout cleanup
+  useEffect(() => {
+    if (!isAuthenticated && trackingManagementInitialized) {
+      console.log("🛑 User logged out - stopping all location tracking");
+      locationService.stopLocationTracking();
+    }
+  }, [isAuthenticated, trackingManagementInitialized]);
+
+  // Function to check if tracking should auto-start
+  const checkShouldStartTracking = async (userData: any): Promise<boolean> => {
+    try {
+      // Check if user has manually started tracking from ScheduleScreen
+      const backgroundService = await import('../services/backgroundLocationService');
+      const isCurrentlyTracking = await backgroundService.default.isTrackingActive();
+      
+      if (isCurrentlyTracking) {
+        console.log("📍 Tracking already active - keeping it running");
+        return true;
+      }
+
+      // Only auto-start if there was a previous active session and the schedule is today
+      if (userData.assignmentId) {
+        // Check if assignment is for today
+        const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+        
+        // For now, don't auto-start tracking on app open
+        // Tracking should only be started manually from ScheduleScreen
+        console.log("🔒 Tracking must be manually started from Schedule screen");
+        return false;
+      }
+
+      return false;
+    } catch (error) {
+      console.error("Error checking tracking status:", error);
+      return false;
+    }
+  };
 
   // Setup deep link handling
   useEffect(() => {

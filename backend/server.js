@@ -259,6 +259,14 @@ try {
 }
 
 try {
+  const emergencyRoutes = require('./routes/emergencyRoutes');
+  app.use('/api/emergency', emergencyRoutes);
+  console.log('✅ emergencyRoutes loaded');
+} catch (error) {
+  console.log('❌ emergencyRoutes error:', error.message);
+}
+
+try {
   const serviceScheduleRoutes = require('./routes/serviceScheduleRoutes');
   app.use('/api/depot-engineer/service-schedules', serviceScheduleRoutes);
   console.log('✅ serviceScheduleRoutes loaded');

@@ -6,11 +6,11 @@ import {
   TouchableOpacity,
   FlatList,
   Alert,
-  SafeAreaView,
   ActivityIndicator,
   Modal,
   ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import * as Location from 'expo-location';
@@ -141,13 +141,25 @@ const fetchNearbyBuses = async (latitude: number, longitude: number, radiusKm: n
       console.log('⚠️ No nearby buses found in response or response is not an array');
       return [];
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Error fetching nearby buses:', error);
-    Alert.alert(
-      'Connection Error',
-      'Unable to fetch nearby bus data. Please ensure:\n• You have internet connection\n• Backend server is running\n• Driver apps are actively tracking buses',
-      [{ text: 'OK' }]
-    );
+    
+    // Don't show timeout errors to users - they're normal during poor connectivity
+    if (error.message && error.message.includes('timeout')) {
+      console.log('🕐 API timeout - continuing silently without showing alert to user');
+      return [];
+    }
+    
+    // Only show alerts for actual server errors, not network issues
+    if (error.response?.status >= 400) {
+      Alert.alert(
+        'Server Error',
+        'Unable to fetch nearby bus data from server. Please try again later.',
+        [{ text: 'OK' }]
+      );
+    } else {
+      console.log('🌐 Network connectivity issue - continuing silently');
+    }
     return [];
   }
 };
