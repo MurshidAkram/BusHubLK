@@ -442,7 +442,9 @@ const EmergencyScreen = ({ navigation }: EmergencyScreenProps) => {
                   {countdown !== null ? `PANIC (${countdown}s)` : 'PANIC BUTTON'}
                 </Text>
                 {countdown !== null && (
-                  <Text style={styles.panicSubText}>Auto-sending in {countdown}s</Text>
+                  <Text style={styles.panicSubText}>
+                    Auto-sending in {countdown}s
+                  </Text>
                 )}
               </LinearGradient>
             </TouchableOpacity>
@@ -483,7 +485,7 @@ const EmergencyScreen = ({ navigation }: EmergencyScreenProps) => {
                     styles.quickIncidentText,
                     selectedIncident === incident.text && styles.quickIncidentTextSelected
                   ]}>
-                    {incident.text}
+                    {String(incident.text)}
                   </Text>
                 </LinearGradient>
               </TouchableOpacity>
@@ -518,7 +520,7 @@ const EmergencyScreen = ({ navigation }: EmergencyScreenProps) => {
                   urgencyLevel === level && styles.urgencyTextSelected,
                   { color: urgencyLevel === level ? '#ffffff' : color }
                 ]}>
-                  {label}
+                  {String(label)}
                 </Text>
                 {urgencyLevel === level && (
                   <LinearGradient
@@ -537,15 +539,21 @@ const EmergencyScreen = ({ navigation }: EmergencyScreenProps) => {
               <LinearGradient colors={[AppColors.accent, '#ffffff']} style={styles.busInfoBox}>
                 <View style={styles.busInfoRow}>
                   <MaterialCommunityIcons name="bus" size={20} color={AppColors.primary} />
-                  <Text style={styles.busInfoText}>Bus: {busInfo.busNumber}</Text>
+                  <Text style={styles.busInfoText}>
+                    Bus: {String(busInfo.busNumber || 'Unknown')}
+                  </Text>
                 </View>
                 <View style={styles.busInfoRow}>
                   <MaterialCommunityIcons name="map-marker-path" size={20} color={AppColors.primary} />
-                  <Text style={styles.busInfoText}>Route: {busInfo.routeNumber}</Text>
+                  <Text style={styles.busInfoText}>
+                    Route: {String(busInfo.routeNumber || 'Unknown')}
+                  </Text>
                 </View>
                 <View style={styles.busInfoRow}>
                   <MaterialCommunityIcons name="account" size={20} color={AppColors.primary} />
-                  <Text style={styles.busInfoText}>Driver: {busInfo.driverName}</Text>
+                  <Text style={styles.busInfoText}>
+                    Driver: {String(busInfo.driverName || 'Unknown Driver')}
+                  </Text>
                 </View>
               </LinearGradient>
             </View>
