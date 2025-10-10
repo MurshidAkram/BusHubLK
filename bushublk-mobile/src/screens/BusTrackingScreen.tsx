@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, PROVIDER_GOOGLE, Circle } from 'react-native-maps';
+import { LinearGradient } from 'expo-linear-gradient';
 import { StackScreenProps } from '@react-navigation/stack';
 import * as Location from 'expo-location';
 import { HomeStackParamList } from '../navigation/navigationTypes';
@@ -93,6 +94,7 @@ export default function BusTrackingScreen({ navigation }: Props) {
   });
   const [occupancyData, setOccupancyData] = useState<{ [busId: string]: AverageOccupancyData }>({});
   const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null);
+  const [isFullScreenMap, setIsFullScreenMap] = useState(false);
 
   const mapRef = useRef<MapView>(null);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -425,6 +427,10 @@ const fetchRoutes = async () => {
     }
   }, [filteredBuses, userLocation]);
 
+  const toggleFullScreenMap = useCallback(() => {
+    setIsFullScreenMap(prev => !prev);
+  }, []);
+
   const getBusStatusColor = (status: string) => {
     switch (status) {
       case 'active': return AppColors.success;
@@ -580,47 +586,82 @@ const fetchRoutes = async () => {
   }, [navigation]);
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={AppColors.background} />
+    <LinearGradient
+      colors={['#F8FAFF', '#E3F2FD', '#BBDEFB']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.gradientContainer}
+    >
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor={AppColors.background} />
 
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back-outline" size={24} color={AppColors.text} />
-        </TouchableOpacity>
-        <Text style={styles.title}>Bus Tracking</Text>
-        <TouchableOpacity onPress={showAllBuses} style={styles.viewAllButton}>
-          <Ionicons name="expand-outline" size={24} color={AppColors.primary} />
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.searchContainer}>
-        <Ionicons name="search-outline" size={20} color={AppColors.textSecondary} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search route number..."
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <Ionicons name="close-circle" size={20} color={AppColors.textSecondary} />
+      <LinearGradient
+        colors={['#0056b3', '#1976d2', '#42a5f5']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.headerGradient}
+      >
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Ionicons name="arrow-back-outline" size={24} color="white" />
           </TouchableOpacity>
-        )}
-      </View>
+          <Text style={styles.titleWhite}>Bus Tracking</Text>
+          <TouchableOpacity onPress={toggleFullScreenMap} style={styles.viewAllButton}>
+            <Ionicons 
+              name={isFullScreenMap ? "contract-outline" : "expand-outline"} 
+              size={24} 
+              color="white" 
+            />
+          </TouchableOpacity>
+        </View>
+      </LinearGradient>
 
-      <View style={styles.routeFilterContainer}>
-        <Text style={styles.filterTitle}>Routes:</Text>
-        <FlatList
-          data={routes}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={(item) => item.routeNumber}
-          renderItem={renderRouteItem}
-          contentContainerStyle={styles.routeList}
-        />
-      </View>
+      {!isFullScreenMap && (
+        <>
+          <LinearGradient
+            colors={['#E3F2FD', '#FFFFFF', '#F8FAFF']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.searchGradient}
+          >
+            <View style={styles.searchContainer}>
+              <Ionicons name="search-outline" size={20} color={AppColors.textSecondary} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search route number..."
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                  <Ionicons name="close-circle" size={20} color={AppColors.textSecondary} />
+                </TouchableOpacity>
+              )}
+            </View>
+          </LinearGradient>
 
-      <View style={styles.mapContainer}>
+          <LinearGradient
+            colors={['#BBDEFB', '#E3F2FD', '#FFFFFF']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={styles.routeFilterGradient}
+          >
+            <View style={styles.routeFilterContainer}>
+            <Text style={styles.filterTitle}>Routes:</Text>
+            <FlatList
+              data={routes}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(item) => item.routeNumber}
+              renderItem={renderRouteItem}
+              contentContainerStyle={styles.routeList}
+            />
+            </View>
+          </LinearGradient>
+        </>
+      )}
+
+      <View style={[styles.mapContainer, isFullScreenMap && styles.fullScreenMapContainer]}>
         {loading && (
           <View style={styles.loadingOverlay}>
             <ActivityIndicator size="large" color={AppColors.primary} />
@@ -700,7 +741,7 @@ const fetchRoutes = async () => {
           )}
         </MapView>
 
-        <View style={styles.mapControls}>
+        <View style={[styles.mapControls, isFullScreenMap && styles.fullScreenMapControls]}>
           <TouchableOpacity
             style={styles.mapControlButton}
             onPress={() => {
@@ -729,48 +770,104 @@ const fetchRoutes = async () => {
             <Ionicons name="locate" size={20} color={AppColors.primary} />
             <Text style={styles.mapControlText}>Fit All</Text>
           </TouchableOpacity>
-        </View>
-      </View>
-
-      <View style={styles.busListContainer}>
-        <View style={styles.busListHeader}>
-          <View>
-            <Text style={styles.busListTitle}>
-              Nearby Buses ({filteredBuses.length})
-            </Text>
-            {lastRefreshTime && (
-              <Text style={styles.lastRefreshText}>
-                Last updated: {formatTimeSince(lastRefreshTime)}
-              </Text>
-            )}
-          </View>
-          {selectedRoute && (
+          {isFullScreenMap && (
             <TouchableOpacity
-              onPress={() => setSelectedRoute(null)}
-              style={styles.clearFilterButton}
+              style={styles.mapControlButton}
+              onPress={() => getUserLocation()}
             >
-              <Text style={styles.clearFilterText}>Clear Route Filter</Text>
+              <Ionicons name="navigate" size={20} color={AppColors.primary} />
+              <Text style={styles.mapControlText}>My Location</Text>
             </TouchableOpacity>
           )}
         </View>
-
-        <FlatList
-          data={filteredBuses}
-          keyExtractor={(item) => item.busId}
-          renderItem={renderBusItem}
-          showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Ionicons name="bus-outline" size={48} color={AppColors.textSecondary} />
-              <Text style={styles.emptyText}>
-                {selectedRoute
-                  ? `No nearby buses found for route ${selectedRoute}`
-                  : 'No nearby buses found'}
-              </Text>
-            </View>
-          }
-        />
       </View>
+
+      {!isFullScreenMap && (
+        <LinearGradient
+          colors={['#FFFFFF', '#E3F2FD', '#BBDEFB']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={styles.busListGradient}
+        >
+          <View style={styles.busListContainer}>
+            <View style={styles.busListHeader}>
+            <View>
+              <Text style={styles.busListTitle}>
+                Nearby Buses ({filteredBuses.length})
+              </Text>
+              {lastRefreshTime && (
+                <Text style={styles.lastRefreshText}>
+                  Your location last updated: {formatTimeSince(lastRefreshTime)}
+                </Text>
+              )}
+            </View>
+            {selectedRoute && (
+              <TouchableOpacity
+                onPress={() => setSelectedRoute(null)}
+                style={styles.clearFilterButton}
+              >
+                <Text style={styles.clearFilterText}>Clear Route Filter</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <FlatList
+            data={filteredBuses}
+            keyExtractor={(item) => item.busId}
+            renderItem={renderBusItem}
+            showsVerticalScrollIndicator={false}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Ionicons name="bus-outline" size={48} color={AppColors.textSecondary} />
+                <Text style={styles.emptyText}>
+                  {selectedRoute
+                    ? `No nearby buses found for route ${selectedRoute}`
+                    : 'No nearby buses found'}
+                </Text>
+              </View>
+            }
+          />
+          </View>
+        </LinearGradient>
+      )}
+
+      {/* Full-screen map overlay with bus info */}
+      {isFullScreenMap && (
+        <View style={styles.fullScreenOverlay}>
+          <View style={styles.fullScreenBusInfo}>
+            <Text style={styles.fullScreenTitle}>
+              Nearby Buses ({filteredBuses.length})
+            </Text>
+            {selectedRoute && (
+              <Text style={styles.fullScreenSubtitle}>
+                Filtered by Route {selectedRoute}
+              </Text>
+            )}
+            {selectedBus && (
+              <View style={styles.selectedBusInfo}>
+                <Text style={styles.selectedBusText}>
+                  Selected: {selectedBus.registrationNumber} (Route {selectedBus.routeNumber})
+                </Text>
+                <Text style={styles.selectedBusOccupancy}>
+                  {getOccupancyDisplayText(selectedBus).text}
+                </Text>
+              </View>
+            )}
+          </View>
+          <TouchableOpacity 
+            style={styles.fullScreenFilterButton}
+            onPress={() => {
+              // Quick access to clear filters
+              setSelectedRoute(null);
+              setSearchQuery('');
+              setSelectedBus(null);
+            }}
+          >
+            <Ionicons name="filter-outline" size={20} color="white" />
+            <Text style={styles.fullScreenFilterText}>Clear Filters</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <Modal
         visible={showBusDetails}
@@ -858,14 +955,22 @@ const fetchRoutes = async () => {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
+  gradientContainer: {
+    flex: 1,
+  },
   container: {
     flex: 1,
-    backgroundColor: AppColors.background,
+    backgroundColor: 'transparent',
+  },
+  headerGradient: {
+    borderBottomWidth: 1,
+    borderBottomColor: AppColors.border,
   },
   header: {
     flexDirection: 'row',
@@ -873,9 +978,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 10,
     paddingVertical: 12,
-    backgroundColor: AppColors.card,
-    borderBottomWidth: 1,
-    borderBottomColor: AppColors.border,
+    backgroundColor: 'transparent',
   },
   backButton: {
     padding: 8,
@@ -885,15 +988,18 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: AppColors.text,
   },
+  titleWhite: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: 'white',
+  },
   viewAllButton: {
     padding: 8,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: AppColors.card,
-    marginHorizontal: 16,
-    marginVertical: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     paddingHorizontal: 12,
     borderRadius: 8,
     borderWidth: 1,
@@ -906,11 +1012,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: AppColors.text,
   },
-  routeFilterContainer: {
-    backgroundColor: AppColors.card,
+  searchGradient: {
+    marginHorizontal: 16,
+    marginVertical: 8,
+    borderRadius: 8,
+  },
+  routeFilterGradient: {
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: AppColors.border,
+  },
+  routeFilterContainer: {
+    backgroundColor: 'transparent',
+    paddingVertical: 12,
   },
   filterTitle: {
     fontSize: 14,
@@ -1020,11 +1134,14 @@ const styles = StyleSheet.create({
     color: AppColors.primary,
     marginTop: 2,
   },
-  busListContainer: {
+  busListGradient: {
     maxHeight: Dimensions.get('window').height * 0.35,
-    backgroundColor: AppColors.card,
     borderTopWidth: 1,
     borderTopColor: AppColors.border,
+  },
+  busListContainer: {
+    maxHeight: Dimensions.get('window').height * 0.35,
+    backgroundColor: 'transparent',
   },
   busListHeader: {
     flexDirection: 'row',
@@ -1237,5 +1354,77 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  // Full-screen map styles
+  fullScreenMapContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 10,
+  },
+  fullScreenMapControls: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    flexDirection: 'column',
+    zIndex: 20,
+  },
+  fullScreenOverlay: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+    right: 80, // Leave space for controls
+    zIndex: 20,
+  },
+  fullScreenBusInfo: {
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  fullScreenTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 4,
+  },
+  fullScreenSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginBottom: 8,
+  },
+  selectedBusInfo: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  selectedBusText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'white',
+    marginBottom: 4,
+  },
+  selectedBusOccupancy: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+  fullScreenFilterButton: {
+    backgroundColor: 'rgba(0, 86, 179, 0.9)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  fullScreenFilterText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 6,
   },
 });
