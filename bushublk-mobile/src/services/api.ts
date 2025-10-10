@@ -206,4 +206,17 @@ export const storageAPI = {
 
 export { busLiveTrackingAPI, API_BASE_URL };
 
+export const complaintAPI = {
+  searchBusRoutes: async (query: string) => {
+    const response = await api.get('/api/complaints/bus-routes', {
+      params: { query },
+    });
+    return response.data;
+  },
+  getMyContactInfo: async () => {
+    const response = await api.get('/api/complaints/my-contact');
+    return response.data;
+  },
+};
+
 export default api;
