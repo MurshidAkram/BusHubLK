@@ -20,22 +20,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { API_BASE_URL } from '../config/api';
 
-const AppColors = {
-  background: '#F8F9FA',
-  card: '#FFFFFF',
-  primary: '#0056b3',
-  primaryLight: '#0076e3',
-  text: '#212529',
-  textSecondary: '#6C757D',
-  border: '#DEE2E6',
-  activeBlue: '#E7F1FF',
-};
 
-type Report = {
-  id: number;
-  driver_id: number;
-  [key: string]: unknown;
-};
 
 const AppColors = {
   background: '#F8F9FA',
@@ -255,21 +240,6 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
             <Ionicons name="call" size={23} color={AppColors.card} />
         </TouchableOpacity>
       </View>
-
-      <LinearGradient colors={[AppColors.card, AppColors.activeBlue]} style={styles.reportCard}>
-        <View style={styles.reportRow}>
-          <View style={styles.reportIconWrapper}>
-            <Ionicons name="chatbubbles" size={22} color={AppColors.primary} />
-          </View>
-          <View style={styles.reportDetails}>
-            <Text style={styles.reportTitle}>{reportMeta.incidentTitle}</Text>
-            <Text style={styles.reportSubtitle}>{reportMeta.created}</Text>
-          </View>
-          <View style={[styles.statusBadge, { backgroundColor: statusStyle.background }]}>
-            <Text style={[styles.statusBadgeText, { color: statusStyle.color }]}>{reportMeta.status}</Text>
-          </View>
-        </View>
-      </LinearGradient>
 
       <KeyboardAvoidingView 
         style={{ flex: 1 }} 

@@ -90,8 +90,19 @@ const WelcomeBanner = () => {
   const getBusRegistration = () => {
     if (isLoading) return "Loading...";
     if (error) return "Please contact depot";
-    if (!driverData?.busRegistration) return "No Assignment Today";
-    return driverData.busRegistration;
+    
+    // Check if there's a today assignment
+    if (driverData?.todayAssignment?.bus_registration) {
+      return driverData.todayAssignment.bus_registration;
+    }
+    
+    // Fallback to legacy busRegistration field
+    if (driverData?.busRegistration) {
+      return driverData.busRegistration;
+    }
+    
+    // No assignment for today
+    return "No Assignment Today";
   };
 
   return (
