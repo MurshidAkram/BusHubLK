@@ -242,13 +242,6 @@ try {
   console.log('❌ sparePartsRoutes error:', error.message);
 }
 
-try {
-  const emergencyRoutes = require('./routes/emergencyRoutes');
-  app.use('/api/emergency', emergencyRoutes);
-  console.log('✅ emergencyRoutes loaded');
-} catch (error) {
-  console.log('❌ emergencyRoutes error:', error.message);
-}
 
 try {
   const depotEmergencyRoutes = require('./routes/depotEmergencyRoutes');

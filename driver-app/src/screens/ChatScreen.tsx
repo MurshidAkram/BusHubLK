@@ -18,8 +18,24 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
+import { API_BASE_URL } from '../config/api';
 
-const API_BASE_URL = 'http://10.23.0.103:5000/api'; // Make sure this IP is correct
+const AppColors = {
+  background: '#F8F9FA',
+  card: '#FFFFFF',
+  primary: '#0056b3',
+  primaryLight: '#0076e3',
+  text: '#212529',
+  textSecondary: '#6C757D',
+  border: '#DEE2E6',
+  activeBlue: '#E7F1FF',
+};
+
+type Report = {
+  id: number;
+  driver_id: number;
+  [key: string]: unknown;
+};
 
 const AppColors = {
   background: '#F8F9FA',
