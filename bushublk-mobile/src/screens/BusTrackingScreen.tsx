@@ -20,6 +20,13 @@ import { HomeStackParamList } from '../navigation/navigationTypes';
 import { busLiveTrackingAPI } from '../services/busLiveTrackingAPI';
 import { busOccupancyAPI, AverageOccupancyData } from '../services/busOccupancyAPI';
 import { API_BASE_URL } from '../config/api';
+import { 
+  convertToSriLankaTime, 
+  getMinutesSince, 
+  formatTimeSince, 
+  isTimestampStale,
+  getCurrentSriLankaTime 
+} from '../utils/timeUtils';
 
 type Props = StackScreenProps<HomeStackParamList, 'BusTracking'>;
 
@@ -85,6 +92,7 @@ export default function BusTrackingScreen({ navigation }: Props) {
     longitudeDelta: 0.05,
   });
   const [occupancyData, setOccupancyData] = useState<{ [busId: string]: AverageOccupancyData }>({});
+  const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null);
 
   const mapRef = useRef<MapView>(null);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -168,8 +176,16 @@ const fetchRoutes = async () => {
       if (busLocations.length === 0) {
         setLoading(true);
       }
+      
+      console.log(`🔄 Fetching bus locations at ${new Date().toLocaleTimeString('en-LK')} (Sri Lanka time)`);
       const data = await busLiveTrackingAPI.getNearbyBuses(userLocation.latitude, userLocation.longitude, 5);
-      console.log('Fetched nearby buses:', data);
+      console.log(`✅ Fetched ${data.length} nearby buses:`, data.map((bus: any) => ({
+        id: bus.bus_id,
+        route: bus.route_number,
+        status: bus.tracking_status,
+        lastUpdate: bus.updated_at
+      })));
+      
       setBusLocations(data.map((item: any) => ({
         busId: item.bus_id,
         registrationNumber: item.registration_number,
@@ -183,6 +199,9 @@ const fetchRoutes = async () => {
         confidence: item.confidence || 0.0,
         distanceKm: parseFloat(item.distance), // Fixed: use distance instead of distance_km
       })));
+      
+      // Update last refresh time
+      setLastRefreshTime(getCurrentSriLankaTime());
     } catch (err: any) {
       console.error('Error fetching nearby buses:', err.message, err.response?.data);
       
@@ -280,7 +299,7 @@ const fetchRoutes = async () => {
     
     pollingIntervalRef.current = setInterval(() => {
       fetchBusLocations();
-    }, 30000); // Poll every 30 seconds
+    }, 50000); // Poll every 50 seconds
 
     return () => {
       if (pollingIntervalRef.current) {
@@ -303,7 +322,7 @@ const fetchRoutes = async () => {
     
     occupancyPollingRef.current = setInterval(() => {
       fetchOccupancyData();
-    }, 300000); // Poll every 5 minutes (300,000 ms)
+    }, 100000); // Poll every 5 minutes (300,000 ms)
 
     return () => {
       if (occupancyPollingRef.current) {
@@ -315,17 +334,39 @@ const fetchRoutes = async () => {
   // Filter buses using useMemo to prevent unnecessary re-renders
   const filteredBuses = useMemo(() => {
     const enhancedBuses = enhanceBusesWithOccupancyData(busLocations);
+    console.log(`🔍 Filtering ${enhancedBuses.length} buses with occupancy data...`);
+    
     let filtered = enhancedBuses.filter(bus => {
-      if (selectedRoute && bus.routeNumber !== selectedRoute) {
+      // Filter out buses with old data (older than 3 minutes) using Sri Lanka time
+      const minutesOld = getMinutesSince(bus.lastUpdated);
+      if (isTimestampStale(bus.lastUpdated, 3)) {
+        console.log(`⏰ Filtering out bus ${bus.busId} (Route ${bus.routeNumber}) - data is stale (${minutesOld} minutes old)`);
         return false;
       }
-      if (searchQuery) {
-        return bus.routeNumber && bus.routeNumber.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      if (selectedRoute && bus.routeNumber !== selectedRoute) {
+        console.log(`🛣️ Filtering out bus ${bus.busId} - route ${bus.routeNumber} doesn't match selected route ${selectedRoute}`);
+        return false;
       }
-      return bus.status === 'active';
+      
+      if (searchQuery) {
+        const matches = bus.routeNumber && bus.routeNumber.toLowerCase().includes(searchQuery.toLowerCase());
+        if (!matches) {
+          console.log(`🔍 Filtering out bus ${bus.busId} - route ${bus.routeNumber} doesn't match search "${searchQuery}"`);
+          return false;
+        }
+      }
+      
+      if (bus.status !== 'active') {
+        console.log(`🚌 Filtering out bus ${bus.busId} - status is ${bus.status} (not active)`);
+        return false;
+      }
+      
+      console.log(`✅ Keeping bus ${bus.busId} (Route ${bus.routeNumber}) - ${minutesOld}m old, status: ${bus.status}`);
+      return true;
     });
 
-    console.log('Filtered buses with occupancy data:', filtered);
+    console.log(`📊 Final result: ${filtered.length} buses after filtering from ${enhancedBuses.length} total`);
     return filtered;
   }, [busLocations, selectedRoute, searchQuery, enhanceBusesWithOccupancyData]);
 
@@ -460,12 +501,16 @@ const fetchRoutes = async () => {
 
   const renderBusItem = ({ item }: { item: BusLocation }) => {
     const occupancy = item.passengerCount / 60; // Assume capacity is 60
-    const timeSinceUpdate = Math.floor((Date.now() - item.lastUpdated.getTime()) / 60000);
+    const timeSinceUpdate = getMinutesSince(item.lastUpdated); // Using Sri Lanka time
     const occupancyDisplay = getOccupancyDisplayText(item);
+    const isStaleData = timeSinceUpdate > 2; // Mark as stale if older than 2 minutes
 
     return (
       <TouchableOpacity
-        style={styles.busCard}
+        style={[
+          styles.busCard,
+          isStaleData && styles.staleBusCard // Add visual indicator for stale data
+        ]}
         onPress={() => focusOnBus(item)}
         onLongPress={() => {
           setSelectedBus(item);
@@ -507,8 +552,12 @@ const fetchRoutes = async () => {
         </View>
 
         <View style={styles.lastUpdated}>
-          <Text style={styles.lastUpdatedText}>
-            Updated {timeSinceUpdate === 0 ? 'now' : `${timeSinceUpdate}m ago`}
+          <Text style={[
+            styles.lastUpdatedText,
+            isStaleData && styles.staleDataText
+          ]}>
+            Updated {formatTimeSince(item.lastUpdated)}
+            {isStaleData && ' (May be offline)'}
           </Text>
           {occupancyDisplay.source === 'passenger_reports' && (
             <Text style={[styles.lastUpdatedText, { color: AppColors.success }]}>
@@ -655,11 +704,22 @@ const fetchRoutes = async () => {
           <TouchableOpacity
             style={styles.mapControlButton}
             onPress={() => {
+              console.log('🔄 Manual refresh triggered');
+              fetchBusLocations();
+              fetchOccupancyData();
+            }}
+          >
+            <Ionicons name="refresh" size={20} color={AppColors.primary} />
+            <Text style={styles.mapControlText}>Refresh</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.mapControlButton}
+            onPress={() => {
               setSelectedRoute(null);
               setSearchQuery('');
             }}
           >
-            <Ionicons name="refresh" size={20} color={AppColors.primary} />
+            <Ionicons name="filter-outline" size={20} color={AppColors.primary} />
             <Text style={styles.mapControlText}>Reset</Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -674,9 +734,16 @@ const fetchRoutes = async () => {
 
       <View style={styles.busListContainer}>
         <View style={styles.busListHeader}>
-          <Text style={styles.busListTitle}>
-            Nearby Buses ({filteredBuses.length})
-          </Text>
+          <View>
+            <Text style={styles.busListTitle}>
+              Nearby Buses ({filteredBuses.length})
+            </Text>
+            {lastRefreshTime && (
+              <Text style={styles.lastRefreshText}>
+                Last updated: {formatTimeSince(lastRefreshTime)}
+              </Text>
+            )}
+          </View>
           {selectedRoute && (
             <TouchableOpacity
               onPress={() => setSelectedRoute(null)}
@@ -973,6 +1040,12 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: AppColors.text,
   },
+  lastRefreshText: {
+    fontSize: 12,
+    color: AppColors.textSecondary,
+    marginTop: 2,
+    fontStyle: 'italic',
+  },
   clearFilterButton: {
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -991,6 +1064,11 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: AppColors.border,
+  },
+  staleBusCard: {
+    opacity: 0.6,
+    borderColor: AppColors.warning,
+    borderStyle: 'dashed',
   },
   busHeader: {
     flexDirection: 'row',
@@ -1040,6 +1118,10 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: AppColors.textSecondary,
     fontStyle: 'italic',
+  },
+  staleDataText: {
+    color: AppColors.warning,
+    fontWeight: 'bold',
   },
   emptyContainer: {
     alignItems: 'center',
