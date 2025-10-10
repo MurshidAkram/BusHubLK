@@ -294,8 +294,10 @@ class DailyAssignment {
       `SELECT u.user_id AS id, u.first_name, u.last_name
        FROM users u
        JOIN drivers d ON u.user_id = d.driver_id
+       LEFT JOIN crew_status cs ON cs.person_id = d.driver_id AND cs.role = 'Driver'
        WHERE d.depot_id = $1
          AND u.is_active = TRUE
+         AND (cs.status = 'On Duty')
          AND u.user_id NOT IN (
            SELECT driver_id FROM dailyassignment
            WHERE assignment_date = $2 AND is_active = TRUE
@@ -311,8 +313,10 @@ class DailyAssignment {
       `SELECT u.user_id AS id, u.first_name, u.last_name
        FROM users u
        JOIN conductors c ON u.user_id = c.conductor_id
+       LEFT JOIN crew_status cs ON cs.person_id = c.conductor_id AND cs.role = 'Conductor'
        WHERE c.depot_id = $1
          AND u.is_active = TRUE
+         AND (cs.status = 'On Duty')
          AND u.user_id NOT IN (
            SELECT conductor_id FROM dailyassignment
            WHERE assignment_date = $2 AND is_active = TRUE

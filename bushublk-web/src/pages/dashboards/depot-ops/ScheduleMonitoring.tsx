@@ -1,476 +1,386 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
+import axios from 'axios';
+import { AppContext } from '../../../context/AppContext';
+import { Eye, Clock, MapPin, Bus, Route, Calendar, ChevronDown, X } from 'lucide-react';
 
-interface Bus {
-  id: string;
-  bus: string;
-  route: string;
-  scheduledDeparture: string;
-  scheduledArrival: string;
-  actual: string;
-  distance: string;
+interface BusTripSummary {
+  trip_id: number;
+  bus_id: number;
+  registration_number: string;
+  route_number: string;
+  route_name: string;
+  driver_name: string;
+  scheduled_departure: string;
+  scheduled_arrival: string;
+  actual_departure: string;
+  actual_arrival: string;
+  total_distance_km: number;
   status: string;
+  time_difference: string;
+  departure_status?: 'Early' | 'Delayed' | 'On Time';
+  arrival_status?: 'Early' | 'Delayed' | 'On Time';
+  departure_time_difference?: string;
+  arrival_time_difference?: string;
 }
 
 const BusScheduleTable = () => {
-  const [busData, setBusData] = useState<Bus[]>([
-    {
-      id: '1',
-      bus: 'NP4567',
-      route: '101',
-      scheduledDeparture: '09:00',
-      scheduledArrival: '11:30',
-      actual: '',
-      distance: '',
-      status: 'Not Logged'
-    },
-    {
-      id: '2',
-      bus: 'NP8910',
-      route: '102',
-      scheduledDeparture: '07:45',
-      scheduledArrival: '09:15',
-      actual: '07:40 - 09:00',
-      distance: '49 km',
-      status: 'Early'
-    },
-    {
-      id: '3',
-      bus: 'SP1234',
-      route: '103',
-      scheduledDeparture: '08:30',
-      scheduledArrival: '10:00',
-      actual: '08:35 - 10:10',
-      distance: '58 km',
-      status: 'Delayed'
-    },
-    {
-      id: '4',
-      bus: 'CP9876',
-      route: '104',
-      scheduledDeparture: '10:00',
-      scheduledArrival: '12:30',
-      actual: '10:00 - 12:30',
-      distance: '65 km',
-      status: 'On Time'
-    },
-    {
-      id: '5',
-      bus: 'NP1122',
-      route: '105',
-      scheduledDeparture: '06:00',
-      scheduledArrival: '08:00',
-      actual: '',
-      distance: '',
-      status: 'Not Logged'
-    },
-    {
-      id: '6',
-      bus: 'NP8910',
-      route: '122',
-      scheduledDeparture: '17:45',
-      scheduledArrival: '19:15',
-      actual: '17:40 - 19:00',
-      distance: '49 km',
-      status: 'Early'
-    },
-    {
-      id: '7',
-      bus: 'SP5234',
-      route: '108',
-      scheduledDeparture: '08:30',
-      scheduledArrival: '10:00',
-      actual: '08:35 - 10:10',
-      distance: '58 km',
-      status: 'Delayed'
-    },
-    {
-      id: '8',
-      bus: 'CN9876',
-      route: '144',
-      scheduledDeparture: '10:00',
-      scheduledArrival: '12:30',
-      actual: '14:00 - 15:30',
-      distance: '65 km',
-      status: 'On Time'
-    },
-    {
-      id: '9',
-      bus: 'NP0122',
-      route: '145',
-      scheduledDeparture: '16:00',
-      scheduledArrival: '18:00',
-      actual: '',
-      distance: '',
-      status: 'Not Logged'
+  const appContext = useContext(AppContext);
+  const user = appContext?.user;
+  const token = appContext?.token;
+
+  const [busData, setBusData] = useState<BusTripSummary[]>([]);
+  const [selectedRow, setSelectedRow] = useState<BusTripSummary | null>(null);
+  const [modalType, setModalType] = useState<'view' | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const today = new Date();
+    return today.toISOString().slice(0, 10);
+  });
+
+  useEffect(() => {
+    if (!token || !user || !selectedDate) return;
+    setLoading(true);
+    axios.get(`http://localhost:5000/api/live-summary/depot/${user.depot_id}?date=${selectedDate}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(res => {
+        setBusData(res.data.data ?? []);
+        setLoading(false);
+      })
+      .catch(err => {
+        setBusData([]);
+        setLoading(false);
+        console.error('Failed to fetch live tracking data:', err);
+      });
+  }, [token, user, selectedDate]);
+
+  const formatTo12Hour = (time: string) => {
+    if (!time) return 'Not recorded';
+    if (/^\d{2}:\d{2}(:\d{2})?$/.test(time)) {
+      const [h, m] = time.split(':');
+      let hours = parseInt(h, 10);
+      const minutes = m.padStart(2, '0');
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12 || 12;
+      return `${hours}:${minutes} ${ampm}`;
     }
-  ]);
+    const date = new Date(time);
+    let hours = date.getHours();
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12 || 12;
+    return `${hours}:${minutes} ${ampm}`;
+  };
 
-  const [selectedRow, setSelectedRow] = useState<Bus | null>(null);
-  const [modalType, setModalType] = useState<'view' | 'edit' | 'log' | null>(null);
-  const [formData, setFormData] = useState({
-    actualDeparture: '',
-    actualArrival: '',
-    distance: ''
-  });
-  const [errors, setErrors] = useState({
-    actualDeparture: '',
-    actualArrival: '',
-    distance: ''
-  });
-
-  // Get unique routes from busData
-  const routes = Array.from(new Set(busData.map(bus => bus.route))).map(route => ({
-    route_id: route,
-    route_number: route,
-    route_name: `Route ${route}`
-  }));
-
-  const [selectedRoute, setSelectedRoute] = useState<string | null>(null);
-  
-  // Filter buses by selected route
-  const filteredBuses = selectedRoute 
-    ? busData.filter(bus => bus.route === selectedRoute)
-    : busData;
-
-  const handleModalOpen = (type: 'view' | 'edit' | 'log', row: Bus) => {
-    setModalType(type);
+  const handleModalOpen = (row: BusTripSummary) => {
+    setModalType('view');
     setSelectedRow(row);
-    setErrors({ actualDeparture: '', actualArrival: '', distance: '' });
-
-    if (type === 'view') return;
-
-    setFormData({
-      actualDeparture: row.actual?.split(' - ')[0] || '',
-      actualArrival: row.actual?.split(' - ')[1] || '',
-      distance: row.distance.replace(' km', '')
-    });
   };
 
   const handleModalClose = () => {
     setModalType(null);
     setSelectedRow(null);
-    setFormData({ actualDeparture: '', actualArrival: '', distance: '' });
-    setErrors({ actualDeparture: '', actualArrival: '', distance: '' });
   };
 
-  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-    setErrors(prev => ({ ...prev, [name]: '' }));
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'On Time': return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+      case 'Delayed': return 'bg-rose-100 text-rose-800 border-rose-200';
+      case 'Early': return 'bg-blue-100 text-blue-800 border-blue-200';
+      default: return 'bg-gray-100 text-gray-700 border-gray-200';
+    }
   };
 
-  const handleSave = () => {
-    const newErrors = {
-      actualDeparture: formData.actualDeparture ? '' : 'Actual departure is required',
-      actualArrival: formData.actualArrival ? '' : 'Actual arrival is required',
-      distance: formData.distance ? '' : 'Distance is required'
-    };
-
-    setErrors(newErrors);
-
-    if (Object.values(newErrors).some(error => error !== '')) return;
-    if (!selectedRow) return;
-
-    const actual = `${formData.actualDeparture} - ${formData.actualArrival}`;
-    const distance = `${formData.distance} km`;
-    const scheduledArrival = selectedRow.scheduledArrival;
-    let status = 'On Time';
-
-    if (formData.actualArrival < scheduledArrival) status = 'Early';
-    else if (formData.actualArrival > scheduledArrival) status = 'Delayed';
-
-    setBusData(prev =>
-      prev.map(bus =>
-        bus.id === selectedRow.id
-          ? { ...bus, actual, distance, status }
-          : bus
-      )
-    );
-
-    handleModalClose();
-  };
+  const today = new Date();
+  const todayString = today.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  const todayDay = today.toLocaleDateString('en-US', { weekday: 'short' });
 
   return (
-    <div>
-     
+    <div className="bg-white rounded-2xl shadow-md p-6 min-h-screen">
+      <div className="max-w-7xl mx-auto">
 
-      <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-        <div className="flex flex-col md:flex-row gap-0">
-          {/* Routes List - Left Panel */}
-          <div className="md:w-1/4 bg-gradient-to-b from-blue-25 to-indigo-25 border-r border-gray-200">
-            <div className="p-5 sticky top-0 bg-gradient-to-r from-blue-600 to-indigo-700 text-white">
-              <h2 className="text-xl font-bold">Available Routes</h2>
-              <p className="text-blue-100 text-sm mt-1">Select route to view schedule</p>
+        {/* Stats Overview */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-sm border border-white/60 p-6 hover:scale-105 transition-transform duration-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Trips</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{busData.length}</p>
+              </div>
+              <div className="bg-blue-500/10 rounded-xl p-3">
+                <Route className="h-6 w-6 text-blue-600" />
+              </div>
             </div>
-            <ul className="p-3 max-h-[calc(100vh-150px)] overflow-y-auto">
-              {routes.map(route => (
-                <li
-                  key={route.route_id}
-                  className={`p-3 mb-2 rounded-lg transition-all duration-200 cursor-pointer flex items-start
-                    ${selectedRoute === route.route_id
-                      ? 'bg-white shadow-md border-l-4 border-blue-500'
-                      : 'hover:bg-blue-100'}`}
-                  onClick={() => setSelectedRoute(route.route_id)}
-                >
-                  <div className="flex-1">
-                    <div className="font-semibold text-gray-800">Route {route.route_number}</div>
-                    <div className="text-sm text-gray-600 mt-1">{route.route_name}</div>
-                  </div>
-                  {selectedRoute === route.route_id && (
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-500 mt-1" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                    </svg>
-                  )}
-                </li>
-              ))}
-            </ul>
           </div>
 
-          {/* Main Content Area - Right Panel */}
-          <div className="md:w-3/4">
-            {selectedRoute ? (
-              <div className="p-6">
-                <div className="flex justify-between items-center mb-6">
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-800">
-                      Schedule for Route {selectedRoute}
-                    </h2>
-                    <p className="text-gray-600">Bus schedules and performance tracking</p>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="text-lg px-4 py-2 bg-blue-100 text-blue-800 rounded-full font-medium">
-                      {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Bus Schedule Table */}
-                <div className="overflow-hidden rounded-lg border border-gray-200 shadow-sm">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-100">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Bus</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Scheduled Departure</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Scheduled Arrival</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Actual Time</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Distance</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Status</th>
-                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {filteredBuses.map((row) => (
-                        <tr key={row.id} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="font-medium text-gray-900">{row.bus}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-gray-900">{row.scheduledDeparture}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-gray-900">{row.scheduledArrival}</td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {row.actual ? (
-                              <div className="text-gray-900">{row.actual}</div>
-                            ) : (
-                              <span className="bg-red-100 text-red-800 px-2.5 py-0.5 rounded-full text-xs font-medium">Not recorded</span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {row.distance ? (
-                              <div className="text-gray-900">{row.distance}</div>
-                            ) : (
-                              <span className="bg-red-100 text-red-800 px-2.5 py-0.5 rounded-full text-xs font-medium">Not recorded</span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium 
-                              ${row.status === 'Early' ? 'bg-green-100 text-green-800' :
-                                row.status === 'Delayed' ? 'bg-red-100 text-red-800' :
-                                  row.status === 'On Time' ? 'bg-blue-100 text-blue-800' :
-                                    'bg-gray-100 text-gray-800'}`}>
-                              {row.status}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <div className="flex justify-end space-x-2">
-                              <button
-                                onClick={() => handleModalOpen('log', row)}
-                                disabled={row.status !== 'Not Logged'}
-                                className={`text-sm px-3 py-1 rounded ${
-                                  row.status !== 'Not Logged' 
-                                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-                                    : 'bg-green-100 text-green-700 hover:bg-green-200'
-                                }`}
-                              >
-                                Log
-                              </button>
-                              <button
-                                onClick={() => handleModalOpen('view', row)}
-                                className="text-sm px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
-                              >
-                                View
-                              </button>
-                              <button
-                                onClick={() => handleModalOpen('edit', row)}
-                                disabled={row.status === 'Not Logged'}
-                                className={`text-sm px-3 py-1 rounded ${
-                                  row.status === 'Not Logged' 
-                                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-                                    : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
-                                }`}
-                              >
-                                Edit
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full py-24 px-4 text-center">
-                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-full p-6 mb-6">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">Select a Route</h3>
-                <p className="text-gray-600 max-w-md">
-                  Choose a route from the left panel to view and manage its daily schedule
+          <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-sm border border-white/60 p-6 hover:scale-105 transition-transform duration-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Active Buses</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">
+                  {new Set(busData.map(bus => bus.bus_id)).size}
                 </p>
               </div>
-            )}
+              <div className="bg-emerald-500/10 rounded-xl p-3">
+                <Bus className="h-6 w-6 text-emerald-600" />
+              </div>
+            </div>
           </div>
+
+          <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-sm border border-white/60 p-6 hover:scale-105 transition-transform duration-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Routes</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">
+                  {new Set(busData.map(bus => bus.route_number)).size}
+                </p>
+              </div>
+              <div className="bg-purple-500/10 rounded-xl p-3">
+                <MapPin className="h-6 w-6 text-purple-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-sm border border-white/60 p-6 hover:scale-105 transition-transform duration-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Today</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{todayString}</p>
+              </div>
+              <div className="bg-amber-500/10 rounded-xl p-3">
+                <Calendar className="h-6 w-6 text-amber-600" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Table Section */}
+        <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-sm border border-white/60 overflow-hidden">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-16">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+              <p className="text-gray-600 font-medium">Loading schedules...</p>
+              <p className="text-sm text-gray-500 mt-2">Fetching the latest bus data</p>
+            </div>
+          ) : (
+            <>
+              <div className="px-8 py-6 border-b border-gray-100">
+                <h2 className="text-xl font-semibold text-gray-800">Schedule Overview</h2>
+                <p className="text-gray-600 mt-1">Real-time tracking of all bus trips</p>
+              </div>
+
+              <div className="px-8 py-4">
+                <div className="mb-4 flex items-center space-x-4">
+                  <label className="text-gray-700 font-medium">Filter by Date:</label>
+                  <input
+                    type="date"
+                    value={selectedDate}
+                    onChange={e => setSelectedDate(e.target.value)}
+                    className="border rounded px-2 py-1"
+                  />
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-100 bg-gradient-to-r from-gray-50 to-blue-50/30">
+                      <th className="px-8 py-6 text-left"><div className="flex items-center space-x-2"><Bus className="h-4 w-4 text-gray-500" /><span className="font-semibold text-gray-700 text-sm uppercase tracking-wide">Bus</span></div></th>
+                      <th className="px-8 py-6 text-left"><div className="flex items-center space-x-2"><Route className="h-4 w-4 text-gray-500" /><span className="font-semibold text-gray-700 text-sm uppercase tracking-wide">Route</span></div></th>
+                      <th className="px-8 py-6 text-left"><div className="flex items-center space-x-2"><Clock className="h-4 w-4 text-gray-500" /><span className="font-semibold text-gray-700 text-sm uppercase tracking-wide">Scheduled</span></div></th>
+                      <th className="px-8 py-6 text-left"><div className="flex items-center space-x-2"><Clock className="h-4 w-4 text-gray-500" /><span className="font-semibold text-gray-700 text-sm uppercase tracking-wide">Actual</span></div></th>
+                      <th className="px-8 py-6 text-left"><span className="font-semibold text-gray-700 text-sm uppercase tracking-wide">Distance</span></th>
+                      <th className="px-8 py-6 text-right"><span className="font-semibold text-gray-700 text-sm uppercase tracking-wide">Actions</span></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {Array.isArray(busData) && busData.map((row, index) => (
+                      <tr 
+                        key={`${row.bus_id}-${row.trip_id}-${index}`}
+                        className="group hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-white transition-all duration-200"
+                      >
+                        <td className="px-8 py-6">
+                          <div className="flex items-center space-x-3">
+                            <div className="bg-blue-100 rounded-xl p-2">
+                              <Bus className="h-5 w-5 text-blue-600" />
+                            </div>
+                            <div>
+                              <p className="font-semibold text-gray-900">{row.registration_number}</p>
+                              <p className="text-sm text-gray-500 mt-1">{row.driver_name}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-8 py-6">
+                          <div>
+                            <p className="font-semibold text-gray-900">Route {row.route_number}</p>
+                            <p className="text-sm text-gray-500 mt-1 line-clamp-1">{row.route_name}</p>
+                          </div>
+                        </td>
+                        <td className="px-8 py-6">
+                          <div className="space-y-2">
+                            <div>
+                              <p className="text-sm text-gray-500">Departure</p>
+                              <p className="font-medium text-gray-900">{formatTo12Hour(row.scheduled_departure)}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-500">Arrival</p>
+                              <p className="font-medium text-gray-900">{formatTo12Hour(row.scheduled_arrival)}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-8 py-6">
+                          <div className="space-y-2">
+                            <div>
+                              <p className="text-sm text-gray-500">Departure</p>
+                              <p className={`font-medium ${row.actual_departure ? 'text-gray-900' : 'text-amber-600'}`}>{formatTo12Hour(row.actual_departure)}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-500">Arrival</p>
+                              <p className={`font-medium ${row.actual_arrival ? 'text-gray-900' : 'text-amber-600'}`}>{formatTo12Hour(row.actual_arrival)}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-8 py-6">
+                          <div className="bg-gray-50 rounded-2xl px-4 py-3 inline-block">
+                            <p className="font-bold text-gray-900 text-lg">{row.total_distance_km}</p>
+                            <p className="text-sm text-gray-500">kilometers</p>
+                          </div>
+                        </td>
+                        <td className="px-8 py-6 text-right">
+                          <button
+                            onClick={() => handleModalOpen(row)}
+                            className="inline-flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-2xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30 group"
+                          >
+                            <span className="font-semibold">View</span>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {busData.length === 0 && (
+                <div className="text-center py-16">
+                  <div className="bg-gray-100 rounded-3xl p-8 inline-block">
+                    <Bus className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold text-gray-600 mb-2">No schedules available</h3>
+                    <p className="text-gray-500">There are no bus schedules to display at the moment.</p>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
 
-      {/* Modal */}
-      {modalType && selectedRow && (
-        <div className="fixed inset-0 backdrop-blur-sm bg-white/10 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-xl p-6 relative">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold capitalize">{modalType} Entry</h2>
+      {/* View Modal */}
+      {modalType === 'view' && selectedRow && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm transition-all duration-300">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden transform transition-transform duration-300 scale-100">
+
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-blue-500 to-indigo-200 p-6 rounded-t-3xl flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-extrabold text-white tracking-tight mb-1 flex items-center">
+                  Trip Details
+                </h2>
+                </div>
               <button 
-                onClick={handleModalClose} 
-                className="text-gray-500 hover:text-gray-700 p-1 rounded-full hover:bg-gray-100"
+                onClick={handleModalClose}
+                className="text-white/80 hover:text-white transition-colors p-2 hover:bg-white/10 rounded-2xl"
+                aria-label="Close"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <X className="h-6 w-6" />
               </button>
             </div>
 
-            {modalType === 'view' && (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Bus</label>
-                    <div className="text-gray-900">{selectedRow.bus}</div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Route</label>
-                    <div className="text-gray-900">{selectedRow.route}</div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Scheduled Departure</label>
-                    <div className="text-gray-900">{selectedRow.scheduledDeparture}</div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Scheduled Arrival</label>
-                    <div className="text-gray-900">{selectedRow.scheduledArrival}</div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Actual Time</label>
-                    <div className="text-gray-900">{selectedRow.actual || 'Not recorded'}</div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Distance</label>
-                    <div className="text-gray-900">{selectedRow.distance || 'Not recorded'}</div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium 
-                      ${selectedRow.status === 'Early' ? 'bg-green-100 text-green-800' :
-                        selectedRow.status === 'Delayed' ? 'bg-red-100 text-red-800' :
-                          selectedRow.status === 'On Time' ? 'bg-blue-100 text-blue-800' :
-                            'bg-gray-100 text-gray-800'}`}>
-                      {selectedRow.status}
-                    </span>
-                  </div>
+            {/* Modal Content */}
+            <div className="p-8 overflow-y-auto max-h-[calc(90vh-200px)] space-y-6">
+
+              {/* Driver & Bus Info */}
+              <div className="flex flex-col sm:flex-row sm:space-x-8 space-y-2 sm:space-y-0 mb-4">
+                <div>
+                  <p className="text-xs text-gray-500 font-medium mb-1">Driver</p>
+                  <p className="text-base font-semibold text-gray-900">{selectedRow.driver_name}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 font-medium mb-1">Bus Number</p>
+                  <p className="text-base font-semibold text-gray-900">{selectedRow.registration_number}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 font-medium mb-1">Route</p>
+                  <p className="text-base font-semibold text-gray-900">{selectedRow.route_number} <span className="text-gray-500 font-normal">({selectedRow.route_name})</span></p>
                 </div>
               </div>
-            )}
 
-            {(modalType === 'edit' || modalType === 'log') && (
-              <>
-                <div className="mb-4 p-4 bg-gray-50 rounded-lg">
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="font-medium">Bus:</span> {selectedRow.bus}
-                    </div>
-                    <div>
-                      <span className="font-medium">Route:</span> {selectedRow.route}
-                    </div>
-                    <div>
-                      <span className="font-medium">Scheduled:</span> {selectedRow.scheduledDeparture} - {selectedRow.scheduledArrival}
-                    </div>
-                  </div>
+              {/* Scheduled Times */}
+              <div className="border-t border-b border-gray-100 py-4 grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Scheduled Departure</p>
+                  <p className="text-base font-semibold text-gray-900">{formatTo12Hour(selectedRow.scheduled_departure)}</p>
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Actual Departure</label>
-                    <input
-                      type="time"
-                      name="actualDeparture"
-                      value={formData.actualDeparture}
-                      onChange={handleFormChange}
-                      className={`w-full border rounded px-3 py-2 text-sm ${errors.actualDeparture ? 'border-red-500' : 'border-gray-300'}`}
-                    />
-                    {errors.actualDeparture && <p className="text-red-500 text-xs mt-1">{errors.actualDeparture}</p>}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Actual Arrival</label>
-                    <input
-                      type="time"
-                      name="actualArrival"
-                      value={formData.actualArrival}
-                      onChange={handleFormChange}
-                      className={`w-full border rounded px-3 py-2 text-sm ${errors.actualArrival ? 'border-red-500' : 'border-gray-300'}`}
-                    />
-                    {errors.actualArrival && <p className="text-red-500 text-xs mt-1">{errors.actualArrival}</p>}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Distance (km)</label>
-                    <input
-                      type="number"
-                      name="distance"
-                      value={formData.distance}
-                      onChange={handleFormChange}
-                      className={`w-full border rounded px-3 py-2 text-sm ${errors.distance ? 'border-red-500' : 'border-gray-300'}`}
-                    />
-                    {errors.distance && <p className="text-red-500 text-xs mt-1">{errors.distance}</p>}
-                  </div>
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Scheduled Arrival</p>
+                  <p className="text-base font-semibold text-gray-900">{formatTo12Hour(selectedRow.scheduled_arrival)}</p>
                 </div>
-              </>
-            )}
-
-            {(modalType === 'edit' || modalType === 'log') && (
-              <div className="mt-6 flex justify-end space-x-2">
-                <button
-                  onClick={handleModalClose}
-                  className="px-4 py-2 bg-gray-300 text-gray-800 rounded hover:bg-gray-400 text-sm"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSave}
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
-                >
-                  Save
-                </button>
               </div>
-            )}
+
+              {/* Actual Times */}
+              <div className="border-b border-gray-100 py-4 grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Actual Departure</p>
+                  <p className="text-base font-semibold text-gray-900">
+                    {selectedRow.actual_departure ? formatTo12Hour(selectedRow.actual_departure) : 'Not recorded'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Actual Arrival</p>
+                  <p className="text-base font-semibold text-gray-900">
+                    {selectedRow.actual_arrival ? formatTo12Hour(selectedRow.actual_arrival) : 'Not recorded'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Status Section */}
+              <div className="border-b border-gray-100 py-4 grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Departure Status</p>
+                  <span className={`px-2 py-1 text-sm rounded font-semibold
+                    ${selectedRow.departure_status === 'Early' ? 'bg-blue-100 text-blue-700' :
+                      selectedRow.departure_status === 'Delayed' ? 'bg-rose-100 text-rose-700' :
+                        selectedRow.departure_status === 'On Time' ? 'bg-gray-100 text-gray-700' : 'bg-gray-50 text-gray-400'}`}>
+                    {selectedRow.departure_status} {selectedRow.departure_time_difference}
+                  </span>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Arrival Status</p>
+                  <span className={`px-2 py-1 text-sm rounded font-semibold
+                    ${selectedRow.arrival_status === 'Early' ? 'bg-blue-100 text-blue-700' :
+                      selectedRow.arrival_status === 'Delayed' ? 'bg-rose-100 text-rose-700' :
+                        selectedRow.arrival_status === 'On Time' ? 'bg-gray-100 text-gray-700' : 'bg-gray-50 text-gray-400'}`}>
+                    {selectedRow.arrival_status} {selectedRow.arrival_time_difference}
+                  </span>
+                </div>
+              </div>
+
+              {/* Distance */}
+              <div className="py-4">
+                <p className="text-xs text-gray-500 mb-1">Total Distance</p>
+                <p className="text-base font-semibold text-gray-900">{selectedRow.total_distance_km} km</p>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="border-t border-gray-200 px-8 py-6 bg-gray-50 flex justify-end">
+              <button
+                onClick={handleModalClose}
+                className="bg-gradient-to-r from-gray-200 to-gray-300 text-black px-8 py-3 rounded-2xl hover:from-gray-700 hover:to-gray-800 transition-all duration-200 font-semibold shadow-lg"
+              >
+                Close 
+              </button>
+            </div>
+
           </div>
         </div>
       )}

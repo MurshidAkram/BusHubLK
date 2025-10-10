@@ -2,7 +2,9 @@ import React, { useState, useEffect, useContext } from 'react';
 import { AppContext } from '../../../context/AppContext';
 
 const DailyOperations: React.FC = () => {
-  const { user, token } = useContext(AppContext);
+  const appContext = useContext(AppContext);
+  const user = appContext?.user;
+  const token = appContext?.token;
 
   // State
   const [routes, setRoutes] = useState<Route[]>([]);
@@ -221,7 +223,7 @@ const DailyOperations: React.FC = () => {
               Authorization: `Bearer ${token}`
             },
             body: JSON.stringify({
-              depot_id: user.depot_id,
+              depot_id: user?.depot_id ?? '',
               bus_id: formData.bus_id,
               driver_id: formData.driver_id,
               conductor_id: formData.conductor_id,
@@ -566,7 +568,7 @@ const DailyOperations: React.FC = () => {
                       Authorization: `Bearer ${token}`
                       },
                       body: JSON.stringify({
-                        depot_id: user.depot_id, // Add this line
+                        depot_id: user?.depot_id ?? '', // Add this line with null check
                         route_id: Number(selectedRouteId),
                         shift_start_time: newSlot.start,
                         shift_end_time: newSlot.end

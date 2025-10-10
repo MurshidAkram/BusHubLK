@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useContext } from 'react';
 import { HiClock, HiTruck, HiUsers } from 'react-icons/hi';
 import {
   BarChart,
@@ -13,6 +13,8 @@ import {
   Legend,
   Label
 } from 'recharts';
+import { AppContext } from '../../../context/AppContext';
+import axios from 'axios';
 
 type CrewStatus = 'Off Duty' | 'On Duty' | 'On Break';
 
@@ -40,33 +42,52 @@ const yearlyData = [
   { year: '2025', active: 180, inService: 109, distance: 14500 },
 ];
 
+// Helper to convert "YYYY-MM" to "Jan", "Feb", etc.
+const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const formatMonthlyDistanceData = (data: any[]) => {
+  return data.map(row => {
+    const [year, month] = row.month.split('-');
+    return {
+      ...row,
+      month: monthNames[parseInt(month, 10) - 1] // "01" => "Jan"
+    };
+  });
+};
+
 const DepotOperationsManagerDashboard = () => {
   const [crewList, setCrewList] = useState<CrewMember[]>([]);
   const [loading, setLoading] = useState(false);
   const [graphView, setGraphView] = useState<'monthly' | 'yearly'>('monthly');
+  const [scheduleStatus, setScheduleStatus] = useState<any[]>([]);
+  const [scheduleLoading, setScheduleLoading] = useState(false);
+  const [distanceData, setDistanceData] = useState<any[]>([]);
+  const [distanceLoading, setDistanceLoading] = useState(false);
+  const [busStatsData, setBusStatsData] = useState<any[]>([]);
+  const [busStatsLoading, setBusStatsLoading] = useState(false);
   const chartRef = useRef<HTMLDivElement>(null);
+
+  const appContext = useContext(AppContext);
+  const user = appContext?.user;
+  const token = appContext?.token;
 
   const depotId = 1;
   const regionId = 1;
 
   useEffect(() => {
-    const fetchCrew = async () => {
-      setLoading(true);
-      try {
-        const token = localStorage.getItem('token');
-        const res = await fetch(
-          `http://localhost:5000/api/crew?depot_id=${depotId}&region_id=${regionId}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-          }
-        );
-        if (!res.ok) throw new Error('Failed to fetch crew');
-        const data = await res.json();
+    if (!user || !token) return;
+    setLoading(true);
+    axios.get(
+      `http://localhost:5000/api/crew?depot_id=${user.depot_id}&region_id=${regionId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    )
+      .then(res => {
         setCrewList(
-          data.map((member: any) => ({
+          res.data.map((member: any) => ({
             id: member.person_id,
             name: member.name,
             contact: member.contact,
@@ -74,14 +95,61 @@ const DepotOperationsManagerDashboard = () => {
             status: member.status,
           }))
         );
-      } catch (err) {
-        setCrewList([]);
-      } finally {
         setLoading(false);
-      }
-    };
-    fetchCrew();
-  }, [depotId, regionId]);
+      })
+      .catch(() => {
+        setCrewList([]);
+        setLoading(false);
+      });
+  }, [user, token, regionId]);
+
+  useEffect(() => {
+    if (!user || !token) return;
+    setScheduleLoading(true);
+    axios.get(`http://localhost:5000/api/live-summary/depot/${user.depot_id}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(res => {
+        setScheduleStatus(res.data.data ?? []);
+        setScheduleLoading(false);
+      })
+      .catch(() => {
+        setScheduleStatus([]);
+        setScheduleLoading(false);
+      });
+  }, [user, token]);
+
+  useEffect(() => {
+    if (!user || !token) return;
+    setDistanceLoading(true);
+    axios.get(`http://localhost:5000/api/live-summary/depot/${user.depot_id}/distance-summary?period=${graphView}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(res => {
+        setDistanceData(res.data.data ?? []);
+        setDistanceLoading(false);
+      })
+      .catch(() => {
+        setDistanceData([]);
+        setDistanceLoading(false);
+      });
+  }, [user, token, graphView]);
+
+  useEffect(() => {
+    if (!user || !token) return;
+    setBusStatsLoading(true);
+    axios.get(`http://localhost:5000/api/bus-stats/depot/${user.depot_id}/bus-stats?period=${graphView}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(res => {
+        setBusStatsData(graphView === 'monthly' ? formatMonthlyDistanceData(res.data.data ?? []) : res.data.data ?? []);
+        setBusStatsLoading(false);
+      })
+      .catch(() => {
+        setBusStatsData([]);
+        setBusStatsLoading(false);
+      });
+  }, [user, token, graphView]);
 
   const onDutyDrivers = crewList.filter(
     (member) => member.role === 'Driver' && member.status === 'On Duty'
@@ -147,35 +215,37 @@ const DepotOperationsManagerDashboard = () => {
             </div>
           </div>
           <div className="p-6 space-y-4 flex-1">
-            {[
-              { route: "Route 138", status: "On Time", delay: "0 min", bus: "NP-1234", color: "green" },
-              { route: "Route 101", status: "Delayed", delay: "12 min", bus: "NY-8901", color: "red" },
-              { route: "Route 154", status: "On Time", delay: "0 min", bus: "LA-9871", color: "green" },
-              { route: "Route 122", status: "Early", delay: "-3 min", bus: "NC-1234", color: "blue" },
-              { route: "Route 120", status: "Delayed", delay: "8 min", bus: "NP-3456", color: "red" },
-            ].map((schedule, index) => (
-              <div key={index} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0">
-                <div className="flex items-center space-x-3">
-                  <div className={`w-3 h-3 rounded-full ${
-                    schedule.color === 'green' ? 'bg-green-500' :
-                    schedule.color === 'red' ? 'bg-red-500' : 'bg-blue-500'
-                  }`}></div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">{schedule.route}</p>
-                    <p className="text-xs text-gray-500">Bus: {schedule.bus}</p>
+            {scheduleLoading ? (
+              <div className="text-center text-gray-500">Loading...</div>
+            ) : (
+              scheduleStatus.length === 0 ? (
+                <div className="text-center text-gray-500">No schedules available</div>
+              ) : (
+                scheduleStatus.map((trip, index) => (
+                  <div key={index} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0">
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-3 h-3 rounded-full ${
+                        trip.arrival_status === 'On Time' ? 'bg-green-500' :
+                        trip.arrival_status === 'Delayed' ? 'bg-red-500' : 'bg-blue-500'
+                      }`}></div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">Route {trip.route_number}</p>
+                        <p className="text-xs text-gray-500">Bus: {trip.registration_number}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className={`text-xs px-2 py-1 rounded-full ${
+                        trip.arrival_status === 'On Time' ? 'bg-green-100 text-green-800' :
+                        trip.arrival_status === 'Delayed' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
+                      }`}>
+                        {trip.arrival_status}
+                      </span>
+                      <p className="text-xs text-gray-500 mt-1">{trip.arrival_time_difference}</p>
+                    </div>
                   </div>
-                </div>
-                <div className="text-right">
-                  <span className={`text-xs px-2 py-1 rounded-full ${
-                    schedule.color === 'green' ? 'bg-green-100 text-green-800' :
-                    schedule.color === 'red' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
-                  }`}>
-                    {schedule.status}
-                  </span>
-                  <p className="text-xs text-gray-500 mt-1">{schedule.delay}</p>
-                </div>
-              </div>
-            ))}
+                ))
+              )
+            )}
           </div>
         </div>
 
@@ -196,7 +266,7 @@ const DepotOperationsManagerDashboard = () => {
           </div>
           <div className="flex-1 flex items-center" ref={chartRef}>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={graphView === 'monthly' ? monthlyData : yearlyData}>
+              <BarChart data={busStatsData}>
                 <XAxis 
                   dataKey={graphView === 'monthly' ? 'month' : 'year'} 
                   label={{ value: graphView === 'monthly' ? 'Month' : 'Year', position: 'insideBottom', offset: -5 }} 
@@ -207,7 +277,7 @@ const DepotOperationsManagerDashboard = () => {
                 <Tooltip />
                 <Legend verticalAlign="top" height={36} />
                 <Bar dataKey="active" fill="#1d25bd" name="Active Buses" />
-                <Bar dataKey="inService" fill="#3561f0" name="In Service" />
+                <Bar dataKey="in_service" fill="#3561f0" name="In Service" />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -222,20 +292,14 @@ const DepotOperationsManagerDashboard = () => {
           </div>
           <div className="flex-1 flex items-center">
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={graphView === 'monthly' ? monthlyData : yearlyData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey={graphView === 'monthly' ? 'month' : 'year'} 
-                  label={{ value: graphView === 'monthly' ? 'Month' : 'Year', position: 'insideBottom', offset: -5 }} 
-                />
-                <YAxis 
-                  label={{ value: 'Distance (km)', angle: -90, position: 'insideLeft' }} 
-                />
+              <LineChart data={graphView === 'monthly' ? formatMonthlyDistanceData(distanceData) : distanceData}>
+                <XAxis dataKey={graphView === 'monthly' ? 'month' : 'year'} />
+                <YAxis label={{ value: 'Distance (km)', angle: -90, position: 'insideLeft' }} />
                 <Tooltip />
                 <Legend verticalAlign="top" height={36} />
                 <Line
                   type="monotone"
-                  dataKey="distance"
+                  dataKey="total_distance"
                   stroke="#10b981"
                   strokeWidth={2}
                   name="Distance Travelled"

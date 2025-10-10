@@ -9,6 +9,7 @@ interface CrewMember {
   contact: string;
   role: 'Driver' | 'Conductor';
   status: CrewStatus;
+  assigned_today?: boolean;
 }
 
 const CrewManagement = () => {
@@ -20,6 +21,7 @@ const CrewManagement = () => {
 
   const [crewList, setCrewList] = useState<CrewMember[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   // TODO: Replace with actual user depot/region (from context/auth)
   const depotId = 1;
@@ -50,10 +52,12 @@ const CrewManagement = () => {
             contact: member.contact,
             role: member.role,
             status: member.status,
+            assigned_today: member.assigned_today, // <-- Add this line!
           }))
         );
       } catch (err) {
         setCrewList([]);
+        setError('Failed to fetch crew');
       } finally {
         setLoading(false);
       }
@@ -289,7 +293,8 @@ const CrewManagement = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button
                         onClick={() => openStatusModal(member)}
-                        className="inline-flex items-center text-blue-600 hover:text-blue-900"
+                        className={`inline-flex items-center text-blue-600 hover:text-blue-900 ${member.assigned_today ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        disabled={member.assigned_today}
                       >
                         <RotateCw className="h-4 w-4 mr-1" />
                         Change Status
@@ -308,6 +313,8 @@ const CrewManagement = () => {
           Showing {filteredCrew.length} of {crewList.length} crew members
         </div>
       )}
+
+      {error && <div className="text-red-500">{error}</div>}
     </div>
   );
 };
