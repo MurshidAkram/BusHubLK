@@ -20,6 +20,8 @@ import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { API_BASE_URL } from '../config/api';
+import { driverAPI } from '../services/api';
+import AppHeader from '../components/AppHeader';
 
 const AppColors = {
   background: '#F8F9FA',
@@ -32,7 +34,25 @@ const AppColors = {
   activeBlue: '#E7F1FF',
   accent: '#E9F2FF',
   success: '#198754',
+  red: '#EF4444',
+  yellow: '#F59E0B',
+  green: '#10B981',
+  orange: '#F97316',
+  purple: '#8B5CF6',
 };
+
+interface BusInfo {
+  busNumber: string;
+  routeNumber: string;
+  driverName: string;
+}
+
+interface QuickIncident {
+  id: string;
+  text: string;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  color: string;
+}
 
 type IncidentType = 'Accident' | 'Medical' | 'Fire' | 'Breakdown' | 'Theft' | 'Hazard';
 type EmergencyHistoryItem = HistoryItemProps['item'];
@@ -112,6 +132,19 @@ const EmergencyScreen = ({ navigation }: EmergencyScreenProps) => {
   const [history, setHistory] = useState<EmergencyHistoryItem[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [isInputFocused, setIsInputFocused] = useState(false);
+  const [urgencyLevel, setUrgencyLevel] = useState<'low' | 'medium' | 'high' | 'critical'>('medium');
+  const [isLocationTracking, setIsLocationTracking] = useState<boolean>(false);
+  const [busInfo, setBusInfo] = useState<BusInfo | null>(null);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const [isPanicMode, setIsPanicMode] = useState<boolean>(false);
+  const [currentAssignment, setCurrentAssignment] = useState<any>(null);
+
+  // Quick action emergency incidents - All incident types consolidated
+  const quickIncidents: QuickIncident[] = [
+    { id: '1', text: 'Accident', icon: 'car-emergency', color: AppColors.red },
+    { id: '2', text: 'Fire', icon: 'fire-truck', color: AppColors.orange },
+    { id: '3', text: 'Breakdown', icon: 'engine-off-outline', color: AppColors.yellow }
+  ];
 
   useEffect(() => {
     const initialize = async () => {
@@ -120,26 +153,154 @@ const EmergencyScreen = ({ navigation }: EmergencyScreenProps) => {
         const driver = JSON.parse(storedDriverData);
         if (driver && driver.driver_id) {
           setDriverId(driver.driver_id);
+          
+          // Try to get current assignment data first for most up-to-date info
+          let busNumber = 'Unknown';
+          let routeNumber = 'Unknown';
+          
+          try {
+            const assignment = await driverAPI.getDailyAssignment(driver.driver_id.toString());
+            if (assignment && !assignment.error) {
+              setCurrentAssignment(assignment); // Store full assignment data
+              busNumber = assignment.bus_registration || assignment.registration_number || 'Unknown';
+              routeNumber = assignment.route_number || 'Unknown';
+              console.log('✅ Emergency: Got assignment data:', { busNumber, routeNumber, assignment });
+            } else {
+              console.log('⚠️ Emergency: No current assignment, using stored data');
+              // Fallback to stored driver data
+              busNumber = driver.busRegistration || driver.bus_number || 'Unknown';
+              
+              // Try to get route details if routeId is available
+              if (driver.routeId) {
+                try {
+                  const route = await driverAPI.getRouteById(driver.routeId);
+                  if (route && route.route_number) {
+                    routeNumber = route.route_number;
+                  }
+                } catch (error) {
+                  console.error('Failed to fetch route details:', error);
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Failed to fetch current assignment:', error);
+            // Fallback to stored driver data
+            busNumber = driver.busRegistration || driver.bus_number || 'Unknown';
+            routeNumber = driver.route_number || 'Unknown';
+          }
+          
+          setBusInfo({
+            busNumber: busNumber,
+            routeNumber: routeNumber,
+            driverName: `${driver.first_name} ${driver.last_name}` || 'Unknown Driver'
+          });
           fetchHistory(driver.driver_id);
         }
       } else {
         Alert.alert("Authentication Error", "Could not find your Driver ID.");
         setIsLoadingHistory(false);
       }
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        setLocationError('Permission to access location was denied.');
-      } else {
-        try {
-          const locationData = await Location.getCurrentPositionAsync({});
-          setLocation(locationData);
-        } catch (error) {
-          setLocationError('Could not fetch location.');
-        }
-      }
+      
+      // Enhanced location tracking
+      await startLocationTracking();
     };
     initialize();
   }, []);
+
+  const startLocationTracking = async () => {
+    setIsLocationTracking(true);
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      setLocationError('Location permission denied - Emergency services may not be able to locate you');
+      setIsLocationTracking(false);
+      return;
+    }
+
+    try {
+      // Get high-accuracy location
+      const locationData = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.BestForNavigation,
+      });
+      setLocation(locationData);
+      setIsLocationTracking(false);
+      
+      // Start continuous location monitoring for emergencies
+      Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.High,
+          timeInterval: 5000, // Update every 5 seconds during emergency
+          distanceInterval: 1,
+        },
+        (newLocation) => {
+          setLocation(newLocation);
+        }
+      );
+    } catch (error) {
+      setLocationError('Unable to get precise location - using approximate location');
+      setIsLocationTracking(false);
+      
+      // Fallback to approximate location
+      try {
+        const approxLocation = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Low,
+        });
+        setLocation(approxLocation);
+      } catch (fallbackError) {
+        setLocationError('Location services unavailable');
+      }
+    }
+  };
+
+  // Enhanced panic button functionality
+  const handlePanicButton = () => {
+    setIsPanicMode(true);
+    setSelectedIncident('Accident');
+    setUrgencyLevel('critical');
+    setDescription('🚨 PANIC BUTTON ACTIVATED - IMMEDIATE ASSISTANCE REQUIRED');
+    
+    // Start countdown for auto-submission
+    let countdownValue = 10;
+    setCountdown(countdownValue);
+    
+    const countdownInterval = setInterval(() => {
+      countdownValue -= 1;
+      setCountdown(countdownValue);
+      
+      if (countdownValue <= 0) {
+        clearInterval(countdownInterval);
+        handleSubmit(true); // Auto-submit with panic flag
+      }
+    }, 1000);
+
+    // Show countdown alert
+    Alert.alert(
+      '🚨 PANIC MODE ACTIVATED',
+      'Emergency report will be sent automatically in 10 seconds unless cancelled',
+      [
+        {
+          text: 'CANCEL',
+          style: 'cancel',
+          onPress: () => {
+            clearInterval(countdownInterval);
+            setIsPanicMode(false);
+            setCountdown(null);
+            setSelectedIncident(null);
+            setDescription('');
+            setUrgencyLevel('medium');
+          }
+        },
+        {
+          text: 'SEND NOW',
+          style: 'destructive',
+          onPress: () => {
+            clearInterval(countdownInterval);
+            setCountdown(null);
+            handleSubmit(true);
+          }
+        }
+      ]
+    );
+  };
 
   const fetchHistory = async (id: number) => {
     if (!id) return;
@@ -161,31 +322,78 @@ const EmergencyScreen = ({ navigation }: EmergencyScreenProps) => {
     }
   };
 
-  const handleSubmit = async () => {
-    if (!selectedIncident || !location || !driverId) {
-      Alert.alert('Incomplete Report', 'Please select an incident and ensure location is available.');
+  const handleSubmit = async (isPanic = false) => {
+    if (!selectedIncident && !isPanic) {
+      Alert.alert('Missing Information', 'Please select an incident type.');
       return;
     }
+    if (!location) {
+      Alert.alert('Location Required', 'Location is required for emergency reports. Please enable location services.');
+      return;
+    }
+    if (!driverId) {
+      Alert.alert('Authentication Error', 'Driver information not found. Please log in again.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      const reportData = {
+      const locationMessage = location ? 
+        `📍 Location: ${location.coords.latitude.toFixed(6)}, ${location.coords.longitude.toFixed(6)}\n📏 Accuracy: ±${Math.round(location.coords.accuracy || 0)}m` : 
+        '❌ Location unavailable';
+
+      const emergencyData = {
         driver_id: driverId,
-        incidentType: selectedIncident,
-        description,
-        location: { latitude: location.coords.latitude, longitude: location.coords.longitude },
+        bus_id: currentAssignment?.bus_id || null,
+        assignment_id: currentAssignment?.assignment_id || null,
+        incidentType: selectedIncident || 'Emergency',
+        description: isPanic ? 
+          `🚨 PANIC BUTTON ACTIVATED - IMMEDIATE ASSISTANCE REQUIRED\n\n${locationMessage}${busInfo ? `\n\n🚌 Bus: ${busInfo.busNumber}\n🗺️ Route: ${busInfo.routeNumber}\n👤 Driver: ${busInfo.driverName}` : ''}` :
+          `${description || 'Emergency reported'}\n\n${locationMessage}${busInfo ? `\n\n🚌 Bus: ${busInfo.busNumber}\n🗺️ Route: ${busInfo.routeNumber}\n👤 Driver: ${busInfo.driverName}` : ''}`,
+        location: {
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+        },
+        urgency_level: isPanic ? 'critical' : urgencyLevel,
+        panic_mode: isPanic,
+        auto_submitted: isPanic && countdown !== null && countdown <= 0,
+        timestamp: new Date().toISOString(),
       };
+
+      console.log('📝 Emergency submission data:', JSON.stringify(emergencyData, null, 2));
+
       const response = await fetch(`${API_BASE_URL}/emergency`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await AsyncStorage.getItem("driverToken")}` },
-        body: JSON.stringify(reportData),
+        headers: { 
+          'Content-Type': 'application/json', 
+          Authorization: `Bearer ${await AsyncStorage.getItem("driverToken")}` 
+        },
+        body: JSON.stringify(emergencyData),
       });
+
       const newReport = await response.json();
-      if (!response.ok) throw new Error(newReport.message || 'Failed to submit report.');
-      Alert.alert("Success", "Your report has been submitted.");
-      navigation.replace('ChatScreen', { report: newReport });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to submit report.';
-      Alert.alert('Submission Failed', message);
+      if (!response.ok) throw new Error(newReport.message || 'Failed to submit emergency report.');
+      
+      // Reset form
+      setSelectedIncident(null);
+      setDescription('');
+      setUrgencyLevel('medium');
+      setIsPanicMode(false);
+      setCountdown(null);
+      
+      // Show success with next steps
+      Alert.alert(
+        '✅ Emergency Report Sent',
+        `Report ID: ${newReport.id || 'Unknown'}\n\nEmergency services have been notified. Stay safe and follow emergency protocols.`,
+        [
+          {
+            text: 'View Response',
+            onPress: () => navigation.replace('ChatScreen', { report: newReport })
+          }
+        ]
+      );
+    } catch (error: any) {
+      Alert.alert('Submission Failed', error.message || 'Unable to send emergency report. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -214,15 +422,135 @@ const EmergencyScreen = ({ navigation }: EmergencyScreenProps) => {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.container}>
-          <Text style={styles.sectionTitle}>Select Incident Type</Text>
-          <View style={styles.incidentGrid}>
-            <IncidentButton icon="car-emergency" text="Accident" isSelected={selectedIncident === 'Accident'} onPress={() => setSelectedIncident('Accident')} />
-            <IncidentButton icon="medical-bag" text="Medical" isSelected={selectedIncident === 'Medical'} onPress={() => setSelectedIncident('Medical')} />
-            <IncidentButton icon="fire-truck" text="Fire" isSelected={selectedIncident === 'Fire'} onPress={() => setSelectedIncident('Fire')} />
-            <IncidentButton icon="engine-off-outline" text="Breakdown" isSelected={selectedIncident === 'Breakdown'} onPress={() => setSelectedIncident('Breakdown')} />
-            <IncidentButton icon="lock-alert" text="Theft" isSelected={selectedIncident === 'Theft'} onPress={() => setSelectedIncident('Theft')} />
-            <IncidentButton icon="alert-decagram" text="Hazard" isSelected={selectedIncident === 'Hazard'} onPress={() => setSelectedIncident('Hazard')} />
+          {/* Enhanced Panic Button */}
+          <View style={styles.panicContainer}>
+            <TouchableOpacity 
+              style={[styles.panicButton, isPanicMode && styles.panicButtonActive]} 
+              onPress={handlePanicButton}
+              disabled={isSubmitting}
+            >
+              <LinearGradient
+                colors={isPanicMode ? [AppColors.red, '#DC2626'] : [AppColors.red, '#EF4444']}
+                style={styles.panicButtonGradient}
+              >
+                <MaterialCommunityIcons 
+                  name="shield-alert" 
+                  size={40} 
+                  color="#ffffff" 
+                />
+                <Text style={styles.panicButtonText}>
+                  {countdown !== null ? `PANIC (${countdown}s)` : 'PANIC BUTTON'}
+                </Text>
+                {countdown !== null && (
+                  <Text style={styles.panicSubText}>Auto-sending in {countdown}s</Text>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
           </View>
+
+          <Text style={styles.sectionTitle}>Select Incident Type</Text>
+          
+          {/* Quick Action Incidents - Consolidated */}
+          <View style={styles.quickIncidentGrid}>
+            {quickIncidents.map((incident) => (
+              <TouchableOpacity
+                key={incident.id}
+                style={[
+                  styles.quickIncidentButton,
+                  selectedIncident === incident.text && styles.quickIncidentButtonSelected
+                ]}
+                onPress={() => {
+                  setSelectedIncident(incident.text as IncidentType);
+                  // Auto-set urgency based on incident type
+                  if (incident.text === 'Fire') setUrgencyLevel('critical');
+                  else if (incident.text === 'Accident') setUrgencyLevel('high');
+                  else setUrgencyLevel('medium');
+                }}
+              >
+                <LinearGradient
+                  colors={selectedIncident === incident.text ? 
+                    [incident.color, incident.color + '90'] : 
+                    ['#ffffff', '#f8f9fa']
+                  }
+                  style={styles.quickIncidentGradient}
+                >
+                  <MaterialCommunityIcons 
+                    name={incident.icon} 
+                    size={32} 
+                    color={selectedIncident === incident.text ? '#ffffff' : incident.color} 
+                  />
+                  <Text style={[
+                    styles.quickIncidentText,
+                    selectedIncident === incident.text && styles.quickIncidentTextSelected
+                  ]}>
+                    {incident.text}
+                  </Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Urgency Level Selection */}
+          <Text style={styles.sectionTitle}>Urgency Level</Text>
+          <View style={styles.urgencyContainer}>
+            {[
+              { level: 'low', label: 'Low', color: AppColors.green, icon: 'information' },
+              { level: 'medium', label: 'Medium', color: AppColors.yellow, icon: 'alert' },
+              { level: 'high', label: 'High', color: AppColors.orange, icon: 'alert-circle' },
+              { level: 'critical', label: 'Critical', color: AppColors.red, icon: 'alarm-light' }
+            ].map(({ level, label, color, icon }) => (
+              <TouchableOpacity
+                key={level}
+                style={[
+                  styles.urgencyButton,
+                  urgencyLevel === level && styles.urgencyButtonSelected,
+                  { borderColor: color }
+                ]}
+                onPress={() => setUrgencyLevel(level as any)}
+              >
+                <MaterialCommunityIcons 
+                  name={icon as any} 
+                  size={20} 
+                  color={urgencyLevel === level ? '#ffffff' : color} 
+                />
+                <Text style={[
+                  styles.urgencyText,
+                  urgencyLevel === level && styles.urgencyTextSelected,
+                  { color: urgencyLevel === level ? '#ffffff' : color }
+                ]}>
+                  {label}
+                </Text>
+                {urgencyLevel === level && (
+                  <LinearGradient
+                    colors={[color, color + '90']}
+                    style={styles.urgencyButtonBackground}
+                  />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Bus Information Display */}
+          {busInfo && (
+            <View style={styles.busInfoContainer}>
+              <Text style={styles.sectionTitle}>Vehicle Information</Text>
+              <LinearGradient colors={[AppColors.accent, '#ffffff']} style={styles.busInfoBox}>
+                <View style={styles.busInfoRow}>
+                  <MaterialCommunityIcons name="bus" size={20} color={AppColors.primary} />
+                  <Text style={styles.busInfoText}>Bus: {busInfo.busNumber}</Text>
+                </View>
+                <View style={styles.busInfoRow}>
+                  <MaterialCommunityIcons name="map-marker-path" size={20} color={AppColors.primary} />
+                  <Text style={styles.busInfoText}>Route: {busInfo.routeNumber}</Text>
+                </View>
+                <View style={styles.busInfoRow}>
+                  <MaterialCommunityIcons name="account" size={20} color={AppColors.primary} />
+                  <Text style={styles.busInfoText}>Driver: {busInfo.driverName}</Text>
+                </View>
+              </LinearGradient>
+            </View>
+          )}
+
           <Text style={styles.sectionTitle}>Additional Details (Optional)</Text>
           <TextInput
             style={[styles.input, isInputFocused && styles.inputFocused]}
@@ -234,21 +562,43 @@ const EmergencyScreen = ({ navigation }: EmergencyScreenProps) => {
             onFocus={() => setIsInputFocused(true)}
             onBlur={() => setIsInputFocused(false)}
           />
-          <Text style={styles.sectionTitle}>Location Status</Text>
+          <Text style={styles.sectionTitle}>Enhanced Location Status</Text>
           <LinearGradient colors={[AppColors.accent, '#ffffff']} style={styles.locationBox}>
-            {location ? (
+            {isLocationTracking ? (
               <>
-                <Ionicons name="location" size={20} color={AppColors.primary} />
-                <Text style={[styles.locationText, { color: AppColors.primary }]}>Location captured successfully.</Text>
+                <ActivityIndicator color={AppColors.yellow} />
+                <Text style={[styles.locationText, { color: AppColors.yellow }]}>
+                  Acquiring high-accuracy GPS location...
+                </Text>
+              </>
+            ) : location ? (
+              <>
+                <Ionicons name="location" size={20} color={AppColors.green} />
+                <View style={styles.locationDetails}>
+                  <Text style={[styles.locationText, { color: AppColors.green }]}>
+                    📍 Location captured successfully
+                  </Text>
+                  <Text style={styles.locationSubText}>
+                    Accuracy: ±{Math.round(location.coords.accuracy || 0)}m • 
+                    Coords: {location.coords.latitude.toFixed(6)}, {location.coords.longitude.toFixed(6)}
+                  </Text>
+                  {location.coords.speed && location.coords.speed > 0 && (
+                    <Text style={styles.locationSubText}>
+                      Speed: {Math.round(location.coords.speed * 3.6)} km/h
+                    </Text>
+                  )}
+                </View>
               </>
             ) : (
               <>
-                <ActivityIndicator color={AppColors.primary} />
-                <Text style={[styles.locationText, { color: AppColors.textSecondary }]}>{locationError || 'Fetching GPS coordinates...'}</Text>
+                <Ionicons name="location-outline" size={20} color={AppColors.red} />
+                <Text style={[styles.locationText, { color: AppColors.red }]}>
+                  {locationError || 'Location unavailable - emergency services may have limited location info'}
+                </Text>
               </>
             )}
           </LinearGradient>
-          <TouchableOpacity style={styles.submitButtonWrapper} onPress={handleSubmit} disabled={isSubmitting}>
+          <TouchableOpacity style={styles.submitButtonWrapper} onPress={() => handleSubmit(false)} disabled={isSubmitting}>
             <LinearGradient
               colors={isSubmitting ? ['#CED4DA', '#ADB5BD'] : [AppColors.primary, AppColors.primaryLight]}
               style={styles.submitButton}>
@@ -287,14 +637,17 @@ const EmergencyScreen = ({ navigation }: EmergencyScreenProps) => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-  <StatusBar barStyle="light-content" backgroundColor={AppColors.primary} />
-  <LinearGradient colors={[AppColors.primary, AppColors.primaryLight]} style={styles.header}>
-        <View style={styles.headerTitleContainer}>
-          <MaterialCommunityIcons name="shield-car" size={32} color="#ffffff" />
-          <Text style={styles.headerTitle}>Emergency Center</Text>
-        </View>
-      </LinearGradient>
-  <View style={styles.tabContainer}>
+      <StatusBar barStyle="light-content" backgroundColor={AppColors.primary} />
+      
+      {/* AppHeader with Emergency Icon */}
+      <AppHeader 
+        title="Emergency Center"
+        showBackButton={true}
+        onBackPress={() => navigation.goBack()}
+      />
+      
+      {/* Tab Container */}
+      <View style={styles.tabContainer}>
         <TouchableOpacity style={[styles.tab, activeTab === 'new' && styles.tabActive]} onPress={() => setActiveTab('new')} activeOpacity={0.7}>
           <Text style={[styles.tabText, activeTab === 'new' && styles.tabTextActive]}>New Report</Text>
         </TouchableOpacity>
@@ -311,6 +664,8 @@ const EmergencyScreen = ({ navigation }: EmergencyScreenProps) => {
           <Text style={[styles.tabText, activeTab === 'history' && styles.tabTextActive]}>History</Text>
         </TouchableOpacity>
       </View>
+      
+      {/* Content */}
       <View style={styles.content}>
         {activeTab === 'new' ? renderNewReport() : renderHistory()}
       </View>
@@ -413,13 +768,26 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     borderWidth: 1,
     borderColor: '#c4e2ff',
     marginTop: 8,
     backgroundColor: AppColors.accent,
   },
-  locationText: { marginLeft: 8, fontSize: 15, fontWeight: '500', color: AppColors.primary },
+  locationDetails: {
+    flex: 1,
+    marginLeft: 8,
+  },
+  locationText: { 
+    fontSize: 15, 
+    fontWeight: '600',
+  },
+  locationSubText: {
+    fontSize: 12,
+    color: AppColors.textSecondary,
+    marginTop: 4,
+    fontWeight: '500',
+  },
   submitButtonWrapper: {
     marginVertical: 20,
     borderRadius: 16,
@@ -467,6 +835,143 @@ const styles = StyleSheet.create({
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
   emptyText: { fontSize: 20, fontWeight: '600', color: AppColors.text, marginTop: 16 },
   emptySubText: { fontSize: 14, color: AppColors.textSecondary, marginTop: 4, textAlign: 'center' },
+  
+  // Enhanced Panic Button Styles
+  panicContainer: {
+    marginVertical: 16,
+    alignItems: 'center',
+  },
+  panicButton: {
+    width: '80%',
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: AppColors.red,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  panicButtonActive: {
+    transform: [{ scale: 0.95 }],
+  },
+  panicButtonGradient: {
+    paddingVertical: 20,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  panicButtonText: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: 1,
+    marginTop: 8,
+  },
+  panicSubText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 4,
+    opacity: 0.9,
+  },
+
+  // Quick Incident Styles
+  quickIncidentGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  quickIncidentButton: {
+    width: '32%',
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: AppColors.border,
+  },
+  quickIncidentButtonSelected: {
+    borderColor: AppColors.primary,
+    transform: [{ scale: 0.98 }],
+  },
+  quickIncidentGradient: {
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 90,
+  },
+  quickIncidentText: {
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: 8,
+    color: AppColors.text,
+  },
+  quickIncidentTextSelected: {
+    color: '#ffffff',
+    fontWeight: '700',
+  },
+
+  // Urgency Level Styles
+  urgencyContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  urgencyButton: {
+    flex: 1,
+    marginHorizontal: 4,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  urgencyButtonSelected: {
+    borderColor: 'transparent',
+  },
+  urgencyButtonBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  urgencyText: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  urgencyTextSelected: {
+    color: '#ffffff',
+    fontWeight: '700',
+  },
+
+  // Bus Info Styles
+  busInfoContainer: {
+    marginBottom: 16,
+  },
+  busInfoBox: {
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: AppColors.border,
+  },
+  busInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  busInfoText: {
+    marginLeft: 12,
+    fontSize: 15,
+    fontWeight: '500',
+    color: AppColors.text,
+    flex: 1,
+  },
 });
 
 export default EmergencyScreen;
