@@ -41,6 +41,7 @@ import DailyOperations from './pages/dashboards/depot-ops/DailyOperations'
 import ScheduleMonitoring from './pages/dashboards/depot-ops/ScheduleMonitoring'
 import CrewManagement from './pages/dashboards/depot-ops/CrewManagement'
 import IncidentManagement from './pages/dashboards/depot-ops/IncidentManagement'  
+import NotificationsCenter from './pages/dashboards/depot-ops/NotificationsCenter'
 import AnnouncementCenter from './pages/dashboards/depot-ops/AnnouncementCenter'
 import Complaints from './pages/dashboards/depot-ops/Complaints'
 
@@ -198,6 +199,7 @@ const App = () => {
           <Route path="schedule-monitoring" element={<ScheduleMonitoring />} />
           <Route path="crew-management" element={<CrewManagement />} />
           <Route path="incident-management" element={<IncidentManagement />} />
+          <Route path="notificationscenter" element={<NotificationsCenter />} />
           <Route path="announcement-center" element={<AnnouncementCenter />} />
           <Route path="passenger-complaints" element={<Complaints />} />
           
