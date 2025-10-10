@@ -24,6 +24,8 @@ const upload = multer({ storage: storage });
 // We apply the authenticateJWT middleware to all of them.
 router.post('/submit', authenticateJWT, upload.single('image'), complaintController.createComplaint);
 router.get('/my-complaints', authenticateJWT, complaintController.getUserComplaints);
+router.get('/bus-routes', authenticateJWT, complaintController.searchBusRoutes);
+router.get('/my-contact', authenticateJWT, complaintController.getMyContactInfo);
 router.get('/:id', authenticateJWT, complaintController.getComplaintById);
 router.delete('/:id', authenticateJWT, complaintController.deleteComplaint);
 
