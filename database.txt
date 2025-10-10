@@ -836,3 +836,24 @@ CREATE INDEX idx_busdailychecklists_bus_id ON busdailychecklists(bus_id);
 CREATE INDEX idx_busdailychecklists_checker_id ON busdailychecklists(checker_id);
 CREATE INDEX idx_busdailychecklists_check_date ON busdailychecklists(check_date);
 CREATE INDEX idx_busdailychecklists_all_parts_checked ON busdailychecklists(all_parts_checked);
+
+-- Depot handover functionality for Lost & Found reports
+-- Add depot handover fields to lost_found_reports table
+ALTER TABLE lost_found_reports 
+ADD COLUMN IF NOT EXISTS handed_to_depot_id INTEGER REFERENCES depots(depot_id) ON DELETE SET NULL,
+ADD COLUMN IF NOT EXISTS handover_date TIMESTAMP WITHOUT TIME ZONE,
+ADD COLUMN IF NOT EXISTS handover_notes TEXT,
+ADD COLUMN IF NOT EXISTS handover_updated_by INTEGER REFERENCES passengers(passenger_id) ON DELETE SET NULL;
+
+-- Add index for depot handover queries
+CREATE INDEX IF NOT EXISTS idx_lost_found_depot_handover 
+    ON lost_found_reports(handed_to_depot_id, handover_date);
+
+-- Add index for handover updates by user
+CREATE INDEX IF NOT EXISTS idx_lost_found_handover_user 
+    ON lost_found_reports(handover_updated_by);
+
+COMMENT ON COLUMN lost_found_reports.handed_to_depot_id IS 'Depot where the found item was handed over';
+COMMENT ON COLUMN lost_found_reports.handover_date IS 'Date and time when item was handed to depot';
+COMMENT ON COLUMN lost_found_reports.handover_notes IS 'Additional notes about the handover process';
+COMMENT ON COLUMN lost_found_reports.handover_updated_by IS 'Passenger who updated the handover information';
