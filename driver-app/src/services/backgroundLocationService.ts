@@ -5,11 +5,14 @@ import axios from 'axios';
 import { Alert, Platform } from 'react-native';
 import { API_BASE_URL } from '../config/api';
 
+console.log('📦 BackgroundLocationService module loaded');
 
 const BACKGROUND_LOCATION_TASK = 'background-location-task';
 const OFFLINE_QUEUE_KEY = '@location_offline_queue';
 const TRACKING_STATUS_KEY = '@tracking_status';
 const ACTIVE_ASSIGNMENT_KEY = '@active_assignment';
+
+console.log('🔧 Task name:', BACKGROUND_LOCATION_TASK);
 
 // Track last update to calculate intervals and prevent duplicates
 let lastProcessedTimestamp: number = 0;
@@ -30,8 +33,11 @@ interface OfflineQueueItem extends LocationUpdate {
   routeId: number;
 }
 
+console.log('🎯 Defining background task...');
 // Define the background task
 TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }: any) => {
+  console.log('🎯 Background task triggered!', { hasData: !!data, hasError: !!error });
+  
   if (error) {
     console.error('❌ Background location task error:', error);
     return;
@@ -39,8 +45,16 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }: any) =>
 
   if (data) {
     const { locations } = data;
+    
+    if (!locations || locations.length === 0) {
+      console.warn('⚠️ No locations in data');
+      return;
+    }
+    
     const location = locations[0];
     const now = Date.now();
+
+    console.log(`📍 Location received: ${location.coords.latitude.toFixed(6)}, ${location.coords.longitude.toFixed(6)}`);
 
     // Skip duplicate timestamps
     if (location.timestamp === lastProcessedTimestamp) {
@@ -106,24 +120,43 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }: any) =>
 // Send location update to server
 async function sendLocationUpdate(locationData: OfflineQueueItem): Promise<boolean> {
   try {
+    console.log('📤 Preparing to send location update...');
+    console.log('📊 Location data:', {
+      driverId: locationData.driverId,
+      busId: locationData.busId,
+      routeId: locationData.routeId,
+      coords: `${locationData.latitude.toFixed(6)}, ${locationData.longitude.toFixed(6)}`,
+      speed: locationData.speed,
+      heading: locationData.heading,
+      accuracy: locationData.accuracy
+    });
+    
     // Get auth token from AsyncStorage
     const token = await AsyncStorage.getItem('driverToken');
     if (!token) {
       console.log('⚠️ No auth token found, cannot send location update');
       return false;
     }
+    
+    console.log('🔑 Auth token found, sending request...');
+    console.log('🌐 API URL:', `${API_BASE_URL}/live-tracking/position`);
+
+    const payload = {
+      driver_id: locationData.driverId,
+      bus_id: locationData.busId,
+      route_id: locationData.routeId,
+      latitude: locationData.latitude,
+      longitude: locationData.longitude,
+      speed: locationData.speed || 0,
+      heading: locationData.heading || 0,
+      accuracy: locationData.accuracy || 0,
+    };
+    
+    console.log('📦 Payload:', payload);
 
     const response = await axios.post(
       `${API_BASE_URL}/live-tracking/position`,
-      {
-        driver_id: locationData.driverId,
-        bus_id: locationData.busId,
-        route_id: locationData.routeId,
-        latitude: locationData.latitude,
-        longitude: locationData.longitude,
-        speed: locationData.speed || 0,
-        heading: locationData.heading || 0,
-      },
+      payload,
       {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -133,13 +166,26 @@ async function sendLocationUpdate(locationData: OfflineQueueItem): Promise<boole
       }
     );
 
+    console.log('📡 Response status:', response.status);
+    console.log('📡 Response data:', response.data);
+
     if (response.status === 200 || response.status === 201) {
       console.log('✅ Location update sent successfully');
       return true;
     }
+    
+    console.warn('⚠️ Unexpected response status:', response.status);
     return false;
   } catch (error) {
-    console.log('⚠️ Failed to send location update:', error);
+    if (axios.isAxiosError(error)) {
+      console.error('❌ API Error:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+    } else {
+      console.error('❌ Failed to send location update:', error);
+    }
     return false;
   }
 }
@@ -199,36 +245,29 @@ export class BackgroundLocationService {
   // Start background location tracking
   static async startTracking(driverId: number, busId: number, routeId: number): Promise<boolean> {
     try {
-      console.log('🚀 Starting background location tracking...');
-      console.log('🔍 Platform:', Platform.OS);
+      console.log('🚀 BackgroundLocationService: Starting tracking...');
+      console.log('📊 Parameters:', { driverId, busId, routeId });
+      console.log('� Platform:', Platform.OS);
 
+      // Check current permissions (don't request, just check)
+      console.log('🔍 Checking existing permissions...');
+      const foregroundStatus = await Location.getForegroundPermissionsAsync();
+      const backgroundStatus = await Location.getBackgroundPermissionsAsync();
+      
+      console.log('📍 Foreground permission:', foregroundStatus.status);
+      console.log('📍 Background permission:', backgroundStatus.status);
 
-      // Request permissions
-      const { status: foregroundStatus } = await Location.requestForegroundPermissionsAsync();
-      if (foregroundStatus !== 'granted') {
+      if (foregroundStatus.status !== 'granted') {
         console.error('❌ Foreground location permission not granted');
         Alert.alert('Permission Required', 'Please enable location permissions to use tracking.');
         return false;
       }
 
-      const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
-      if (backgroundStatus !== 'granted') {
-        console.warn('⚠️ Background location permission not granted');
-        Alert.alert(
-          '⚠️ Background Permission Recommended', 
-          'For best tracking experience, please enable "Allow all the time" location permission.\n\nThis ensures passengers can track the bus accurately even when the app is in the background or closed.\n\nYou can still continue with foreground-only tracking.',
-          [
-            { text: 'Continue with Foreground Only', style: 'cancel', onPress: () => {
-              // Continue with setup but log warning
-              console.log('⚠️ Continuing without background permission');
-            }},
-            { text: 'Open Settings', onPress: () => Location.requestBackgroundPermissionsAsync() }
-          ]
-        );
-        // Don't return false - continue with foreground tracking
-      }
+      const hasBackground = backgroundStatus.status === 'granted';
+      console.log(`✅ Permissions OK - Background: ${hasBackground ? 'YES' : 'NO'}`)
 
       // Store active assignment
+      console.log('💾 Storing assignment to AsyncStorage...');
       const assignment = {
         driverId,
         busId,
@@ -236,15 +275,21 @@ export class BackgroundLocationService {
         startTime: Date.now(),
       };
       await AsyncStorage.setItem(ACTIVE_ASSIGNMENT_KEY, JSON.stringify(assignment));
+      console.log('✅ Assignment stored successfully');
 
       // Check if already registered
+      console.log('🔍 Checking if task already registered...');
       const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_LOCATION_TASK);
+      console.log(`📋 Task registered: ${isRegistered}`);
+      
       if (isRegistered) {
         console.log('⚠️ Task already registered, unregistering first...');
         await Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
+        console.log('✅ Previous task stopped');
       }
 
       // Start background location updates with optimized settings for EAS build
+      console.log('🚀 Starting location updates with TaskManager...');
       await Location.startLocationUpdatesAsync(BACKGROUND_LOCATION_TASK, {
         accuracy: Location.Accuracy.High, // High accuracy for precise tracking
         timeInterval: 5000, // Update every 5 seconds (frequent updates)
@@ -260,9 +305,12 @@ export class BackgroundLocationService {
         activityType: Location.ActivityType.AutomotiveNavigation,
         showsBackgroundLocationIndicator: true, // Show iOS indicator
       });
+      console.log('✅ Location updates started with TaskManager');
 
       // Mark tracking as active
+      console.log('💾 Marking tracking as active in AsyncStorage...');
       await AsyncStorage.setItem(TRACKING_STATUS_KEY, 'active');
+      console.log('✅ Tracking status marked as active');
 
       console.log('✅ Background location tracking started successfully');
       console.log('📊 Tracking config:', {

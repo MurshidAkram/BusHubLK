@@ -132,8 +132,21 @@ class LocationService {
 
     console.log(`🎯 Starting tracking with background permission: ${hasBackgroundPermission}`);
     
-    // Get driver ID from current assignment or user data
-    const driverId = this.currentAssignment?.driver_id || 0;
+    // Get driver ID from current assignment
+    const driverId = this.currentAssignment?.driver_id;
+    
+    if (!driverId) {
+      console.error('❌ No driver ID available in current assignment');
+      Alert.alert('Error', 'Driver information not available. Please try again.');
+      return false;
+    }
+    
+    console.log(`📋 Using assignment data:`, {
+      driverId,
+      busId,
+      routeId,
+      assignment: this.currentAssignment
+    });
     
     // Use BackgroundLocationService for all tracking (works for both foreground and background)
     const success = await BackgroundLocationService.startTracking(
@@ -146,6 +159,8 @@ class LocationService {
       // Mark tracking as active
       await AsyncStorage.setItem(TRACKING_STATUS_KEY, 'active');
       console.log('✅ Tracking started successfully and marked as active');
+    } else {
+      console.error('❌ BackgroundLocationService.startTracking returned false');
     }
     
     return success;
