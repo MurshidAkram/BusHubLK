@@ -294,7 +294,7 @@ export default function ComplaintsScreen() {
               </View>
             </View>
           </View>
-        </View>
+        
 
 
           {/* --- CARD 2: TIME & PLACE --- */}

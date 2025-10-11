@@ -3,9 +3,32 @@ const path = require('path');
 const cors = require('cors');
 const morgan = require('morgan');
 require('dotenv').config(); // Load environment variables at the very beginning
+const http = require('http');
+const { Server } = require('socket.io');
+const setupSocketIO = require('./utils/socketHandler');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+const server = http.createServer(app);
+
+// Setup Socket.IO with CORS
+const io = new Server(server, {
+  cors: {
+    origin: true, // Allow all origins in development
+    methods: ['GET', 'POST'],
+    credentials: true
+  }
+});
+
+setupSocketIO(io);
+
+// Middleware to attach io to requests (for use in controllers)
+app.use((req, res, next) => {
+  req.io = io;
+  next();
+});
+
 
 // Basic CORS configuration
 app.use(cors({
@@ -311,7 +334,26 @@ app.get('/reset-password.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public/reset-password.html'));
 });
 
-// Error handling middleware (should be last app.use before 404 handler)
+// Favicon and robots.txt
+app.get('/favicon.ico', (req, res) => {
+  res.status(204).end();
+});
+
+app.get('/robots.txt', (req, res) => {
+  res.type('text/plain');
+  res.send('User-agent: *\nDisallow: /');
+});
+
+// Add communication routes (add this with your other route declarations)
+try {
+  const communicationRoutes = require('./routes/communicationRoutes');
+  app.use('/api/communication', communicationRoutes);
+  console.log('✅ communicationRoutes loaded');
+} catch (error) {
+  console.log('❌ communicationRoutes error:', error.message);  
+}
+
+// Error handling middleware (should be added after all routes are registered)
 app.use((error, req, res, next) => {
   console.error('Server error:', error);
   // Check if headers have already been sent to prevent "Cannot set headers after they are sent to the client" error
@@ -332,24 +374,15 @@ app.use((req, res) => {
   });
 });
 
-// Favicon and robots.txt
-app.get('/favicon.ico', (req, res) => {
-  res.status(204).end();
-});
-
-app.get('/robots.txt', (req, res) => {
-  res.type('text/plain');
-  res.send('User-agent: *\nDisallow: /');
-});
-
 // Start server
-app.listen(PORT, '0.0.0.0', () => {
+server.listen(PORT, '0.0.0.0', () => {
   try {
     const { getDynamicBaseURL } = require('./utils/networkUtils');
     const baseURL = getDynamicBaseURL();
 
     console.log(`🚀 Server is running on ${baseURL}`);
-    console.log(`📧 Email service configured: ${process.env.EMAIL_SERVICE || 'smtp'}`); // Default to smtp
+    console.log(`🔌 Socket.IO is running`);
+    console.log(`📧 Email service configured: ${process.env.EMAIL_SERVICE || 'smtp'}`);
     console.log(`🌐 Base URL for deep links/web access: ${baseURL}`);
     console.log(`🔐 Password reset endpoint: ${baseURL}/api/password-reset`);
   } catch (error) {
