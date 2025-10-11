@@ -5,6 +5,7 @@ import axios from 'axios';
 import { Alert, Platform } from 'react-native';
 import { API_BASE_URL } from '../config/api';
 
+
 const BACKGROUND_LOCATION_TASK = 'background-location-task';
 const OFFLINE_QUEUE_KEY = '@location_offline_queue';
 const TRACKING_STATUS_KEY = '@tracking_status';
@@ -201,6 +202,7 @@ export class BackgroundLocationService {
       console.log('🚀 Starting background location tracking...');
       console.log('🔍 Platform:', Platform.OS);
 
+
       // Request permissions
       const { status: foregroundStatus } = await Location.requestForegroundPermissionsAsync();
       if (foregroundStatus !== 'granted') {
@@ -281,6 +283,7 @@ export class BackgroundLocationService {
     } catch (error) {
       console.error('❌ Error starting background tracking:', error);
       Alert.alert('Error', `Failed to start tracking: ${error instanceof Error ? error.message : 'Unknown error'}`);
+
       return false;
     }
   }
@@ -289,7 +292,6 @@ export class BackgroundLocationService {
   static async stopTracking(): Promise<void> {
     try {
       console.log('🛑 Stopping location tracking...');
-
       // Stop background task if registered
       const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_LOCATION_TASK);
       if (isRegistered) {
@@ -370,6 +372,7 @@ export class BackgroundLocationService {
       return false;
     }
   }
+
 }
 
 export default BackgroundLocationService;

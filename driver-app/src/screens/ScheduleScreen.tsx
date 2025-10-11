@@ -168,6 +168,7 @@ const ScheduleCard = ({ schedule, index, isTodayAssignment, navigation }: {
     } catch (error) {
       console.error('Error checking tracking status:', error);
       setIsTracking(false);
+
     }
   };
 
@@ -193,15 +194,19 @@ const ScheduleCard = ({ schedule, index, isTodayAssignment, navigation }: {
       }
 
       // Set the current assignment in location service first
+
       await locationService.setCurrentAssignment({
+
         bus_id: schedule.bus_id,
         route_id: schedule.route_id,
         driver_id: schedule.driver_id,
         assignment_id: schedule.assignment_id,
       });
 
+
       // Use the location service for EAS build with smart tracking
       console.log("🚀 Starting location service for EAS build...");
+
       await locationService.startSmartLocationTracking(
         schedule.bus_id.toString(),
         schedule.route_id.toString(),
@@ -210,6 +215,7 @@ const ScheduleCard = ({ schedule, index, isTodayAssignment, navigation }: {
       console.log("✅ Location service started successfully");
 
       // Update local state
+
       setIsTracking(true);
       setIsStarting(false);
 
@@ -227,11 +233,13 @@ const ScheduleCard = ({ schedule, index, isTodayAssignment, navigation }: {
             }
           },
           { text: "OK" }
+
         ]
       );
     } catch (error) {
       console.error("Error starting route:", error);
       Alert.alert("Error", "Failed to start route tracking. Please try again.");
+
       setIsStarting(false);
     }
   };

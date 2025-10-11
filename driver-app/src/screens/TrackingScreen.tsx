@@ -18,6 +18,7 @@ import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { useFocusEffect } from "@react-navigation/native";
 import { storageAPI, driverAPI } from "../services/api";
 import { locationService } from "../services/locationService";
+
 import BackgroundLocationService from "../services/backgroundLocationService";
 
 // App Color Palette
@@ -204,6 +205,7 @@ export default function TrackingScreen({ navigation }: any) {
       console.error("Error loading assignment data:", error);
     }
   };
+
 
   // Load assignment from locationService (set by ScheduleScreen)
   const loadAssignmentDataFromService = async () => {

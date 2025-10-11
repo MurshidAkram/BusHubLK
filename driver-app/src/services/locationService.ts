@@ -10,6 +10,7 @@ import { API_BASE_URL } from "../config/api";
 const TRACKING_STATUS_KEY = '@tracking_status';
 const ACTIVE_ASSIGNMENT_KEY = '@active_assignment';
 
+
 interface AssignmentData {
   bus_id: number;
   route_id: number;
@@ -23,6 +24,7 @@ class LocationService {
   cachedAuthToken: string | null = null;
   updateCounter: number = 0;
   lastSuccessfulUpdate: Date | null = null;
+
 
   async setCurrentAssignment(assignment: AssignmentData | null) {
     this.currentAssignment = assignment;
@@ -38,6 +40,7 @@ class LocationService {
     this.cachedAuthToken = null;
   }
 
+
   async loadAssignmentFromStorage() {
     try {
       const assignmentData = await AsyncStorage.getItem(ACTIVE_ASSIGNMENT_KEY);
@@ -51,6 +54,7 @@ class LocationService {
     }
     return null;
   }
+
 
   async refreshAuthToken() {
     try {
@@ -113,6 +117,7 @@ class LocationService {
       return false;
     }
 
+
     // Request background permissions for continuous tracking
     const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
     const hasBackgroundPermission = backgroundStatus === 'granted';
@@ -144,6 +149,7 @@ class LocationService {
     }
     
     return success;
+
   }
 
   // Direct tracking method that bypasses permission requests
@@ -519,6 +525,7 @@ class LocationService {
     this.stopBackgroundTracking().catch(error => {
       console.error('⚠️ Error stopping background tracking:', error);
     });
+
     
     // IMPORTANT: Reset all state to allow fresh restart
     console.log("🧹 Resetting location service state...");
@@ -551,6 +558,7 @@ class LocationService {
     }
   }
 
+
   // Method to clear cached token (useful for logout or token refresh)
   clearTokenCache() {
     this.cachedAuthToken = null;
@@ -581,6 +589,7 @@ class LocationService {
     };
   }
 
+
   // Check if tracking is active (from AsyncStorage)
   async isTrackingActive(): Promise<boolean> {
     try {
@@ -599,6 +608,7 @@ class LocationService {
       return false;
     }
   }
+
 
   // Method to monitor tracking health
   async getTrackingHealth() {
