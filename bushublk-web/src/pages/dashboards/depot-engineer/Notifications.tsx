@@ -223,8 +223,9 @@ const Notifications: React.FC = () => {
           console.log('🚨 Processing emergency reports:', emergencyReportsData.data.length);
           const emergencyNotifications = emergencyReportsData.data
             .filter((report: any) => {
-              // Only include reports with exactly "Pending" status
-              return report.status === 'Pending';
+              // Treat any unresolved status as actionable for the depot engineer
+              const status = report.status ? String(report.status).toLowerCase().trim() : '';
+              return !status || ['pending', 'new', 'in progress'].includes(status);
             })
             .map((report: any) => ({
               id: `emergency_${report.id}_${Date.now()}`,

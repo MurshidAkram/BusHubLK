@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { FaSearch, FaBoxes, FaTools, FaPlusCircle, FaTrash } from 'react-icons/fa';
+import { FaSearch, FaBoxes, FaTools, FaPlusCircle, FaTrash, FaBell, FaExclamationTriangle } from 'react-icons/fa';
 import { AppContext } from '../../../context/AppContext';
 import axios, { AxiosError } from 'axios';
 
@@ -67,6 +67,52 @@ const SparePartsInventory: React.FC = () => {
   //   { id: '23', Reg_number: 'NP-3456' },
   //   { id: '21', Reg_number: 'LA-9831' }
   // ];
+
+  // Send notification when part goes out of stock
+  const sendOutOfStockNotification = async (partId: string, partName: string) => {
+    try {
+      console.log('📢 Sending out of stock notification for:', partName);
+      
+      if (!token) {
+        console.log('❌ No token available for notification');
+        return;
+      }
+
+      const response = await axios.post(
+        'http://localhost:5000/api/depot-engineer/notifications/out-of-stock',
+        {
+          part_id: partId,
+          part_name: partName,
+          message: `Spare part "${partName}" (ID: ${partId}) is now out of stock and requires immediate restocking.`,
+          type: 'out_of_stock',
+          priority: 'high'
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+        }
+      );
+
+      if (response.data.success) {
+        console.log('✅ Out of stock notification sent successfully');
+      } else {
+        console.error('❌ Failed to send notification:', response.data.message);
+      }
+    } catch (err) {
+      console.error('💥 Send notification error:', err);
+    }
+  };
+
+  // Check for out of stock parts and send notifications
+  const checkOutOfStockParts = async () => {
+    const outOfStockParts = parts.filter(p => p.current_stock === 0);
+    
+    for (const part of outOfStockParts) {
+      await sendOutOfStockNotification(part.part_id, part.part_name);
+    }
+  };
 
   // Fetch buses from API
   const fetchBuses = async () => {
@@ -257,6 +303,13 @@ const SparePartsInventory: React.FC = () => {
       );
 
       if (response.data.success) {
+        // Check if part will be out of stock after this usage
+        const newStock = selectedPart.current_stock - quantity;
+        if (newStock === 0) {
+          // Send out of stock notification
+          await sendOutOfStockNotification(selectedPart.part_id, selectedPart.part_name);
+        }
+        
         await fetchSpareParts(); // Refresh the list
         setShowUsePartModal(false);
         setSelectedPart(null);
@@ -321,6 +374,20 @@ const SparePartsInventory: React.FC = () => {
     fetchSpareParts();
     fetchBuses();
   }, [token]);
+
+  // Check for out of stock parts when parts data changes
+  useEffect(() => {
+    if (parts.length > 0) {
+      const outOfStockParts = parts.filter(p => p.current_stock === 0);
+      if (outOfStockParts.length > 0) {
+        console.log(`⚠️ Found ${outOfStockParts.length} out of stock parts:`, outOfStockParts);
+        // Automatically send notifications for out of stock parts
+        outOfStockParts.forEach(part => {
+          sendOutOfStockNotification(part.part_id, part.part_name);
+        });
+      }
+    }
+  }, [parts]);
 
   // Filter parts based on search and low stock filter
   const filteredParts = parts.filter(part => {
@@ -392,6 +459,45 @@ const SparePartsInventory: React.FC = () => {
           </div>
         </div>
 
+        {/* Out of Stock Notifications */}
+        {parts.filter(p => p.current_stock === 0).length > 0 && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <FaExclamationTriangle className="h-5 w-5 text-red-400" />
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800">
+                  ⚠️ Urgent: Parts Out of Stock
+                </h3>
+                <div className="mt-2 text-sm text-red-700">
+                  
+                  <ul className="list-disc pl-5 mt-2 space-y-1">
+                    {parts.filter(p => p.current_stock === 0).map((part) => (
+                      <li key={part.id} className="flex items-center justify-between">
+                        <span>
+                          <strong>{part.part_name}</strong> (ID: {part.part_id})
+                        </span>
+                        <button
+                          onClick={() => {
+                            setSelectedPart(part);
+                            setShowRestockModal(true);
+                          }}
+                          className="ml-4 bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs transition-colors"
+                        >
+                          Restock Now
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Low Stock Warnings intentionally removed */}
+
         {/* Error Display */}
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
@@ -427,7 +533,7 @@ const SparePartsInventory: React.FC = () => {
             </div>
           </div>
           
-          {/* <div className="bg-white p-6 rounded-lg shadow-sm">
+          <div className="bg-white p-6 rounded-lg shadow-sm">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-medium text-gray-500">Low Stock</h3>
@@ -436,7 +542,7 @@ const SparePartsInventory: React.FC = () => {
                 </p>
               </div>
             </div>
-          </div> */}
+          </div>
           
           <div className="bg-white p-6 rounded-lg shadow-sm">
             <div className="flex items-center justify-between">
@@ -692,7 +798,7 @@ const SparePartsInventory: React.FC = () => {
                     value={newPart.unit}
                     onChange={(e) => setNewPart({...newPart, unit: e.target.value})}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="e.g., pieces, liters, kg"
+                    placeholder="e.g., pieces, kg"
                   />
                 </div>
               </div>

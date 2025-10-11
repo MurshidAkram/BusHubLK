@@ -6,6 +6,8 @@ const getAllReports = async (req, res) => {
         const filters = {
             type: req.query.type,
             search: req.query.search,
+            regionId: req.query.regionId,
+            depotId: req.query.depotId,
         };
         const reports = await Emergency.findAll(filters);
         res.status(200).json({ success: true, data: reports });
@@ -118,7 +120,10 @@ const updateReportStatus = async (req, res) => {
 // getDashboardStats remains the same
 const getDashboardStats = async (req, res) => {
     try {
-        const stats = await Emergency.getStatistics();
+        const stats = await Emergency.getStatistics({
+            regionId: req.query.regionId,
+            depotId: req.query.depotId,
+        });
         res.status(200).json({ success: true, data: stats });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Server Error', error: error.message });
@@ -132,6 +137,6 @@ module.exports = {
     addDepotMessage,
     updateReportStatus,
     getDashboardStats,
-     getManagerChatMessages,
+    getManagerChatMessages,
     addManagerMessage,
 };
