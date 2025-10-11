@@ -216,6 +216,10 @@ const lostFoundRoutes = require('./routes/lostFoundRoutes');
 app.use('/api/lost-found', lostFoundRoutes);
 console.log('✅ lostFoundRoutes loaded');
 
+const depotOperationsManagerNotificationsRoutes = require('./routes/depotOperationsManagerNotificationsRoutes');
+app.use('/api', depotOperationsManagerNotificationsRoutes);
+
+
 // Add complaint routes
 try {
   const complaintRoutes = require('./routes/complaintRoutes');
