@@ -1,8 +1,15 @@
 import { Platform, Alert } from "react-native";
 import * as Location from "expo-location";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { driverAPI } from "./api";
 import { storageAPI } from "./api";
+import BackgroundLocationService from "./backgroundLocationService";
 import { API_BASE_URL } from "../config/api";
+
+// Storage keys
+const TRACKING_STATUS_KEY = '@tracking_status';
+const ACTIVE_ASSIGNMENT_KEY = '@active_assignment';
+
 
 interface AssignmentData {
   bus_id: number;
@@ -18,16 +25,36 @@ class LocationService {
   updateCounter: number = 0;
   lastSuccessfulUpdate: Date | null = null;
 
-  setCurrentAssignment(assignment: AssignmentData | null) {
+
+  async setCurrentAssignment(assignment: AssignmentData | null) {
     this.currentAssignment = assignment;
     if (assignment) {
       console.log("📍 Current assignment set:", assignment);
+      // Persist assignment to AsyncStorage
+      await AsyncStorage.setItem(ACTIVE_ASSIGNMENT_KEY, JSON.stringify(assignment));
     } else {
       console.log("🧹 Assignment data cleared");
+      await AsyncStorage.removeItem(ACTIVE_ASSIGNMENT_KEY);
     }
     // Refresh token when assignment changes
     this.cachedAuthToken = null;
   }
+
+
+  async loadAssignmentFromStorage() {
+    try {
+      const assignmentData = await AsyncStorage.getItem(ACTIVE_ASSIGNMENT_KEY);
+      if (assignmentData) {
+        this.currentAssignment = JSON.parse(assignmentData);
+        console.log("📍 Assignment loaded from storage:", this.currentAssignment);
+        return this.currentAssignment;
+      }
+    } catch (error) {
+      console.error("❌ Error loading assignment from storage:", error);
+    }
+    return null;
+  }
+
 
   async refreshAuthToken() {
     try {
@@ -77,20 +104,11 @@ class LocationService {
 
   // Method to start tracking with automatic background detection
   async startSmartLocationTracking(busId: string, routeId: string, busRegistration?: string) {
-    console.log("📱 Starting smart location tracking...");
+    console.log("📱 Starting smart location tracking for EAS build...");
     
-    // For now, skip background permission check and just start foreground tracking
-    // This avoids the Info.plist error until the app is rebuilt
-    console.log("🎯 Starting foreground tracking (skipping background permissions for now)");
-    await this.startLocationTrackingDirect(busId, routeId, busRegistration, false);
-    return true;
-    
-    /* Commented out until app is rebuilt with proper Info.plist
-    const locationStatus = await this.checkBackgroundLocationStatus();
-    
-    console.log("📱 Location permissions status:", locationStatus);
-    
-    if (!locationStatus.foregroundGranted) {
+    // Check permissions first
+    const { status: foregroundStatus } = await Location.requestForegroundPermissionsAsync();
+    if (foregroundStatus !== 'granted') {
       Alert.alert(
         "Permission Required",
         "Location access is required for bus tracking. Please enable location permissions in Settings.",
@@ -99,50 +117,39 @@ class LocationService {
       return false;
     }
 
-    // Try to start with background if available, otherwise foreground only
-    const enableBackground = locationStatus.backgroundGranted;
+
+    // Request background permissions for continuous tracking
+    const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
+    const hasBackgroundPermission = backgroundStatus === 'granted';
     
-    if (!enableBackground && locationStatus.canRequestBackground) {
-      console.log("🔔 Prompting user for background location permission...");
-      return new Promise<boolean>((resolve) => {
-        Alert.alert(
-          "Enable Background Tracking?",
-          "For the best passenger experience, enable 'Always' location access. This allows continuous tracking even when you switch apps.",
-          [
-            { 
-              text: "Later", 
-              onPress: async () => {
-                console.log("👤 User chose to skip background permissions");
-                await this.startLocationTrackingDirect(busId, routeId, busRegistration, false);
-                resolve(true);
-              }
-            },
-            { 
-              text: "Enable", 
-              onPress: async () => {
-                console.log("👤 User chose to enable background permissions");
-                // Try background first, but fall back to foreground if it fails
-                try {
-                  await this.startLocationTracking(busId, routeId, busRegistration, true);
-                } catch (error) {
-                  console.error("❌ Background tracking failed, falling back to foreground:", error);
-                  await this.startLocationTrackingDirect(busId, routeId, busRegistration, false);
-                }
-                resolve(true);
-              }
-            }
-          ],
-          { 
-            cancelable: false // Prevent dismissing without choice
-          }
-        );
-      });
+    if (!hasBackgroundPermission) {
+      Alert.alert(
+        "Background Tracking",
+        "For continuous tracking even when the app is closed, please enable 'Allow all the time' location permission.\n\nFor now, tracking will work when the app is open.",
+        [{ text: "Continue" }]
+      );
     }
 
-    console.log(`🎯 Starting tracking with background: ${enableBackground}`);
-    await this.startLocationTrackingDirect(busId, routeId, busRegistration, enableBackground);
-    return true;
-    */
+    console.log(`🎯 Starting tracking with background permission: ${hasBackgroundPermission}`);
+    
+    // Get driver ID from current assignment or user data
+    const driverId = this.currentAssignment?.driver_id || 0;
+    
+    // Use BackgroundLocationService for all tracking (works for both foreground and background)
+    const success = await BackgroundLocationService.startTracking(
+      Number(driverId),
+      Number(busId),
+      Number(routeId)
+    );
+    
+    if (success) {
+      // Mark tracking as active
+      await AsyncStorage.setItem(TRACKING_STATUS_KEY, 'active');
+      console.log('✅ Tracking started successfully and marked as active');
+    }
+    
+    return success;
+
   }
 
   // Direct tracking method that bypasses permission requests
@@ -512,12 +519,13 @@ class LocationService {
         const totalTime = Date.now() - this.lastSuccessfulUpdate.getTime();
         console.log(`📊 Tracking session: ${this.updateCounter} updates over ${Math.round(totalTime / 1000)}s`);
       }
-    } else {
-      // Only log if we're not in the initial state (no tracking was active)
-      if (this.updateCounter > 0 || this.lastSuccessfulUpdate) {
-        console.log("ℹ️ Location tracking stop requested, but no active subscription found");
-      }
     }
+
+    // Stop background tracking if active
+    this.stopBackgroundTracking().catch(error => {
+      console.error('⚠️ Error stopping background tracking:', error);
+    });
+
     
     // IMPORTANT: Reset all state to allow fresh restart
     console.log("🧹 Resetting location service state...");
@@ -526,8 +534,30 @@ class LocationService {
     this.currentAssignment = null;
     this.cachedAuthToken = null;
     
+    // Mark tracking as inactive in storage
+    AsyncStorage.setItem(TRACKING_STATUS_KEY, 'inactive').catch(error => {
+      console.error('⚠️ Error updating tracking status:', error);
+    });
+    
+    // Remove assignment from storage
+    AsyncStorage.removeItem(ACTIVE_ASSIGNMENT_KEY).catch(error => {
+      console.error('⚠️ Error removing assignment:', error);
+    });
+    
     console.log("✅ Location tracking completely stopped and state reset");
   }
+
+  // Stop background location tracking
+  async stopBackgroundTracking() {
+    try {
+      console.log('🛑 Stopping background location tracking...');
+      await BackgroundLocationService.stopTracking();
+      console.log('✅ Background location tracking stopped');
+    } catch (error) {
+      console.error('❌ Error stopping background tracking:', error);
+    }
+  }
+
 
   // Method to clear cached token (useful for logout or token refresh)
   clearTokenCache() {
@@ -558,6 +588,27 @@ class LocationService {
       hasToken: !!this.cachedAuthToken
     };
   }
+
+
+  // Check if tracking is active (from AsyncStorage)
+  async isTrackingActive(): Promise<boolean> {
+    try {
+      const status = await AsyncStorage.getItem(TRACKING_STATUS_KEY);
+      const isActive = status === 'active';
+      
+      // Also check if background tracking is active
+      const isBackgroundActive = await BackgroundLocationService.isTracking();
+      
+      // Tracking is active if either foreground subscription exists OR background task is registered
+      const hasActiveForeground = !!this.locationSubscription;
+      
+      return isActive && (hasActiveForeground || isBackgroundActive);
+    } catch (error) {
+      console.error('❌ Error checking tracking status:', error);
+      return false;
+    }
+  }
+
 
   // Method to monitor tracking health
   async getTrackingHealth() {

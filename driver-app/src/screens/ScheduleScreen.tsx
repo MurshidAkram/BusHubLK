@@ -158,13 +158,17 @@ const ScheduleCard = ({ schedule, index, isTodayAssignment, navigation }: {
 
   const checkTrackingStatus = async () => {
     try {
-      // Check main location service status instead of background service
-      const stats = locationService.getTrackingStats();
-      if (stats.hasActiveSubscription && stats.hasAssignment) {
+      // Check location service status using the async method
+      const isActive = await locationService.isTrackingActive();
+      if (isActive) {
         setIsTracking(true);
+      } else {
+        setIsTracking(false);
       }
     } catch (error) {
       console.error('Error checking tracking status:', error);
+      setIsTracking(false);
+
     }
   };
 
@@ -190,43 +194,52 @@ const ScheduleCard = ({ schedule, index, isTodayAssignment, navigation }: {
       }
 
       // Set the current assignment in location service first
-      locationService.setCurrentAssignment({
+
+      await locationService.setCurrentAssignment({
+
         bus_id: schedule.bus_id,
         route_id: schedule.route_id,
         driver_id: schedule.driver_id,
         assignment_id: schedule.assignment_id,
       });
 
-      // Use ONLY the main location service for EAS build
-      console.log("🚀 Starting main location service for EAS build...");
+
+      // Use the location service for EAS build with smart tracking
+      console.log("🚀 Starting location service for EAS build...");
+
       await locationService.startSmartLocationTracking(
         schedule.bus_id.toString(),
         schedule.route_id.toString(),
         schedule.bus_registration
       );
-      console.log("✅ Main location service started successfully");
+      console.log("✅ Location service started successfully");
+
+      // Update local state
 
       setIsTracking(true);
       setIsStarting(false);
 
       Alert.alert(
         "🚌 Route Started",
-        `Background tracking started for Bus ${schedule.bus_registration || schedule.bus_id} on Route ${schedule.route_number || schedule.route_id}.\n\nYour location will be tracked even when the app is closed.`,
+        `Continuous tracking started for Bus ${schedule.bus_registration || schedule.bus_id} on Route ${schedule.route_number || schedule.route_id}.\n\nYour location will be tracked even when the app is closed or in the background.`,
         [
           { 
-            text: "OK",
+            text: "View Tracking",
             onPress: () => {
               // Navigate to Tracking screen to show active tracking
               if (navigation) {
                 navigation.navigate('Tracking');
               }
             }
-          }
+          },
+          { text: "OK" }
+
         ]
       );
     } catch (error) {
       console.error("Error starting route:", error);
-      Alert.alert("Error", "Failed to start route tracking");
+      Alert.alert("Error", "Failed to start route tracking. Please try again.");
+
       setIsStarting(false);
     }
   };

@@ -2,12 +2,9 @@ import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
-import Constants from 'expo-constants';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import { API_BASE_URL } from '../config/api';
 
-// Check if running in Expo Go
-const isExpoGo = Constants.appOwnership === 'expo';
 
 const BACKGROUND_LOCATION_TASK = 'background-location-task';
 const OFFLINE_QUEUE_KEY = '@location_offline_queue';
@@ -203,26 +200,8 @@ export class BackgroundLocationService {
   static async startTracking(driverId: number, busId: number, routeId: number): Promise<boolean> {
     try {
       console.log('🚀 Starting background location tracking...');
+      console.log('🔍 Platform:', Platform.OS);
 
-      // Check if running in Expo Go
-      if (isExpoGo) {
-        Alert.alert(
-          '⚠️ Expo Go Limitation',
-          'Background location tracking is not supported in Expo Go.\n\n' +
-          '📱 To test this feature:\n' +
-          '1. Build the app with: npx eas build --profile preview --platform android\n' +
-          '2. Install the APK on your device\n\n' +
-          'For now, only foreground tracking will work (app must stay open).',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { 
-              text: 'Try Foreground Mode', 
-              onPress: () => this.startForegroundTracking(driverId, busId, routeId)
-            }
-          ]
-        );
-        return false;
-      }
 
       // Request permissions
       const { status: foregroundStatus } = await Location.requestForegroundPermissionsAsync();
@@ -234,9 +213,19 @@ export class BackgroundLocationService {
 
       const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
       if (backgroundStatus !== 'granted') {
-        console.error('❌ Background location permission not granted');
-        Alert.alert('Background Permission Required', 'Please enable "Always Allow" location permission for background tracking.');
-        return false;
+        console.warn('⚠️ Background location permission not granted');
+        Alert.alert(
+          '⚠️ Background Permission Recommended', 
+          'For best tracking experience, please enable "Allow all the time" location permission.\n\nThis ensures passengers can track the bus accurately even when the app is in the background or closed.\n\nYou can still continue with foreground-only tracking.',
+          [
+            { text: 'Continue with Foreground Only', style: 'cancel', onPress: () => {
+              // Continue with setup but log warning
+              console.log('⚠️ Continuing without background permission');
+            }},
+            { text: 'Open Settings', onPress: () => Location.requestBackgroundPermissionsAsync() }
+          ]
+        );
+        // Don't return false - continue with foreground tracking
       }
 
       // Store active assignment
@@ -255,107 +244,46 @@ export class BackgroundLocationService {
         await Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
       }
 
-      // Start background location updates
+      // Start background location updates with optimized settings for EAS build
       await Location.startLocationUpdatesAsync(BACKGROUND_LOCATION_TASK, {
-        accuracy: Location.Accuracy.High,
-        timeInterval: 10000, // Update every 10 seconds (10000ms = 10s)
-        distanceInterval: 10, // Update every 10 meters
-        deferredUpdatesInterval: 10000, // Disable Android location batching
-        deferredUpdatesDistance: 10, // Get updates immediately, don't batch
+        accuracy: Location.Accuracy.High, // High accuracy for precise tracking
+        timeInterval: 5000, // Update every 5 seconds (frequent updates)
+        distanceInterval: 10, // Update every 10 meters (movement-based)
+        deferredUpdatesInterval: 5000, // Process updates every 5 seconds
+        deferredUpdatesDistance: 10, // Process after 10 meters
         foregroundService: {
-          notificationTitle: 'BusHubLK Driver Tracking',
-          notificationBody: 'Your location is being tracked for passenger safety',
+          notificationTitle: '🚌 BusHub Driver - Tracking Active',
+          notificationBody: 'Your bus is being tracked for passenger convenience',
           notificationColor: '#0056b3',
         },
-        pausesUpdatesAutomatically: false,
+        pausesUpdatesAutomatically: false, // Keep tracking even when stationary
         activityType: Location.ActivityType.AutomotiveNavigation,
-        showsBackgroundLocationIndicator: true,
+        showsBackgroundLocationIndicator: true, // Show iOS indicator
       });
 
       // Mark tracking as active
       await AsyncStorage.setItem(TRACKING_STATUS_KEY, 'active');
 
-      console.log('✅ Background location tracking started');
-      Alert.alert('Tracking Started', 'Your location is now being tracked in the background.');
-      return true;
-    } catch (error) {
-      console.error('❌ Error starting background tracking:', error);
-      Alert.alert('Error', 'Failed to start tracking. Please try again.');
-      return false;
-    }
-  }
-
-  // Foreground-only tracking for Expo Go
-  private static watchId: Location.LocationSubscription | null = null;
-
-  static async startForegroundTracking(driverId: number, busId: number, routeId: number): Promise<boolean> {
-    try {
-      console.log('🚀 Starting foreground location tracking (Expo Go mode)...');
-
-      // Request only foreground permission
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        console.error('❌ Foreground location permission not granted');
-        Alert.alert('Permission Required', 'Please enable location permissions.');
-        return false;
-      }
-
-      // Store active assignment
-      const assignment = {
+      console.log('✅ Background location tracking started successfully');
+      console.log('📊 Tracking config:', {
         driverId,
         busId,
         routeId,
-        startTime: Date.now(),
-        foregroundOnly: true,
-      };
-      await AsyncStorage.setItem(ACTIVE_ASSIGNMENT_KEY, JSON.stringify(assignment));
-
-      // Stop any existing watch
-      if (this.watchId) {
-        this.watchId.remove();
-      }
-
-      // Start watching position (foreground only)
-      this.watchId = await Location.watchPositionAsync(
-        {
-          accuracy: Location.Accuracy.High,
-          timeInterval: 10000, // 10 seconds
-          distanceInterval: 10, // 10 meters
-        },
-        async (location) => {
-          const locationUpdate: OfflineQueueItem = {
-            latitude: location.coords.latitude,
-            longitude: location.coords.longitude,
-            timestamp: location.timestamp,
-            speed: location.coords.speed,
-            heading: location.coords.heading,
-            accuracy: location.coords.accuracy,
-            driverId,
-            busId,
-            routeId,
-          };
-
-          const success = await sendLocationUpdate(locationUpdate);
-          if (!success) {
-            await addToOfflineQueue(locationUpdate);
-          } else {
-            await syncOfflineQueue();
-          }
-        }
-      );
-
-      await AsyncStorage.setItem(TRACKING_STATUS_KEY, 'active');
-
-      console.log('✅ Foreground tracking started');
+        accuracy: 'High',
+        interval: '5s / 10m',
+        foregroundService: true,
+      });
+      
       Alert.alert(
-        'Foreground Tracking Started',
-        '⚠️ App must stay open for tracking to work.\nBuild a standalone app for background tracking.',
-        [{ text: 'OK' }]
+        '✅ Tracking Started', 
+        'Your location is now being tracked continuously.\n\n• Updates every 5 seconds or 10 meters\n• Works even when app is closed\n• Notification will show while tracking\n\nPassengers can now see your bus in real-time!',
+        [{ text: 'Got it!' }]
       );
       return true;
     } catch (error) {
-      console.error('❌ Error starting foreground tracking:', error);
-      Alert.alert('Error', 'Failed to start tracking.');
+      console.error('❌ Error starting background tracking:', error);
+      Alert.alert('Error', `Failed to start tracking: ${error instanceof Error ? error.message : 'Unknown error'}`);
+
       return false;
     }
   }
@@ -364,13 +292,6 @@ export class BackgroundLocationService {
   static async stopTracking(): Promise<void> {
     try {
       console.log('🛑 Stopping location tracking...');
-
-      // Stop foreground watch if exists
-      if (this.watchId) {
-        this.watchId.remove();
-        this.watchId = null;
-      }
-
       // Stop background task if registered
       const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_LOCATION_TASK);
       if (isRegistered) {
@@ -440,6 +361,18 @@ export class BackgroundLocationService {
       return null;
     }
   }
+
+  // Check if background tracking is currently active
+  static async isTracking(): Promise<boolean> {
+    try {
+      const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_LOCATION_TASK);
+      return isRegistered;
+    } catch (error) {
+      console.error('❌ Error checking tracking status:', error);
+      return false;
+    }
+  }
+
 }
 
 export default BackgroundLocationService;
