@@ -25,13 +25,9 @@ export class LocationManager {
       console.log("🛑 Stopping BackgroundLocationService...");
       await BackgroundLocationService.stopTracking();
       
-      // 2. Stop the main LocationService
-      console.log("🛑 Stopping main LocationService...");
-      locationService.stopLocationTracking();
-      
-      // 3. Clear assignment from location service
-      console.log("🛑 Clearing location service assignment...");
-      locationService.setCurrentAssignment(null);
+      // 2. Reset the main LocationService (this stops tracking and clears all state)
+      console.log("🛑 Resetting main LocationService...");
+      locationService.resetLocationService();
       
       console.log("✅ LocationManager: All location tracking stopped successfully");
     } catch (error) {

@@ -43,6 +43,7 @@ app.options('/api/lost-found/reports', (req, res) => {
   res.sendStatus(200);
 });
 
+
 // Health check endpoint for API discovery
 app.get('/api/health', (req, res) => {
   res.json({
@@ -84,7 +85,9 @@ try {
 } catch (error) {
   console.log('❌ BusTrackingRoutes error:', error.message);
 }
-
+const depotmanagerDashboardRoutes = require('./routes/depotmanagerDashboardRoutes');
+app.use('/api/depot-dashboard', depotmanagerDashboardRoutes);
+console.log('✅ depotmanagerDashboardRoutes loaded');
 
 try {
   const busLiveTrackingRoutes = require('./routes/busLiveTrackingRoutes');
@@ -92,6 +95,14 @@ try {
   console.log('✅ busLiveTrackingRoutes loaded');
 } catch (error) {
   console.log('❌ busLiveTrackingRoutes error:', error.message);
+}
+
+try {
+  const busLiveTrackingSummaryRoutes = require('./routes/busLiveTrackingSummaryRoutes');
+  app.use('/api/live-summary', busLiveTrackingSummaryRoutes);
+  console.log('✅ busLiveTrackingSummaryRoutes loaded');
+} catch (error) {
+  console.log('❌ busLiveTrackingSummaryRoutes error:', error.message);
 }
 
 // Load routes with error handling
@@ -151,13 +162,12 @@ try {
   console.log('❌ passengerRoutes error:', error.message);
 }
 
-const assignmentRoutes = require('./routes/assignmentRoutes');
-const dailyAssignmentRoutes = require('./routes/dailyAssignmentRoutes');
 
-// Add this with your other app.use() routes
-app.use('/api/assignments', assignmentRoutes);
-app.use('/api/dailyassignment', dailyAssignmentRoutes);
+
+const dailyAssignmentRoutes = require('./routes/dailyAssignmentRoutes');
+app.use('/api/assignments', dailyAssignmentRoutes);
 console.log('✅ dailyAssignmentRoutes loaded');
+
 
 
 try {
@@ -177,7 +187,13 @@ try {
 }
 
 
-
+try {
+const depotManagerRoutes = require('./routes/depotManagerRoutes');
+app.use('/api/depot-manager', depotManagerRoutes);
+console.log('✅ depotManagerRoutes loaded');
+} catch (error) {
+console.log('❌ depotManagerRoutes error: ', error.message);
+}
 
 
 const regionDepotRoutes = require('./routes/regionDepotRoutes');
@@ -242,13 +258,6 @@ try {
   console.log('❌ sparePartsRoutes error:', error.message);
 }
 
-try {
-  const emergencyRoutes = require('./routes/emergencyRoutes');
-  app.use('/api/emergency', emergencyRoutes);
-  console.log('✅ emergencyRoutes loaded');
-} catch (error) {
-  console.log('❌ emergencyRoutes error:', error.message);
-}
 
 try {
   const depotEmergencyRoutes = require('./routes/depotEmergencyRoutes');
@@ -256,6 +265,14 @@ try {
   console.log('✅ depotEmergencyRoutes loaded');
 } catch (error) {
   console.log('❌ depotEmergencyRoutes error:', error.message);
+}
+
+try {
+  const depotManagerRoutes = require('./routes/depotManagerRoutes');
+  app.use('/api/depot-manager', depotManagerRoutes);
+  console.log('✅ depotManagerRoutes loaded');
+} catch (error) {
+  console.log('❌ depotManagerRoutes error:', error.message);
 }
 
 try {
@@ -324,6 +341,23 @@ try {
 } catch (error) {
   console.log('❌ complaintRoutes error:', error.message);
 }
+
+// --- THIS IS THE IMPORTANT LINE FOR CREW ROUTES ---
+const crewRoutes = require('./routes/crewRoutes');
+app.use('/api/crew', crewRoutes);
+console.log('✅ crewRoutes loaded');
+// ---------------------------------------------------
+const depotRoutes = require('./routes/depotRoutes');
+app.use('/api/depots', depotRoutes);
+console.log('✅ depotRoutes loaded');
+
+const busTripSummaryRoutes = require('./routes/busTripSummaryRoutes');
+app.use('/api/trip-summary', busTripSummaryRoutes);
+console.log('✅ busTripSummaryRoutes loaded');
+
+const busStatsRoutes = require('./routes/busStatsRoutes');
+app.use('/api/bus-stats', busStatsRoutes);
+// Other routes...
 
 app.get('/resetPassword.js', (req, res) => {
   res.setHeader('Content-Type', 'application/javascript');

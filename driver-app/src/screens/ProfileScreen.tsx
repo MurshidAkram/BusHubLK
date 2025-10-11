@@ -16,6 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useDriver } from "../context/DriverContext";
 import { driverAPI, storageAPI } from "../services/api";
+import AppHeader from "../components/AppHeader";
 
 // App Color Palette (matching HomeScreen)
 const AppColors = {
@@ -31,39 +32,6 @@ const AppColors = {
   yellow: "#ffc107",
   green: "#198754",
 };
-
-// Enhanced Header component
-const Header = ({ onRefresh, isRefreshing }: { onRefresh: () => void; isRefreshing: boolean }) => (
-  <LinearGradient
-    colors={[AppColors.primary, AppColors.primaryLight]}
-    start={{ x: 0, y: 0 }}
-    end={{ x: 1, y: 1 }}
-    style={styles.header}
-  >
-    <View style={styles.headerContent}>
-      <View style={styles.headerLeft}>
-        <Ionicons
-          name="person-outline"
-          size={24}
-          color="#FFFFFF"
-          style={{ marginRight: 8 }}
-        />
-        <Text style={styles.headerTitle}>My Profile</Text>
-      </View>
-      <TouchableOpacity
-        onPress={onRefresh}
-        disabled={isRefreshing}
-        style={styles.refreshButton}
-      >
-        <Ionicons
-          name={isRefreshing ? "sync" : "refresh"}
-          size={20}
-          color="#FFFFFF"
-        />
-      </TouchableOpacity>
-    </View>
-  </LinearGradient>
-);
 
 interface ProfileInfoRowProps {
   label: string;
@@ -220,7 +188,12 @@ const ProfileScreen = () => {
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container}>
-        <Header onRefresh={handleRefresh} isRefreshing={isRefreshing} />
+        <AppHeader 
+          title="My Profile"
+          rightIcon={isRefreshing ? "sync" : "refresh"}
+          onRightPress={handleRefresh}
+          rightIconDisabled={isRefreshing}
+        />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={AppColors.primary} />
           <Text style={styles.loadingText}>Loading Profile...</Text>
@@ -232,7 +205,12 @@ const ProfileScreen = () => {
   if (error || !driverData) {
     return (
       <SafeAreaView style={styles.container}>
-        <Header onRefresh={handleRefresh} isRefreshing={isRefreshing} />
+        <AppHeader 
+          title="My Profile"
+          rightIcon={isRefreshing ? "sync" : "refresh"}
+          onRightPress={handleRefresh}
+          rightIconDisabled={isRefreshing}
+        />
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle-outline" size={64} color={AppColors.red} />
           <Text style={styles.errorTitle}>Profile Error</Text>
@@ -250,7 +228,12 @@ const ProfileScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={AppColors.primary} />
-      <Header onRefresh={handleRefresh} isRefreshing={isRefreshing} />
+      <AppHeader 
+        title="My Profile"
+        rightIcon={isRefreshing ? "sync" : "refresh"}
+        onRightPress={handleRefresh}
+        rightIconDisabled={isRefreshing}
+      />
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.contentContainer}
@@ -414,47 +397,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: AppColors.background,
-  },
-  header: {
-    paddingHorizontal: 20,
-    paddingVertical: Platform.OS === "ios" ? 20 : 22,
-    ...Platform.select({
-      android: {
-        elevation: 8,
-      },
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 8,
-      },
-    }),
-  },
-  headerContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    minHeight: 44,
-  },
-  headerLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  headerTitle: {
-    color: "#FFFFFF",
-    fontSize: Platform.OS === "ios" ? 21 : 20,
-    fontWeight: "600",
-    fontFamily: Platform.OS === "ios" ? "System" : "Roboto",
-    letterSpacing: 0.6,
-    includeFontPadding: false,
-    textAlignVertical: "center",
-    textShadowColor: "rgba(0, 0, 0, 0.3)",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
-  },
-  refreshButton: {
-    padding: 8,
-    borderRadius: 8,
   },
   scrollView: {
     backgroundColor: AppColors.background,

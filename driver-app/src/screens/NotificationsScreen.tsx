@@ -2,6 +2,7 @@ import React from "react";
 import { StyleSheet, View, Text, FlatList, TouchableOpacity, Platform } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
+import AppHeader from "../components/AppHeader";
 
 // App Color Palette
 const AppColors = {
@@ -36,9 +37,7 @@ const NotificationItem = ({ title, message, time }) => (
 export default function NotificationsScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Notifications</Text>
-      </View>
+      <AppHeader title="Notifications" />
       <FlatList
         data={notifications}
         renderItem={({ item }) => (
@@ -64,18 +63,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: AppColors.background,
-  },
-  header: {
-    backgroundColor: AppColors.primary,
-    paddingVertical: Platform.OS === "ios" ? 15 : 16,
-    paddingHorizontal: 20,
-    alignItems: "center",
-  },
-  headerTitle: {
-    color: "#FFFFFF",
-    fontSize: Platform.OS === "ios" ? 20 : 18,
-    fontWeight: "900",
-    fontFamily: Platform.OS === "ios" ? "System" : "Roboto",
   },
   listContainer: {
     padding: 20,

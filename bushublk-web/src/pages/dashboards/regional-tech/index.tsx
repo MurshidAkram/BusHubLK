@@ -7,7 +7,9 @@ import {
   FaCalendarAlt,
   FaMapMarkerAlt,
   FaBus,
-  FaClipboardList
+  FaClipboardList,
+  FaBuilding,
+  FaBell
 } from 'react-icons/fa';
 import { HiUsers } from 'react-icons/hi';
 import { AppContext } from '../../../context/AppContext';
@@ -39,6 +41,7 @@ const MaintenanceDashboard = () => {
 
   // Fetch bus status distribution data and depot count
   const [totalDepots, setTotalDepots] = useState<number>(0);
+  const [regionName, setRegionName] = useState<string>('');
   
   // Inspection data states
   const [upcomingInspections, setUpcomingInspections] = useState<Inspection[]>([]);
@@ -90,6 +93,61 @@ const MaintenanceDashboard = () => {
           setTotalDepots(Array.isArray(depotsData.depots) ? depotsData.depots.length : 0);
         } else {
           setTotalDepots(0);
+        }
+
+        // Fetch RTO's region data using working API pattern similar to depot engineer
+        try {
+          // Try to get RTO-specific data that should include region information
+          const rtoDataRes = await fetch('http://localhost:5000/api/regional-tech/dashboard-data', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          
+          if (rtoDataRes.ok) {
+            const rtoData = await rtoDataRes.json();
+            if (rtoData.success && rtoData.data && rtoData.data.region_name) {
+              setRegionName(rtoData.data.region_name);
+            } else {
+              // Fallback: try to get region from inspection data which might include region info
+              const inspectionsRes = await fetch('http://localhost:5000/api/inspections', {
+                headers: { 'Authorization': `Bearer ${token}` }
+              });
+              
+              if (inspectionsRes.ok) {
+                const inspectionsData = await inspectionsRes.json();
+                if (inspectionsData.success && inspectionsData.inspections && inspectionsData.inspections.length > 0) {
+                  const firstInspection = inspectionsData.inspections[0];
+                  if (firstInspection.region_name) {
+                    setRegionName(firstInspection.region_name);
+                  } else {
+                    setRegionName('Regional Technical Officer');
+                  }
+                } else {
+                  setRegionName('Regional Technical Officer');
+                }
+              } else {
+                setRegionName('Regional Technical Officer');
+              }
+            }
+          } else {
+            // If RTO endpoint fails, try getting region from depot data
+            const depotsRes = await fetch('http://localhost:5000/api/depots/service-monitor', {
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (depotsRes.ok) {
+              const depotsData = await depotsRes.json();
+              if (depotsData.depots && depotsData.depots.length > 0 && depotsData.depots[0].region_name) {
+                setRegionName(depotsData.depots[0].region_name);
+              } else {
+                setRegionName('Regional Technical Officer');
+              }
+            } else {
+              setRegionName('Regional Technical Officer');
+            }
+          }
+        } catch (err) {
+          console.error('Error fetching region data:', err);
+          setRegionName('Regional Technical Officer');
         }
 
         // Fetch inspection data
@@ -502,13 +560,27 @@ const MaintenanceDashboard = () => {
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Top Metrics Cards - Updated */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
+          {/* Region Name Card */}
+          <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-purple-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center mb-2">
+                  <FaMapMarkerAlt className="w-5 h-5 text-purple-500 mr-2" />
+                  <span className="text-gray-600 text-sm">Your Region</span>
+                </div>
+                <div className="text-xl font-bold text-gray-900">{regionName || 'Loading...'}</div>
+               
+              </div>
+            </div>
+          </div>
+
           {/* Total Depots Card */}
           <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-blue-500">
             <div className="flex items-center justify-between">
               <div>
                 <div className="flex items-center mb-2">
-                  <FaMapMarkerAlt className="w-5 h-5 text-blue-500 mr-2" />
+                  <FaBuilding className="w-5 h-5 text-blue-500 mr-2" />
                   <span className="text-gray-600 text-sm">Total Depots</span>
                 </div>
                 <div className="text-3xl font-bold text-gray-900">{totalDepots}</div>

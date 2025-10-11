@@ -62,9 +62,16 @@ export default function DriverLoginScreen() {
           const assignmentResponse = await driverAPI.getDailyAssignment(userData.driver_id.toString());
           
           if (assignmentResponse && assignmentResponse.bus_id && assignmentResponse.route_id) {
-            // Check if assignment is for today
+            // Check if assignment is for today - improve date comparison
             const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
-            const assignmentDate = assignmentResponse.assignment_date?.split('T')[0] || '';
+            const assignmentDate = new Date(assignmentResponse.assignment_date).toISOString().split('T')[0];
+            
+            console.log("Date comparison:", { 
+              assignmentDate, 
+              today, 
+              rawDate: assignmentResponse.assignment_date,
+              matches: assignmentDate === today 
+            });
             
             if (assignmentDate === today) {
               console.log("Today's daily assignment found:", {
@@ -91,6 +98,22 @@ export default function DriverLoginScreen() {
               });
             } else {
               console.warn("Assignment found but not for today:", assignmentDate, "vs today:", today);
+              // Even if not today, still use the most recent assignment
+              console.log("Using most recent assignment anyway");
+              userData = { 
+                ...userData, 
+                busId: assignmentResponse.bus_id.toString(), 
+                routeId: assignmentResponse.route_id.toString(),
+                assignmentId: assignmentResponse.assignment_id,
+                busRegistration: assignmentResponse.registration_number
+              };
+              
+              locationService.setCurrentAssignment({
+                bus_id: assignmentResponse.bus_id,
+                route_id: assignmentResponse.route_id,
+                driver_id: userData.driver_id,
+                assignment_id: assignmentResponse.assignment_id
+              });
             }
           } else {
             console.warn("No active daily assignment found for driver:", userData.driver_id);
@@ -123,7 +146,7 @@ export default function DriverLoginScreen() {
       
       let errorMessage = "Network error. Please check your connection and try again.";
       
-      if (error.message) {
+      if (error instanceof Error && error.message) {
         errorMessage = `Error: ${error.message}\n\nPlease ensure:\n1. You're on the same WiFi\n2. Backend is running\n3. Firewall allows connections`;
       }
       

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { 
   HiGlobeAlt,
   HiOfficeBuilding,
@@ -9,147 +9,81 @@ import {
   HiChartSquareBar,
   HiShieldCheck,
   HiExclamationCircle,
+  HiCheckCircle,
+  HiClock,
   HiArrowUp,
   HiArrowDown,
   HiLightBulb,
-  HiFlag
+  HiFlag,
+  HiRefresh
 } from 'react-icons/hi';
+import { AppContext } from '../../../context/AppContext';
 
 const CEODashboard = () => {
-  const [fleetData, setFleetData] = useState({
+  const context = useContext(AppContext);
+  const token = context?.token;
+  
+  // State for dashboard metrics
+  const [dashboardMetrics, setDashboardMetrics] = useState({
     totalRegions: 0,
     totalDepots: 0,
     totalFleet: 0,
-    loading: true,
-    error: null as string | null
+    activeBuses: 0
   });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const [regionalData, setRegionalData] = useState<any[]>([]);
-  const [regionalLoading, setRegionalLoading] = useState(true);
-  const [regionalError, setRegionalError] = useState<string | null>(null);
-
-  // Fetch fleet summary and regional data from backend
+  // Fetch dashboard data from backend
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchDashboardData = async () => {
       try {
-        setFleetData(prev => ({ ...prev, loading: true }));
-        setRegionalLoading(true);
-        
-        // Fetch fleet summary
-        const fleetResponse = await fetch('http://localhost:5000/api/ceo/fleet-summary');
-        
-        if (!fleetResponse.ok) {
-          throw new Error(`Fleet API error! status: ${fleetResponse.status}`);
-        }
-        
-        const fleetResult = await fleetResponse.json();
-        
-        if (fleetResult.success) {
-          setFleetData({
-            totalRegions: parseInt(fleetResult.data.total_regions) || 0,
-            totalDepots: parseInt(fleetResult.data.total_depots) || 0,
-            totalFleet: parseInt(fleetResult.data.total_buses) || 0,
-            loading: false,
-            error: null
-          });
-        } else {
-          throw new Error('Fleet API response indicates failure');
-        }
+        setLoading(true);
+        if (!token) throw new Error('No authentication token found');
 
-        // Fetch regional data
-        const regionalResponse = await fetch('http://localhost:5000/api/ceo/regions');
-        
-        if (!regionalResponse.ok) {
-          throw new Error(`Regional API error! status: ${regionalResponse.status}`);
-        }
-        
-        const regionalResult = await regionalResponse.json();
-        
-        if (regionalResult.success) {
-          // Transform regional data to match expected format
-          const transformedRegions = regionalResult.data.map((region: any, index: number) => ({
-            id: region.region_id,
-            name: region.region_name,
-            depots: region.depot_count || 0,
-            vehicles: region.bus_count || 0,
-            revenue: (region.bus_count || 0) * 100000000, // Estimate revenue based on fleet size
-            efficiency: 85 + (index % 10), // Mock efficiency for now
-            growth: (Math.random() * 6 - 1).toFixed(1), // Random growth between -1% and 5%
-            status: region.active_buses > (region.bus_count * 0.8) ? 'excellent' : 
-                   region.active_buses > (region.bus_count * 0.6) ? 'good' : 'needs_attention',
-            criticalIssues: region.maintenance_buses > 10 ? Math.floor(region.maintenance_buses / 10) : 0,
-            active_buses: region.active_buses || 0,
-            maintenance_buses: region.maintenance_buses || 0,
-            out_of_service_buses: region.out_of_service_buses || 0
-          }));
-          
-          setRegionalData(transformedRegions);
-          setRegionalLoading(false);
-          setRegionalError(null);
+        // Fetch fleet summary data from CEO API
+        const response = await fetch('http://localhost:5000/api/ceo/fleet-summary', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            setDashboardMetrics({
+              totalRegions: parseInt(data.data.total_regions) || 0,
+              totalDepots: parseInt(data.data.total_depots) || 0,
+              totalFleet: parseInt(data.data.total_buses) || 0,
+              activeBuses: parseInt(data.data.active_buses) || 0
+            });
+            setError(null);
+          } else {
+            throw new Error(data.message || 'Failed to fetch data');
+          }
         } else {
-          throw new Error('Regional API response indicates failure');
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
       } catch (err) {
-        console.error('Error fetching data:', err);
-        
-        // Set fallback data for fleet
-        setFleetData({
+        console.error('Error fetching dashboard data:', err);
+        setError('Failed to load dashboard data');
+        // Use fallback data
+        setDashboardMetrics({
           totalRegions: 12,
           totalDepots: 45,
           totalFleet: 2850,
-          loading: false,
-          error: err instanceof Error ? err.message : 'Unknown error'
+          activeBuses: 2365
         });
-
-        // Set fallback data for regions
-        setRegionalData([
-          { 
-            id: 1, 
-            name: 'Western Province', 
-            depots: 12, 
-            vehicles: 720, 
-            revenue: 680000000, 
-            efficiency: 89, 
-            growth: 5.2,
-            status: 'excellent',
-            criticalIssues: 2
-          },
-          { 
-            id: 2, 
-            name: 'Central Province', 
-            depots: 8, 
-            vehicles: 480, 
-            revenue: 420000000, 
-            efficiency: 85, 
-            growth: 3.8,
-            status: 'good',
-            criticalIssues: 1
-          },
-          { 
-            id: 3, 
-            name: 'Southern Province', 
-            depots: 10, 
-            vehicles: 650, 
-            revenue: 580000000, 
-            efficiency: 88, 
-            growth: 4.5,
-            status: 'excellent',
-            criticalIssues: 0
-          }
-        ]);
-        setRegionalLoading(false);
-        setRegionalError(err instanceof Error ? err.message : 'Unknown error');
+      } finally {
+        setLoading(false);
       }
     };
 
-    fetchData();
-  }, []);
+    fetchDashboardData();
+  }, [token]);
 
-  // Mock data - replace with actual API calls
+  // Mock data for other sections (unchanged for now)
   const executiveMetrics = {
-    totalRevenue: 2450000000, // in LKR
-    totalDepots: 45,
-    totalFleet: 2850,
     totalEmployees: 8420,
     totalRoutes: 320,
     totalPassengers: 185000, // daily
@@ -158,6 +92,75 @@ const CEODashboard = () => {
     safetyScore: 94,
     complianceScore: 91
   };
+
+  const regionalData = [
+    { 
+      id: 1, 
+      name: 'Western Province', 
+      depots: 12, 
+      vehicles: 720, 
+      revenue: 680000000, 
+      efficiency: 89, 
+      growth: 5.2,
+      status: 'excellent',
+      criticalIssues: 2
+    },
+    { 
+      id: 2, 
+      name: 'Central Province', 
+      depots: 8, 
+      vehicles: 480, 
+      revenue: 420000000, 
+      efficiency: 85, 
+      growth: 3.8,
+      status: 'good',
+      criticalIssues: 1
+    },
+    { 
+      id: 3, 
+      name: 'Southern Province', 
+      depots: 10, 
+      vehicles: 650, 
+      revenue: 580000000, 
+      efficiency: 88, 
+      growth: 4.5,
+      status: 'excellent',
+      criticalIssues: 0
+    },
+    { 
+      id: 4, 
+      name: 'Northern Province', 
+      depots: 6, 
+      vehicles: 380, 
+      revenue: 320000000, 
+      efficiency: 82, 
+      growth: 2.1,
+      status: 'fair',
+      criticalIssues: 4
+    },
+    { 
+      id: 5, 
+      name: 'Eastern Province', 
+      depots: 5, 
+      vehicles: 320, 
+      revenue: 280000000, 
+      efficiency: 79, 
+      growth: 1.8,
+      status: 'needs_attention',
+      criticalIssues: 6
+    },
+    { 
+      id: 6, 
+      name: 'North Western Province', 
+      depots: 4, 
+      vehicles: 300, 
+      revenue: 170000000, 
+      efficiency: 84, 
+      growth: 3.2,
+      status: 'good',
+      criticalIssues: 1
+    }
+  ];
 
   const keyAlerts = [
     { id: 1, type: 'financial', message: 'Q4 revenue target 98% achieved', priority: 'low', time: '2 hours ago' },
@@ -223,11 +226,6 @@ const CEODashboard = () => {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Executive Dashboard</h1>
           <p className="text-gray-600 mt-1">Strategic overview of BusHubLK operations nationwide</p>
-          {fleetData.error && (
-            <p className="text-yellow-600 text-sm mt-1">
-              ⚠️ Using demo data - API connection failed: {fleetData.error}
-            </p>
-          )}
         </div>
         <div className="text-right">
           <p className="text-sm text-gray-500">Last updated</p>
@@ -236,33 +234,29 @@ const CEODashboard = () => {
       </div>
 
       {/* Executive KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
       
-        <div className="bg-gradient-to-br from-green-600 to-green-700 rounded-xl shadow-lg p-6 text-white">
+        <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl shadow-lg p-6 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-green-100 text-sm font-medium">Total Regions</p>
-              <p className="text-2xl font-bold">
-                {fleetData.loading ? '...' : fleetData.totalRegions}
-              </p>
-              <p className="text-green-100 text-xs mt-1">Nationwide</p>
+              <p className="text-blue-100 text-sm font-medium">Total Regions</p>
+              <p className="text-2xl font-bold">{loading ? '-' : dashboardMetrics.totalRegions}</p>
+              <p className="text-blue-100 text-xs mt-1">Nationwide</p>
             </div>
-            <div className="p-3 bg-green-500 bg-opacity-30 rounded-full">
+            <div className="p-3 bg-blue-500 bg-opacity-30 rounded-full">
               <HiGlobeAlt className="h-6 w-6" />
             </div>
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl shadow-lg p-6 text-white">
+        <div className="bg-gradient-to-br from-green-600 to-green-700 rounded-xl shadow-lg p-6 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-blue-100 text-sm font-medium">Total Depots</p>
-              <p className="text-2xl font-bold">
-                {fleetData.loading ? '...' : fleetData.totalDepots}
-              </p>
-              <p className="text-blue-100 text-xs mt-1">All Regions</p>
+              <p className="text-green-100 text-sm font-medium">Total Depots</p>
+              <p className="text-2xl font-bold">{loading ? '-' : dashboardMetrics.totalDepots}</p>
+              <p className="text-green-100 text-xs mt-1">All Regions</p>
             </div>
-            <div className="p-3 bg-blue-500 bg-opacity-30 rounded-full">
+            <div className="p-3 bg-green-500 bg-opacity-30 rounded-full">
               <HiOfficeBuilding className="h-6 w-6" />
             </div>
           </div>
@@ -271,11 +265,9 @@ const CEODashboard = () => {
         <div className="bg-gradient-to-br from-purple-600 to-purple-700 rounded-xl shadow-lg p-6 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-purple-100 text-sm font-medium">Fleet Size</p>
-              <p className="text-2xl font-bold">
-                {fleetData.loading ? '...' : fleetData.totalFleet.toLocaleString()}
-              </p>
-              <p className="text-purple-100 text-xs mt-1">Active Vehicles</p>
+              <p className="text-purple-100 text-sm font-medium">Total Fleet</p>
+              <p className="text-2xl font-bold">{loading ? '-' : dashboardMetrics.totalFleet.toLocaleString()}</p>
+              <p className="text-purple-100 text-xs mt-1">All Vehicles</p>
             </div>
             <div className="p-3 bg-purple-500 bg-opacity-30 rounded-full">
               <HiTruck className="h-6 w-6" />
@@ -286,25 +278,12 @@ const CEODashboard = () => {
         <div className="bg-gradient-to-br from-orange-600 to-orange-700 rounded-xl shadow-lg p-6 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-orange-100 text-sm font-medium">Total Employees</p>
-              <p className="text-2xl font-bold">{executiveMetrics.totalEmployees.toLocaleString()}</p>
-              <p className="text-orange-100 text-xs mt-1">All Roles</p>
+              <p className="text-orange-100 text-sm font-medium">Active Buses</p>
+              <p className="text-2xl font-bold">{loading ? '-' : dashboardMetrics.activeBuses.toLocaleString()}</p>
+              <p className="text-orange-100 text-xs mt-1">In Service</p>
             </div>
             <div className="p-3 bg-orange-500 bg-opacity-30 rounded-full">
-              <HiUsers className="h-6 w-6" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 rounded-xl shadow-lg p-6 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-indigo-100 text-sm font-medium">Daily Passengers</p>
-              <p className="text-2xl font-bold">{executiveMetrics.totalPassengers.toLocaleString()}</p>
-              <p className="text-indigo-100 text-xs mt-1">Per Day</p>
-            </div>
-            <div className="p-3 bg-indigo-500 bg-opacity-30 rounded-full">
-              <HiGlobeAlt className="h-6 w-6" />
+              <HiCheckCircle className="h-6 w-6" />
             </div>
           </div>
         </div>
@@ -348,19 +327,6 @@ const CEODashboard = () => {
             <h3 className="text-lg font-semibold text-gray-900">Regional Performance Overview</h3>
             <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">View Details</button>
           </div>
-          
-          {regionalLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              <span className="ml-3 text-gray-600">Loading regional data...</span>
-            </div>
-          ) : regionalError ? (
-            <div className="text-center py-8">
-              <p className="text-yellow-600 text-sm mb-2">⚠️ Using demo data - API connection failed</p>
-              <p className="text-gray-500 text-xs">{regionalError}</p>
-            </div>
-          ) : null}
-          
           <div className="space-y-4">
             {regionalData.map((region) => (
               <div key={region.id} className="p-4 rounded-lg border border-gray-100 hover:border-gray-200 transition-colors">
@@ -372,8 +338,8 @@ const CEODashboard = () => {
                     </span>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <span className={`text-sm font-medium ${parseFloat(region.growth) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {parseFloat(region.growth) >= 0 ? '+' : ''}{region.growth}%
+                    <span className={`text-sm font-medium ${region.growth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {region.growth >= 0 ? '+' : ''}{region.growth}%
                     </span>
                   </div>
                 </div>

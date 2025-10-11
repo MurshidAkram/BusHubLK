@@ -17,6 +17,8 @@ import * as Location from "expo-location";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { useFocusEffect } from "@react-navigation/native";
 import { storageAPI, driverAPI } from "../services/api";
+import { locationService } from "../services/locationService";
+
 import BackgroundLocationService from "../services/backgroundLocationService";
 
 // App Color Palette
@@ -204,18 +206,36 @@ export default function TrackingScreen({ navigation }: any) {
     }
   };
 
-  // Load assignment from BackgroundLocationService (set by ScheduleScreen)
+
+  // Load assignment from locationService (set by ScheduleScreen)
   const loadAssignmentDataFromService = async () => {
     try {
-      const activeAssignment = await BackgroundLocationService.getActiveAssignment();
+      // Try to load from locationService first
+      const activeAssignment = await locationService.loadAssignmentFromStorage();
       if (activeAssignment) {
-        console.log("📋 Active assignment from BackgroundLocationService:", activeAssignment);
+        console.log("📋 Active assignment from locationService:", activeAssignment);
         // Update tracking status with data from the service
         setTrackingStatus(prev => ({
           ...prev,
-          busId: activeAssignment.busId?.toString() || null,
-          routeId: activeAssignment.routeId?.toString() || null,
+          busId: activeAssignment.bus_id?.toString() || null,
+          routeId: activeAssignment.route_id?.toString() || null,
         }));
+        
+        // If we have assignment data, try to get full details
+        if (userData?.driver_id) {
+          await loadAssignmentData();
+        }
+      } else {
+        // Fallback: Try BackgroundLocationService
+        const backgroundAssignment = await BackgroundLocationService.getActiveAssignment();
+        if (backgroundAssignment) {
+          console.log("📋 Active assignment from BackgroundLocationService:", backgroundAssignment);
+          setTrackingStatus(prev => ({
+            ...prev,
+            busId: backgroundAssignment.busId?.toString() || null,
+            routeId: backgroundAssignment.routeId?.toString() || null,
+          }));
+        }
       }
     } catch (error) {
       console.error("Error loading assignment from service:", error);
@@ -284,14 +304,17 @@ export default function TrackingScreen({ navigation }: any) {
   };
 
   const checkTrackingStatus = async () => {
-    // Check if background tracking is active (set by ScheduleScreen)
-    const isActive = await BackgroundLocationService.isTrackingActive();
+    // Check if location tracking is active
+    const isActive = await locationService.isTrackingActive();
     setTrackingStatus(prev => ({
       ...prev,
       isActive,
       lastUpdate: isActive ? new Date().toISOString() : prev.lastUpdate,
     }));
-    console.log("🔍 Tracking status check:", isActive ? "ACTIVE" : "INACTIVE");
+    console.log("🔍 Tracking status check:", isActive ? "ACTIVE ✅" : "INACTIVE ❌");
+    
+    // Also load assignment data to display bus and route info
+    await loadAssignmentDataFromService();
   };
 
   const onRefresh = async () => {

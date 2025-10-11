@@ -1,5 +1,5 @@
 // src/pages/dashboards/ceo/DepotNetworkDetailPage.tsx
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useContext } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   HiTruck,
@@ -7,6 +7,7 @@ import {
   HiChevronDown,
   HiArrowLeft,
 } from 'react-icons/hi';
+import { AppContext } from '../../../context/AppContext';
 
 const routeData: Record<
   number,
@@ -21,16 +22,93 @@ const routeData: Record<
     { routeName: '15: Gampaha – Negombo', numberofbus: 10, load: 70, dailyRidership: 1100 },
     { routeName: '39: Gampaha – Wattala', numberofbus: 7, load: 65, dailyRidership: 900  },
   ],
-  // …other depot routes
+  // Other depot routes can be added here
 };
 
 const DepotNetworkPage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const context = useContext(AppContext);
+  const token = context?.token;
+  
   const [selectedId, setSelectedId] = useState<number|null>(null);
   const [search, setSearch] = useState('');
   const [region, setRegion] = useState('All');
   const [depots, setDepots] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  // Fetch all depots when no navigation state is available
+  const fetchAllDepots = async () => {
+    try {
+      setLoading(true);
+      if (!token) throw new Error('No authentication token found');
+
+      const response = await fetch('http://localhost:5000/api/ceo/depots', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data) {
+          const transformedDepots = data.data.map((depot: any) => ({
+            id: depot.depot_id,
+            name: depot.depot_name,
+            region: depot.region_name,
+            totalFleet: depot.bus_count || 0,
+            activeFleet: depot.active_buses || 0,
+            maintenanceFleet: depot.maintenance_buses || 0,
+            outOfServiceFleet: depot.out_of_service_buses || 0,
+            status: depot.active_buses > 0 ? 'Active' : 'Maintenance',
+            coords: '6.9271, 79.8612',
+            address: `${depot.depot_name} Depot, ${depot.region_name}`,
+            manager: 'Depot Manager',
+            lastInspection: '2025-01-15',
+          }));
+          setDepots(transformedDepots);
+        }
+      } else {
+        throw new Error('Failed to fetch depots');
+      }
+    } catch (err) {
+      console.error('Error fetching depots:', err);
+      // Fallback to mock data
+      setDepots([
+        {
+          id: 101,
+          name: 'Colombo Central Depot',
+          region: 'Western',
+          totalFleet: 120,
+          activeFleet: 100,
+          maintenanceFleet: 15,
+          outOfServiceFleet: 5,
+          status: 'Active',
+          coords: '6.9271, 79.8612',
+          address: 'Colombo Central Depot, Western',
+          manager: 'Depot Manager',
+          lastInspection: '2025-01-15',
+        },
+        {
+          id: 102,
+          name: 'Gampaha Depot',
+          region: 'Western',
+          totalFleet: 80,
+          activeFleet: 70,
+          maintenanceFleet: 8,
+          outOfServiceFleet: 2,
+          status: 'Active',
+          coords: '6.9271, 79.8612',
+          address: 'Gampaha Depot, Western',
+          manager: 'Depot Manager',
+          lastInspection: '2025-01-15',
+        }
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
   
   // Handle navigation from RegionalOverview
   useEffect(() => {
@@ -49,25 +127,22 @@ const DepotNetworkPage: React.FC = () => {
         coords: '6.9271, 79.8612', // Default coordinates
         address: `${depot.depot_name} Depot, ${state.regionName}`,
         manager: 'Depot Manager', // Default manager
-        staffCount: Math.floor(depot.bus_count * 0.7), // Estimate staff count
-        dailyPassengers: depot.active_buses * 100, // Estimate daily passengers
         lastInspection: '2025-01-15',
-        ridershipHistory: [
-          { date: '2025-01-01', riders: depot.active_buses * 80 },
-          { date: '2025-01-02', riders: depot.active_buses * 85 },
-          { date: '2025-01-03', riders: depot.active_buses * 90 },
-          { date: '2025-01-04', riders: depot.active_buses * 95 },
-          { date: '2025-01-05', riders: depot.active_buses * 100 },
-        ],
       }));
       setDepots(transformedDepots);
       setRegion(state.regionName);
+      setLoading(false);
+      
+      // Auto-select first depot if only one depot in the region
+      if (transformedDepots.length === 1) {
+        setSelectedId(transformedDepots[0].id);
+      }
     } else {
-      // Use empty array as fallback since no hardcoded data
-      setDepots([]);
+      // Fetch all depots when accessing directly
+      fetchAllDepots();
     }
-  }, [location.state]);
-  
+  }, [location.state, token]);
+
   const filtered = useMemo(() => 
     depots.filter(d =>
       (region==='All' || d.region===region) &&
@@ -115,25 +190,35 @@ const DepotNetworkPage: React.FC = () => {
         </select>
 
         <ul className="mt-4 divide-y overflow-auto">
-          {filtered.map(depot => {
-            const isActive = depot.id === selectedId;
-            return (
-              <li
-                key={depot.id}
-                onClick={()=>setSelectedId(isActive ? null : depot.id)}
-                className={`py-2 flex justify-between items-center cursor-pointer ${
-                  isActive ? 'bg-blue-50' : 'hover:bg-gray-50'
-                }`}
-              >
-                <span>{depot.name}</span>
-                {isActive ? (
-                  <HiChevronDown className="h-5 w-5" />
-                ) : (
-                  <HiChevronRight className="h-5 w-5" />
-                )}
-              </li>
-            );
-          })}
+          {loading ? (
+            <li className="py-4 text-center text-gray-500">
+              Loading depots...
+            </li>
+          ) : filtered.length > 0 ? (
+            filtered.map(depot => {
+              const isActive = depot.id === selectedId;
+              return (
+                <li
+                  key={depot.id}
+                  onClick={()=>setSelectedId(isActive ? null : depot.id)}
+                  className={`py-2 flex justify-between items-center cursor-pointer ${
+                    isActive ? 'bg-blue-50' : 'hover:bg-gray-50'
+                  }`}
+                >
+                  <span>{depot.name}</span>
+                  {isActive ? (
+                    <HiChevronDown className="h-5 w-5" />
+                  ) : (
+                    <HiChevronRight className="h-5 w-5" />
+                  )}
+                </li>
+              );
+            })
+          ) : (
+            <li className="py-4 text-center text-gray-500">
+              No depots found
+            </li>
+          )}
         </ul>
       </div>
 
@@ -156,7 +241,7 @@ const DepotNetworkPage: React.FC = () => {
               </span>
             </div>
 
-            {/* KPI Row */}
+            {/* KPI Row - 4 cards only */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
               <div className="p-4 bg-white shadow rounded flex items-center">
                 <HiTruck className="h-6 w-6 text-blue-600 mr-2" />
@@ -188,7 +273,9 @@ const DepotNetworkPage: React.FC = () => {
               </div>
             </div>
 
-            <div title="Routes Overview">
+            {/* Routes Overview */}
+            <div className="bg-white shadow rounded p-4 mb-6">
+              <h4 className="text-lg mb-4">Routes Overview</h4>
               {routeData[active.id]?.length ? (
                 <div className="overflow-auto">
                   <table className="w-full text-sm">
@@ -213,12 +300,12 @@ const DepotNetworkPage: React.FC = () => {
                   </table>
                 </div>
               ) : (
-                <p className="text-gray-500">No route data available.</p>
+                <p className="text-gray-500">No route data available for this depot.</p>
               )}
             </div>
 
-            {/* Bus Details Table */}
-            <div className="bg-white shadow rounded p-4 mb-6 mt-8">
+            {/* Bus Fleet Details Table - Replaces the chart */}
+            <div className="bg-white shadow rounded p-4 mb-6">
               <h4 className="text-lg mb-4">Bus Fleet Details</h4>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm border-collapse">
@@ -265,13 +352,13 @@ const DepotNetworkPage: React.FC = () => {
                     })}
                   </tbody>
                 </table>
+                {active.totalFleet === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    <HiTruck className="mx-auto h-12 w-12 text-gray-400 mb-2" />
+                    <p>No buses found for this depot</p>
+                  </div>
+                )}
               </div>
-              {active.totalFleet === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                  <HiTruck className="mx-auto h-12 w-12 text-gray-400 mb-2" />
-                  <p>No buses found for this depot</p>
-                </div>
-              )}
             </div>
           </>
         )}
