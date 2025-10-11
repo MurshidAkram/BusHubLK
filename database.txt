@@ -1,0 +1,859 @@
+-- Roles table to define all user roles in the system
+CREATE TABLE roles (
+    role_id SERIAL PRIMARY KEY,
+    role_name VARCHAR(50) UNIQUE NOT NULL,
+    role_description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users table with consistent INTEGER primary key
+CREATE TABLE users (
+    user_id SERIAL PRIMARY KEY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    first_name VARCHAR(50) NOT NULL,
+    last_name VARCHAR(50) NOT NULL,
+    phone VARCHAR(20),
+    role_id INTEGER NOT NULL REFERENCES roles(role_id) ON DELETE RESTRICT,
+    is_active BOOLEAN DEFAULT TRUE,
+    last_login TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Regions table
+CREATE TABLE regions (
+    region_id SERIAL PRIMARY KEY,
+    region_name VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Depots table
+CREATE TABLE depots (
+    depot_id SERIAL PRIMARY KEY,
+    depot_name VARCHAR(100) NOT NULL,
+    region_id INTEGER NOT NULL REFERENCES regions(region_id) ON DELETE CASCADE,
+    address TEXT,
+    contact_phone VARCHAR(20),
+    latitude DECIMAL(10, 8),
+    longitude DECIMAL(11, 8),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Insert roles first
+INSERT INTO roles (role_name, role_description) VALUES
+('ceo', 'Chief Executive Officer'),
+('dgm_technical', 'Deputy General Manager for Technical Operations'),
+('dgm_operations', 'Deputy General Manager for Operations'),
+('regional_tech', 'Regional Technical Officer'),
+('regional_operations', 'Regional Operation Officer'),
+('depot_manager', 'Depot Manager'),
+('depot_operations', 'Depot Operation Manager'),
+('depot_engineer', 'Depot Engineer'),
+('driver', 'Bus Driver'),
+('conductor', 'Bus Conductor'),
+('passenger', 'Passenger'),
+('admin', 'System Administrator');
+
+-- Insert regions
+INSERT INTO regions (region_name) VALUES
+('Colombo'),
+('Gampaha'),
+('Kaluthara'), ..
+('Wayamba'),
+('Mahanuwara'),
+('Sabaragamuwa'),
+('Southern'),
+('Rajarata'),
+('Nuwaraeliya'),
+('New Eastern'),
+('Northern'),
+('Uva');
+
+-- Insert depots for each region
+-- Colombo Region
+INSERT INTO depots (depot_name, region_id, address, contact_phone) VALUES
+('Rathmalana', 1, 'Rathmalana, Colombo', '+94112233445'),
+('Moratuwa', 1, 'Moratuwa, Colombo', '+94112233446'),
+('Katubedda', 1, 'Katubedda, Colombo', '+94112233447'),
+('Udahamulla', 1, 'Udahamulla, Colombo', '+94112233448'),
+('Maharagama', 1, 'Maharagama, Colombo', '+94112233449'),
+('Homagama', 1, 'Homagama, Colombo', '+94112233450'),
+('Kesbewa', 1, 'Kesbewa, Colombo', '+94112233451'),
+('Meetotamulla', 1, 'Meetotamulla, Colombo', '+94112233452'),
+('Talangama', 1, 'Talangama, Colombo', '+94112233453'),
+('Mattakkuliya', 1, 'Mattakkuliya, Colombo', '+94112233454'),
+('Angoda', 1, 'Angoda, Colombo', '+94112233455'),
+('Avissawalla', 1, 'Avissawalla, Colombo', '+94112233456');
+
+
+
+-- Gampaha Region
+INSERT INTO depots (depot_name, region_id, address, contact_phone) VALUES
+('Negombo', 2, 'Negombo, Gampaha', '+94113344556'),
+('Divulapitiya', 2, 'Divulapitiya, Gampaha', '+94113344557'),
+('Nittambuwa', 2, 'Nittambuwa, Gampaha', '+94113344558'),
+('Kirindiwela', 2, 'Kirindiwela, Gampaha', '+94113344559'),
+('Gampaha', 2, 'Gampaha Town', '+94113344560'),
+('Kadawatha', 2, 'Kadawatha, Gampaha', '+94113344561'),
+('Kelaniya', 2, 'Kelaniya, Gampaha', '+94113344562'),
+('Welisara', 2, 'Welisara, Gampaha', '+94113344563'),
+('Ja-Ela', 2, 'Ja-Ela, Gampaha', '+94113344564');
+
+-- Kaluthara Region
+INSERT INTO depots (depot_name, region_id, address, contact_phone) VALUES
+('Panadura', 3, 'Panadura, Kaluthara', '+94114455667'),
+('Kaluthara', 3, 'Kaluthara Town', '+94114455668'),
+('Aluthgama', 3, 'Aluthgama, Kaluthara', '+94114455669'),
+('Mathugama', 3, 'Mathugama, Kaluthara', '+94114455670'),
+('Horana', 3, 'Horana, Kaluthara', '+94114455671');
+
+-- Wayamba Region
+INSERT INTO depots (depot_name, region_id, address, contact_phone) VALUES
+('Kuliyapitiya', 4, 'Kuliyapitiya, Wayamba', '+94115566778'),
+('Kurunegala South', 4, 'Kurunegala South, Wayamba', '+94115566779'),
+('Kurunegala North', 4, 'Kurunegala North, Wayamba', '+94115566780'),
+('Alawwa', 4, 'Alawwa, Wayamba', '+94115566781'),
+('Chilaw', 4, 'Chilaw, Wayamba', '+94115566782'),
+('Puttalam', 4, 'Puttalam, Wayamba', '+94115566783'),
+('Wennappuwa', 4, 'Wennappuwa, Wayamba', '+94115566784'),
+('Giriulla', 4, 'Giriulla, Wayamba', '+94115566785'),
+('Maho', 4, 'Maho, Wayamba', '+94115566786'),
+('Nikaweratiya', 4, 'Nikaweratiya, Wayamba', '+94115566787'),
+('Wariyapola', 4, 'Wariyapola, Wayamba', '+94115566788'),
+('Galgamuwa', 4, 'Galgamuwa, Wayamba', '+94115566789'),
+('Narammala', 4, 'Narammala, Wayamba', '+94115566790'),
+('Redegama', 4, 'Redegama, Wayamba', '+94115566791'),
+('Anamaduwa', 4, 'Anamaduwa, Wayamba', '+94115566792');
+
+-- Mahanuwara Region
+INSERT INTO depots (depot_name, region_id, address, contact_phone) VALUES
+('Kandy North', 5, 'Kandy North, Mahanuwara', '+94116677889'),
+('Kandy South', 5, 'Kandy South, Mahanuwara', '+94116677890'),
+('Matale', 5, 'Matale, Mahanuwara', '+94116677891'),
+('Yatinuwara', 5, 'Yatinuwara, Mahanuwara', '+94116677892'),
+('Wattegama', 5, 'Wattegama, Mahanuwara', '+94116677893'),
+('Teldeniya', 5, 'Teldeniya, Mahanuwara', '+94116677894'),
+('Ududumbara', 5, 'Ududumbara, Mahanuwara', '+94116677895');
+
+-- Sabaragamuwa Region
+INSERT INTO depots (depot_name, region_id, address, contact_phone) VALUES
+('Rathnapura', 6, 'Rathnapura Town', '+94117788900'),
+('Kalawana', 6, 'Kalawana, Sabaragamuwa', '+94117788901'),
+('Balangoda', 6, 'Balangoda, Sabaragamuwa', '+94117788902'),
+('Godakawela', 6, 'Godakawela, Sabaragamuwa', '+94117788903'),
+('Embilipitiya', 6, 'Embilipitiya, Sabaragamuwa', '+94117788904'),
+('Kagalle', 6, 'Kagalle, Sabaragamuwa', '+94117788905'),
+('Mawanella', 6, 'Mawanella, Sabaragamuwa', '+94117788906'),
+('Rambukkana', 6, 'Rambukkana, Sabaragamuwa', '+94117788907'),
+('Deraniyagala', 6, 'Deraniyagala, Sabaragamuwa', '+94117788908'),
+('Kahawatta', 6, 'Kahawatta, Sabaragamuwa', '+94117788909'),
+('Warakapola', 6, 'Warakapola, Sabaragamuwa', '+94117788910');
+
+-- Southern Region
+INSERT INTO depots (depot_name, region_id, address, contact_phone) VALUES
+('Galle', 7, 'Galle Town', '+94118899001'),
+('Udugama', 7, 'Udugama, Southern', '+94118899002'),
+('Ambalangoda', 7, 'Ambalangoda, Southern', '+94118899003'),
+('Elpitiya', 7, 'Elpitiya, Southern', '+94118899004'),
+('Matara', 7, 'Matara Town', '+94118899005'),
+('Akuressa', 7, 'Akuressa, Southern', '+94118899006'),
+('Hakmana', 7, 'Hakmana, Southern', '+94118899007'),
+('Tangalle', 7, 'Tangalle, Southern', '+94118899008'),
+('Ambalantota', 7, 'Ambalantota, Southern', '+94118899009'),
+('Kataragama', 7, 'Kataragama, Southern', '+94118899010'),
+('Koggala', 7, 'Koggala, Southern', '+94118899011');
+
+-- Rajarata Region
+INSERT INTO depots (depot_name, region_id, address, contact_phone) VALUES
+('Anuradhapura', 8, 'Anuradhapura Town', '+94119900112'),
+('Polonnaruwa', 8, 'Polonnaruwa Town', '+94119900113'),
+('Kekirawa', 8, 'Kekirawa, Rajarata', '+94119900114'),
+('Horowpathana', 8, 'Horowpathana, Rajarata', '+94119900115'),
+('Kebithigollewa', 8, 'Kebithigollewa, Rajarata', '+94119900116'),
+('Dambulla', 8, 'Dambulla, Rajarata', '+94119900117'),
+('Diyasenpura', 8, 'Diyasenpura, Rajarata', '+94119900118'),
+('Medawachchiya', 8, 'Medawachchiya, Rajarata', '+94119900119'),
+('Kanthale', 8, 'Kanthale, Rajarata', '+94119900120');
+
+-- Nuwaraeliya Region
+INSERT INTO depots (depot_name, region_id, address, contact_phone) VALUES
+('Gampola', 9, 'Gampola, Nuwaraeliya', '+94110011223'),
+('Nawalapitiya', 9, 'Nawalapitiya, Nuwaraeliya', '+94110011224'),
+('Hatton', 9, 'Hatton, Nuwaraeliya', '+94110011225'),
+('Nuwaraeliya', 9, 'Nuwaraeliya Town', '+94110011226'),
+('Kotmale', 9, 'Kotmale, Nuwaraeliya', '+94110011227'),
+('Hanguranketa', 9, 'Hanguranketa, Nuwaraeliya', '+94110011228'),
+('Walapone', 9, 'Walapone, Nuwaraeliya', '+94110011229'),
+('Kurunduwatta', 9, 'Kurunduwatta, Nuwaraeliya', '+94110011230');
+
+-- New Eastern Region
+INSERT INTO depots (depot_name, region_id, address, contact_phone) VALUES
+('Akkaraipattu', 10, 'Akkaraipattu, New Eastern', '+94111122334'),
+('Amparai', 10, 'Amparai, New Eastern', '+94111122335'),
+('Batticaloa', 10, 'Batticaloa Town', '+94111122336'),
+('Kalmunai', 10, 'Kalmunai, New Eastern', '+94111122337'),
+('Kanthankudy', 10, 'Kanthankudy, New Eastern', '+94111122338'),
+('Muthur', 10, 'Muthur, New Eastern', '+94111122339'),
+('Trincomalee', 10, 'Trincomalee Town', '+94111122340'),
+('Valaichchenai', 10, 'Valaichchenai, New Eastern', '+94111122341'),
+('Kalawanchikudi', 10, 'Kalawanchikudi, New Eastern', '+94111122342'),
+('Eravur', 10, 'Eravur, New Eastern', '+94111122343'),
+('Samanthurai', 10, 'Samanthurai, New Eastern', '+94111122344'),
+('Pottuvil', 10, 'Pottuvil, New Eastern', '+94111122345'),
+('Kinniya', 10, 'Kinniya, New Eastern', '+94111122346'),
+('Vakarai', 10, 'Vakarai, New Eastern', '+94111122347'),
+('Rethithanna', 10, 'Rethithanna, New Eastern', '+94111122348');
+
+-- Northern Region
+INSERT INTO depots (depot_name, region_id, address, contact_phone) VALUES
+('Kilinochchi', 11, 'Kilinochchi Town', '+94112233459'),
+('Mulative', 11, 'Mulative, Northern', '+94112233460'),
+('Jaffna', 11, 'Jaffna Town', '+94112233461'),
+('Point-Pedro', 11, 'Point-Pedro, Northern', '+94112233462'),
+('Karinagar', 11, 'Karinagar, Northern', '+94112233463'),
+('Mannar', 11, 'Mannar Town', '+94112233464'),
+('Vavunia', 11, 'Vavunia Town', '+94112233465');
+
+-- Uva Region
+INSERT INTO depots (depot_name, region_id, address, contact_phone) VALUES
+('Badulla', 12, 'Badulla Town', '+94113344570'),
+('Bandarawela', 12, 'Bandarawela, Uva', '+94113344571'),
+('Keppetipola', 12, 'Keppetipola, Uva', '+94113344572'),
+('Monaragala', 12, 'Monaragala Town', '+94113344573'),
+('Bibila', 12, 'Bibila, Uva', '+94113344574'),
+('Mahiyanganaya', 12, 'Mahiyanganaya, Uva', '+94113344575'),
+('Wellawaya', 12, 'Wellawaya, Uva', '+94113344576'),
+('Dehiattakandiya', 12, 'Dehiattakandiya, Uva', '+94113344577'),
+('Tanamalvila', 12, 'Tanamalvila, Uva', '+94113344578'),
+('Siyabalanduwa', 12, 'Siyabalanduwa, Uva', '+94113344579');
+
+
+-- Role-specific tables with consistent INTEGER primary keys
+CREATE TABLE ceo (
+    ceo_id INTEGER PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+    appointment_date DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE dgm_technical (
+    dgm_technical_id INTEGER PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+    appointment_date DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE dgm_operations (
+    dgm_operations_id INTEGER PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+    appointment_date DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE regional_technical_officers (
+    rto_id INTEGER PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+    region_id INTEGER NOT NULL REFERENCES regions(region_id) ON DELETE CASCADE,
+    appointment_date DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE regional_operations_officers (
+    roo_id INTEGER PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+    region_id INTEGER NOT NULL REFERENCES regions(region_id) ON DELETE CASCADE,
+    appointment_date DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE depot_managers (
+    depot_manager_id INTEGER PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+    depot_id INTEGER NOT NULL REFERENCES depots(depot_id) ON DELETE CASCADE,
+    region_id INTEGER NOT NULL REFERENCES regions(region_id) ON DELETE CASCADE,
+    appointment_date DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE depot_operation_managers (
+    depot_op_manager_id INTEGER PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+    depot_id INTEGER NOT NULL REFERENCES depots(depot_id) ON DELETE CASCADE,
+    region_id INTEGER NOT NULL REFERENCES regions(region_id) ON DELETE CASCADE,
+    appointment_date DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE depot_engineers (
+    depot_engineer_id INTEGER PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+    depot_id INTEGER NOT NULL REFERENCES depots(depot_id) ON DELETE CASCADE,
+    region_id INTEGER NOT NULL REFERENCES regions(region_id) ON DELETE CASCADE,
+    appointment_date DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE drivers (
+    driver_id INTEGER PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+    depot_id INTEGER NOT NULL REFERENCES depots(depot_id) ON DELETE CASCADE,
+    region_id INTEGER NOT NULL REFERENCES regions(region_id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE conductors (
+    conductor_id INTEGER PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+    depot_id INTEGER NOT NULL REFERENCES depots(depot_id) ON DELETE CASCADE,
+    region_id INTEGER NOT NULL REFERENCES regions(region_id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE passengers (
+    passenger_id INTEGER PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE admins (
+    admin_id INTEGER PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create indexes for better performance
+CREATE INDEX idx_users_role_id ON users(role_id);
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_username ON users(username);
+CREATE INDEX idx_depots_region_id ON depots(region_id);
+CREATE INDEX idx_depot_managers_depot_id ON depot_managers(depot_id);
+CREATE INDEX idx_depot_managers_region_id ON depot_managers(region_id);
+CREATE INDEX idx_drivers_depot_id ON drivers(depot_id);
+CREATE INDEX idx_conductors_depot_id ON conductors(depot_id);
+
+
+CREATE TABLE emergency_contacts (
+    id SERIAL PRIMARY KEY,
+    passenger_id INTEGER NOT NULL REFERENCES passengers(passenger_id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
+    phone VARCHAR(20) NOT NULL,
+    relationship VARCHAR(50) DEFAULT 'N/A',
+    email VARCHAR(100) DEFAULT 'N/A',
+    is_primary BOOLEAN DEFAULT FALSE
+);
+
+
+
+CREATE TABLE passengers (
+    passenger_id INTEGER PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+    date_of_birth DATE,
+    gender VARCHAR(10) CHECK (gender IN ('male', 'female', 'other')),
+    address TEXT,
+    emergency_contact_name VARCHAR(100),
+    emergency_contact_phone VARCHAR(20),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create trigger for updated_at
+CREATE TRIGGER update_passengers_updated_at 
+    BEFORE UPDATE ON passengers 
+    FOR EACH ROW 
+    EXECUTE FUNCTION update_updated_at_column();
+
+
+CREATE TABLE buses (
+    bus_id SERIAL PRIMARY KEY,
+    registration_number VARCHAR(20) UNIQUE NOT NULL,
+    depot_id INTEGER REFERENCES depots(depot_id) ON DELETE SET NULL,
+    class VARCHAR(1) NOT NULL CHECK (class IN ('A', 'B', 'C', 'D')),
+    manufacturer VARCHAR(100) NOT NULL,
+    model VARCHAR(100),
+    year INTEGER CHECK (year > 1900 AND year <= EXTRACT(YEAR FROM CURRENT_DATE)),
+    mileage INTEGER DEFAULT 0 CHECK (mileage >= 0),
+    status VARCHAR(20) NOT NULL DEFAULT 'Active' CHECK (status IN ('Active', 'In Service', 'Maintenance', 'Out of Service', 'Retired')),
+    purchase_date DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_active BOOLEAN DEFAULT TRUE,
+    is_deleted BOOLEAN DEFAULT FALSE
+);
+
+CREATE INDEX idx_buses_depot ON buses(depot_id);
+CREATE INDEX idx_buses_status ON buses(status);
+CREATE INDEX idx_buses_class ON buses(class);
+
+-- Creating the bus_occupancy table
+CREATE TABLE bus_occupancy (
+    occupancy_id SERIAL PRIMARY KEY,
+    bus_id INTEGER NOT NULL REFERENCES buses(bus_id) ON DELETE CASCADE,
+    passenger_id INTEGER NOT NULL REFERENCES passengers(passenger_id) ON DELETE SET NULL,
+    occupancy_level VARCHAR(20) NOT NULL CHECK (occupancy_level IN ('not_crowded', 'not_too_crowded', 'crowded', 'very_crowded')),
+    latitude DOUBLE PRECISION NOT NULL CHECK (latitude BETWEEN -90 AND 90),
+    longitude DOUBLE PRECISION NOT NULL CHECK (longitude BETWEEN -180 AND 180),
+    confidence DOUBLE PRECISION CHECK (confidence BETWEEN 0 AND 100),
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+
+CREATE TABLE routes (
+    route_id SERIAL PRIMARY KEY,
+    route_number VARCHAR(10) UNIQUE NOT NULL,
+    route_name VARCHAR(200) NOT NULL,
+    start_location VARCHAR(100) NOT NULL,
+    end_location VARCHAR(100) NOT NULL,
+    distance_km DECIMAL(5,2),
+    estimated_duration_minutes INTEGER,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create indexes
+CREATE INDEX idx_routes_number ON routes(route_number);
+CREATE INDEX idx_routes_active ON routes(is_active);
+CREATE INDEX idx_routes_start_location ON routes(start_location);
+CREATE INDEX idx_routes_end_location ON routes(end_location);
+
+-- Create trigger to update updated_at timestamp
+CREATE OR REPLACE FUNCTION update_routes_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_routes_updated_at
+    BEFORE UPDATE ON routes
+    FOR EACH ROW
+    EXECUTE FUNCTION update_routes_updated_at();
+
+INSERT INTO routes (route_number, route_name, start_location, end_location, distance_km, estimated_duration_minutes) VALUES 
+-- Colombo area routes
+('154', 'Kiribathgoda-Angulana', 'Kiribathgoda', 'Angulana', 35.5, 90),
+('138', 'Pettah-Malabe', 'Pettah', 'Malabe', 18.2, 45),
+('177', 'Pettah-Kottawa', 'Pettah', 'Kottawa', 22.8, 60),
+('122', 'Fort-Nugegoda', 'Fort', 'Nugegoda', 12.5, 35),
+('101', 'Fort-Dehiwala', 'Fort', 'Dehiwala', 15.3, 40),
+('155', 'Pettah-Homagama', 'Pettah', 'Homagama', 28.7, 75),
+('176', 'Colombo-Maharagama', 'Colombo', 'Maharagama', 16.8, 45),
+('103', 'Fort-Moratuwa', 'Fort', 'Moratuwa', 25.4, 65),
+
+-- Kandy area routes
+('644', 'Kandy-Peradeniya', 'Kandy', 'Peradeniya', 8.5, 25),
+('652', 'Kandy-Gampola', 'Kandy', 'Gampola', 24.3, 50),
+('699', 'Kandy-Nuwara Eliya', 'Kandy', 'Nuwara Eliya', 78.2, 180),
+('663', 'Kandy-Matale', 'Kandy', 'Matale', 26.8, 55),
+('678', 'Kandy-Dambulla', 'Kandy', 'Dambulla', 72.5, 120),
+
+-- Galle area routes
+('350', 'Galle-Matara', 'Galle', 'Matara', 42.5, 90),
+('325', 'Galle-Hikkaduwa', 'Galle', 'Hikkaduwa', 18.7, 35),
+('385', 'Galle-Tangalle', 'Galle', 'Tangalle', 65.3, 120),
+('307', 'Galle-Unawatuna', 'Galle', 'Unawatuna', 6.2, 15),
+
+-- Kurunegala area routes
+('42', 'Kurunegala-Puttalam', 'Kurunegala', 'Puttalam', 45.2, 85),
+('48', 'Kurunegala-Chilaw', 'Kurunegala', 'Chilaw', 38.9, 70),
+('46', 'Kurunegala-Wariyapola', 'Kurunegala', 'Wariyapola', 22.3, 40),
+
+-- Anuradhapura area routes
+('57', 'Anuradhapura-Polonnaruwa', 'Anuradhapura', 'Polonnaruwa', 52.8, 95),
+('49', 'Anuradhapura-Vavuniya', 'Anuradhapura', 'Vavuniya', 68.4, 110),
+('51', 'Anuradhapura-Mihintale', 'Anuradhapura', 'Mihintale', 13.2, 25),
+
+-- Ratnapura area routes
+('123', 'Ratnapura-Embilipitiya', 'Ratnapura', 'Embilipitiya', 35.6, 65),
+('130', 'Ratnapura-Balangoda', 'Ratnapura', 'Balangoda', 28.3, 50),
+('127', 'Ratnapura-Pelmadulla', 'Ratnapura', 'Pelmadulla', 18.7, 35),
+
+-- Badulla area routes
+('99', 'Badulla-Bandarawela', 'Badulla', 'Bandarawela', 15.2, 30),
+('94', 'Badulla-Ella', 'Badulla', 'Ella', 22.8, 45),
+('96', 'Badulla-Passara', 'Badulla', 'Passara', 28.5, 55),
+
+-- Batticaloa area routes
+('87', 'Batticaloa-Kalmunai', 'Batticaloa', 'Kalmunai', 38.7, 70),
+('92', 'Batticaloa-Ampara', 'Batticaloa', 'Ampara', 42.3, 80),
+('89', 'Batticaloa-Valaichchenai', 'Batticaloa', 'Valaichchenai', 25.4, 45),
+
+-- Jaffna area routes
+('758', 'Jaffna-Point Pedro', 'Jaffna', 'Point Pedro', 23.8, 40),
+('756', 'Jaffna-Chavakachcheri', 'Jaffna', 'Chavakachcheri', 18.5, 35),
+
+-- Inter-city routes
+('1', 'Colombo-Kandy', 'Colombo', 'Kandy', 115.8, 180),
+('2', 'Colombo-Galle', 'Colombo', 'Galle', 119.2, 150),
+('4', 'Colombo-Matara', 'Colombo', 'Matara', 161.7, 210),
+('15', 'Colombo-Kurunegala', 'Colombo', 'Kurunegala', 94.3, 135),
+('18', 'Colombo-Anuradhapura', 'Colombo', 'Anuradhapura', 205.6, 240),
+('20', 'Colombo-Badulla', 'Colombo', 'Badulla', 230.4, 300),
+('5', 'Colombo-Ratnapura', 'Colombo', 'Ratnapura', 101.2, 150),
+('9', 'Colombo-Batticaloa', 'Colombo', 'Batticaloa', 314.5, 420),
+('12', 'Kandy-Jaffna', 'Kandy', 'Jaffna', 285.7, 360);
+
+
+
+CREATE TABLE route_stops (
+    stop_id SERIAL PRIMARY KEY,
+    route_id INTEGER REFERENCES routes(route_id) ON DELETE CASCADE,
+    stop_name VARCHAR(100) NOT NULL,
+    stop_order INTEGER NOT NULL,
+    distance_from_start DECIMAL(5,2),
+    fare_from_start DECIMAL(6,2),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_route_stops_route_id ON route_stops(route_id);
+CREATE INDEX idx_route_stops_order ON route_stops(route_id, stop_order);
+
+-- Sample stops for route 154 (Kiribathgoda-Angulana)
+INSERT INTO route_stops (route_id, stop_name, stop_order, distance_from_start, fare_from_start) VALUES 
+(1, 'Kiribathgoda', 1, 0.0, 0.00),
+(1, 'Kelaniya', 2, 3.2, 8.00),
+(1, 'Peliyagoda', 3, 6.8, 12.00),
+(1, 'Colombo', 4, 12.5, 18.00),
+(1, 'Wellawatte', 5, 18.3, 25.00),
+(1, 'Dehiwala', 6, 22.1, 30.00),
+(1, 'Mount Lavinia', 7, 25.7, 35.00),
+(1, 'Moratuwa', 8, 30.2, 40.00),
+(1, 'Angulana', 9, 35.5, 45.00);
+
+CREATE TABLE alerts (
+    id SERIAL PRIMARY KEY,
+    passenger_id INTEGER NOT NULL,
+    emergency_type VARCHAR(255) NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS depot_locations (
+    depot_id INTEGER PRIMARY KEY,
+    latitude NUMERIC(10, 8) NOT NULL,
+    longitude NUMERIC(11, 8) NOT NULL,
+    CONSTRAINT fk_depot_id_dl FOREIGN KEY (depot_id) REFERENCES depots(depot_id) ON DELETE CASCADE
+);
+
+INSERT INTO bus_locations (bus_id, latitude, longitude) VALUES
+(17, 6.9100, 79.8900) ON CONFLICT (bus_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude, last_updated=EXCLUDED.last_updated, -- Example for bus_id 1
+(20, 6.8500, 79.9200) ON CONFLICT (bus_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude, last_updated=EXCLUDED.last_updated; -- Example for bus_id 2
+
+
+-- Insert / Update data into depot_locations table with approximate coordinates for Sri Lankan depots
+
+-- Colombo Region
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (1, 6.8208, 79.8860) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Rathmalana
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (2, 6.7723, 79.8829) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Moratuwa
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (3, 6.7909, 79.8808) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Katubedda
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (4, 6.8530, 79.9192) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Udahamulla
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (5, 6.8645, 79.9272) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Maharagama
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (6, 6.8596, 80.0123) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Homagama
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (7, 6.7865, 79.9463) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kesbewa
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (8, 6.9189, 79.8973) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Meetotamulla
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (9, 6.9069, 79.9576) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Talangama
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (10, 6.9749, 79.8860) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Mattakkuliya
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (11, 6.9248, 79.9678) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Angoda
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (12, 6.9537, 80.2078) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Avissawella
+
+-- Gampaha Region
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (13, 7.2114, 79.8451) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Negombo
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (14, 7.2341, 79.9404) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Divulapitiya
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (15, 7.1528, 80.0569) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Nittambuwa
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (16, 7.0279, 80.0638) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kirindiwela
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (17, 7.0863, 79.9984) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Gampaha
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (18, 7.0094, 79.9696) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kadawatha
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (19, 6.9589, 79.9238) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kelaniya
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (20, 6.9945, 79.8998) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Welisara
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (21, 7.0886, 79.8931) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Ja-Ela
+
+-- Kaluthara Region
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (22, 6.7020, 79.9079) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Panadura
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (23, 6.5861, 79.9609) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kaluthara
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (24, 6.4255, 80.0003) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Aluthgama
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (25, 6.4800, 80.1200) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Mathugama (Approx)
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (26, 6.7118, 80.0890) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Horana
+
+-- Wayamba Region
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (27, 7.4589, 80.0401) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kuliyapitiya
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (28, 7.4851, 80.3702) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kurunegala South (using Kurunegala town)
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (29, 7.4851, 80.3702) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kurunegala North (using Kurunegala town)
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (30, 7.2917, 80.3340) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Alawwa
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (31, 7.5750, 79.7997) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Chilaw
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (32, 8.0335, 79.8373) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Puttalam
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (33, 7.7470, 79.8630) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Wennappuwa
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (34, 7.2882, 80.1479) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Giriulla
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (35, 7.8540, 80.2030) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Maho
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (36, 7.9620, 80.1190) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Nikaweratiya
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (37, 7.6698, 80.3235) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Wariyapola
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (38, 8.1670, 80.3160) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Galgamuwa
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (39, 7.3750, 80.1760) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Narammala
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (40, 7.6200, 80.3400) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Redegama (Approx, near Kurunegala)
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (41, 7.9890, 79.9760) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Anamaduwa
+
+-- Mahanuwara Region
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (42, 7.2900, 80.6300) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kandy North (using Kandy Central)
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (43, 7.2900, 80.6300) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kandy South (using Kandy Central)
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (44, 7.4580, 80.6230) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Matale
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (45, 7.2600, 80.5400) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Yatinuwara (Peradeniya/Kandy area)
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (46, 7.3500, 80.6800) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Wattegama
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (47, 7.2700, 80.8000) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Teldeniya
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (48, 7.2900, 80.8800) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Ududumbara
+
+-- Sabaragamuwa Region
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (49, 6.7020, 80.3950) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Rathnapura
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (50, 6.5400, 80.3700) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kalawana (Approx)
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (51, 6.6400, 80.3700) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Balangoda
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (52, 6.5500, 80.8000) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Godakawela
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (53, 6.3075, 80.9325) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Embilipitiya
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (54, 7.0250, 80.3200) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kegalle
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (55, 7.0000, 80.3400) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Mawanella
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (56, 7.2200, 80.3800) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Rambukkana
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (57, 6.9400, 80.3300) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Deraniyagala
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (58, 6.6000, 80.4600) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kahawatta
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (59, 7.1500, 80.3000) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Warakapola
+
+-- Southern Region
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (60, 6.0535, 80.2200) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Galle
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (61, 6.1100, 80.2800) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Udugama (Approx)
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (62, 6.2200, 80.0500) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Ambalangoda
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (63, 6.2800, 80.1200) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Elpitiya
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (64, 5.9500, 80.5300) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Matara
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (65, 6.0400, 80.3400) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Akuressa
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (66, 6.0100, 80.6200) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Hakmana
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (67, 6.0200, 81.0000) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Tangalle
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (68, 6.1300, 81.1100) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Ambalantota
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (69, 6.4172, 81.3396) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kataragama
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (70, 6.0000, 80.3000) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Koggala
+
+-- Rajarata Region
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (71, 8.3200, 80.4000) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Anuradhapura
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (72, 7.9300, 81.0000) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Polonnaruwa
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (73, 8.0400, 80.5800) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kekirawa
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (74, 8.3500, 80.8200) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Horowpathana
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (75, 8.6000, 80.6000) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kebithigollewa
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (76, 7.8700, 80.6500) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Dambulla
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (77, 7.9000, 80.7500) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Diyasenpura (near Polonnaruwa)
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (78, 8.5000, 80.3700) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Medawachchiya
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (79, 8.5800, 80.7900) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kanthale
+
+-- Nuwaraeliya Region
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (80, 7.1500, 80.5900) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Gampola
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (81, 7.0200, 80.5400) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Nawalapitiya
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (82, 6.9400, 80.5800) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Hatton
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (83, 6.9500, 80.7700) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Nuwaraeliya
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (84, 7.0000, 80.6000) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kotmale
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (85, 7.0700, 80.7000) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Hanguranketa
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (86, 6.9000, 80.8000) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Walapone
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (87, 6.9800, 80.6500) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kurunduwatta (Approx)
+
+-- New Eastern Region
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (88, 7.1800, 81.8200) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Akkaraipattu
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (89, 7.2800, 81.6500) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Amparai
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (90, 7.7100, 81.6900) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Batticaloa
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (91, 7.4200, 81.8300) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kalmunai
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (92, 7.6900, 81.8200) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kanthankudy
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (93, 8.4400, 81.3300) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Muthur
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (94, 8.5700, 81.2300) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Trincomalee
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (95, 7.9700, 81.4800) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Valaichchenai
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (96, 7.5000, 81.7800) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kalawanchikudi
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (97, 7.7300, 81.5600) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Eravur
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (98, 7.3700, 81.8100) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Samanthurai
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (99, 6.7800, 81.8200) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Pottuvil
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (100, 8.3300, 81.2100) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kinniya
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (101, 8.2400, 81.4200) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Vakarai
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (102, 8.0000, 81.5000) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Rethithanna (Approx, near Valachchenai)
+
+-- Northern Region
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (103, 9.3900, 80.3900) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Kilinochchi
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (104, 9.2500, 80.7500) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Mulative (Mullaitivu)
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (105, 9.6600, 80.0000) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Jaffna
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (106, 9.8200, 80.2600) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Point-Pedro
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (107, 9.7700, 79.8800) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Karinagar (Kayts Island area)
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (108, 8.9700, 79.9100) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Mannar
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (109, 8.7500, 80.4900) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Vavunia (Vavuniya)
+
+-- Uva Region
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (110, 6.9900, 81.0500) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Badulla
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (111, 6.8100, 80.9900) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Bandarawela
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (112, 6.8700, 80.9700) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Keppetipola
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (113, 6.7800, 81.3400) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Monaragala
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (114, 7.0800, 81.3300) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Bibila
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (115, 7.1300, 80.9700) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Mahiyanganaya
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (116, 6.7400, 81.2500) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Wellawaya
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (117, 7.2700, 81.2000) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Dehiattakandiya
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (118, 6.8000, 81.2000) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Tanamalvila
+INSERT INTO depot_locations (depot_id, latitude, longitude) VALUES (119, 6.8000, 81.3000) ON CONFLICT (depot_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude; -- Siyabalanduwa
+
+
+INSERT INTO bus_locations (bus_id, latitude, longitude) VALUES
+(17, 6.9100, 79.8900)
+ON CONFLICT (bus_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude, last_updated=CURRENT_TIMESTAMP;
+
+INSERT INTO bus_locations (bus_id, latitude, longitude) VALUES
+(20, 6.8500, 79.9200)
+ON CONFLICT (bus_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude, last_updated=CURRENT_TIMESTAMP;
+
+CREATE TABLE bus_condition_reports (
+    report_id SERIAL PRIMARY KEY,
+    bus_id INTEGER REFERENCES buses(bus_id) ON DELETE CASCADE,
+    driver_id INTEGER REFERENCES drivers(driver_id) ON DELETE CASCADE,
+    condition_status VARCHAR(50) NOT NULL,
+    description TEXT,
+    report_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+-- Add review columns to bus_condition_reports table
+ALTER TABLE bus_condition_reports 
+ADD COLUMN review_status VARCHAR(20) DEFAULT 'pending',
+ADD COLUMN reviewed_by INTEGER REFERENCES depot_engineers(depot_engineer_id) ON DELETE SET NULL,
+ADD COLUMN reviewed_at TIMESTAMP NULL;
+
+
+CREATE TABLE spare_parts_inventory (
+    id SERIAL PRIMARY KEY,
+    part_id VARCHAR(10) UNIQUE NOT NULL,
+    part_name VARCHAR(255) NOT NULL,
+    current_stock INTEGER NOT NULL DEFAULT 0,
+    unit VARCHAR(50) NOT NULL, 
+    depot_id INTEGER NOT NULL,
+    last_restocked TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    
+    CONSTRAINT fk_depot FOREIGN KEY (depot_id) REFERENCES depots(depot_id) ON DELETE CASCADE,
+    
+   
+    CONSTRAINT check_current_stock CHECK (current_stock >= 0)
+);
+ALTER TABLE spare_parts_inventory ADD COLUMN deleted_at TIMESTAMP NULL;
+
+-- Index 
+CREATE INDEX idx_spare_parts_depot ON spare_parts_inventory(depot_id);
+
+-- Spare Parts Usage History Table
+CREATE TABLE spare_parts_usage_history (
+    usage_id SERIAL PRIMARY KEY,
+    part_id VARCHAR(10) NOT NULL,
+    part_name VARCHAR(255) NOT NULL,
+    bus_id INTEGER NOT NULL,
+    depot_id INTEGER NOT NULL,
+    engineer_id INTEGER NOT NULL,
+    quantity_used INTEGER NOT NULL CHECK (quantity_used > 0),
+    unit VARCHAR(50) NOT NULL,
+    usage_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Foreign key constraints
+    CONSTRAINT fk_usage_bus FOREIGN KEY (bus_id) REFERENCES buses(bus_id) ON DELETE CASCADE,
+    CONSTRAINT fk_usage_depot FOREIGN KEY (depot_id) REFERENCES depots(depot_id) ON DELETE CASCADE,
+    CONSTRAINT fk_usage_engineer FOREIGN KEY (engineer_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    CONSTRAINT fk_usage_part FOREIGN KEY (part_id) REFERENCES spare_parts_inventory(part_id) ON DELETE CASCADE
+);
+
+-- Indexes
+CREATE INDEX idx_usage_bus ON spare_parts_usage_history(bus_id);
+CREATE INDEX idx_usage_depot ON spare_parts_usage_history(depot_id);
+CREATE INDEX idx_usage_date ON spare_parts_usage_history(usage_date);
+CREATE INDEX idx_usage_part ON spare_parts_usage_history(part_id);
+
+
+-- Service Schedules
+CREATE TABLE service_schedules (
+    id SERIAL PRIMARY KEY,
+    service_type VARCHAR(100) NOT NULL,
+    bus_id INTEGER NOT NULL,
+    scheduled_date DATE NOT NULL,
+    
+    -- Status types with constraint validation
+    status VARCHAR(20) NOT NULL DEFAULT 'Pending' 
+        CHECK (status IN (
+            'Pending', 
+            'Due Today', 
+            'In Progress', 
+            'Completed', 
+            'Overdue', 
+            'Critical Overdue',
+            'Cancelled'
+        )),
+        
+    completed_date DATE,
+    cancelled_date DATE,
+    depot_id INTEGER NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Foreign key constraints
+    CONSTRAINT fk_service_schedules_bus 
+        FOREIGN KEY (bus_id) REFERENCES buses(bus_id) ON DELETE CASCADE,
+    CONSTRAINT fk_service_schedules_depot 
+        FOREIGN KEY (depot_id) REFERENCES depots(depot_id) ON DELETE CASCADE
+);
+
+-- Indexes 
+CREATE INDEX idx_service_schedules_bus_id ON service_schedules(bus_id);
+CREATE INDEX idx_service_schedules_status ON service_schedules(status);
+CREATE INDEX idx_service_schedules_scheduled_date ON service_schedules(scheduled_date);
+CREATE INDEX idx_service_schedules_depot_id ON service_schedules(depot_id);
+CREATE INDEX idx_service_schedules_depot_status ON service_schedules(depot_id, status);
+CREATE INDEX idx_service_schedules_active ON service_schedules(depot_id) WHERE status != 'Cancelled';
+
+ALTER TABLE service_schedules 
+ADD COLUMN is_deleted BOOLEAN DEFAULT false;
+
+
+--  busdailychecklists table for daily part checking by depot engineer
+CREATE TABLE busdailychecklists (
+    checklist_id SERIAL PRIMARY KEY,
+    bus_id INTEGER NOT NULL REFERENCES buses(bus_id) ON DELETE CASCADE,
+    checker_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE, -- depot engineer who performed the check
+    check_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    check_time TIME NOT NULL DEFAULT CURRENT_TIME,
+    
+    -- Main part checking flags
+    engine BOOLEAN DEFAULT FALSE,
+    brakes BOOLEAN DEFAULT FALSE,
+    tires BOOLEAN DEFAULT FALSE,
+    windows BOOLEAN DEFAULT FALSE,
+    doors BOOLEAN DEFAULT FALSE,
+    lights BOOLEAN DEFAULT FALSE,
+    turn_signals BOOLEAN DEFAULT FALSE,
+    fire_extinguisher BOOLEAN DEFAULT FALSE,
+    
+    -- Overall checklist status
+    all_parts_checked BOOLEAN GENERATED ALWAYS AS (
+        engine AND brakes AND tires AND windows AND doors AND lights AND turn_signals AND fire_extinguisher
+    ) STORED,
+    
+    -- Bus status after the checklist is completed
+    status_after_check VARCHAR(20) CHECK (status_after_check IN ('Active', 'In Service', 'Maintenance', 'Out of Service')),
+    
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Ensure one checklist per bus per day
+    UNIQUE(bus_id, check_date)
+);
+
+-- Create indexes for better performance
+CREATE INDEX idx_busdailychecklists_bus_id ON busdailychecklists(bus_id);
+CREATE INDEX idx_busdailychecklists_checker_id ON busdailychecklists(checker_id);
+CREATE INDEX idx_busdailychecklists_check_date ON busdailychecklists(check_date);
+CREATE INDEX idx_busdailychecklists_all_parts_checked ON busdailychecklists(all_parts_checked);
+
+-- Depot handover functionality for Lost & Found reports
+-- Add depot handover fields to lost_found_reports table
+ALTER TABLE lost_found_reports 
+ADD COLUMN IF NOT EXISTS handed_to_depot_id INTEGER REFERENCES depots(depot_id) ON DELETE SET NULL,
+ADD COLUMN IF NOT EXISTS handover_date TIMESTAMP WITHOUT TIME ZONE,
+ADD COLUMN IF NOT EXISTS handover_notes TEXT,
+ADD COLUMN IF NOT EXISTS handover_updated_by INTEGER REFERENCES passengers(passenger_id) ON DELETE SET NULL;
+
+-- Add index for depot handover queries
+CREATE INDEX IF NOT EXISTS idx_lost_found_depot_handover 
+    ON lost_found_reports(handed_to_depot_id, handover_date);
+
+-- Add index for handover updates by user
+CREATE INDEX IF NOT EXISTS idx_lost_found_handover_user 
+    ON lost_found_reports(handover_updated_by);
+
+COMMENT ON COLUMN lost_found_reports.handed_to_depot_id IS 'Depot where the found item was handed over';
+COMMENT ON COLUMN lost_found_reports.handover_date IS 'Date and time when item was handed to depot';
+COMMENT ON COLUMN lost_found_reports.handover_notes IS 'Additional notes about the handover process';
+COMMENT ON COLUMN lost_found_reports.handover_updated_by IS 'Passenger who updated the handover information';

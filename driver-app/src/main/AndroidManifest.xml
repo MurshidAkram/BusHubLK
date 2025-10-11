@@ -1,0 +1,30 @@
+<activity
+  android:name=".MainActivity"
+  android:exported="true"
+  android:launchMode="singleTop"
+  android:theme="@style/Theme.App.SplashScreen"
+  android:windowSoftInputMode="adjustResize">
+  
+  <intent-filter>
+    <action android:name="android.intent.action.MAIN" />
+    <category android:name="android.intent.category.LAUNCHER" />
+  </intent-filter>
+  
+  <!-- Deep link intent filter -->
+  <intent-filter android:autoVerify="true">
+    <action android:name="android.intent.action.VIEW" />
+    <category android:name="android.intent.category.DEFAULT" />
+    <category android:name="android.intent.category.BROWSABLE" />
+    <data android:scheme="bushublk" />
+  </intent-filter>
+  
+  <!-- HTTP deep link intent filter -->
+  <intent-filter android:autoVerify="true">
+    <action android:name="android.intent.action.VIEW" />
+    <category android:name="android.intent.category.DEFAULT" />
+    <category android:name="android.intent.category.BROWSABLE" />
+    <data android:scheme="http" 
+          android:host="your-server-ip" 
+          android:pathPrefix="/api/password-reset" />
+  </intent-filter>
+</activity>
