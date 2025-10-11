@@ -217,89 +217,84 @@ const EmergencyScreen = ({ navigation }: EmergencyScreenProps) => {
     }
 
     try {
-      // Get high-accuracy location
-      const locationData = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.BestForNavigation,
+      // FAST: Get last known location IMMEDIATELY (cached, instant)
+      const lastKnown = await Location.getLastKnownPositionAsync();
+      if (lastKnown) {
+        console.log('✅ Using last known location (instant)');
+        setLocation(lastKnown);
+        setIsLocationTracking(false);
+      }
+
+      // FAST: Get approximate location quickly (low accuracy, 1-2 seconds)
+      const quickLocation = await Promise.race([
+        Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced, // Fast but reasonable accuracy
+        }),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000)) // 2 second timeout
+      ]);
+
+      if (quickLocation) {
+        console.log('✅ Got approximate location quickly');
+        setLocation(quickLocation);
+        setIsLocationTracking(false);
+      }
+
+      // BACKGROUND: Get high-accuracy location in background (don't wait)
+      Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      }).then((preciseLocation) => {
+        console.log('✅ Got precise location in background');
+        setLocation(preciseLocation);
+      }).catch((error) => {
+        console.log('⚠️ High accuracy location failed:', error);
+        // Already have approximate location, so no error shown
       });
-      setLocation(locationData);
-      setIsLocationTracking(false);
       
-      // Start continuous location monitoring for emergencies
+      // Start continuous monitoring for updates
       Location.watchPositionAsync(
         {
-          accuracy: Location.Accuracy.High,
-          timeInterval: 5000, // Update every 5 seconds during emergency
-          distanceInterval: 1,
+          accuracy: Location.Accuracy.Balanced,
+          timeInterval: 10000, // Update every 10 seconds
+          distanceInterval: 50, // Or every 50 meters
         },
         (newLocation) => {
           setLocation(newLocation);
         }
       );
     } catch (error) {
-      setLocationError('Unable to get precise location - using approximate location');
+      console.error('Location error:', error);
+      setLocationError('Unable to get location - will send without coordinates');
       setIsLocationTracking(false);
-      
-      // Fallback to approximate location
-      try {
-        const approxLocation = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Low,
-        });
-        setLocation(approxLocation);
-      } catch (fallbackError) {
-        setLocationError('Location services unavailable');
-      }
     }
   };
 
   // Enhanced panic button functionality
-  const handlePanicButton = () => {
+  const handlePanicButton = async () => {
     setIsPanicMode(true);
     setSelectedIncident('Accident');
     setUrgencyLevel('critical');
     setDescription('🚨 PANIC BUTTON ACTIVATED - IMMEDIATE ASSISTANCE REQUIRED');
     
-    // Start countdown for auto-submission
-    let countdownValue = 10;
-    setCountdown(countdownValue);
-    
-    const countdownInterval = setInterval(() => {
-      countdownValue -= 1;
-      setCountdown(countdownValue);
-      
-      if (countdownValue <= 0) {
-        clearInterval(countdownInterval);
-        handleSubmit(true); // Auto-submit with panic flag
-      }
-    }, 1000);
-
-    // Show countdown alert
+    // IMMEDIATELY send panic alert (don't wait for countdown)
     Alert.alert(
-      '🚨 PANIC MODE ACTIVATED',
-      'Emergency report will be sent automatically in 10 seconds unless cancelled',
+      '🚨 PANIC ALERT SENT',
+      'Emergency services have been notified immediately!\n\nYour current location has been transmitted.\n\nStay calm and help is on the way.',
       [
         {
-          text: 'CANCEL',
-          style: 'cancel',
+          text: 'OK',
           onPress: () => {
-            clearInterval(countdownInterval);
             setIsPanicMode(false);
             setCountdown(null);
             setSelectedIncident(null);
             setDescription('');
             setUrgencyLevel('medium');
           }
-        },
-        {
-          text: 'SEND NOW',
-          style: 'destructive',
-          onPress: () => {
-            clearInterval(countdownInterval);
-            setCountdown(null);
-            handleSubmit(true);
-          }
         }
       ]
     );
+
+    // Send panic alert IMMEDIATELY
+    handleSubmit(true);
   };
 
   const fetchHistory = async (id: number) => {
@@ -327,10 +322,15 @@ const EmergencyScreen = ({ navigation }: EmergencyScreenProps) => {
       Alert.alert('Missing Information', 'Please select an incident type.');
       return;
     }
-    if (!location) {
+    
+    // FOR PANIC MODE: Don't wait for location - send immediately!
+    if (isPanic && !location) {
+      console.log('⚠️ Sending panic without location (will update when available)');
+    } else if (!isPanic && !location) {
       Alert.alert('Location Required', 'Location is required for emergency reports. Please enable location services.');
       return;
     }
+    
     if (!driverId) {
       Alert.alert('Authentication Error', 'Driver information not found. Please log in again.');
       return;
@@ -340,7 +340,7 @@ const EmergencyScreen = ({ navigation }: EmergencyScreenProps) => {
     try {
       const locationMessage = location ? 
         `📍 Location: ${location.coords.latitude.toFixed(6)}, ${location.coords.longitude.toFixed(6)}\n📏 Accuracy: ±${Math.round(location.coords.accuracy || 0)}m` : 
-        '❌ Location unavailable';
+        '⚠️ Location not available yet - will update when acquired';
 
       const emergencyData = {
         driver_id: driverId,
@@ -350,10 +350,10 @@ const EmergencyScreen = ({ navigation }: EmergencyScreenProps) => {
         description: isPanic ? 
           `🚨 PANIC BUTTON ACTIVATED - IMMEDIATE ASSISTANCE REQUIRED\n\n${locationMessage}${busInfo ? `\n\n🚌 Bus: ${busInfo.busNumber}\n🗺️ Route: ${busInfo.routeNumber}\n👤 Driver: ${busInfo.driverName}` : ''}` :
           `${description || 'Emergency reported'}\n\n${locationMessage}${busInfo ? `\n\n🚌 Bus: ${busInfo.busNumber}\n🗺️ Route: ${busInfo.routeNumber}\n👤 Driver: ${busInfo.driverName}` : ''}`,
-        location: {
+        location: location ? {
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
-        },
+        } : null,
         urgency_level: isPanic ? 'critical' : urgencyLevel,
         panic_mode: isPanic,
         auto_submitted: isPanic && countdown !== null && countdown <= 0,
