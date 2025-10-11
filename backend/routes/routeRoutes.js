@@ -3,6 +3,8 @@ const router = express.Router();
 const {
   getAllRoutes,
   getDepots,
+  getRouteStopsAutocomplete,
+  findRoutesBetweenStops,
   createRoute,
   updateRoute,
   deactivateRoute
@@ -14,6 +16,12 @@ router.get('/', authenticateJWT,  getAllRoutes);
 
 // GET /api/routes/depots - Get all depots for dropdown
 router.get('/depots', authenticateJWT, getDepots);
+
+// GET /api/routes/stops/autocomplete - Get route stops autocomplete suggestions (public)
+router.get('/stops/autocomplete', getRouteStopsAutocomplete);
+
+// POST /api/routes/find - Find routes between two stops (public)
+router.post('/find', findRoutesBetweenStops);
 
 // POST /api/routes - Create new route
 router.post('/', authenticateJWT, authorizeAdmin, createRoute);

@@ -82,7 +82,7 @@ interface BusRoute {
   totalBuses: number;
 }
 
-export default function BusTrackingScreen({ navigation }: Props) {
+export default function BusTrackingScreen({ navigation, route }: Props) {
   const [selectedRoute, setSelectedRoute] = useState<string | null>(null);
   const [busLocations, setBusLocations] = useState<BusLocation[]>([]);
   const [routes, setRoutes] = useState<BusRoute[]>([]);
@@ -767,6 +767,23 @@ const fetchRoutes = async () => {
     });
     return unsubscribe;
   }, [navigation]);
+
+  // Handle route parameters from navigation (e.g., from BusRouteResultsScreen)
+  useEffect(() => {
+    if (route?.params) {
+      const { selectedRoute: routeFromParams, fromSearch, searchFrom, searchTo } = route.params;
+      
+      if (routeFromParams) {
+        console.log(`🎯 Setting selected route from navigation: ${routeFromParams}`);
+        setSelectedRoute(routeFromParams);
+      }
+      
+      if (fromSearch) {
+        console.log(`🔍 Coming from search: ${searchFrom} → ${searchTo}`);
+        // You can use searchFrom and searchTo if needed for additional context
+      }
+    }
+  }, [route?.params]);
 
   return (
     <LinearGradient
