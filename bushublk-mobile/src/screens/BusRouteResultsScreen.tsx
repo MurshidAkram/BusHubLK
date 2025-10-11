@@ -16,7 +16,7 @@ import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
 import axios from "axios";
 import { API_BASE_URL } from '../config/api';
 
-const GOOGLE_MAPS_API_KEY = "AIzaSyAeXR9ct7HrHMCQXSWLrWQl5OlRYjNhbxo"; // <-- Replace with your key
+const GOOGLE_MAPS_API_KEY = "AIzaSyDdK_SJ8L56-s33UpzL6Gn5UYDav9ZMGdg"; // From backend .env
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -77,16 +77,16 @@ export default function BusRouteResultsScreen({ route, navigation }) {
   const { from, to, routes, routeCount } = route.params;
   const [loading, setLoading] = useState(true);
   const [distance, setDistance] = useState<number | null>(null);
-  const [duration, setDuration] = useState<string | null>(null);
   const [fare, setFare] = useState<number | null>(null);
   const [routeCoordinates, setRouteCoordinates] = useState<Array<{latitude: number, longitude: number}>>([]);
   const [mapRegion, setMapRegion] = useState<any>(null);
   const [availableRoutes, setAvailableRoutes] = useState<any[]>([]);
   const [showMap, setShowMap] = useState(false);
-  const [busStops, setBusStops] = useState<Array<{name: string, place_id?: string, type?: string, order?: number, distanceKm?: number, vicinity?: string}>>([]);
+  const [busStops, setBusStops] = useState<Array<{name?: string, stop_name?: string, place_id?: string, type?: string, order?: number, distanceKm?: number, vicinity?: string, distanceFromPrevious?: number, cumulativeDistance?: number, latitude?: number, longitude?: number, google_name?: string, formatted_address?: string}>>([]);
   const [numberOfStops, setNumberOfStops] = useState<number>(0);
   const [calculationMethod, setCalculationMethod] = useState<string>('');
   const [stopsDetected, setStopsDetected] = useState<number>(0);
+  const [realCalculatedDistance, setRealCalculatedDistance] = useState<number | null>(null);
 
   const mapRef = useRef(null);
 
@@ -110,12 +110,56 @@ export default function BusRouteResultsScreen({ route, navigation }) {
     }
   };
 
-  // Helper: Get route coordinates and duration from Google Directions API
-  const getRouteCoordinates = async (fromPlaceId, toPlaceId) => {
+  // Helper: Get lat/lng from bus stop name using Google Places Text Search
+  const getCoordinatesFromStopName = async (stopName: string, country: string = "Sri Lanka") => {
+    try {
+      // Use Google Places Text Search API to find the bus stop by name
+      const searchQuery = `${stopName} bus stop ${country}`;
+      const response = await axios.get(
+        `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(searchQuery)}&key=${GOOGLE_MAPS_API_KEY}`
+      );
+
+      if (response.data.status === "OK" && response.data.results.length > 0) {
+        const place = response.data.results[0];
+        return {
+          latitude: place.geometry.location.lat,
+          longitude: place.geometry.location.lng,
+          place_id: place.place_id,
+          formatted_address: place.formatted_address,
+          name: place.name
+        };
+      }
+      
+      // If no results found with "bus stop", try with just the location name
+      const fallbackQuery = `${stopName} ${country}`;
+      const fallbackResponse = await axios.get(
+        `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(fallbackQuery)}&key=${GOOGLE_MAPS_API_KEY}`
+      );
+
+      if (fallbackResponse.data.status === "OK" && fallbackResponse.data.results.length > 0) {
+        const place = fallbackResponse.data.results[0];
+        return {
+          latitude: place.geometry.location.lat,
+          longitude: place.geometry.location.lng,
+          place_id: place.place_id,
+          formatted_address: place.formatted_address,
+          name: place.name
+        };
+      }
+
+      return null;
+    } catch (error) {
+      console.log(`Error finding coordinates for stop: ${stopName}`, error);
+      return null;
+    }
+  };
+
+  // Helper: Get route coordinates from Google Directions API
+  const getRouteCoordinates = async (fromPlaceId: string, toPlaceId: string) => {
     const fromLoc = await getLatLng(fromPlaceId);
     const toLoc = await getLatLng(toPlaceId);
     if (!fromLoc || !toLoc)
-      return { coordinates: [], distance: null, region: null, duration: null };
+      return { coordinates: [], distance: null, region: null };
 
     try {
       const response = await axios.get(
@@ -126,7 +170,6 @@ export default function BusRouteResultsScreen({ route, navigation }) {
         const route = response.data.routes[0];
         const meters = route.legs[0].distance.value;
         const distance = meters / 1000;
-        const duration = route.legs[0].duration.text;
 
         // Decode polyline
         const points = decodePolyline(route.overview_polyline.points);
@@ -143,18 +186,135 @@ export default function BusRouteResultsScreen({ route, navigation }) {
           longitudeDelta: Math.abs(fromLoc.lng - toLoc.lng) * 1.5 || 0.2,
         };
 
-        return { coordinates, distance, region, duration };
+        return { coordinates, distance, region };
       }
-      return { coordinates: [], distance: null, region: null, duration: null };
+      return { coordinates: [], distance: null, region: null };
     } catch {
-      return { coordinates: [], distance: null, region: null, duration: null };
+      return { coordinates: [], distance: null, region: null };
     }
   };
 
   // Find available bus routes (removed mock data - can be enhanced later)
-  const findAvailableRoutes = (from, to) => {
+  const findAvailableRoutes = (from: any, to: any) => {
     // This would be connected to a real bus routes database in the future
     return [];
+  };
+
+  // Calculate distance between user's FROM and TO stops specifically
+  const calculateUserJourneyDistance = async (fromStopName: string, toStopName: string) => {
+    try {
+      console.log('🎯 Calculating distance between user stops:', fromStopName, '→', toStopName);
+
+      // Get coordinates for both stops
+      const fromCoordinates = await getCoordinatesFromStopName(fromStopName);
+      const toCoordinates = await getCoordinatesFromStopName(toStopName);
+
+      if (!fromCoordinates || !toCoordinates) {
+        console.log('❌ Could not find coordinates for user stops');
+        return null;
+      }
+
+      console.log('✅ Found coordinates:', {
+        from: `${fromCoordinates.name} (${fromCoordinates.latitude}, ${fromCoordinates.longitude})`,
+        to: `${toCoordinates.name} (${toCoordinates.latitude}, ${toCoordinates.longitude})`
+      });
+
+      // Calculate distance using Google Distance Matrix API
+      const response = await axios.get(
+        `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${fromCoordinates.latitude},${fromCoordinates.longitude}&destinations=${toCoordinates.latitude},${toCoordinates.longitude}&units=metric&key=${GOOGLE_MAPS_API_KEY}`
+      );
+
+      if (response.data.status === "OK" && response.data.rows[0].elements[0].status === "OK") {
+        const distanceInMeters = response.data.rows[0].elements[0].distance.value;
+        const distanceInKm = distanceInMeters / 1000;
+        
+        console.log('🎯 User journey distance:', distanceInKm.toFixed(2), 'km');
+        
+        return {
+          distance: parseFloat(distanceInKm.toFixed(2)),
+          fromCoordinates,
+          toCoordinates
+        };
+      }
+
+      return null;
+    } catch (error) {
+      console.error('❌ Error calculating user journey distance:', error);
+      return null;
+    }
+  };
+
+  // Calculate distances between consecutive bus stops using Google Distance Matrix API
+  const calculateDistancesBetweenStops = async (stops: Array<any>) => {
+    if (stops.length < 2) return stops;
+
+    try {
+      const stopsWithDistances = [...stops];
+      
+      // First, get coordinates for all stops that don't have them
+      console.log('🔍 Finding coordinates for bus stops...');
+      for (let i = 0; i < stopsWithDistances.length; i++) {
+        const stop = stopsWithDistances[i];
+        
+        // If stop doesn't have coordinates, try to find them using the stop name
+        if (!stop.latitude || !stop.longitude) {
+          const coordinates = await getCoordinatesFromStopName(stop.name || stop.stop_name);
+          if (coordinates) {
+            stopsWithDistances[i] = {
+              ...stopsWithDistances[i],
+              latitude: coordinates.latitude,
+              longitude: coordinates.longitude,
+              place_id: coordinates.place_id,
+              formatted_address: coordinates.formatted_address,
+              google_name: coordinates.name
+            };
+            console.log(`✅ Found coordinates for ${stop.name}: ${coordinates.latitude}, ${coordinates.longitude}`);
+          } else {
+            console.log(`❌ Could not find coordinates for stop: ${stop.name}`);
+          }
+        }
+      }
+      
+      // Now calculate distances between consecutive stops
+      console.log('📏 Calculating distances between stops...');
+      for (let i = 0; i < stopsWithDistances.length - 1; i++) {
+        const currentStop = stopsWithDistances[i];
+        const nextStop = stopsWithDistances[i + 1];
+        
+        if (currentStop.latitude && currentStop.longitude && nextStop.latitude && nextStop.longitude) {
+          try {
+            const response = await axios.get(
+              `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${currentStop.latitude},${currentStop.longitude}&destinations=${nextStop.latitude},${nextStop.longitude}&units=metric&key=${GOOGLE_MAPS_API_KEY}`
+            );
+
+            if (response.data.status === "OK" && response.data.rows[0].elements[0].status === "OK") {
+              const distanceInMeters = response.data.rows[0].elements[0].distance.value;
+              const distanceInKm = distanceInMeters / 1000;
+              
+              const cumulativeDistance = parseFloat(((stopsWithDistances[i].cumulativeDistance || 0) + distanceInKm).toFixed(2));
+              
+              stopsWithDistances[i + 1] = {
+                ...stopsWithDistances[i + 1],
+                distanceFromPrevious: parseFloat(distanceInKm.toFixed(2)),
+                cumulativeDistance: cumulativeDistance
+              };
+              
+              console.log(`📍 Distance from ${currentStop.name || currentStop.stop_name} to ${nextStop.name || nextStop.stop_name}: ${distanceInKm.toFixed(2)}km`);
+              console.log(`📏 Cumulative distance to ${nextStop.name || nextStop.stop_name}: ${cumulativeDistance}km`);
+            }
+          } catch (error) {
+            console.log(`❌ Could not calculate distance between ${currentStop.name} and ${nextStop.name}:`, error);
+          }
+        } else {
+          console.log(`⚠️ Missing coordinates for stops: ${currentStop.name} or ${nextStop.name}`);
+        }
+      }
+
+      return stopsWithDistances;
+    } catch (error) {
+      console.error('❌ Error calculating distances between stops:', error);
+      return stops;
+    }
   };
 
   useEffect(() => {
@@ -170,30 +330,26 @@ export default function BusRouteResultsScreen({ route, navigation }) {
           console.log('✅ Found routes from database:', routes);
           setAvailableRoutes(routes);
           
-          // Calculate total information from all routes
+          // Calculate average information from all routes
           let totalDistance = 0;
           let totalFare = 0;
-          let avgDuration = 0;
+          let totalStops = 0;
           
-          routes.forEach(route => {
-            if (route.journey) {
-              totalDistance += route.journey.distance_km || 0;
-              totalFare += route.journey.fare || 0;
-            }
-            avgDuration += route.estimated_duration_minutes || 0;
+          routes.forEach((route: any) => {
+            totalDistance += route.total_distance_km || 0;
+            totalFare += route.journey?.fare || 0;
+            totalStops += route.journey?.stops_count || 0;
           });
           
-          // Set average values
+          // Set average values (will be updated later if Google Maps calculation is available)
           setDistance(parseFloat((totalDistance / routes.length).toFixed(2)));
           setFare(parseFloat((totalFare / routes.length).toFixed(2)));
-          setDuration(`${Math.round(avgDuration / routes.length)} mins`);
-          setNumberOfStops(routes.length);
+          setNumberOfStops(Math.round(totalStops / routes.length));
         } else {
           console.log('⚠️ No routes found from database search');
           setAvailableRoutes([]);
           setDistance(null);
           setFare(null);
-          setDuration(null);
         }
 
         // Optional: Try to get route coordinates for map display if we have place_ids
@@ -207,6 +363,36 @@ export default function BusRouteResultsScreen({ route, navigation }) {
             }
           } catch (mapError) {
             console.log('⚠️ Could not load map coordinates:', mapError);
+          }
+        }
+
+        // Calculate distance between user's specific FROM and TO stops
+        if (fromText && toText) {
+          try {
+            console.log('🎯 Calculating distance for user journey:', fromText, '→', toText);
+            const userJourneyResult = await calculateUserJourneyDistance(fromText, toText);
+            
+            if (userJourneyResult) {
+              setRealCalculatedDistance(userJourneyResult.distance);
+              setDistance(userJourneyResult.distance);
+              console.log('✅ User journey distance calculated:', userJourneyResult.distance, 'km');
+              console.log('📊 Full route distance (database):', routes[0]?.total_distance_km, 'km');
+            } else {
+              console.log('⚠️ Could not calculate user journey distance');
+            }
+          } catch (error) {
+            console.log('⚠️ Error calculating user journey distance:', error);
+          }
+        }
+
+        // Calculate distances between consecutive stops if we have route data (for display purposes)
+        if (routes && routes.length > 0 && routes[0].stops) {
+          try {
+            const stopsWithDistances = await calculateDistancesBetweenStops(routes[0].stops);
+            setBusStops(stopsWithDistances);
+            console.log('✅ Calculated distances between all stops:', stopsWithDistances);
+          } catch (error) {
+            console.log('⚠️ Could not calculate distances between stops:', error);
           }
         }
 
@@ -237,8 +423,10 @@ export default function BusRouteResultsScreen({ route, navigation }) {
         <View style={styles.operatorContainer}>
           <Text style={styles.operator}>SLTB</Text>
           <View style={styles.fareContainer}>
-            <Text style={styles.fareLabel}>Stops</Text>
-            <Text style={styles.fare}>{item.journey?.stops_count || 'N/A'}</Text>
+            <Text style={styles.fareLabel}>Fare</Text>
+            <Text style={styles.fare}>
+              {item.journey?.fare ? `Rs. ${item.journey.fare}` : 'N/A'}
+            </Text>
           </View>
         </View>
       </View>
@@ -246,15 +434,17 @@ export default function BusRouteResultsScreen({ route, navigation }) {
       <View style={styles.routeDetails}>
         <View style={styles.routeInfo}>
           <View style={styles.iconContainer}>
-            <Ionicons name="time-outline" size={18} color={AppColors.primary} />
+            <Ionicons name="location-outline" size={18} color={AppColors.primary} />
           </View>
-          <Text style={styles.routeText}>{item.estimated_duration_minutes} mins</Text>
+          <Text style={styles.routeText}>
+            {realCalculatedDistance ? `${realCalculatedDistance.toFixed(1)} km (Your journey)` : `${item.total_distance_km} km (Full route)`}
+          </Text>
         </View>
         <View style={styles.routeInfo}>
           <View style={styles.iconContainer}>
-            <Ionicons name="location-outline" size={18} color={AppColors.primary} />
+            <Ionicons name="bus-outline" size={18} color={AppColors.primary} />
           </View>
-          <Text style={styles.routeText}>{item.total_distance_km} km</Text>
+          <Text style={styles.routeText}>{item.journey?.stops_count || 0} stops</Text>
         </View>
         <View style={styles.routeInfo}>
           <View style={styles.iconContainer}>
@@ -275,6 +465,14 @@ export default function BusRouteResultsScreen({ route, navigation }) {
         <Text style={[styles.viaText, {fontSize: 12, color: AppColors.textSecondary, marginTop: 4}]}>
           Journey: {item.journey?.from_stop} → {item.journey?.to_stop}
         </Text>
+        {item.journey?.fare && (
+          <View style={styles.fareDetailContainer}>
+            <Ionicons name="cash-outline" size={14} color={AppColors.success} />
+            <Text style={styles.fareDetailText}>
+              Rs. {item.journey.fare} ({item.journey.stops_count} stops)
+            </Text>
+          </View>
+        )}
       </View>
     </View>
   );
@@ -320,7 +518,10 @@ export default function BusRouteResultsScreen({ route, navigation }) {
 {loading && (
   <View style={styles.loadingContainer}>
     <ActivityIndicator size="large" color={AppColors.primary} />
-    <Text style={styles.loadingText}>Calculating fare based on cities along route...</Text>
+    <Text style={styles.loadingText}>Calculating distance for your journey...</Text>
+    <Text style={[styles.loadingText, {fontSize: 12, marginTop: 8, color: AppColors.textSecondary}]}>
+      Finding stops "{fromText}" → "{toText}" using Google Maps
+    </Text>
   </View>
 )}
 
@@ -382,10 +583,15 @@ export default function BusRouteResultsScreen({ route, navigation }) {
   <View style={styles.infoGrid}>
     <View style={styles.infoCard}>
       <View style={styles.infoIconContainer}>
-        <Ionicons name="navigate-outline" size={24} color={AppColors.primary} />
+        <Ionicons name="navigate-outline" size={24} color={realCalculatedDistance ? AppColors.success : AppColors.primary} />
       </View>
-      <Text style={styles.infoLabel}>Distance</Text>
+      <Text style={styles.infoLabel}>
+        {realCalculatedDistance ? 'Journey Distance' : 'Distance'}
+      </Text>
       <Text style={styles.infoValue}>{distance?.toFixed(1)} km</Text>
+      {realCalculatedDistance && (
+        <Text style={styles.infoSubtext}>🎯 Your journey</Text>
+      )}
     </View>
     
     <View style={styles.infoCard}>
@@ -405,16 +611,6 @@ export default function BusRouteResultsScreen({ route, navigation }) {
         <Text style={styles.infoValue}>Rs. {fare}</Text>
       </View>
     )}
-    
-    {duration && (
-      <View style={styles.infoCard}>
-        <View style={styles.infoIconContainer}>
-          <Ionicons name="time-outline" size={24} color={AppColors.warning} />
-        </View>
-        <Text style={styles.infoLabel}>Duration</Text>
-        <Text style={styles.infoValue}>{duration}</Text>
-      </View>
-    )}
   </View>
 )}
 
@@ -430,13 +626,38 @@ export default function BusRouteResultsScreen({ route, navigation }) {
     </View>
     
     {/* Route Statistics */}
-    {stopsDetected > 0 && (
+    {busStops.length > 0 && (
       <View style={styles.routeStatsCard}>
         <View style={styles.statItem}>
-          <Ionicons name="location" size={16} color={AppColors.primary} />
-          <Text style={styles.statLabel}>Stops Detected:</Text>
-          <Text style={styles.statValue}>{stopsDetected}</Text>
+          <Ionicons name="map-outline" size={16} color={AppColors.primary} />
+          <Text style={styles.statLabel}>Found Coordinates:</Text>
+          <Text style={styles.statValue}>
+            {busStops.filter(stop => stop.latitude && stop.longitude).length}/{busStops.length}
+          </Text>
         </View>
+        {busStops.some(stop => stop.distanceFromPrevious) && (
+          <View style={styles.statItem}>
+            <Ionicons name="speedometer-outline" size={16} color={AppColors.success} />
+            <Text style={styles.statLabel}>Distances Calculated:</Text>
+            <Text style={styles.statValue}>
+              {busStops.filter(stop => stop.distanceFromPrevious).length}
+            </Text>
+          </View>
+        )}
+        {realCalculatedDistance && (
+          <View style={styles.statItem}>
+            <Ionicons name="navigate" size={16} color={AppColors.success} />
+            <Text style={styles.statLabel}>Your Journey:</Text>
+            <Text style={styles.statValue}>{realCalculatedDistance.toFixed(1)}km</Text>
+          </View>
+        )}
+        {availableRoutes.length > 0 && availableRoutes[0].total_distance_km && (
+          <View style={styles.statItem}>
+            <Ionicons name="bus-outline" size={16} color={AppColors.textSecondary} />
+            <Text style={styles.statLabel}>Full Route:</Text>
+            <Text style={styles.statValue}>{availableRoutes[0].total_distance_km}km</Text>
+          </View>
+        )}
       </View>
     )}
     
@@ -447,7 +668,13 @@ export default function BusRouteResultsScreen({ route, navigation }) {
             <Text style={styles.stopNumberText}>{index + 1}</Text>
           </View>
           <View style={styles.stopContent}>
-            <Text style={styles.stopName}>{stop.name}</Text>
+            <Text style={styles.stopName}>{stop.name || stop.stop_name}</Text>
+            {stop.google_name && stop.google_name !== (stop.name || stop.stop_name) && (
+              <Text style={styles.stopVicinity}>Google Maps: {stop.google_name}</Text>
+            )}
+            {stop.formatted_address && (
+              <Text style={styles.stopVicinity}>{stop.formatted_address}</Text>
+            )}
             {stop.vicinity && (
               <Text style={styles.stopVicinity}>{stop.vicinity}</Text>
             )}
@@ -458,9 +685,19 @@ export default function BusRouteResultsScreen({ route, navigation }) {
                  stop.type === 'major_station' ? 'Major Station' : 'Bus Stop'}
               </Text>
             )}
-            {stop.distanceKm && (
+            {stop.latitude && stop.longitude && (
+              <Text style={[styles.stopType, {color: AppColors.primary, fontSize: 10}]}>
+                📍 {stop.latitude.toFixed(4)}, {stop.longitude.toFixed(4)}
+              </Text>
+            )}
+            {stop.distanceFromPrevious && (
               <Text style={styles.stopDistance}>
-                {stop.distanceKm.toFixed(1)}km from origin
+                {stop.distanceFromPrevious}km from previous stop
+              </Text>
+            )}
+            {stop.cumulativeDistance && (
+              <Text style={[styles.stopDistance, {color: AppColors.textSecondary, fontSize: 10}]}>
+                Total: {stop.cumulativeDistance.toFixed(1)}km from origin
               </Text>
             )}
           </View>
@@ -474,6 +711,16 @@ export default function BusRouteResultsScreen({ route, navigation }) {
         </View>
       ))}
     </View>
+    {realCalculatedDistance && (
+      <Text style={styles.calculationNote}>
+        🎯 Journey distance: {realCalculatedDistance.toFixed(1)}km calculated between your selected stops using Google Maps
+      </Text>
+    )}
+    {busStops.some(stop => stop.distanceFromPrevious) && (
+      <Text style={styles.calculationNote}>
+        📏 Individual stop distances shown for reference
+      </Text>
+    )}
     {calculationMethod && (
       <Text style={styles.calculationNote}>
         Fare calculated using {calculationMethod === 'city_based' ? 'city data' : calculationMethod === 'transit_based' ? 'transit data' : 'distance estimation'}
@@ -513,7 +760,7 @@ export default function BusRouteResultsScreen({ route, navigation }) {
     </View>
     <Text style={styles.noRoutesTitle}>No Direct Routes Found</Text>
     <Text style={styles.noRoutesText}>
-      Fare calculated based on {numberOfStops} bus stops found along the route. You may need to take connecting buses or alternative transport.
+      Based on {numberOfStops} bus stops along this route, the estimated fare would be around Rs. {fare.toFixed(0)}. You may need to take connecting buses or alternative transport.
     </Text>
   </View>
 )}
@@ -1076,5 +1323,19 @@ const styles = StyleSheet.create({
     color: AppColors.primary,
     marginTop: 2,
     fontWeight: "500",
+  },
+  fareDetailContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 6,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: AppColors.border + "50",
+  },
+  fareDetailText: {
+    fontSize: 12,
+    color: AppColors.success,
+    marginLeft: 4,
+    fontWeight: "600",
   },
 });

@@ -107,21 +107,58 @@ const findRoutesBetweenStops = async (req, res) => {
 
     console.log(`📊 Found ${result.rows.length} matching routes`);
 
-    const routes = result.rows.map(route => ({
-      route_id: route.route_id,
-      route_number: route.route_number,
-      route_name: route.route_name,
-      start_location: route.start_location,
-      end_location: route.end_location,
-      total_distance_km: route.distance_km,
-      estimated_duration_minutes: route.estimated_duration_minutes,
-      journey: {
-        from_stop: from,
-        to_stop: to,
-        from_order: route.from_order,
-        to_order: route.to_order,
-        stops_count: route.to_order - route.from_order + 1
+    // Calculate fare for each route based on number of stops
+    const routes = await Promise.all(result.rows.map(async (route) => {
+      const stopsCount = route.to_order - route.from_order + 1;
+      
+      // Get fare from bus_fares table based on number of stops
+      let fare = null;
+      try {
+        const fareQuery = 'SELECT fare FROM bus_fares WHERE section = $1';
+        const fareResult = await db.query(fareQuery, [stopsCount]);
+        
+        if (fareResult.rows.length > 0) {
+          fare = parseFloat(fareResult.rows[0].fare);
+        } else {
+          // Find closest section if exact match not found
+          const closestQuery = 'SELECT section, fare FROM bus_fares WHERE section <= $1 ORDER BY section DESC LIMIT 1';
+          const closestResult = await db.query(closestQuery, [stopsCount]);
+          
+          if (closestResult.rows.length > 0) {
+            const baseFare = parseFloat(closestResult.rows[0].fare);
+            const baseSection = closestResult.rows[0].section;
+            
+            // Extrapolate based on section difference  
+            const extraSections = stopsCount - baseSection;
+            const farePerSection = 10; // Default increment per additional section
+            fare = baseFare + (extraSections * farePerSection);
+          } else {
+            // Fallback: basic calculation if no data found
+            fare = stopsCount * 15; // Rs. 15 per stop as fallback
+          }
+        }
+      } catch (fareError) {
+        console.error('Error calculating fare:', fareError);
+        fare = stopsCount * 15; // Fallback calculation
       }
+
+      return {
+        route_id: route.route_id,
+        route_number: route.route_number,
+        route_name: route.route_name,
+        start_location: route.start_location,
+        end_location: route.end_location,
+        total_distance_km: route.distance_km,
+        estimated_duration_minutes: route.estimated_duration_minutes,
+        journey: {
+          from_stop: from,
+          to_stop: to,
+          from_order: route.from_order,
+          to_order: route.to_order,
+          stops_count: stopsCount,
+          fare: fare
+        }
+      };
     }));
 
     res.json({ 

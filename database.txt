@@ -521,6 +521,31 @@ INSERT INTO route_stops (route_number, stop_name, stop_order) VALUES
 ('138', 'Malabe', 8),
 ('138', 'Kirulapone Bus Stop', 9);
 
+-- Table: public.bus_fares
+CREATE TABLE IF NOT EXISTS public.bus_fares
+(
+    section integer NOT NULL,
+    fare numeric(10,2) NOT NULL,
+    CONSTRAINT fares_pkey PRIMARY KEY (section)
+);
+
+-- Sample bus fare data based on number of stops/sections
+INSERT INTO bus_fares (section, fare) VALUES 
+(1, 25.00),   -- 1 stop
+(2, 35.00),   -- 2 stops  
+(3, 45.00),   -- 3 stops
+(4, 55.00),   -- 4 stops
+(5, 65.00),   -- 5 stops
+(6, 75.00),   -- 6 stops
+(7, 85.00),   -- 7 stops
+(8, 95.00),   -- 8 stops
+(9, 105.00),  -- 9 stops
+(10, 115.00), -- 10 stops
+(15, 150.00), -- 15 stops
+(20, 200.00), -- 20 stops
+(25, 250.00), -- 25 stops
+(30, 300.00); -- 30 stops
+
 CREATE TABLE alerts (
     id SERIAL PRIMARY KEY,
     passenger_id INTEGER NOT NULL,
