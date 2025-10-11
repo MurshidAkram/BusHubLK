@@ -6,12 +6,13 @@ import {
   TouchableOpacity,
   FlatList,
   Alert,
-  SafeAreaView,
   ActivityIndicator,
   Modal,
   ScrollView,
   Platform,
+  StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
@@ -645,16 +646,47 @@ export default function BusOccupancyScreen() {
 
         setLocationPermission(true);
 
-        // Fast location with manual timeout
-        const locationPromise = Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Low, // Fastest option
-        });
-        
-        const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Location timeout after 8 seconds')), 8000)
-        );
-        
-        const location = await Promise.race([locationPromise, timeoutPromise]);
+        // Get location with improved timeout and fallback
+        let location;
+        try {
+          // First try with low accuracy (fastest)
+          const locationPromise = Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Low,
+            timeInterval: 5000,
+          });
+          
+          const timeoutPromise = new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('Location timeout after 15 seconds')), 15000)
+          );
+          
+          location = await Promise.race([locationPromise, timeoutPromise]);
+        } catch (locationError) {
+          console.log('First location attempt failed, trying with balanced accuracy...');
+          
+          // Fallback: try with balanced accuracy
+          try {
+            const fallbackPromise = Location.getCurrentPositionAsync({
+              accuracy: Location.Accuracy.Balanced,
+              timeInterval: 10000,
+            });
+            
+            const fallbackTimeoutPromise = new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error('Fallback location timeout after 20 seconds')), 20000)
+            );
+            
+            location = await Promise.race([fallbackPromise, fallbackTimeoutPromise]);
+          } catch (fallbackError) {
+            // If both fail, use last known location or show error
+            console.error('All location attempts failed:', fallbackError);
+            Alert.alert(
+              'Location Error',
+              'Unable to get your location. Please:\n• Enable GPS/Location Services\n• Allow location permission\n• Try moving to an open area\n• Restart the app',
+              [{ text: 'OK' }]
+            );
+            setLoading(false);
+            return;
+          }
+        }
 
         const userPos = {
           latitude: location.coords.latitude,
@@ -681,27 +713,45 @@ export default function BusOccupancyScreen() {
         });
         setBusRouteCache(prev => ({ ...prev, ...routeUpdates }));
 
-        locationWatchRef.current = await Location.watchPositionAsync(
-          {
-            accuracy: Location.Accuracy.Low, // Use low accuracy for continuous updates (faster)
-            timeInterval: 2000, // Update every 2 seconds (faster than 3 seconds)
-            distanceInterval: 3, // Trigger on 3 meter movement (more sensitive)
-          },
-          (location) => {
-            const newUserPos = {
-              latitude: location.coords.latitude,
-              longitude: location.coords.longitude,
-              accuracy: location.coords.accuracy,
-              timestamp: Date.now(),
-            };
-            setUserLocation(newUserPos);
-          }
-        );
+        try {
+          locationWatchRef.current = await Location.watchPositionAsync(
+            {
+              accuracy: Location.Accuracy.Low, // Use low accuracy for continuous updates (faster)
+              timeInterval: 3000, // Update every 3 seconds (more reliable than 2 seconds)
+              distanceInterval: 5, // Trigger on 5 meter movement (less sensitive, more reliable)
+            },
+            (location) => {
+              const newUserPos = {
+                latitude: location.coords.latitude,
+                longitude: location.coords.longitude,
+                accuracy: location.coords.accuracy,
+                timestamp: Date.now(),
+              };
+              setUserLocation(newUserPos);
+            }
+          );
+        } catch (watchError) {
+          console.error('Error setting up location watch:', watchError);
+          // Continue without location watch if it fails
+        }
 
         setLoading(false);
       } catch (error) {
-        console.error('Error requesting location permission:', error);
-        Alert.alert('Error', 'Failed to get location permission.');
+        console.error('Error in location setup:', error);
+        
+        // Provide specific error messages based on the error type
+        let errorMessage = 'Failed to get location.';
+        if (error instanceof Error) {
+          if (error.message.includes('timeout')) {
+            errorMessage = 'Location request timed out. Please ensure GPS is enabled and you\'re in an open area.';
+          } else if (error.message.includes('permission')) {
+            errorMessage = 'Location permission denied. Please enable location services in your device settings.';
+          } else {
+            errorMessage = `Location error: ${error.message}`;
+          }
+        }
+        
+        Alert.alert('Location Error', errorMessage, [{ text: 'OK' }]);
         setLocationPermission(false);
         setLoading(false);
       }
@@ -820,10 +870,12 @@ export default function BusOccupancyScreen() {
   if (loading) {
     return (
       <LinearGradient
-        colors={[AppColors.background, AppColors.primaryMuted]}
-        style={styles.safeArea}
+        colors={['#F8FAFF', '#E3F2FD', '#BBDEFB']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.gradientContainer}
       >
-        <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView style={styles.container}>
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={AppColors.primary} />
             <Text style={styles.loadingText}>Getting your location...</Text>
@@ -836,41 +888,15 @@ export default function BusOccupancyScreen() {
     );
   }
 
-  const renderHeader = () => (
+  const renderContent = () => (
     <>
-      {/* Beautiful Header with Gradient */}
-      <LinearGradient
-        colors={[AppColors.primary, AppColors.primaryLight]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.headerGradient}
-      >
-        <View style={styles.headerContent}>
-          <TouchableOpacity
-            onPress={() => {
-              // @ts-ignore - Navigation type handling
-              if (navigation.canGoBack && navigation.canGoBack()) {
-                navigation.goBack();
-              } else {
-                // @ts-ignore - Navigate to home screen
-                navigation.navigate('Home');
-              }
-            }}
-            style={styles.backButton}
-          >
-            <Text style={styles.backArrow}>←</Text>
-          </TouchableOpacity>
-          <View style={styles.headerTitleContainer}>
-            <Text style={styles.headerTitle}>Bus Occupancy</Text>
-            <Text style={styles.headerSubtitle}>Report and track bus capacity</Text>
-          </View>
-        </View>
-      </LinearGradient>
-
       {/* Nearby Buses Section */}
       <View style={styles.sectionCard}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>� Nearby Buses ({buses.length})</Text>
+          <View style={styles.sectionTitleContainer}>
+            <Text style={styles.sectionTitle}>🚍 Nearby Buses ({buses.length})</Text>
+            <Text style={styles.sectionSubtitle}>Active buses within 5km radius</Text>
+          </View>
           <TouchableOpacity 
             style={styles.refreshButton}
             onPress={async () => {
@@ -885,7 +911,7 @@ export default function BusOccupancyScreen() {
                   if (bus.route_number && (bus.route_name || bus.route)) {
                     routeUpdates[bus.bus_id.toString()] = {
                       route_number: bus.route_number,
-                      route_name: bus.route_name || bus.route || `Route ${bus.route_number}`
+                      route_name: bus.route_name || `Route ${bus.route_number}`
                     };
                   }
                 });
@@ -893,7 +919,7 @@ export default function BusOccupancyScreen() {
               }
             }}
           >
-            <Text style={{ fontSize: 20, color: AppColors.primary }}>🔄</Text>
+            <Text style={{ fontSize: 20, color: AppColors.primary }}>⟳</Text>
           </TouchableOpacity>
         </View>
         {buses.length > 0 ? (
@@ -986,8 +1012,11 @@ export default function BusOccupancyScreen() {
       {/* Only show Bus Detection Status card when there are active buses */}
       {buses.length > 0 && (
         <View style={styles.card}>
-          <View style={styles.occupancyHeader}>
-            <Text style={styles.label}>🚌 Bus Detection Status</Text>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleContainer}>
+              <Text style={styles.sectionTitle}>🚌 Bus Detection Status</Text>
+              <Text style={styles.sectionSubtitle}>Current bus occupancy reporting</Text>
+            </View>
             <TouchableOpacity 
               style={styles.refreshButton}
               onPress={() => {
@@ -1008,7 +1037,7 @@ export default function BusOccupancyScreen() {
                 );
               }}
             >
-              <Text style={{ fontSize: 20, color: AppColors.primary }}>ℹ️</Text>
+              <Text style={{ fontSize: 16, color: AppColors.primary }}>ℹ️</Text>
             </TouchableOpacity>
           </View>
         {currentBus ? (
@@ -1089,9 +1118,12 @@ export default function BusOccupancyScreen() {
 
       <View style={styles.sectionCard}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>📊 Recent Updates (Last 5)</Text>
+          <View style={styles.sectionTitleContainer}>
+            <Text style={styles.sectionTitle}>📊 Recent Updates</Text>
+            <Text style={styles.sectionSubtitle}>Last 5 occupancy reports</Text>
+          </View>
           <TouchableOpacity style={styles.refreshButton} onPress={fetchAllOccupancies}>
-            <Text style={{ fontSize: 20, color: AppColors.primary }}>🔄</Text>
+            <Text style={{ fontSize: 20, color: AppColors.primary }}>⟳</Text>
           </TouchableOpacity>
         </View>
         {status === 'loading' && (
@@ -1124,41 +1156,44 @@ export default function BusOccupancyScreen() {
               
               return (
                 <View key={item.occupancy_id} style={styles.statusItem}>
-                  <View style={styles.statusHeader}>
-                    <Text style={styles.statusRouteNumber}>
-                      {routeNumber}
-                    </Text>
-                    <Text style={styles.statusTime}>
-                      {(() => {
-                        // Convert to Sri Lankan time (UTC+5:30)
-                        const date = new Date(item.updated_at);
-                        // Get UTC time in ms, add 5.5 hours in ms
-                        const offsetMs = 5.5 * 60 * 60 * 1000;
-                        const slDate = new Date(date.getTime() + offsetMs);
-                        return slDate.toLocaleTimeString('en-US', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          second: '2-digit',
-                          hour12: true,
-                        }) + ' (SL)';
-                      })()}
-                    </Text>
-                  </View>
-                  <Text style={styles.statusBusNumber}>
-                    {item.registration_number}
-                  </Text>
-                  {routeName && (
-                    <Text style={styles.statusRoute}>
-                      {routeName}
-                    </Text>
-                  )}
-                  <View style={styles.statusOccupancy}>
-                    <Text style={[
-                      styles.statusOccupancyText,
-                      { color: OCCUPANCY_LEVELS.find(l => l.value === item.occupancy_level)?.color }
-                    ]}>
-                      {OCCUPANCY_LEVELS.find(l => l.value === item.occupancy_level)?.label?.toUpperCase() || 'UNKNOWN'}
-                    </Text>
+                  <View style={styles.statusItemContent}>
+                    <View style={styles.statusLeftContent}>
+                      <View style={styles.statusHeader}>
+                        <Text style={styles.statusRouteNumber}>
+                          {routeNumber}
+                        </Text>
+                      </View>
+                      <Text style={styles.statusBusNumber}>
+                        {item.registration_number}
+                      </Text>
+                      {routeName && (
+                        <Text style={styles.statusRoute}>
+                          {routeName}
+                        </Text>
+                      )}
+                    </View>
+                    <View style={styles.statusRightContent}>
+                      <Text style={styles.statusTime}>
+                        {(() => {
+                          // Convert to Sri Lankan time (UTC+5:30)
+                          const date = new Date(item.updated_at);
+                          // Get UTC time in ms, add 5.5 hours in ms
+                          const offsetMs = 5.5 * 60 * 60 * 1000;
+                          const slDate = new Date(date.getTime() + offsetMs);
+                          return slDate.toLocaleTimeString('en-US', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: true,
+                          });
+                        })()}
+                      </Text>
+                      <Text style={[
+                        styles.statusOccupancyText,
+                        { backgroundColor: OCCUPANCY_LEVELS.find(l => l.value === item.occupancy_level)?.color || AppColors.textSecondary }
+                      ]}>
+                        {OCCUPANCY_LEVELS.find(l => l.value === item.occupancy_level)?.label?.toUpperCase() || 'UNKNOWN'}
+                      </Text>
+                    </View>
                   </View>
                 </View>
               );
@@ -1171,16 +1206,51 @@ export default function BusOccupancyScreen() {
 
   return (
     <LinearGradient
-      colors={[AppColors.background, AppColors.primaryMuted]}
-      style={styles.container}
+      colors={['#F8FAFF', '#E3F2FD', '#BBDEFB']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.gradientContainer}
     >
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor={AppColors.background} />
+
+        {/* Header outside of ScrollView - fixed positioning */}
+        <LinearGradient
+          colors={[AppColors.primary, AppColors.primaryLight]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.headerGradient}
+        >
+          <View style={styles.headerContent}>
+            <TouchableOpacity
+              onPress={() => {
+                // @ts-ignore - Navigation type handling
+                if (navigation.canGoBack && navigation.canGoBack()) {
+                  navigation.goBack();
+                } else {
+                  // @ts-ignore - Navigate to home screen
+                  navigation.navigate('Home');
+                }
+              }}
+              style={styles.backButton}
+            >
+              <Text style={styles.backArrow}>←</Text>
+            </TouchableOpacity>
+            <View style={styles.headerTitleContainer}>
+              <Text style={styles.headerTitle}>Bus Occupancy</Text>
+              <Text style={styles.headerSubtitle}>Report and track bus capacity</Text>
+            </View>
+          </View>
+        </LinearGradient>
+
+        {/* Content in ScrollView */}
         <FlatList
           data={[]}
           keyExtractor={(item, index) => `empty-${index}`}
           contentContainerStyle={styles.scrollContent}
-          ListHeaderComponent={renderHeader}
+          ListHeaderComponent={renderContent}
           renderItem={() => null}
+          showsVerticalScrollIndicator={false}
         />
 
       <Modal
@@ -1248,15 +1318,19 @@ export default function BusOccupancyScreen() {
 }
 
 const styles = StyleSheet.create({
+  gradientContainer: {
+    flex: 1,
+  },
+  container: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
   safeArea: {
     flex: 1,
     backgroundColor: 'transparent',
   },
-  container: {
-    flex: 1,
-  },
   scrollContent: {
-    paddingHorizontal: 16,
+    paddingTop: 16,
     paddingBottom: 20,
   },
   
@@ -1289,27 +1363,21 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 
-  // Header styles
+  // Header styles (matching BusTrackingScreen structure)
   headerGradient: {
-    paddingTop: 20,
-    paddingBottom: 24,
-    paddingHorizontal: 20,
-    marginBottom: 16,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: AppColors.border,
   },
   headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 10,
+    paddingVertical: 12,
+    backgroundColor: 'transparent',
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
+    padding: 8,
   },
   backArrow: {
     fontSize: 24,
@@ -1318,12 +1386,13 @@ const styles = StyleSheet.create({
   },
   headerTitleContainer: {
     flex: 1,
+    marginLeft: 8,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   headerSubtitle: {
     fontSize: 14,
@@ -1331,22 +1400,24 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 
-  // Section styles
+  // Section styles (enhanced to match BusTrackingScreen)
   sectionCard: {
-    backgroundColor: AppColors.card,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
     borderRadius: 16,
-    padding: 18,
+    padding: 20,
     marginHorizontal: 16,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(222, 226, 230, 0.4)',
     ...Platform.select({
       android: {
-        elevation: 2,
+        elevation: 6,
       },
       ios: {
         shadowColor: '#000',
-        shadowOpacity: 0.05,
-        shadowRadius: 6,
-        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.12,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 4 },
       },
     }),
   },
@@ -1356,27 +1427,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
+  sectionTitleContainer: {
+    flex: 1,
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: AppColors.text,
+    marginBottom: 2,
+  },
+  sectionSubtitle: {
+    fontSize: 12,
+    color: AppColors.textSecondary,
+    fontWeight: '500',
   },
 
   // Legacy card styles (keeping for compatibility)
   card: {
-    backgroundColor: AppColors.card,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderRadius: 16,
     padding: 18,
     marginHorizontal: 16,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(222, 226, 230, 0.6)',
     ...Platform.select({
       android: {
-        elevation: 2,
+        elevation: 4,
       },
       ios: {
         shadowColor: '#000',
-        shadowOpacity: 0.05,
-        shadowRadius: 6,
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
         shadowOffset: { width: 0, height: 2 },
       },
     }),
@@ -1421,19 +1503,38 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   updateButton: {
-    backgroundColor: '#007bff',
-    paddingVertical: 12,
-    borderRadius: 8,
+    backgroundColor: AppColors.primary,
+    paddingVertical: 14,
+    borderRadius: 12,
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 12,
+    ...Platform.select({
+      android: {
+        elevation: 3,
+      },
+      ios: {
+        shadowColor: AppColors.primary,
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 2 },
+      },
+    }),
   },
   disabledButton: {
-    backgroundColor: '#6c757d',
+    backgroundColor: AppColors.textSecondary,
+    ...Platform.select({
+      android: {
+        elevation: 1,
+      },
+      ios: {
+        shadowOpacity: 0.1,
+      },
+    }),
   },
   updateButtonText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
   occupancyButtonsContainer: {
     flexDirection: 'row',
@@ -1506,9 +1607,26 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   statusItem: {
-    paddingVertical: 12,
+    padding: 12,
+    marginBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
+    borderBottomColor: 'rgba(222, 226, 230, 0.3)',
+  },
+  statusItemContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  statusLeftContent: {
+    flex: 1,
+    marginRight: 12,
+  },
+  statusRightContent: {
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    minWidth: 80,
+    minHeight: 60,
+    paddingVertical: 4,
   },
   userStatusItem: {
     backgroundColor: '#e8f5e8',
@@ -1522,25 +1640,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 3,
   },
   statusBusNumber: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#495057',
-    marginTop: 2,
-    marginBottom: 4,
+    fontSize: 15,
+    fontWeight: '600',
+    color: AppColors.text,
+    marginTop: 6,
+    marginBottom: 2,
+    letterSpacing: 0.3,
   },
   statusRouteNumber: {
-    fontSize: 22,
+    fontSize: 16,
     fontWeight: 'bold',
-    color: '#007bff',
-    backgroundColor: '#e3f2fd',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
+    color: AppColors.primary,
+    backgroundColor: 'rgba(227, 242, 253, 0.6)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
     textAlign: 'center',
-    minWidth: 90,
+    minWidth: 60,
   },
   userUpdateIndicator: {
     fontSize: 12,
@@ -1548,22 +1667,34 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   statusRoute: {
-    fontSize: 14,
-    color: '#495057',
+    fontSize: 13,
+    color: AppColors.textSecondary,
     marginBottom: 4,
+    fontWeight: '500',
   },
   statusOccupancy: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     alignItems: 'center',
+    marginTop: 2,
   },
   statusOccupancyText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: 'bold',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    color: '#FFFFFF',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+    textAlign: 'center',
+    alignSelf: 'flex-end',
   },
   statusTime: {
     fontSize: 12,
     color: '#6c757d',
+    textAlign: 'right',
+    marginBottom: 8,
   },
   statusConfidence: {
     fontSize: 11,
@@ -1577,11 +1708,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 20,
+    padding: 24,
     width: '90%',
     maxWidth: 400,
+    borderWidth: 1,
+    borderColor: 'rgba(222, 226, 230, 0.6)',
+    ...Platform.select({
+      android: {
+        elevation: 8,
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 6 },
+      },
+    }),
   },
   modalTitle: {
     fontSize: 18,
@@ -1599,14 +1743,37 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   occupancyOption: {
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 8,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    ...Platform.select({
+      android: {
+        elevation: 2,
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 2 },
+      },
+    }),
   },
   selectedOccupancy: {
-    borderWidth: 2,
-    borderColor: '#007bff',
+    borderWidth: 3,
+    borderColor: AppColors.primary,
+    transform: [{ scale: 1.02 }],
+    ...Platform.select({
+      android: {
+        elevation: 4,
+      },
+      ios: {
+        shadowOpacity: 0.2,
+        shadowRadius: 6,
+      },
+    }),
   },
   occupancyLabel: {
     fontSize: 16,
@@ -1624,16 +1791,27 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     flex: 1,
-    padding: 12,
-    borderRadius: 8,
+    padding: 14,
+    borderRadius: 12,
     alignItems: 'center',
-    marginHorizontal: 4,
+    marginHorizontal: 6,
+    ...Platform.select({
+      android: {
+        elevation: 2,
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 2 },
+      },
+    }),
   },
   cancelButton: {
-    backgroundColor: '#6c757d',
+    backgroundColor: AppColors.textSecondary,
   },
   confirmButton: {
-    backgroundColor: '#007bff',
+    backgroundColor: AppColors.primary,
   },
   cancelButtonText: {
     color: '#fff',
@@ -1659,17 +1837,39 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
+    backgroundColor: 'rgba(248, 249, 250, 0.8)',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#e9ecef',
+    borderColor: 'rgba(233, 236, 239, 0.6)',
+    ...Platform.select({
+      android: {
+        elevation: 2,
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 2 },
+      },
+    }),
   },
   detectedBusItem: {
-    backgroundColor: '#e3f2fd',
-    borderColor: '#007bff',
+    backgroundColor: 'rgba(227, 242, 253, 0.9)',
+    borderColor: AppColors.primary,
     borderWidth: 2,
+    ...Platform.select({
+      android: {
+        elevation: 4,
+      },
+      ios: {
+        shadowColor: AppColors.primary,
+        shadowOpacity: 0.2,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 3 },
+      },
+    }),
   },
   nearbyBusInfo: {
     flex: 1,

@@ -13,6 +13,8 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
+import { LinearGradient } from "expo-linear-gradient";
+import { SafeAreaView } from "react-native-safe-area-context";
 import axios from "axios";
 import { API_BASE_URL } from '../config/api';
 
@@ -39,7 +41,7 @@ const AppColors = {
 
 
 
-function decodePolyline(encoded) {
+function decodePolyline(encoded: string) {
   const poly = [];
   let index = 0,
     len = encoded.length;
@@ -73,7 +75,7 @@ function decodePolyline(encoded) {
   return poly;
 }
 
-export default function BusRouteResultsScreen({ route, navigation }) {
+export default function BusRouteResultsScreen({ route, navigation }: any) {
   const { from, to, routes, routeCount } = route.params;
   const [loading, setLoading] = useState(true);
   const [distance, setDistance] = useState<number | null>(null);
@@ -411,109 +413,135 @@ export default function BusRouteResultsScreen({ route, navigation }) {
 
   
 
-  const renderBusRoute = ({ item }: { item: any }) => (
-    <View style={styles.routeCard}>
-      <View style={styles.routeHeader}>
-        <View style={styles.routeNumberContainer}>
-          <View style={styles.routeNumberBadge}>
-            <Text style={styles.routeNumber}>{item.route_number}</Text>
-          </View>
-          
-        </View>
-        <View style={styles.operatorContainer}>
-          <Text style={styles.operator}>SLTB</Text>
-          <View style={styles.fareContainer}>
-            <Text style={styles.fareLabel}>Fare</Text>
-            <Text style={styles.fare}>
-              {item.journey?.fare ? `Rs. ${item.journey.fare}` : 'N/A'}
-            </Text>
-          </View>
-        </View>
-      </View>
+  const handleRouteCardPress = (routeNumber: string) => {
+    navigation.navigate('BusTracker', { 
+      selectedRoute: routeNumber,
+      fromSearch: true,
+      searchFrom: fromText,
+      searchTo: toText
+    });
+  };
 
-      <View style={styles.routeDetails}>
-        <View style={styles.routeInfo}>
-          <View style={styles.iconContainer}>
-            <Ionicons name="location-outline" size={18} color={AppColors.primary} />
+  const renderBusRoute = ({ item }: { item: any }) => (
+    <TouchableOpacity 
+      style={styles.enhancedRouteCard}
+      onPress={() => handleRouteCardPress(item.route_number)}
+      activeOpacity={0.7}
+    >
+      {/* Header with Route Number and Key Metrics */}
+      <LinearGradient
+        colors={['#F8FAFF', '#E3F2FD']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.enhancedRouteHeader}
+      >
+        <View style={styles.routeNumberSection}>
+          <View style={styles.enhancedRouteNumberBadge}>
+            <Text style={styles.enhancedRouteNumber}>{item.route_number}</Text>
           </View>
-          <Text style={styles.routeText}>
-            {realCalculatedDistance ? `${realCalculatedDistance.toFixed(1)} km (Your journey)` : `${item.total_distance_km} km (Full route)`}
+          <View style={styles.operatorInfo}>
+            <Text style={styles.operatorText}>SLTB</Text>
+            <Text style={styles.routeNameText}>{item.route_name}</Text>
+          </View>
+        </View>
+        
+        <View style={styles.fareSection}>
+          <Text style={styles.fareValue}>Rs. {item.journey?.fare || 'N/A'}</Text>
+          <Text style={styles.fareLabel}>Fare</Text>
+        </View>
+      </LinearGradient>
+
+      {/* Key Metrics Row */}
+      <View style={styles.metricsRow}>
+        <View style={styles.metricItem}>
+          <Ionicons name="navigate" size={16} color={AppColors.success} />
+          <Text style={styles.metricValue}>
+            {realCalculatedDistance ? `${realCalculatedDistance.toFixed(1)} km` : `${item.total_distance_km} km`}
+          </Text>
+          <Text style={styles.metricLabel}>
+            {realCalculatedDistance ? 'Journey' : 'Full Route'}
           </Text>
         </View>
-        <View style={styles.routeInfo}>
-          <View style={styles.iconContainer}>
-            <Ionicons name="bus-outline" size={18} color={AppColors.primary} />
-          </View>
-          <Text style={styles.routeText}>{item.journey?.stops_count || 0} stops</Text>
+        
+        <View style={styles.metricDivider} />
+        
+        <View style={styles.metricItem}>
+          <Ionicons name="bus" size={16} color={AppColors.primary} />
+          <Text style={styles.metricValue}>{item.journey?.stops_count || 0}</Text>
+          <Text style={styles.metricLabel}>Stops</Text>
         </View>
-        <View style={styles.routeInfo}>
-          <View style={styles.iconContainer}>
-            <Ionicons name="speedometer-outline" size={18} color={AppColors.primary} />
-          </View>
-          <Text style={styles.routeText}>{item.route_name}</Text>
+        
+        <View style={styles.metricDivider} />
+        
+        <View style={styles.metricItem}>
+          <Ionicons name="time" size={16} color={AppColors.warning} />
+          <Text style={styles.metricValue}>
+            {item.estimated_duration_minutes ? `${item.estimated_duration_minutes}m` : 'N/A'}
+          </Text>
+          <Text style={styles.metricLabel}>Est. Time</Text>
         </View>
       </View>
 
-      <View style={styles.viaContainer}>
-        <View style={styles.viaHeader}>
-          <Ionicons name="trail-sign-outline" size={16} color={AppColors.primary} />
-          <Text style={styles.viaLabel}>Route</Text>
-        </View>
-        <Text style={styles.viaText}>
-          {item.start_location} → {item.end_location}
-        </Text>
-        <Text style={[styles.viaText, {fontSize: 12, color: AppColors.textSecondary, marginTop: 4}]}>
-          Journey: {item.journey?.from_stop} → {item.journey?.to_stop}
-        </Text>
-        {item.journey?.fare && (
-          <View style={styles.fareDetailContainer}>
-            <Ionicons name="cash-outline" size={14} color={AppColors.success} />
-            <Text style={styles.fareDetailText}>
-              Rs. {item.journey.fare} ({item.journey.stops_count} stops)
-            </Text>
-          </View>
-        )}
+      {/* Track Buses Button */}
+      <View style={styles.trackBusesSection}>
+        <Ionicons name="location" size={16} color={AppColors.primary} />
+        <Text style={styles.trackBusesText}>Tap to track buses on this route</Text>
+        <Ionicons name="chevron-forward" size={16} color={AppColors.primary} />
       </View>
-    </View>
+    </TouchableOpacity>
   );
 
   return (
-    <View style={styles.container}>
-      <StatusBar 
-        barStyle={Platform.OS === 'ios' ? 'dark-content' : 'light-content'} 
-        backgroundColor={AppColors.primary} 
-      />
-      
-      {/* Header */}
-      <View style={styles.header}>
+    <LinearGradient
+      colors={['#F8FAFF', '#E3F2FD', '#BBDEFB']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.gradientContainer}
+    >
+      <SafeAreaView style={styles.container}>
+        <StatusBar 
+          barStyle="dark-content"
+          backgroundColor="transparent"
+          translucent={true}
+        />
+        
+        {/* Header */}
+        <LinearGradient
+          colors={[AppColors.primary, '#007bff']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.headerGradient}
+        >
+          <View style={styles.header}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={styles.backButton}
         >
           <Ionicons name="arrow-back" size={24} color={AppColors.card} />
         </TouchableOpacity>
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Route Results</Text>
-          <Text style={styles.headerSubtitle}>BusHubLK</Text>
-        </View>
-      </View>
+            <View style={styles.headerContent}>
+              <Text style={styles.headerTitle}>Route Results</Text>
+              <Text style={styles.headerSubtitle}>BusHubLK</Text>
+            </View>
+          </View>
+        </LinearGradient>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.contentContainer}>
           {/* Route Summary Card */}
-          <View style={styles.summaryCard}>
-            <View style={styles.locationContainer}>
-              <View style={styles.locationItem}>
-                <View style={[styles.locationDot, { backgroundColor: AppColors.success }]} />
-                <Text style={styles.locationText} numberOfLines={2}>{fromText}</Text>
+          <View style={styles.compactSummaryCard}>
+            <View style={styles.compactLocationContainer}>
+              <View style={styles.compactLocationItem}>
+                <View style={[styles.compactLocationDot, { backgroundColor: AppColors.success }]} />
+                <Text style={styles.compactLocationText} numberOfLines={1}>{fromText}</Text>
               </View>
-              <View style={styles.routeLine} />
-              <View style={styles.locationItem}>
-                <View style={[styles.locationDot, { backgroundColor: AppColors.warning }]} />
-                <Text style={styles.locationText} numberOfLines={2}>{toText}</Text>
+              <Ionicons name="arrow-forward" size={16} color={AppColors.textSecondary} style={styles.arrowIcon} />
+              <View style={styles.compactLocationItem}>
+                <View style={[styles.compactLocationDot, { backgroundColor: AppColors.warning }]} />
+                <Text style={styles.compactLocationText} numberOfLines={1}>{toText}</Text>
               </View>
             </View>
-            </View>
+          </View>
 
 {loading && (
   <View style={styles.loadingContainer}>
@@ -578,41 +606,7 @@ export default function BusRouteResultsScreen({ route, navigation }) {
   </View>
 )}
 
-{/* Route Information */}
-{distance !== null && !loading && (
-  <View style={styles.infoGrid}>
-    <View style={styles.infoCard}>
-      <View style={styles.infoIconContainer}>
-        <Ionicons name="navigate-outline" size={24} color={realCalculatedDistance ? AppColors.success : AppColors.primary} />
-      </View>
-      <Text style={styles.infoLabel}>
-        {realCalculatedDistance ? 'Journey Distance' : 'Distance'}
-      </Text>
-      <Text style={styles.infoValue}>{distance?.toFixed(1)} km</Text>
-      {realCalculatedDistance && (
-        <Text style={styles.infoSubtext}>🎯 Your journey</Text>
-      )}
-    </View>
-    
-    <View style={styles.infoCard}>
-      <View style={styles.infoIconContainer}>
-        <Ionicons name="bus-outline" size={24} color={AppColors.primary} />
-      </View>
-      <Text style={styles.infoLabel}>Bus Stops</Text>
-      <Text style={styles.infoValue}>{numberOfStops}</Text>
-    </View>
-    
-    {fare !== null && (
-      <View style={styles.infoCard}>
-        <View style={styles.infoIconContainer}>
-          <Ionicons name="cash-outline" size={24} color={AppColors.success} />
-        </View>
-        <Text style={styles.infoLabel}>Est. Fare</Text>
-        <Text style={styles.infoValue}>Rs. {fare}</Text>
-      </View>
-    )}
-  </View>
-)}
+{/* Enhanced route cards will show all this information */}
 
 {/* Bus Stops Along Route */}
 {busStops.length > 0 && (
@@ -625,39 +619,14 @@ export default function BusRouteResultsScreen({ route, navigation }) {
       </View>
     </View>
     
-    {/* Route Statistics */}
-    {busStops.length > 0 && (
-      <View style={styles.routeStatsCard}>
+    {/* Simplified Statistics */}
+    {realCalculatedDistance && (
+      <View style={styles.simplifiedStatsCard}>
         <View style={styles.statItem}>
-          <Ionicons name="map-outline" size={16} color={AppColors.primary} />
-          <Text style={styles.statLabel}>Found Coordinates:</Text>
-          <Text style={styles.statValue}>
-            {busStops.filter(stop => stop.latitude && stop.longitude).length}/{busStops.length}
-          </Text>
+          <Ionicons name="map" size={16} color={AppColors.success} />
+          <Text style={styles.statLabel}>Google Maps Calculation</Text>
+          <Text style={styles.statValue}>{realCalculatedDistance.toFixed(1)}km journey distance</Text>
         </View>
-        {busStops.some(stop => stop.distanceFromPrevious) && (
-          <View style={styles.statItem}>
-            <Ionicons name="speedometer-outline" size={16} color={AppColors.success} />
-            <Text style={styles.statLabel}>Distances Calculated:</Text>
-            <Text style={styles.statValue}>
-              {busStops.filter(stop => stop.distanceFromPrevious).length}
-            </Text>
-          </View>
-        )}
-        {realCalculatedDistance && (
-          <View style={styles.statItem}>
-            <Ionicons name="navigate" size={16} color={AppColors.success} />
-            <Text style={styles.statLabel}>Your Journey:</Text>
-            <Text style={styles.statValue}>{realCalculatedDistance.toFixed(1)}km</Text>
-          </View>
-        )}
-        {availableRoutes.length > 0 && availableRoutes[0].total_distance_km && (
-          <View style={styles.statItem}>
-            <Ionicons name="bus-outline" size={16} color={AppColors.textSecondary} />
-            <Text style={styles.statLabel}>Full Route:</Text>
-            <Text style={styles.statValue}>{availableRoutes[0].total_distance_km}km</Text>
-          </View>
-        )}
       </View>
     )}
     
@@ -732,11 +701,16 @@ export default function BusRouteResultsScreen({ route, navigation }) {
 {/* Available Bus Routes */}
 {availableRoutes.length > 0 && (
   <View style={styles.routesContainer}>
-    <View style={styles.sectionHeader}>
-      <Ionicons name="bus-outline" size={24} color={AppColors.primary} />
-      <Text style={styles.sectionTitle}>Available Bus Routes</Text>
-      <View style={styles.routeCount}>
-        <Text style={styles.routeCountText}>{availableRoutes.length}</Text>
+    <View style={styles.enhancedSectionHeader}>
+      <View style={styles.sectionHeaderContent}>
+        <Ionicons name="bus" size={28} color={AppColors.primary} />
+        <View style={styles.sectionHeaderText}>
+          <Text style={styles.enhancedSectionTitle}>Available Routes</Text>
+          <Text style={styles.sectionSubtitle}>Choose the best route for your journey</Text>
+        </View>
+      </View>
+      <View style={styles.enhancedRouteCount}>
+        <Text style={styles.enhancedRouteCountText}>{availableRoutes.length}</Text>
       </View>
     </View>
     <FlatList
@@ -776,35 +750,25 @@ export default function BusRouteResultsScreen({ route, navigation }) {
     </Text>
   </View>
 )}
-</View>
-</ScrollView>
-</View>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  </LinearGradient>
 );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: AppColors.background,
+    backgroundColor: 'transparent',
   },
   header: {
-    backgroundColor: AppColors.primary,
-    paddingTop: Platform.OS === "ios" ? 50 : 25,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
-    flexDirection: "row",
-    alignItems: "center",
-    ...Platform.select({
-      ios: {
-        shadowColor: AppColors.shadow,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 10,
+    paddingVertical: 12,
+    backgroundColor: 'transparent',
   },
   backButton: {
     padding: 8,
@@ -1040,6 +1004,181 @@ const styles = StyleSheet.create({
         elevation: 3,
       },
     }),
+  },
+  enhancedRouteCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(222, 226, 230, 0.6)',
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: AppColors.shadow,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
+  },
+  enhancedRouteHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: AppColors.primaryLight + '30',
+    borderBottomWidth: 1,
+    borderBottomColor: AppColors.border,
+  },
+  routeNumberSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  enhancedRouteNumberBadge: {
+    backgroundColor: AppColors.primary,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginRight: 12,
+    ...Platform.select({
+      ios: {
+        shadowColor: AppColors.shadow,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  enhancedRouteNumber: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: AppColors.card,
+  },
+  operatorInfo: {
+    flex: 1,
+  },
+  operatorText: {
+    fontSize: 13,
+    color: AppColors.textSecondary,
+    fontWeight: '600',
+  },
+  routeNameText: {
+    fontSize: 15,
+    color: AppColors.text,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  fareSection: {
+    alignItems: 'flex-end',
+  },
+  fareValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: AppColors.success,
+  },
+  metricsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    backgroundColor: AppColors.background,
+  },
+  metricItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  metricValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: AppColors.text,
+    marginTop: 4,
+  },
+  metricLabel: {
+    fontSize: 11,
+    color: AppColors.textSecondary,
+    marginTop: 2,
+    textAlign: 'center',
+  },
+  metricDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: AppColors.border,
+    marginHorizontal: 8,
+  },
+  journeySection: {
+    padding: 20,
+    backgroundColor: AppColors.card,
+  },
+  journeyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  journeyTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: AppColors.text,
+    marginLeft: 8,
+  },
+  journeyPath: {
+    marginLeft: 8,
+  },
+  journeyStop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 4,
+  },
+  journeyDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 12,
+  },
+  journeyStopText: {
+    fontSize: 14,
+    color: AppColors.text,
+    fontWeight: '500',
+    flex: 1,
+  },
+  journeyLine: {
+    width: 2,
+    height: 20,
+    backgroundColor: AppColors.border,
+    marginLeft: 4,
+    marginVertical: 2,
+  },
+  googleMapsNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: AppColors.border,
+  },
+  googleMapsText: {
+    fontSize: 12,
+    color: AppColors.success,
+    marginLeft: 6,
+    fontWeight: '500',
+  },
+  fullRouteSection: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    backgroundColor: AppColors.card,
+  },
+  fullRouteText: {
+    fontSize: 12,
+    color: AppColors.textSecondary,
+    fontStyle: 'italic',
+    textAlign: 'center',
   },
   routeHeader: {
     flexDirection: "row",
@@ -1280,6 +1419,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-around",
   },
+  simplifiedStatsCard: {
+    backgroundColor: AppColors.success + '20',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: AppColors.success + '40',
+  },
   statItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -1337,5 +1484,138 @@ const styles = StyleSheet.create({
     color: AppColors.success,
     marginLeft: 4,
     fontWeight: "600",
+  },
+
+  // Enhanced Section Header
+  enhancedSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginVertical: 20,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  sectionHeaderContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  sectionHeaderText: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  enhancedSectionTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: AppColors.text,
+    marginBottom: 2,
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    color: AppColors.textSecondary,
+    fontWeight: '500',
+  },
+  enhancedRouteCount: {
+    backgroundColor: AppColors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    minWidth: 40,
+    alignItems: 'center',
+  },
+  enhancedRouteCountText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+
+  // Compact Summary Card
+  compactSummaryCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(222, 226, 230, 0.6)',
+    ...Platform.select({
+      ios: {
+        shadowColor: AppColors.shadow,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  compactLocationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  compactLocationItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  compactLocationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  compactLocationText: {
+    fontSize: 14,
+    color: AppColors.text,
+    fontWeight: '500',
+    flex: 1,
+  },
+  arrowIcon: {
+    marginHorizontal: 12,
+  },
+
+  // Gradient Container
+  gradientContainer: {
+    flex: 1,
+  },
+  
+  // Header Gradient
+  headerGradient: {
+    borderBottomWidth: 1,
+    borderBottomColor: AppColors.border,
+  },
+
+  // Track Buses Section
+  trackBusesSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    backgroundColor: AppColors.primaryLight + '20',
+    borderTopWidth: 1,
+    borderTopColor: AppColors.border,
+  },
+  trackBusesText: {
+    fontSize: 14,
+    color: AppColors.primary,
+    fontWeight: '600',
+    marginHorizontal: 8,
+    flex: 1,
+    textAlign: 'center',
   },
 });
