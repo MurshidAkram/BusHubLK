@@ -86,7 +86,7 @@ import OpsReports from './pages/dashboards/regional-ops/OpsReports'
 import DGMOperationsSidebarContent from './components/dgm-ops/DGMOperationsSidebarContent'
 import DGMOperationsDashboard from './pages/dashboards/dgm-ops/index'
 import NationalOverview from './pages/dashboards/dgm-ops/NationalOverview'
-import CommunicationCenter from './pages/dashboards/dgm-ops/CommunicationCenter'
+import CommunicationCenter from './pages/dashboards/dgm-ops/CommunicationHub'
 import Feedback from './pages/dashboards/dgm-ops/Feedback'
 import ExecutiveSettings from './pages/dashboards/dgm-ops/ExecutiveSettings'
 import CrewOversight from './pages/dashboards/dgm-ops/CrewOversight'
@@ -98,7 +98,7 @@ import Fleetmonitor from './pages/dashboards/dgm-tech/Fleetmonitor'
 import Servicehistoryexplorer from './pages/dashboards/dgm-tech/Servicehistoryexplorer'
 import GenerateReports from './pages/dashboards/dgm-tech/GenerateReports'
 //import Dgmtechnicalissue from './pages/dashboards/dgm-tech/Dgmtechnicalissue'
-import Dgmcommunityhub from './pages/dashboards/dgm-tech/Dgmcommunityhub'
+import Dgmcommunityhub from './pages/dashboards/dgm-tech/communicationHub'
 
 
 // CEO Components

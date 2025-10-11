@@ -7,18 +7,45 @@ const {
   getAvailableContacts,
   createOrGetDirectChannel,
   markChannelAsRead,
-  getChannelInfo
+  getChannelInfo,
+  getRegions,
+  getDepots,
+  createAnnouncementChannel
 } = require('../controllers/communicationController');
-const { authenticateJWT } = require('../middlewares/authMiddleware');
-const { body, param } = require('express-validator');
+const { authenticateJWT, authorizeRole } = require('../middlewares/authMiddleware');
+const { body, param, query } = require('express-validator');
 
 // All routes require authentication
 router.use(authenticateJWT);
 
+// GET /api/communication/regions - Get all regions (for DGM/CEO)
+router.get('/regions', 
+  authorizeRole(['dgm_technical', 'dgm_operations', 'ceo', 'admin']),
+  getRegions
+);
+
+// GET /api/communication/depots - Get depots (optionally filtered by region)
+router.get('/depots',
+  authorizeRole(['dgm_technical', 'dgm_operations', 'ceo', 'admin']),
+  getDepots
+);
+
+// POST /api/communication/announcements - Create announcement channel
+router.post('/announcements',
+  authorizeRole(['dgm_technical', 'dgm_operations', 'ceo', 'admin']),
+  [
+    body('targetType').isIn(['region', 'depot']).withMessage('Target type must be region or depot'),
+    body('targetId').isInt().withMessage('Valid target ID is required'),
+    body('channelName').notEmpty().withMessage('Channel name is required'),
+    body('initialMessage').optional().isLength({ max: 5000 })
+  ],
+  createAnnouncementChannel
+);
+
 // GET /api/communication/channels - Get all channels for the user
 router.get('/channels', getUserChannels);
 
-// GET /api/communication/contacts - Get available contacts
+// GET /api/communication/contacts - Get available contacts (with optional filters)
 router.get('/contacts', getAvailableContacts);
 
 // POST /api/communication/channels/direct - Create or get a direct channel

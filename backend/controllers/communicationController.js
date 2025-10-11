@@ -179,12 +179,123 @@ const getChannelInfo = async (req, res) => {
   }
 };
 
+// Get regions list
+const getRegions = async (req, res) => {
+  try {
+    const regions = await Communication.getRegions();
+    res.json({
+      success: true,
+      regions
+    });
+  } catch (error) {
+    console.error('Get regions error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch regions'
+    });
+  }
+};
+
+// Get depots list (optionally filtered by region)
+const getDepots = async (req, res) => {
+  try {
+    const { regionId } = req.query;
+    const depots = await Communication.getDepots(regionId ? parseInt(regionId) : null);
+    res.json({
+      success: true,
+      depots
+    });
+  } catch (error) {
+    console.error('Get depots error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch depots'
+    });
+  }
+};
+
+// Get available contacts with filters (for DGM)
+const getAvailableContactsFiltered = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { regionId } = req.query;
+    
+    const filters = {};
+    if (regionId) filters.regionId = parseInt(regionId);
+    
+    const contacts = await Communication.getAvailableContacts(userId, filters);
+    
+    res.json({
+      success: true,
+      contacts
+    });
+  } catch (error) {
+    console.error('Get available contacts error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch contacts'
+    });
+  }
+};
+
+// Create announcement channel
+const createAnnouncementChannel = async (req, res) => {
+  try {
+    const { targetType, targetId, channelName, initialMessage } = req.body;
+    const creatorId = req.user.userId;
+
+    if (!['region', 'depot'].includes(targetType)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid target type. Must be "region" or "depot"'
+      });
+    }
+
+    if (!targetId || !channelName) {
+      return res.status(400).json({
+        success: false,
+        error: 'Target ID and channel name are required'
+      });
+    }
+
+    // Create the announcement channel
+    const channelId = await Communication.createAnnouncementChannel(
+      creatorId,
+      targetType,
+      targetId,
+      channelName
+    );
+
+    // Send initial message if provided
+    if (initialMessage && initialMessage.trim()) {
+      await Communication.sendMessage(channelId, creatorId, initialMessage.trim());
+    }
+
+    // Get channel info
+    const channelInfo = await Communication.getChannelInfo(channelId, creatorId);
+
+    res.status(201).json({
+      success: true,
+      channel: channelInfo
+    });
+  } catch (error) {
+    console.error('Create announcement error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create announcement'
+    });
+  }
+};
+
 module.exports = {
   getUserChannels,
   getChannelMessages,
   sendMessage,
-  getAvailableContacts,
+  getAvailableContacts: getAvailableContactsFiltered, // Updated
   createOrGetDirectChannel,
   markChannelAsRead,
-  getChannelInfo
+  getChannelInfo,
+  getRegions,
+  getDepots,
+  createAnnouncementChannel
 };
