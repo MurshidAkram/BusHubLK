@@ -117,10 +117,10 @@ interface OccupancyRecord {
 }
 
 const OCCUPANCY_LEVELS = [
-  { label: 'Not Crowded', value: 'not_crowded', color: '#198754', description: 'Plenty of seats available' },
-  { label: 'Not Too Crowded', value: 'not_too_crowded', color: '#ffc107', description: 'Some seats occupied' },
-  { label: 'Crowded', value: 'crowded', color: '#ff8c00', description: 'Standing room only' },
-  { label: 'Very Crowded', value: 'very_crowded', color: '#dc3545', description: 'Bus is full' },
+  { label: 'Not Crowded', value: 'not_crowded', color: '#52C196', description: 'Plenty of seats available' },
+  { label: 'Not Too Crowded', value: 'not_too_crowded', color: '#FFD166', description: 'Some seats occupied' },
+  { label: 'Crowded', value: 'crowded', color: '#FF9A56', description: 'Standing room only' },
+  { label: 'Very Crowded', value: 'very_crowded', color: '#FF6B7D', description: 'Bus is full' },
 ];
 
 // Fetch nearby buses using the same logic as BusTrackingScreen
@@ -1011,40 +1011,17 @@ export default function BusOccupancyScreen() {
 
       {/* Only show Bus Detection Status card when there are active buses */}
       {buses.length > 0 && (
-        <View style={styles.card}>
+        <View style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
             <View style={styles.sectionTitleContainer}>
               <Text style={styles.sectionTitle}>🚌 Bus Detection Status</Text>
               <Text style={styles.sectionSubtitle}>Current bus occupancy reporting</Text>
             </View>
-            <TouchableOpacity 
-              style={styles.refreshButton}
-              onPress={() => {
-                console.log('🔄 Manual detection debug info:');
-                console.log('- User location:', userLocation);
-                console.log('- Available buses:', buses.length);
-                console.log('- Buses data:', buses.map(b => ({
-                  id: b.registration_number,
-                  distance: userLocation ? calculateDistance(userLocation.latitude, userLocation.longitude, b.latitude, b.longitude).toFixed(0) + 'm' : 'unknown',
-                  status: b.tracking_status,
-                  minutes_old: b.minutes_since_update
-                })));
-                console.log('- Current detection:', { detectedBus: detectedBus?.registration_number, confidence });
-                
-                Alert.alert(
-                  'Detection Info', 
-                  `Buses nearby: ${buses.length}\nLocation: ${userLocation ? 'Available' : 'Getting location...'}\nCurrent bus: ${detectedBus ? detectedBus.registration_number  : 'None detected'}`
-                );
-              }}
-            >
-              <Text style={{ fontSize: 16, color: AppColors.primary }}>ℹ️</Text>
-            </TouchableOpacity>
           </View>
         {currentBus ? (
-          <View style={styles.currentBusCard}>
+          <View style={styles.detectedBusContent}>
             <View style={styles.currentBusHeader}>
-              <Text style={{ fontSize: 20, color: AppColors.primary }}>🚌</Text>
-              <Text style={styles.currentBusTitle}>Bus {currentBus.registration_number || currentBus.number}</Text>
+              <Text style={styles.currentBusTitle}>{currentBus.registration_number || currentBus.number}</Text>
             </View>
             <Text style={styles.currentBusRoute}>
               {/* Only show route name if available, remove (unknown) */}
@@ -1079,12 +1056,6 @@ export default function BusOccupancyScreen() {
                 </TouchableOpacity>
               ))}
             </View>
-            <TouchableOpacity
-              style={[styles.updateButton]}
-              onPress={() => setShowOccupancyModal(true)}
-            >
-              <Text style={styles.updateButtonText}>Update Occupancy</Text>
-            </TouchableOpacity>
           </View>
         ) : (
           <>
@@ -1105,12 +1076,6 @@ export default function BusOccupancyScreen() {
                 </TouchableOpacity>
               ))}
             </View>
-            <TouchableOpacity
-              style={[styles.updateButton, styles.disabledButton]}
-              onPress={() => Alert.alert('Error', 'You can only update occupancy when you are inside a bus.')}
-            >
-              <Text style={styles.updateButtonText}>Update Occupancy</Text>
-            </TouchableOpacity>
           </>
         )}
         </View>
@@ -1464,13 +1429,21 @@ const styles = StyleSheet.create({
     }),
   },
   currentBusCard: {
-    borderColor: AppColors.primary,
-    borderWidth: 2,
-    backgroundColor: AppColors.primaryMuted,
+    borderColor: 'rgba(0, 86, 179, 0.3)',
+    borderWidth: 1,
+    backgroundColor: 'rgba(248, 250, 255, 0.9)',
     borderRadius: 12,
     padding: 16,
     marginHorizontal: 16,
     marginBottom: 16,
+  },
+  detectedBusContent: {
+    backgroundColor: 'rgba(248, 250, 255, 0.5)',
+    borderRadius: 8,
+    padding: 16,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(222, 226, 230, 0.4)',
   },
   currentBusHeader: {
     flexDirection: 'row',
@@ -1481,7 +1454,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     marginLeft: 8,
-    color: AppColors.primary,
+    color: AppColors.text,
   },
   currentBusRoute: {
     fontSize: 16,
