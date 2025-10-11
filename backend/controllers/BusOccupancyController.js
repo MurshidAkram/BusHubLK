@@ -279,17 +279,31 @@ const getAverageOccupancyLevels = async (req, res) => {
           END as calculated_occupancy_level
         FROM recent_reports
         GROUP BY bus_id, registration_number
+      ),
+      bus_route_info AS (
+        SELECT DISTINCT ON (blt.bus_id)
+          blt.bus_id,
+          r.route_number,
+          r.route_name
+        FROM bus_live_tracking blt
+        JOIN routes r ON blt.route_id = r.route_id
+        WHERE blt.bus_id = ANY($1)
+          AND blt.is_live = TRUE
+        ORDER BY blt.bus_id, blt.recorded_at DESC
       )
       SELECT 
-        bus_id,
-        registration_number,
-        report_count,
-        calculated_occupancy_level,
-        avg_confidence,
-        last_report_time,
-        EXTRACT(EPOCH FROM (NOW() - last_report_time)) / 60 as minutes_since_last_report
-      FROM weighted_averages
-      ORDER BY bus_id
+        wa.bus_id,
+        wa.registration_number,
+        wa.report_count,
+        wa.calculated_occupancy_level,
+        wa.avg_confidence,
+        wa.last_report_time,
+        EXTRACT(EPOCH FROM (NOW() - wa.last_report_time)) / 60 as minutes_since_last_report,
+        bri.route_number,
+        bri.route_name
+      FROM weighted_averages wa
+      LEFT JOIN bus_route_info bri ON wa.bus_id = bri.bus_id
+      ORDER BY wa.bus_id
     `, [busIdArray]);
     
     // Create response object with all requested buses, including those with no reports
@@ -305,7 +319,9 @@ const getAverageOccupancyLevels = async (req, res) => {
         avg_confidence: 0,
         last_report_time: null,
         minutes_since_last_report: null,
-        data_freshness: 'no_data'
+        data_freshness: 'no_data',
+        route_number: null,
+        route_name: null
       };
     });
     
@@ -323,7 +339,9 @@ const getAverageOccupancyLevels = async (req, res) => {
         avg_confidence: Math.round(row.avg_confidence),
         last_report_time: row.last_report_time,
         minutes_since_last_report: Math.round(row.minutes_since_last_report),
-        data_freshness: freshnessLevel
+        data_freshness: freshnessLevel,
+        route_number: row.route_number,
+        route_name: row.route_name
       };
     });
     

@@ -80,10 +80,11 @@
       "package": "com.anonymous.driverapp"
     },
     "extra": {
+      "apiUrl": "http://10.23.0.103:5000/api",
       "eas": {
-        "projectId": "2497892b-40f2-4a9e-a0c1-aea897cbfa12"
-      },
-      "apiUrl": "http://192.168.1.30:5000/api"
-    }
+        "projectId": "4c247601-9e90-4153-853b-d3a10b8eb91e"
+      }
+    },
+    "owner": "bushublk"
   }
 }

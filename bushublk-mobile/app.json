@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "bushublk-mobile",
-    "slug": "bushublk-mobile",
+    "name": "BusHubLK",
+    "slug": "BusHubLK",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/logoblue.png",

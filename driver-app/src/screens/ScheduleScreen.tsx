@@ -18,7 +18,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { driverAPI, storageAPI } from "../services/api";
 import { locationService } from "../services/locationService";
-import BackgroundLocationService from "../services/backgroundLocationService";
 
 // Get device dimensions
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
@@ -159,11 +158,9 @@ const ScheduleCard = ({ schedule, index, isTodayAssignment, navigation }: {
 
   const checkTrackingStatus = async () => {
     try {
-      const isActive = await BackgroundLocationService.isTrackingActive();
-      const activeAssignment = await BackgroundLocationService.getActiveAssignment();
-      
-      // Check if this schedule matches the active assignment
-      if (isActive && activeAssignment && activeAssignment.busId === schedule.bus_id) {
+      // Check main location service status instead of background service
+      const stats = locationService.getTrackingStats();
+      if (stats.hasActiveSubscription && stats.hasAssignment) {
         setIsTracking(true);
       }
     } catch (error) {
@@ -192,30 +189,22 @@ const ScheduleCard = ({ schedule, index, isTodayAssignment, navigation }: {
         return;
       }
 
-      // Start background location tracking
-      const success = await BackgroundLocationService.startTracking(
-        schedule.driver_id,
-        schedule.bus_id,
-        schedule.route_id
-      );
-
-      if (!success) {
-        Alert.alert(
-          "Permission Required",
-          "Background location permission is required to track your route. Please enable it in your device settings.",
-          [{ text: "OK" }]
-        );
-        setIsStarting(false);
-        return;
-      }
-
-      // Set the current assignment in location service
+      // Set the current assignment in location service first
       locationService.setCurrentAssignment({
         bus_id: schedule.bus_id,
         route_id: schedule.route_id,
         driver_id: schedule.driver_id,
         assignment_id: schedule.assignment_id,
       });
+
+      // Use ONLY the main location service for EAS build
+      console.log("🚀 Starting main location service for EAS build...");
+      await locationService.startSmartLocationTracking(
+        schedule.bus_id.toString(),
+        schedule.route_id.toString(),
+        schedule.bus_registration
+      );
+      console.log("✅ Main location service started successfully");
 
       setIsTracking(true);
       setIsStarting(false);
@@ -256,18 +245,22 @@ const ScheduleCard = ({ schedule, index, isTodayAssignment, navigation }: {
           style: "destructive",
           onPress: async () => {
             try {
-              // Stop background tracking
-              await BackgroundLocationService.stopTracking();
+              console.log("🛑 Ending schedule - stopping main location service...");
+              
+              // Stop main location service
+              locationService.stopLocationTracking();
+              
               setIsTracking(false);
+              console.log("✅ Main location service stopped successfully");
 
               Alert.alert(
                 "✅ Schedule Ended",
-                "Location tracking has been stopped successfully.",
+                "Location tracking has been stopped and schedule completed successfully.",
                 [{ text: "OK" }]
               );
             } catch (error) {
               console.error("Error ending route:", error);
-              Alert.alert("Error", "Failed to stop route tracking");
+              Alert.alert("Error", "Failed to stop route tracking completely.");
             }
           }
         }
@@ -582,18 +575,36 @@ const ScheduleScreen = ({ navigation }: any) => {
       console.log('Final API Response:', response);
       
       if (response && Array.isArray(response)) {
-        setSchedules(response);
-        console.log('Loaded schedules array:', response.length, 'assignments');
+        // Sort assignments: today's assignment first, then by date
+        const sortedSchedules = [...response].sort((a, b) => {
+          const dateA = new Date(a.assignment_date);
+          const dateB = new Date(b.assignment_date);
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          
+          const isATodayAssignment = dateA.toDateString() === today.toDateString();
+          const isBTodayAssignment = dateB.toDateString() === today.toDateString();
+          
+          // Today's assignment comes first
+          if (isATodayAssignment && !isBTodayAssignment) return -1;
+          if (!isATodayAssignment && isBTodayAssignment) return 1;
+          
+          // If both are today or both are future/past, sort by date (ascending)
+          return dateA.getTime() - dateB.getTime();
+        });
+        
+        setSchedules(sortedSchedules);
+        console.log('Loaded and sorted schedules array:', sortedSchedules.length, 'assignments');
         // Debug: Log first assignment structure
-        if (response.length > 0) {
+        if (sortedSchedules.length > 0) {
           console.log('First assignment structure:', {
-            assignment_id: response[0].assignment_id,
-            bus_id: response[0].bus_id,
-            route_id: response[0].route_id,
-            driver_id: response[0].driver_id,
-            assignment_date: response[0].assignment_date,
+            assignment_id: sortedSchedules[0].assignment_id,
+            bus_id: sortedSchedules[0].bus_id,
+            route_id: sortedSchedules[0].route_id,
+            driver_id: sortedSchedules[0].driver_id,
+            assignment_date: sortedSchedules[0].assignment_date,
           });
-          console.log('First assignment full object:', JSON.stringify(response[0], null, 2));
+          console.log('First assignment full object:', JSON.stringify(sortedSchedules[0], null, 2));
         }
       } else if (response && !response.error && !Array.isArray(response)) {
         // If we get a single assignment, put it in an array

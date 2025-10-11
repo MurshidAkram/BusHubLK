@@ -96,10 +96,21 @@ class BusOccupancy {
   static async getAllOccupancies() {
     try {
       const result = await pool.query(
-        `SELECT bo.*, b.registration_number
-         FROM bus_occupancy bo
-         JOIN buses b ON bo.bus_id = b.bus_id
-         ORDER BY bo.updated_at DESC`
+        `WITH bus_route_info AS (
+          SELECT DISTINCT ON (blt.bus_id)
+            blt.bus_id,
+            r.route_number,
+            r.route_name
+          FROM bus_live_tracking blt
+          JOIN routes r ON blt.route_id = r.route_id
+          WHERE blt.is_live = TRUE
+          ORDER BY blt.bus_id, blt.recorded_at DESC
+        )
+        SELECT bo.*, b.registration_number, bri.route_number, bri.route_name
+        FROM bus_occupancy bo
+        JOIN buses b ON bo.bus_id = b.bus_id
+        LEFT JOIN bus_route_info bri ON bo.bus_id = bri.bus_id
+        ORDER BY bo.updated_at DESC`
       );
       return result.rows;
     } catch (error) {
