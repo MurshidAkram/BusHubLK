@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, type ReactNode } from 'react';
 import { 
   HiCog, 
   HiClock, 
@@ -11,6 +11,12 @@ import {
 import { AppContext } from '../../../context/AppContext';
 
 type Notification = {
+  description: ReactNode;
+  bus_number: ReactNode;
+  item_category: ReactNode;
+  route_number: ReactNode;
+  date: any;
+  person_name: ReactNode;
   id: string | number;
   type: string;
   title: string;
