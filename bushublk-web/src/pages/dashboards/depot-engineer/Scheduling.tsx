@@ -248,13 +248,14 @@ const ServiceScheduleApp: React.FC = () => {
       );
 
       if (response.data.success) {
-        // Show all buses for scheduling (like other components)
-        console.log('All buses from API:', response.data.buses);
-        console.log('Total buses received:', response.data.buses.length);
-        
-        // Use all buses instead of filtering by status
-        setAvailableBuses(response.data.buses);
-        console.log('Buses fetched successfully:', response.data.buses);
+        const buses: Bus[] = response.data.buses || [];
+        console.log('All buses from API:', buses);
+        console.log('Total buses received:', buses.length);
+
+        const maintenanceBuses = buses.filter(bus => bus.status?.toLowerCase() === 'maintenance');
+        console.log('Filtered maintenance buses:', maintenanceBuses);
+
+        setAvailableBuses(maintenanceBuses);
       } else {
         console.error('API returned success: false', response.data);
       }

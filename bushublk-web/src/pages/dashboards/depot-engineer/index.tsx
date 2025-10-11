@@ -82,6 +82,7 @@ const DepotEngineerDashboard = () => {
   const [emergencyReports, setEmergencyReports] = useState<EmergencyReport[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [allEmergencyReports, setAllEmergencyReports] = useState<EmergencyReport[]>([]);
 
   const token = context?.token;
 
@@ -299,6 +300,20 @@ const DepotEngineerDashboard = () => {
         
         setEmergencyReports(mappedReports);
         
+        // Store all reports for chart data (including resolved/in-progress)
+        const allMappedReports: EmergencyReport[] = allReports.map((report: any) => ({
+          id: report.id.toString(),
+          depotid: report.depot_id?.toString() || '',
+          busNumber: report.vehicle_registration || report.registration_number || `Bus-${report.bus_id}`,
+          type: report.incident_type || 'mechanical',
+          reason: report.description || 'No description provided',
+          status: report.status?.toLowerCase() || 'pending',
+          region: report.region_name || 'Unknown Region',
+          depot: report.depot_name || 'Unknown Depot'
+        }));
+        
+        setAllEmergencyReports(allMappedReports);
+        
         // Update stats with real count
         setStats(prevStats => ({
           ...prevStats,
@@ -386,6 +401,195 @@ const DepotEngineerDashboard = () => {
     }
   }, [token, context?.user?.role]);
 
+  // Fleet Performance Summary Component
+  const FleetPerformanceSummary = () => {
+    const operationalRate = stats.totalBuses > 0 ? ((stats.activeBuses / stats.totalBuses) * 100).toFixed(1) : '0';
+    const maintenanceRate = stats.totalBuses > 0 ? ((stats.underMaintenance / stats.totalBuses) * 100).toFixed(1) : '0';
+    
+    const performanceData = [
+      {
+        title: "Fleet Operational Rate",
+        value: `${operationalRate}%`,
+        count: stats.activeBuses,
+        total: stats.totalBuses,
+        color: "text-green-600",
+        bgColor: "bg-green-50",
+        icon: <HiCheckCircle className="w-6 h-6" />
+      },
+      {
+        title: "Maintenance Rate",
+        value: `${maintenanceRate}%`,
+        count: stats.underMaintenance,
+        total: stats.totalBuses,
+        color: "text-amber-600",
+        bgColor: "bg-amber-50",
+        icon: <HiCog className="w-6 h-6" />
+      }
+    ];
+
+    return (
+      <div className="space-y-6">
+        {/* Performance Metrics */}
+        <div className="grid grid-cols-1 gap-4">
+          {performanceData.map((metric, index) => (
+            <div key={index} className={`${metric.bgColor} rounded-xl p-4 border border-gray-200`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className={`${metric.color}`}>
+                    {metric.icon}
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-gray-800">{metric.title}</h4>
+                    <p className="text-sm text-gray-600">
+                      {typeof metric.total === 'string' ? 
+                        `${metric.count} ${metric.total}` : 
+                        `${metric.count} of ${metric.total} buses`
+                      }
+                    </p>
+                  </div>
+                </div>
+                <div className={`text-2xl font-bold ${metric.color}`}>
+                  {metric.value}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const EmergencyStatusBarChart = () => {
+    const statusConfig: { [key: string]: { color: string; bgColor: string; label: string; icon: React.ReactElement } } = {
+      'pending': { 
+        color: '#FF6B35', 
+        bgColor: 'bg-orange-50',
+        label: 'Pending',
+        icon: <HiClock className="w-4 h-4" />
+      },
+      'in-progress': { 
+        color: '#6366F1', 
+        bgColor: 'bg-indigo-50',
+        label: 'In Progress',
+        icon: <HiCog className="w-4 h-4" />
+      },
+      'resolved': { 
+        color: '#059669', 
+        bgColor: 'bg-emerald-50',
+        label: 'Resolved',
+        icon: <HiCheckCircle className="w-4 h-4" />
+      },
+    };
+
+    // Count emergency statuses
+    const statusCounts = allEmergencyReports.reduce((acc, report) => {
+      const status = report.status || 'pending';
+      acc[status] = (acc[status] || 0) + 1;
+      return acc;
+    }, {} as { [key: string]: number });
+
+    const chartData = Object.entries(statusCounts).map(([status, count]) => ({
+      status,
+      label: statusConfig[status]?.label || status.charAt(0).toUpperCase() + status.slice(1).replace('-', ' '),
+      count,
+      color: statusConfig[status]?.color || '#6B7280',
+      bgColor: statusConfig[status]?.bgColor || 'bg-gray-50',
+      icon: statusConfig[status]?.icon || <HiExclamationCircle className="w-4 h-4" />
+    }));
+
+    const maxCount = Math.max(...chartData.map(item => item.count), 1);
+    const totalReports = chartData.reduce((sum, item) => sum + item.count, 0);
+    const [hoveredBar, setHoveredBar] = useState<{status: string, count: number, x: number, y: number} | null>(null);
+
+    if (chartData.length === 0 || totalReports === 0) {
+      return (
+        <div className="flex items-center justify-center h-80 text-gray-500">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-gradient-to-br from-emerald-100 to-emerald-200 rounded-full flex items-center justify-center mx-auto mb-4">
+              <HiCheckCircle className="w-8 h-8 text-emerald-600" />
+            </div>
+            <p className="text-lg font-medium text-gray-600">All Reports Resolved</p>
+            <p className="text-sm text-gray-500 mt-1">No pending emergency reports</p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="w-full h-80 relative">
+        {/* Chart Area */}
+        <div className="flex items-end justify-center h-56 px-6 space-x-8">
+          {chartData.map((item, index) => {
+            const barHeight = (item.count / maxCount) * 180;
+            
+            return (
+              <div key={index} className="flex flex-col items-center min-w-[80px]">
+                {/* Bar */}
+                <div 
+                  className="relative cursor-pointer transition-all duration-300 hover:scale-105 rounded-t-lg shadow-lg w-16"
+                  style={{
+                    height: `${Math.max(barHeight, 8)}px`,
+                    background: `linear-gradient(135deg, ${item.color}, ${item.color}CC)`,
+                    minHeight: '8px'
+                  }}
+                  onMouseEnter={(e) => {
+                    setHoveredBar({
+                      status: item.label,
+                      count: item.count,
+                      x: e.clientX,
+                      y: e.clientY
+                    });
+                  }}
+                  onMouseMove={(e) => {
+                    setHoveredBar(prev => prev ? {
+                      ...prev,
+                      x: e.clientX,
+                      y: e.clientY
+                    } : null);
+                  }}
+                  onMouseLeave={() => setHoveredBar(null)}
+                >
+                  {/* Count Label on Bar */}
+                  <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 text-lg font-bold text-gray-800">
+                    {item.count}
+                  </div>
+                </div>
+                
+                {/* Status Label */}
+                <div className={`mt-4 px-3 py-2 rounded-lg ${item.bgColor} border border-gray-200`}>
+                  <div className="flex items-center justify-center space-x-2">
+                    <div style={{ color: item.color }}>
+                      {item.icon}
+                    </div>
+                    <span className="text-sm font-medium text-gray-700">{item.label}</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Summary Stats */}
+       
+
+        {/* Enhanced Tooltip */}
+        {hoveredBar && (
+          <div 
+            className="fixed z-50 bg-gradient-to-r from-gray-800 to-gray-900 text-white px-4 py-3 rounded-xl shadow-2xl pointer-events-none border border-gray-600"
+            style={{
+              left: hoveredBar.x + 15,
+              top: hoveredBar.y - 60,
+              transform: 'translateX(-50%)'
+            }}
+          >
+            <div className="text-sm font-semibold">{hoveredBar.status}</div>
+            <div className="text-xs text-gray-300">{hoveredBar.count} reports</div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -406,7 +610,7 @@ const DepotEngineerDashboard = () => {
           <p className="text-sm text-gray-600 mb-4">{error}</p>
           {error.includes('403') && (
             <p className="text-sm text-yellow-600 mb-4">
-              ⚠️ This might be an authentication issue. Please try logging out and logging back in.
+              This might be an authentication issue. Please try logging out and logging back in.
             </p>
           )}
           <button 
@@ -644,9 +848,36 @@ const DepotEngineerDashboard = () => {
                 <div className="text-center py-6 text-gred-500">
                   <HiCheckCircle className="w-8 h-8 mx-auto mb-2 text-red-400" />
                   <p>No pending emergency reports</p>
-                  <p className="text-xs mt-1">Check browser console for debugging info</p>
+                 
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+
+        {/* Analytics Section */}
+        <div className="mt-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Fleet Performance Summary */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+              <div className="p-4 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-700">Fleet Performance Summary</h3>
+                <p className="text-sm text-gray-500">Overview of fleet status and operational metrics</p>
+              </div>
+              <div className="p-4">
+                <FleetPerformanceSummary />
+              </div>
+            </div>
+
+            {/* Emergency Status Progress */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+              <div className="p-4 border-b border-gray-200">
+                
+                <p className="text-sm text-gray-500">Current status of all emergency reports</p>
+              </div>
+              <div className="p-4">
+                <EmergencyStatusBarChart />
+              </div>
             </div>
           </div>
         </div>

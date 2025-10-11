@@ -74,6 +74,28 @@ const Navbar = () => {
           );
         }
 
+        // Add emergency reports count for RTO
+        if (user?.role === 'regional-technical-officer' || user?.role === 'regional_tech') {
+          requests.push(
+            fetch('http://localhost:5000/api/rto', {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              }
+            })
+          );
+          
+          // Add inspections count for RTO
+          requests.push(
+            fetch('http://localhost:5000/api/inspections', {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              }
+            })
+          );
+        }
+
         const responses = await Promise.all(requests);
         let totalUnreadCount = 0;
         
@@ -132,6 +154,67 @@ const Navbar = () => {
           }
         }
         
+        // Add emergency reports count for RTO
+        if (user?.role === 'regional-technical-officer' || user?.role === 'regional_tech') {
+          // Check for RTO emergency reports
+          let rtoEmergencyIndex = -1;
+          let rtoInspectionIndex = -1;
+          
+          if (user?.role === 'depot_engineer' || user?.role === 'depot-engineer') {
+            // For depot engineers, RTO responses start at index 4
+            rtoEmergencyIndex = responses.length >= 5 ? 4 : -1;
+            rtoInspectionIndex = responses.length >= 6 ? 5 : -1;
+          } else {
+            // For RTO users, responses start at index 1
+            rtoEmergencyIndex = responses.length >= 2 ? 1 : -1;
+            rtoInspectionIndex = responses.length >= 3 ? 2 : -1;
+          }
+          
+          // Process RTO emergency reports
+          if (rtoEmergencyIndex !== -1 && responses[rtoEmergencyIndex] && responses[rtoEmergencyIndex].ok) {
+            const rtoEmergencyData = await responses[rtoEmergencyIndex].json();
+            if (rtoEmergencyData.success && rtoEmergencyData.data) {
+              // Count unread emergency reports
+              const rtoEmergencyCount = rtoEmergencyData.data.filter((report: any) => {
+                return !report.is_read; // Assuming emergency reports have is_read field
+              }).length;
+              
+              totalUnreadCount += rtoEmergencyCount;
+              console.log('RTO emergency reports notifications count:', rtoEmergencyCount);
+            }
+          }
+          
+          // Process RTO inspections
+          if (rtoInspectionIndex !== -1 && responses[rtoInspectionIndex] && responses[rtoInspectionIndex].ok) {
+            const rtoInspectionData = await responses[rtoInspectionIndex].json();
+            let inspectionsArray = null;
+            
+            // Handle different response structures
+            if (rtoInspectionData.success && rtoInspectionData.inspections) {
+              inspectionsArray = rtoInspectionData.inspections;
+            } else if (rtoInspectionData.success && rtoInspectionData.data) {
+              inspectionsArray = rtoInspectionData.data;
+            } else if (Array.isArray(rtoInspectionData.inspections)) {
+              inspectionsArray = rtoInspectionData.inspections;
+            } else if (Array.isArray(rtoInspectionData.data)) {
+              inspectionsArray = rtoInspectionData.data;
+            } else if (Array.isArray(rtoInspectionData)) {
+              inspectionsArray = rtoInspectionData;
+            }
+            
+            if (inspectionsArray && inspectionsArray.length > 0) {
+              // Count only pending/scheduled inspections
+              const rtoInspectionCount = inspectionsArray.filter((inspection: any) => {
+                const status = inspection.status?.toLowerCase();
+                return status === 'pending' || status === 'scheduled';
+              }).length;
+              
+              totalUnreadCount += rtoInspectionCount;
+              console.log('RTO inspection notifications count:', rtoInspectionCount);
+            }
+          }
+        }
+        
         console.log('Total notification count:', totalUnreadCount);
         setNotificationCount(totalUnreadCount);
       } catch (error) {
@@ -169,14 +252,18 @@ const Navbar = () => {
   // Handle notification click
   const handleNotificationClick = () => {
     console.log('User role:', user?.role); // Debug log
+    console.log('Attempting to navigate to notifications...'); // Debug log
     
     // Check for different possible role values
     if (user?.role === 'depot-engineer' || user?.role === 'depot_engineer') {
+      console.log('Navigating to depot engineer notifications');
       navigate('/depot-engineer/notifications');
-    } else if (user?.role === 'depot_manager' || user?.role === 'depot-manager') {
+    } else if (user?.role === 'depot_manager' || user?.role === 'depot-manager' || user?.role === 'depot_manager') {
+      console.log('Navigating to depot manager notifications');
       navigate('/depot-manager/notifications');
-    } else if (user?.role === 'regional_tech' || user?.role === 'regional-technical-officer') {
-      navigate('/regional-technical-officer/notifications');
+    } else if (user?.role === 'regional_tech' || user?.role === 'regional-technical-officer' || user?.role === 'regional-tech' || user?.role?.includes('regional')) {
+      console.log('Navigating to RTO notifications');
+      navigate('/regional-technical-officer/RTONotifications');
     } else {
       // Fallback for any role - navigate to their dashboard and show alert
       console.log('Notifications not implemented for this role yet:', user?.role);
@@ -212,6 +299,8 @@ const Navbar = () => {
       case 'depot-engineer':
         return '/depot-engineer'
       case 'regional-technical-officer':
+        return '/regional-technical-officer'
+      case 'regional_tech':
         return '/regional-technical-officer'
       case 'regional-operations-officer':
         return '/regional-operations-officer'

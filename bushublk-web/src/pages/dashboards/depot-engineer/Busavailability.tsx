@@ -386,9 +386,6 @@ const Busavailability = () => {
                 Model
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Year
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Mileage
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -405,8 +402,7 @@ const Busavailability = () => {
                 <tr key={bus.bus_id}>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{bus.registration_number}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{bus.class}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{bus.model}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{bus.year}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{bus.manufacturer} {bus.model}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{bus.mileage}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -432,7 +428,7 @@ const Busavailability = () => {
               ))
             ) : (
               <tr>
-                <td colSpan={7} className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                <td colSpan={6} className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
                   No buses found.
                 </td>
               </tr>
