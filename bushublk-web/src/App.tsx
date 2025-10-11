@@ -19,6 +19,7 @@ import ManageRoles from './pages/dashboards/admin/DepotAndRegions'
 import Employees from './pages/dashboards/admin/Employees'
 import BusManaging from './pages/dashboards/admin/BusManaging'
 import RoutesMngmnt from './pages/dashboards/admin/RoutesMngmnt'
+import CommunicationHub from './pages/dashboards/depot-manager/communicationHub'
 
 
 
@@ -111,7 +112,7 @@ import WorkforceAnalyticsPage from './pages/dashboards/ceo/Workforce';
 import DepotOverviewPage from './pages/dashboards/ceo/DepotOverview';
 import RoutePerformancePage from './pages/dashboards/ceo/RoutePerformance';
 import OperationalOverviewPage from './pages/dashboards/ceo/OperationalOverview';
-import AnnouncementCenterPage from './pages/dashboards/ceo/AnnouncementCenter';
+import AnnouncementCenterPage from './pages/dashboards/ceo/CommunicationHub';
 import AccidentBreakdownPage from './pages/dashboards/ceo/AccidentBreakdowns'
 //import Dgmcommunityhub from './pages/dashboards/dgm-tech/Dgmcommunityhub'
 //import Dgmtechnicalissue from './pages/dashboards/dgm-tech/Dgmtechnicalissue'
@@ -172,6 +173,7 @@ const App = () => {
     <Route path="employees" element={<Employees />} />
     <Route path="buses" element={<BusManaging />} />
     <Route path="routes" element={<RoutesMngmnt />} />
+      <Route path="communication-hub" element={<CommunicationHub />} />
     {/* Add more admin routes as needed */}
   </Route>
 </Route>

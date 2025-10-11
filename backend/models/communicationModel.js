@@ -15,6 +15,8 @@ class Communication {
     }
   }
 
+// Fixed getUserChannels method for communicationModel.js
+
 static async getUserChannels(userId) {
   try {
     const query = `
@@ -23,6 +25,7 @@ static async getUserChannels(userId) {
         c.channel_type,
         c.channel_name,
         c.created_at as channel_created_at,
+        c.created_by,
         (
           SELECT COUNT(*)
           FROM messages m
@@ -35,20 +38,38 @@ static async getUserChannels(userId) {
           )
         )::INTEGER as unread_count,
         (
-          SELECT json_agg(
-            json_build_object(
-              'user_id', u.user_id,
-              'username', u.username,
-              'first_name', u.first_name,
-              'last_name', u.last_name,
-              'role', r.role_name
-            )
-          )
-          FROM channel_participants cp
-          JOIN users u ON cp.user_id = u.user_id
-          JOIN roles r ON u.role_id = r.role_id
-          WHERE cp.channel_id = c.channel_id
-          AND cp.user_id != $1
+          CASE 
+            WHEN c.channel_type = 'announcement' THEN
+              -- For announcements, show the creator info
+              (SELECT json_agg(
+                json_build_object(
+                  'user_id', u.user_id,
+                  'username', u.username,
+                  'first_name', u.first_name,
+                  'last_name', u.last_name,
+                  'role', r.role_name
+                )
+              )
+              FROM users u
+              JOIN roles r ON u.role_id = r.role_id
+              WHERE u.user_id = c.created_by)
+            ELSE
+              -- For direct messages, show other participants
+              (SELECT json_agg(
+                json_build_object(
+                  'user_id', u.user_id,
+                  'username', u.username,
+                  'first_name', u.first_name,
+                  'last_name', u.last_name,
+                  'role', r.role_name
+                )
+              )
+              FROM channel_participants cp
+              JOIN users u ON cp.user_id = u.user_id
+              JOIN roles r ON u.role_id = r.role_id
+              WHERE cp.channel_id = c.channel_id
+              AND cp.user_id != $1)
+          END
         ) as participants,
         (
           SELECT json_build_object(
@@ -485,6 +506,8 @@ static async getAvailableContacts(userId, filters = {}) {
   }
 }
  // Get channel info
+// Fixed getChannelInfo method for communicationModel.js
+
 static async getChannelInfo(channelId, userId) {
   try {
     const query = `
@@ -492,27 +515,50 @@ static async getChannelInfo(channelId, userId) {
         c.channel_id,
         c.channel_type,
         c.channel_name,
-        json_agg(
-          json_build_object(
-            'user_id', u.user_id,
-            'username', u.username,
-            'first_name', u.first_name,
-            'last_name', u.last_name,
-            'name', u.first_name || ' ' || u.last_name,
-            'role', r.role_name,
-            'can_send', cp.can_send
-          )
+        c.created_by,
+        (
+          CASE 
+            WHEN c.channel_type = 'announcement' THEN
+              -- For announcements, show the creator
+              (SELECT json_agg(
+                json_build_object(
+                  'user_id', u.user_id,
+                  'username', u.username,
+                  'first_name', u.first_name,
+                  'last_name', u.last_name,
+                  'name', u.first_name || ' ' || u.last_name,
+                  'role', r.role_name,
+                  'can_send', CASE WHEN u.user_id = c.created_by THEN true ELSE false END
+                )
+              )
+              FROM users u
+              JOIN roles r ON u.role_id = r.role_id
+              WHERE u.user_id = c.created_by)
+            ELSE
+              -- For direct messages, show all participants
+              (SELECT json_agg(
+                json_build_object(
+                  'user_id', u.user_id,
+                  'username', u.username,
+                  'first_name', u.first_name,
+                  'last_name', u.last_name,
+                  'name', u.first_name || ' ' || u.last_name,
+                  'role', r.role_name,
+                  'can_send', cp.can_send
+                )
+              )
+              FROM channel_participants cp
+              JOIN users u ON cp.user_id = u.user_id
+              JOIN roles r ON u.role_id = r.role_id
+              WHERE cp.channel_id = c.channel_id)
+          END
         ) as participants
       FROM communication_channels c
-      JOIN channel_participants cp ON c.channel_id = cp.channel_id
-      JOIN users u ON cp.user_id = u.user_id
-      JOIN roles r ON u.role_id = r.role_id
       WHERE c.channel_id = $1
       AND EXISTS (
         SELECT 1 FROM channel_participants
         WHERE channel_id = $1 AND user_id = $2
       )
-      GROUP BY c.channel_id
     `;
     
     const result = await db.query(query, [channelId, userId]);
@@ -523,8 +569,11 @@ static async getChannelInfo(channelId, userId) {
     
     const channelInfo = result.rows[0];
     
-    // Filter out current user from participants for display
-    channelInfo.participants = channelInfo.participants.filter(p => p.user_id !== userId);
+    // For direct messages, filter out current user from participants for display
+    if (channelInfo.channel_type === 'direct') {
+      channelInfo.participants = channelInfo.participants.filter(p => p.user_id !== userId);
+    }
+    // For announcements, keep the creator info visible to show who sent it
     
     return channelInfo;
   } catch (error) {
