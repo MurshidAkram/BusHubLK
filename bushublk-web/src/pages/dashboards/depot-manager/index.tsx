@@ -234,6 +234,16 @@ const DepotManagerDashboard = () => {
               </div>
 
               <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">In Service</span>
+                <span className="text-sm font-medium text-blue-600">
+                  {fleetStatus?.inService || 0}/{fleetStatus?.total || 0}
+                </span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="bg-blue-500 h-2 rounded-full" style={{width: `${fleetStatus?.total ? (fleetStatus.inService / fleetStatus.total) * 100 : 0}%`}}></div>
+              </div>
+
+              <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-600">Maintenance</span>
                 <span className="text-sm font-medium text-orange-600">
                   {fleetStatus?.maintenance || 0}/{fleetStatus?.total || 0}

@@ -67,17 +67,18 @@ router.get('/depot/:depot_id/fleet-status', authenticateJWT, async (req, res) =>
        GROUP BY status`,
       [depot_id]
     );
-    // Format as { active, maintenance, outOfService }
-    let active = 0, maintenance = 0, outOfService = 0, total = 0;
+    // Format as { active, inService, maintenance, outOfService }
+    let active = 0, inService = 0, maintenance = 0, outOfService = 0, total = 0;
     result.rows.forEach(row => {
       total += Number(row.count);
       if (row.status === 'Active') active = Number(row.count);
+      else if (row.status === 'In Service') inService = Number(row.count);
       else if (row.status === 'Maintenance') maintenance = Number(row.count);
       else if (row.status === 'Out of Service') outOfService = Number(row.count);
     });
     res.json({
       success: true,
-      data: { active, maintenance, outOfService, total }
+      data: { active, inService, maintenance, outOfService, total }
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch fleet status', details: err.message });
