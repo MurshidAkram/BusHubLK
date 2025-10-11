@@ -204,7 +204,6 @@ static async getUserChannels(userId) {
   // Get available contacts for a user based on their role and hierarchy
 // Get available contacts for a user based on their role and hierarchy
 // Get available contacts for a user based on their role and hierarchy
-// Get available contacts for a user based on their role and hierarchy
 static async getAvailableContacts(userId) {
   try {
     // Get user's role and depot/region info
@@ -316,44 +315,64 @@ static async getAvailableContacts(userId) {
       params = [userId, depot_id];
     }
     
-    // Regional Technical Officer can chat with: Depot Engineers in region
+    // Regional Technical Officer can chat with: Depot Engineers, Depot Managers in region, DGM Technical
     else if (role_name === 'regional_tech') {
       query = `
         SELECT 
           u.user_id, 
           u.username,
           u.first_name || ' ' || u.last_name as name,
-          r.role_name as role
+          r.role_name as role,
+          COALESCE(de.depot_id, dm.depot_id) as depot_id
         FROM users u
         JOIN roles r ON u.role_id = r.role_id
+        LEFT JOIN depot_engineers de ON u.user_id = de.depot_engineer_id AND de.region_id = $2
+        LEFT JOIN depot_managers dm ON u.user_id = dm.depot_manager_id AND dm.region_id = $2
         WHERE u.user_id != $1
         AND u.is_active = true
-        AND r.role_name = 'depot_engineer'
-        AND EXISTS (
-          SELECT 1 FROM depot_engineers de WHERE de.depot_engineer_id = u.user_id AND de.region_id = $2
+        AND (
+          (r.role_name = 'depot_engineer' AND de.depot_engineer_id IS NOT NULL)
+          OR (r.role_name = 'depot_manager' AND dm.depot_manager_id IS NOT NULL)
+          OR (r.role_name = 'dgm_technical')
         )
-        ORDER BY u.first_name
+        ORDER BY 
+          CASE r.role_name
+            WHEN 'dgm_technical' THEN 1
+            WHEN 'depot_manager' THEN 2
+            WHEN 'depot_engineer' THEN 3
+          END,
+          u.first_name
       `;
       params = [userId, region_id];
     }
     
-    // Regional Operations Officer can chat with: Depot Operations Managers in region
+    // Regional Operations Officer can chat with: Depot Operations Managers, Depot Managers in region, DGM Operations
     else if (role_name === 'regional_operations') {
       query = `
         SELECT 
           u.user_id, 
           u.username,
           u.first_name || ' ' || u.last_name as name,
-          r.role_name as role
+          r.role_name as role,
+          COALESCE(dom.depot_id, dm.depot_id) as depot_id
         FROM users u
         JOIN roles r ON u.role_id = r.role_id
+        LEFT JOIN depot_operation_managers dom ON u.user_id = dom.depot_op_manager_id AND dom.region_id = $2
+        LEFT JOIN depot_managers dm ON u.user_id = dm.depot_manager_id AND dm.region_id = $2
         WHERE u.user_id != $1
         AND u.is_active = true
-        AND r.role_name = 'depot_operations'
-        AND EXISTS (
-          SELECT 1 FROM depot_operation_managers dom WHERE dom.depot_op_manager_id = u.user_id AND dom.region_id = $2
+        AND (
+          (r.role_name = 'depot_operations' AND dom.depot_op_manager_id IS NOT NULL)
+          OR (r.role_name = 'depot_manager' AND dm.depot_manager_id IS NOT NULL)
+          OR (r.role_name = 'dgm_operations')
         )
-        ORDER BY u.first_name
+        ORDER BY 
+          CASE r.role_name
+            WHEN 'dgm_operations' THEN 1
+            WHEN 'depot_manager' THEN 2
+            WHEN 'depot_operations' THEN 3
+          END,
+          u.first_name
       `;
       params = [userId, region_id];
     }
@@ -374,7 +393,6 @@ static async getAvailableContacts(userId) {
     throw error;
   }
 }
-
  // Get channel info
 static async getChannelInfo(channelId, userId) {
   try {

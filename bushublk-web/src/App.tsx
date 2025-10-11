@@ -68,7 +68,7 @@ import RegionalTechnicalOfficerDashboard from './pages/dashboards/regional-tech/
 import Regionservicemonitor from './pages/dashboards/regional-tech/Regionservicemonitor'
 import Inspectionschedular from './pages/dashboards/regional-tech/Inspectionschedular'
 import Rtoissuetracker from './pages/dashboards/regional-tech/Rtoissuetracker'
-import Regioncommunityhub from './pages/dashboards/regional-tech/Regioncommunityhub'
+import Regioncommunityhub from './pages/dashboards/regional-tech/communicationHub'  
 
 
 // Regional Operations Officer Components
@@ -79,7 +79,7 @@ import FleetCoordination from './pages/dashboards/regional-ops/FleetCoordination
 import ScheduleOversight from './pages/dashboards/regional-ops/ScheduleOversight'
 import CrewOverview from './pages/dashboards/regional-ops/CrewOverview'
 import IncidentTracking from './pages/dashboards/regional-ops/IncidentTracking'
-import CommCenter from './pages/dashboards/regional-ops/CommCenter'
+import CommCenter from './pages/dashboards/regional-ops/communicationHub'
 import OpsReports from './pages/dashboards/regional-ops/OpsReports'
 
 // DGM Operations Components
@@ -247,7 +247,7 @@ const App = () => {
     <Route path="schedule-oversight" element={<ScheduleOversight />} />
     <Route path="crew-overview" element={<CrewOverview />} />
     <Route path="incident-tracking" element={<IncidentTracking />} />
-    <Route path="comm-center" element={<CommCenter />} />
+    <Route path="communication-hub" element={<CommCenter />} />
     <Route path="ops-reports" element={<OpsReports />} />
     
             {/* Add individual pages later */}
