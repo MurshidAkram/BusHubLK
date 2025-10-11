@@ -694,10 +694,105 @@ const GenerateReports = () => {
           <title>Maintenance Compliance Report</title>
           ${copyPageStyles()}
           <style>
-            @page { margin: 1cm; }
-            body { font-family: 'Inter', sans-serif; background: #fff; padding: 16px; }
-            .report-container { max-width: 900px; margin: 0 auto; }
+            @page { 
+              margin: 1cm; 
+              size: A4; 
+            }
+            body { 
+              font-family: 'Inter', sans-serif; 
+              background: #fff; 
+              padding: 16px; 
+              width: 100%;
+              overflow-x: hidden;
+            }
+            .report-container { 
+              max-width: 900px; 
+              margin: 0 auto;
+              page-break-inside: avoid;
+            }
             .print-hidden { display: none !important; }
+            
+            /* Prevent page breaks */
+            * {
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
+            }
+            
+            /* Keep headings with their content */
+            h1, h2, h3, h4, h5, h6 {
+              page-break-after: avoid !important;
+              break-after: avoid !important;
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
+            }
+            
+            /* Ensure headings stay with next element */
+            h3 + div, h4 + div, h2 + div {
+              page-break-before: avoid !important;
+              break-before: avoid !important;
+            }
+            
+            /* Make content flow continuously */
+            .space-y-8 > * {
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
+              margin-bottom: 2rem !important;
+            }
+            
+            /* Ensure charts and tables stay together */
+            .border.border-gray-200.rounded-xl {
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
+              margin-bottom: 1rem !important;
+              page-break-before: avoid !important;
+              break-before: avoid !important;
+            }
+            
+            /* Grid layouts should not break */
+            .grid {
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
+            }
+            
+            /* Keep sections together */
+            .p-6.border-b.border-gray-200,
+            .p-6:not(.border-b) {
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
+              page-break-after: avoid !important;
+              break-after: avoid !important;
+            }
+            
+            /* Adjust font sizes for better fit */
+            .text-2xl { font-size: 1.25rem !important; }
+            .text-xl { font-size: 1.125rem !important; }
+            .text-lg { font-size: 1rem !important; }
+            
+            /* Reduce padding and margins for compact layout */
+            .p-6 { padding: 1rem !important; }
+            .p-5 { padding: 0.75rem !important; }
+            .p-4 { padding: 0.5rem !important; }
+            .mb-6 { margin-bottom: 1rem !important; }
+            .space-y-8 > * + * { margin-top: 1rem !important; }
+            
+            /* Make the content fit better on single page */
+            @media print {
+              body { 
+                font-size: 12px !important; 
+                line-height: 1.3 !important;
+              }
+              .report-container {
+                transform: scale(0.85);
+                transform-origin: top left;
+                width: 117.6% !important;
+              }
+              
+              /* Force headings to stay with content */
+              h3, h4, h2 {
+                page-break-after: avoid !important;
+                keep-with-next: always !important;
+              }
+            }
           </style>
         </head>
         <body>

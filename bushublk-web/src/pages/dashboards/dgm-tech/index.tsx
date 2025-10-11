@@ -51,7 +51,7 @@ const MaintenanceDashboard = () => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        const response = await fetch('http://localhost:5000/api/dgm-technical/dashboard-summary');
+        const response = await fetch('http://172.24.126.159:5000/api/dgm-technical/dashboard-summary');
         
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         
@@ -72,7 +72,7 @@ const MaintenanceDashboard = () => {
 
     const fetchRegionData = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/dgm-technical/regions');
+        const response = await fetch('http://172.24.126.159:5000/api/dgm-technical/regions');
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         
         const result = await response.json();
@@ -104,7 +104,7 @@ const MaintenanceDashboard = () => {
           endDate: ''
         });
 
-        const response = await fetch(`http://localhost:5000/api/dgm-technical/service-history?${queryParams}`);
+        const response = await fetch(`http://172.24.126.159:5000/api/dgm-technical/service-history?${queryParams}`);
         const result = await response.json();
         
         if (result.success) {

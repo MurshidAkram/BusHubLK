@@ -128,6 +128,28 @@ class RegionDepot {
     return result.rows[0];
   }
 
+  // Get detailed bus list for a depot
+  static async getBusDetailsByDepot(depot_id) {
+    const result = await db.query(
+      `SELECT 
+         b.bus_id,
+         b.registration_number,
+         b.class,
+         b.manufacturer,
+         b.model,
+         b.year,
+         b.mileage,
+         b.status,
+         b.is_active
+       FROM buses b
+       WHERE b.depot_id = $1
+         AND b.is_deleted = FALSE
+       ORDER BY b.registration_number ASC`,
+      [depot_id]
+    );
+    return result.rows;
+  }
+
   // Get depots by region for a regional technical officer
   static async getDepotsByRegionForUser(user_id) {
     const result = await db.query(
