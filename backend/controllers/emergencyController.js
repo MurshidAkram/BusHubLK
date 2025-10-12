@@ -1,3 +1,4 @@
+
 const Emergency = require('../models/emergencyModel');
 const pool = require('../config/db'); 
 

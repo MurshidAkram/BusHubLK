@@ -11,6 +11,7 @@ import {
   HiHeart
 } from 'react-icons/hi';
 import { useState, useEffect, useContext } from 'react';
+import type { ReactElement } from 'react';
 import { AppContext } from '../../../context/AppContext';
 import axios, { AxiosError } from 'axios';
 
@@ -28,12 +29,20 @@ interface EmergencyReport {
   id: string;
   depotid: string;
   busNumber: string;
-  type: 'fire' | 'medical' | 'mechanical';
+  type: string;
   reason: string;
-  status: 'pending' | 'resolved' | 'in-progress';
+  status: string;
   region: string;
   depot: string;
+  busId?: string;
+  assignmentId?: string;
 }
+
+interface EmergencyReportResponse {
+  success: boolean;
+  data?: any[];
+    message?: string;
+  }
 
 interface Bus {
   bus_id: string;
@@ -98,7 +107,8 @@ const DepotEngineerDashboard = () => {
   // Remove the hardcoded emergency reports array - we'll fetch from API
 
   const getEmergencyColor = (type: EmergencyReport['type']) => {
-    switch (type) {
+    const normalizedType = type?.toLowerCase?.() || '';
+    switch (normalizedType) {
       case 'fire': return 'bg-red-50 border-red-200';
       case 'medical': return 'bg-blue-50 border-blue-200';
       case 'mechanical': return 'bg-orange-50 border-orange-200';
@@ -107,7 +117,8 @@ const DepotEngineerDashboard = () => {
   };
 
   const getEmergencyIcon = (type: EmergencyReport['type']) => {
-    switch (type) {
+    const normalizedType = type?.toLowerCase?.() || '';
+    switch (normalizedType) {
       case 'fire': return <HiFire className="w-5 h-5 text-red-600" />;
       case 'medical': return <HiHeart className="w-5 h-5 text-blue-600" />;
       case 'mechanical': return <HiCog className="w-5 h-5 text-orange-600" />;
@@ -210,7 +221,7 @@ const DepotEngineerDashboard = () => {
         }));
         console.log('✅ Unreviewed condition reports loaded successfully:', transformedReports.length);
       } else {
-        console.error('❌ Failed to fetch pending reports:', response.data.message);
+        console.error('❌ Failed to fetch pending reports:', response.data?.message);
       }
     } catch (err) {
       const axiosError = err as AxiosError;
@@ -252,6 +263,42 @@ const DepotEngineerDashboard = () => {
   };
 
   const fetchEmergencyReports = async () => {
+    const normalizeId = (value: unknown): string | undefined => {
+      if (value === null || value === undefined) {
+        return undefined;
+      }
+      const strValue = String(value).trim();
+      return strValue.length ? strValue : undefined;
+    };
+
+    const toEmergencyReport = (report: any, statusOverride?: string): EmergencyReport | null => {
+      const busId = normalizeId(report.bus_id ?? report.busId);
+      const assignmentId = normalizeId(report.assignment_id ?? report.assignmentId);
+
+      if (!busId || !assignmentId) {
+        return null;
+      }
+
+      const normalizedType = String(report.incident_type || 'mechanical').toLowerCase();
+      const normalizedStatus = String(report.status || 'pending').toLowerCase();
+      const resolvedStatus = statusOverride || normalizedStatus;
+
+      const id = normalizeId(report.id) || `${busId}-${assignmentId}`;
+
+      return {
+        id,
+        depotid: normalizeId(report.depot_id) || '',
+        busNumber: report.vehicle_registration || report.registration_number || `Bus-${busId}`,
+        type: normalizedType,
+        reason: report.description || 'No description provided',
+        status: resolvedStatus,
+        region: report.region_name || 'Unknown Region',
+        depot: report.depot_name || 'Unknown Depot',
+        busId,
+        assignmentId
+      };
+    };
+
     try {
       // Use the depot emergency endpoint to get all reports, then filter for pending
       const apiUrl = `http://localhost:5000/api/depot/emergency`;
@@ -268,7 +315,7 @@ const DepotEngineerDashboard = () => {
       console.log('📊 Emergency reports response:', response.data);
 
       if (response.data.success) {
-        const allReports = response.data.data || [];
+  const allReports = response.data.data || [];
         
         // Log detailed information about the reports structure
         console.log('📋 All emergency reports count:', allReports.length);
@@ -278,51 +325,36 @@ const DepotEngineerDashboard = () => {
           console.log('📋 All reports with their status:', allReports.map((r: any) => ({ id: r.id, status: r.status, incident_type: r.incident_type })));
         }
         
-        // Filter for pending status reports only - only show reports with "Pending" status
-        const pendingReports = allReports.filter((report: any) => {
-          // Only include reports with exactly "Pending" status
-          const status = report.status?.toString();
-          return status === 'Pending';
-        });
+        const pendingReports = allReports.filter((report: any) => report.status?.toString() === 'Pending');
+        const mappedPending: EmergencyReport[] = pendingReports
+          .map((report: any): EmergencyReport | null => toEmergencyReport(report, 'pending'))
+          .filter((report: EmergencyReport | null): report is EmergencyReport => report !== null);
+
+        setEmergencyReports(mappedPending);
+
+        // Map all reports and retain only those with required identifiers for analytics
+        const mappedAll: EmergencyReport[] = (allReports as any[])
+          .map((report: any): EmergencyReport | null => toEmergencyReport(report))
+          .filter((report: EmergencyReport | null): report is EmergencyReport => report !== null);
+
+        setAllEmergencyReports(mappedAll);
         
-        console.log('🔍 Filtered pending reports:', pendingReports.length, pendingReports);
-        
-        const mappedReports: EmergencyReport[] = pendingReports.map((report: any) => ({
-          id: report.id.toString(),
-          depotid: report.depot_id?.toString() || '',
-          busNumber: report.vehicle_registration || report.registration_number || `Bus-${report.bus_id}`,
-          type: report.incident_type || 'mechanical', // This comes from emergency_reports.incident_type
-          reason: report.description || 'No description provided', // This comes from emergency_reports.description
-          status: 'pending', // We're filtering for pending status only
-          region: report.region_name || 'Unknown Region',
-          depot: report.depot_name || 'Unknown Depot'
-        }));
-        
-        setEmergencyReports(mappedReports);
-        
-        // Store all reports for chart data (including resolved/in-progress)
-        const allMappedReports: EmergencyReport[] = allReports.map((report: any) => ({
-          id: report.id.toString(),
-          depotid: report.depot_id?.toString() || '',
-          busNumber: report.vehicle_registration || report.registration_number || `Bus-${report.bus_id}`,
-          type: report.incident_type || 'mechanical',
-          reason: report.description || 'No description provided',
-          status: report.status?.toLowerCase() || 'pending',
-          region: report.region_name || 'Unknown Region',
-          depot: report.depot_name || 'Unknown Depot'
-        }));
-        
-        setAllEmergencyReports(allMappedReports);
-        
-        // Update stats with real count
+        // Update stats with new and pending report counts
+        const newCount = allReports.filter((report: any) => {
+          const status = report.status?.toString().toLowerCase();
+          const mapped = toEmergencyReport(report);
+          return status === 'new' && mapped?.busId && mapped?.assignmentId;
+        }).length;
         setStats(prevStats => ({
           ...prevStats,
-          EmergencyReports: mappedReports.length
+          EmergencyReports: newCount,
+          criticalIssues: mappedPending.length
         }));
         
-        console.log('✅ Emergency reports fetched successfully:', mappedReports.length, 'pending reports out of', allReports.length, 'total');
+        console.log('✅ Emergency reports fetched successfully:', mappedPending.length, 'pending with IDs out of', allReports.length, 'total');
+        console.log('📈 Total NEW reports:', newCount);
       } else {
-        console.error('❌ Failed to fetch emergency reports:', response.data.message);
+        console.error('❌ Failed to fetch emergency reports:', response.data?.message);
         setEmergencyReports([]); // Set empty array if fetch fails
       }
     } catch (err) {
@@ -338,7 +370,7 @@ const DepotEngineerDashboard = () => {
         console.log('🔄 Trying alternative emergency endpoint...');
         try {
           const altApiUrl = `http://localhost:5000/api/emergency`;
-          const altResponse = await axios.get(altApiUrl, {
+          const altResponse = await axios.get<EmergencyReportResponse>(altApiUrl, {
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
@@ -346,27 +378,31 @@ const DepotEngineerDashboard = () => {
           });
           
           if (altResponse.data.success) {
-            const allReports = altResponse.data.data || [];
-            const pendingReports = allReports.filter((report: any) => report.status === 'pending');
-            
-            const mappedReports: EmergencyReport[] = pendingReports.map((report: any) => ({
-              id: report.id.toString(),
-              depotid: report.depot_id?.toString() || '',
-              busNumber: report.vehicle_registration || report.registration_number || `Bus-${report.bus_id}`,
-              type: report.incident_type || 'mechanical',
-              reason: report.description || 'No description provided',
-              status: 'pending',
-              region: report.region_name || 'Unknown Region',
-              depot: report.depot_name || 'Unknown Depot'
-            }));
-            
-            setEmergencyReports(mappedReports);
+            const allAltReports = altResponse.data.data || [];
+            const pendingAltReports = allAltReports.filter((report: any) => report.status?.toString().toLowerCase() === 'pending');
+
+            const mappedPendingAlt: EmergencyReport[] = pendingAltReports
+              .map((report: any): EmergencyReport | null => toEmergencyReport(report, 'pending'))
+              .filter((report: EmergencyReport | null): report is EmergencyReport => report !== null);
+
+            setEmergencyReports(mappedPendingAlt);
+            setAllEmergencyReports(
+              (allAltReports as any[])
+                .map((report: any): EmergencyReport | null => toEmergencyReport(report))
+                .filter((report: EmergencyReport | null): report is EmergencyReport => report !== null)
+            );
+
             setStats(prevStats => ({
               ...prevStats,
-              EmergencyReports: mappedReports.length
+              EmergencyReports: allAltReports.filter((report: any) => {
+                const status = report.status?.toString().toLowerCase();
+                const mapped = toEmergencyReport(report);
+                return status === 'new' && mapped?.busId && mapped?.assignmentId;
+              }).length,
+              criticalIssues: mappedPendingAlt.length
             }));
-            
-            console.log('✅ Emergency reports loaded from alternative endpoint:', mappedReports.length);
+
+            console.log('✅ Emergency reports loaded from alternative endpoint:', mappedPendingAlt.length);
           }
         } catch (altErr) {
           console.error('❌ Alternative emergency endpoint also failed:', altErr);
@@ -460,46 +496,52 @@ const DepotEngineerDashboard = () => {
   };
 
   const EmergencyStatusBarChart = () => {
-    const statusConfig: { [key: string]: { color: string; bgColor: string; label: string; icon: React.ReactElement } } = {
-      'pending': { 
-        color: '#FF6B35', 
-        bgColor: 'bg-orange-50',
-        label: 'Pending',
-        icon: <HiClock className="w-4 h-4" />
-      },
-      'in-progress': { 
-        color: '#6366F1', 
-        bgColor: 'bg-indigo-50',
-        label: 'In Progress',
-        icon: <HiCog className="w-4 h-4" />
-      },
-      'resolved': { 
-        color: '#059669', 
-        bgColor: 'bg-emerald-50',
-        label: 'Resolved',
-        icon: <HiCheckCircle className="w-4 h-4" />
-      },
+    const colorPalette = ['#DC2626', '#F97316', '#F59E0B', '#10B981', '#0EA5E9', '#6366F1', '#EC4899', '#14B8A6'];
+
+    const hexToRgba = (hex: string, alpha: number) => {
+      const sanitized = hex.replace('#', '');
+      const bigint = parseInt(sanitized, 16);
+      const r = (bigint >> 16) & 255;
+      const g = (bigint >> 8) & 255;
+      const b = bigint & 255;
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
     };
 
-    // Count emergency statuses
-    const statusCounts = allEmergencyReports.reduce((acc, report) => {
-      const status = report.status || 'pending';
-      acc[status] = (acc[status] || 0) + 1;
+    const validReports = allEmergencyReports.filter(report => report.busId && report.assignmentId);
+
+    // Count emergency reports by incident type
+    const typeCounts = validReports.reduce((acc, report) => {
+      const typeKey = (report.type || 'unknown').toLowerCase();
+      acc[typeKey] = (acc[typeKey] || 0) + 1;
       return acc;
     }, {} as { [key: string]: number });
 
-    const chartData = Object.entries(statusCounts).map(([status, count]) => ({
-      status,
-      label: statusConfig[status]?.label || status.charAt(0).toUpperCase() + status.slice(1).replace('-', ' '),
-      count,
-      color: statusConfig[status]?.color || '#6B7280',
-      bgColor: statusConfig[status]?.bgColor || 'bg-gray-50',
-      icon: statusConfig[status]?.icon || <HiExclamationCircle className="w-4 h-4" />
-    }));
+    const chartData = Object.entries(typeCounts).map(([type, count], index) => {
+      const color = colorPalette[index % colorPalette.length];
+      const label = type
+        .split('_')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
 
-    const maxCount = Math.max(...chartData.map(item => item.count), 1);
+  let icon: ReactElement = <HiExclamationCircle className="w-4 h-4" />;
+      if (type.includes('fire')) icon = <HiFire className="w-4 h-4" />;
+      else if (type.includes('medical')) icon = <HiHeart className="w-4 h-4" />;
+      else if (type.includes('mechan')) icon = <HiCog className="w-4 h-4" />;
+
+      return {
+        status: type,
+        label,
+        count,
+        color,
+        labelBg: hexToRgba(color, 0.12),
+        labelBorder: hexToRgba(color, 0.4),
+        icon
+      };
+    });
+
     const totalReports = chartData.reduce((sum, item) => sum + item.count, 0);
-    const [hoveredBar, setHoveredBar] = useState<{status: string, count: number, x: number, y: number} | null>(null);
+    const [hoveredSlice, setHoveredSlice] = useState<number | null>(null);
+    const radius = 110;
 
     if (chartData.length === 0 || totalReports === 0) {
       return (
@@ -516,76 +558,91 @@ const DepotEngineerDashboard = () => {
     }
 
     return (
-      <div className="w-full h-80 relative">
-        {/* Chart Area */}
-        <div className="flex items-end justify-center h-56 px-6 space-x-8">
-          {chartData.map((item, index) => {
-            const barHeight = (item.count / maxCount) * 180;
-            
-            return (
-              <div key={index} className="flex flex-col items-center min-w-[80px]">
-                {/* Bar */}
-                <div 
-                  className="relative cursor-pointer transition-all duration-300 hover:scale-105 rounded-t-lg shadow-lg w-16"
-                  style={{
-                    height: `${Math.max(barHeight, 8)}px`,
-                    background: `linear-gradient(135deg, ${item.color}, ${item.color}CC)`,
-                    minHeight: '8px'
-                  }}
-                  onMouseEnter={(e) => {
-                    setHoveredBar({
-                      status: item.label,
-                      count: item.count,
-                      x: e.clientX,
-                      y: e.clientY
-                    });
-                  }}
-                  onMouseMove={(e) => {
-                    setHoveredBar(prev => prev ? {
-                      ...prev,
-                      x: e.clientX,
-                      y: e.clientY
-                    } : null);
-                  }}
-                  onMouseLeave={() => setHoveredBar(null)}
-                >
-                  {/* Count Label on Bar */}
-                  <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 text-lg font-bold text-gray-800">
-                    {item.count}
-                  </div>
-                </div>
-                
-                {/* Status Label */}
-                <div className={`mt-4 px-3 py-2 rounded-lg ${item.bgColor} border border-gray-200`}>
-                  <div className="flex items-center justify-center space-x-2">
-                    <div style={{ color: item.color }}>
-                      {item.icon}
-                    </div>
-                    <span className="text-sm font-medium text-gray-700">{item.label}</span>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Summary Stats */}
-       
-
-        {/* Enhanced Tooltip */}
-        {hoveredBar && (
-          <div 
-            className="fixed z-50 bg-gradient-to-r from-gray-800 to-gray-900 text-white px-4 py-3 rounded-xl shadow-2xl pointer-events-none border border-gray-600"
-            style={{
-              left: hoveredBar.x + 15,
-              top: hoveredBar.y - 60,
-              transform: 'translateX(-50%)'
-            }}
+      <div className="w-full h-80 relative flex items-center justify-center">
+        <div className="relative flex items-center justify-center">
+          <svg
+            className="w-60 h-60 sm:w-72 sm:h-72"
+            viewBox="0 0 260 260"
+            preserveAspectRatio="xMidYMid meet"
           >
-            <div className="text-sm font-semibold">{hoveredBar.status}</div>
-            <div className="text-xs text-gray-300">{hoveredBar.count} reports</div>
+            <g transform="translate(130, 130)">
+              {(() => {
+                let startAngle = -Math.PI / 2;
+                const labelRadius = radius * 0.6;
+                return chartData.map((item, index) => {
+                  const currentStart = startAngle;
+                  const fraction = item.count / totalReports;
+                  const sliceAngle = fraction * Math.PI * 2;
+                  const endAngle = currentStart + sliceAngle;
+                  const largeArcFlag = sliceAngle > Math.PI ? 1 : 0;
+
+                  const startX = Math.cos(currentStart) * radius;
+                  const startY = Math.sin(currentStart) * radius;
+                  const endX = Math.cos(endAngle) * radius;
+                  const endY = Math.sin(endAngle) * radius;
+
+                  const midAngle = currentStart + sliceAngle / 2;
+                  const labelX = Math.cos(midAngle) * labelRadius;
+                  const labelY = Math.sin(midAngle) * labelRadius;
+
+                  const pathData = [
+                    `M 0 0`,
+                    `L ${startX.toFixed(3)} ${startY.toFixed(3)}`,
+                    `A ${radius} ${radius} 0 ${largeArcFlag} 1 ${endX.toFixed(3)} ${endY.toFixed(3)}`,
+                    'Z'
+                  ].join(' ');
+
+                  const currentIndex = index;
+                  startAngle = endAngle;
+
+                  return (
+                    <g key={item.status}>
+                      <path
+                        d={pathData}
+                        fill={item.color}
+                        className="cursor-pointer transition-transform duration-200 origin-center"
+                        style={{
+                          transform: hoveredSlice === currentIndex ? 'scale(1.05)' : 'scale(1)'
+                        }}
+                        onMouseEnter={() => setHoveredSlice(currentIndex)}
+                        onMouseLeave={() => setHoveredSlice(null)}
+                      />
+                      {sliceAngle > 0.1 && (
+                        <text
+                          x={labelX.toFixed(1)}
+                          y={labelY.toFixed(1)}
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                          fontSize="11"
+                          fill="#ffffff"
+                          pointerEvents="none"
+                          style={{ fontWeight: 500, letterSpacing: '0.3px' }}
+                        >
+                          {item.label}
+                        </text>
+                      )}
+                    </g>
+                  );
+                });
+              })()}
+            </g>
+          </svg>
+
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 pointer-events-none">
+            {hoveredSlice !== null ? (
+              <div className="px-4 py-2 rounded-full bg-white shadow-lg border border-gray-200 text-center">
+                <p className="text-sm font-semibold text-gray-800">{chartData[hoveredSlice].label}</p>
+                <p className="text-xs text-gray-500">{chartData[hoveredSlice].count} report{chartData[hoveredSlice].count !== 1 ? 's' : ''}</p>
+              </div>
+            ) : null}
           </div>
-        )}
+
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 pointer-events-none">
+            <div className="px-4 py-2 bg-white/90 rounded-full border border-gray-200 text-sm font-medium text-gray-700">
+              Total Reports: {totalReports}
+            </div>
+          </div>
+        </div>
       </div>
     );
   };
@@ -608,7 +665,7 @@ const DepotEngineerDashboard = () => {
           <HiExclamationCircle className="w-12 h-12 mx-auto mb-4" />
           <p className="text-xl font-medium mb-2">Error Loading Dashboard</p>
           <p className="text-sm text-gray-600 mb-4">{error}</p>
-          {error.includes('403') && (
+          {error?.includes('403') && (
             <p className="text-sm text-yellow-600 mb-4">
               This might be an authentication issue. Please try logging out and logging back in.
             </p>

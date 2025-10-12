@@ -20,19 +20,13 @@ const updateServiceStatuses = async () => {
 
 // Setup cron jobs
 const setupCronJobs = () => {
-    // Run every day at 6:00 AM to update statuses
-    cron.schedule('0 6 * * *', updateServiceStatuses, {
-        timezone: "Asia/Colombo"
-    });
-
-    // Run every hour during working hours (8 AM to 6 PM) for more frequent updates
-    cron.schedule('0 8-18 * * *', updateServiceStatuses, {
+    // Run every hour from 7:00 AM through 10:00 PM to keep statuses fresh during the day
+    cron.schedule('0 7-22 * * *', updateServiceStatuses, {
         timezone: "Asia/Colombo"
     });
 
     console.log('🕐 Service status cron jobs scheduled:');
-    console.log('   - Daily at 6:00 AM');
-    console.log('   - Hourly from 8:00 AM to 6:00 PM');
+    console.log('   - Hourly from 7:00 AM to 10:00 PM');
 };
 
 // Manual trigger function for testing

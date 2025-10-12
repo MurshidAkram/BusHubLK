@@ -362,12 +362,22 @@ const getDashboardSummary = async (req, res) => {
         (SELECT COUNT(*) FROM buses WHERE status = 'Maintenance' AND is_active = true AND is_deleted = false) as buses_in_maintenance,
         (SELECT COUNT(*) FROM buses WHERE status = 'Out of Service' AND is_active = true AND is_deleted = false) as buses_out_of_service,
         (SELECT COUNT(*) FROM buses WHERE status = 'Active' AND is_active = true AND is_deleted = false) as buses_active,
-        (SELECT COUNT(*) FROM emergency_reports WHERE incident_type = 'accident') as total_accidents,
-        (SELECT COUNT(*) FROM emergency_reports WHERE incident_type = 'breakdown') as total_breakdowns,
-        (SELECT COUNT(*) FROM emergency_reports) as total_incidents
+        (SELECT COUNT(*) FROM emergency_reports WHERE incident_type = 'Accident' AND bus_id IS NOT NULL) as total_accidents,
+        (SELECT COUNT(*) FROM emergency_reports WHERE incident_type = 'Breakdown' AND bus_id IS NOT NULL) as total_breakdowns,
+        (SELECT COUNT(*) FROM emergency_reports WHERE bus_id IS NOT NULL) as total_incidents
     `;
 
         const { rows } = await pool.query(summaryQuery);
+
+        // Debug: Let's see what incident types exist in the database
+        const debugQuery = `
+            SELECT DISTINCT incident_type, COUNT(*) as count 
+            FROM emergency_reports 
+            WHERE bus_id IS NOT NULL 
+            GROUP BY incident_type
+        `;
+        const debugResult = await pool.query(debugQuery);
+        console.log('📊 [DEBUG] Available incident types:', debugResult.rows);
 
         // Calculate maintenance percentage
         const totalBuses = parseInt(rows[0].total_buses);

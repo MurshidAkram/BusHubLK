@@ -390,7 +390,7 @@ const FleetMonitor = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           <div>{bus.model}</div>
-                          <div className="text-xs text-gray-400">{bus.manufacturer}</div>
+                         
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={getStatusBadge(bus.status)}>

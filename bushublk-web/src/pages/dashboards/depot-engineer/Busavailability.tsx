@@ -493,8 +493,8 @@ const Busavailability = () => {
 
                 {/* Status Change */}
                 <div className="mt-4 pt-4 border-t border-gray-200">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Update Status (After Part Check)</label>
-                  <p className="text-xs text-gray-600 mb-2">⚠️ Complete the daily part checking first, then select the appropriate status</p>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Update Status</label>
+                  
                   <select
                     value={editedStatus}
                     onChange={handleStatusChange}
@@ -522,7 +522,7 @@ const Busavailability = () => {
                 <div className="space-y-4 max-h-96 overflow-y-auto">
                   {/* Main Parts Checklist */}
                   <div className="bg-white p-3 rounded border">
-                    <h5 className="font-medium text-blue-600 mb-3">🚌 Main Bus Components</h5>
+                    <h5 className="font-medium text-blue-600 mb-3"> Main Bus Components</h5>
                     <div className="grid grid-cols-2 gap-2">
                       {partCheckingData.main_parts.map((part, index) => (
                         <div key={index} className="flex items-center space-x-2 mb-2 p-2 rounded">
