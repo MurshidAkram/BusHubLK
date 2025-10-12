@@ -7,11 +7,19 @@ const Emergency = {
    * @returns {Promise<object>} The newly created report.
    */
 createReport: async (reportData, client = pool) => { // <-- Add client parameter
-  const { driver_id, incidentType, description, latitude, longitude } = reportData;
+  const {
+    driver_id,
+    incidentType,
+    description,
+    latitude,
+    longitude,
+    bus_id = null,
+    assignment_id = null,
+  } = reportData;
   const query = {
-    text: `INSERT INTO emergency_reports(driver_id, incident_type, description, latitude, longitude)
-           VALUES($1, $2, $3, $4, $5) RETURNING *`,
-    values: [driver_id, incidentType, description, latitude, longitude],
+    text: `INSERT INTO emergency_reports(driver_id, bus_id, assignment_id, incident_type, description, latitude, longitude)
+           VALUES($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+    values: [driver_id, bus_id, assignment_id, incidentType, description, latitude, longitude],
   };
   const { rows } = await client.query(query); // <-- Use client instead of pool
   return rows[0];
@@ -100,16 +108,20 @@ createReport: async (reportData, client = pool) => { // <-- Add client parameter
       }
 
       const depotId = driverResult.rows[0].depot_id;
+      if (!depotId) {
+        console.log('[DEBUG] Driver has no depot assigned:', driverId);
+        return [];
+      }
 
-      // Get depot engineer's phone number
-      // Removed hardcoded role_id = 12. Relies on the user being in depot_engineers table for the depot.
       const engineerQuery = {
         text: `
           SELECT u.phone
           FROM users u
           INNER JOIN depot_engineers de ON de.depot_engineer_id = u.user_id
           WHERE de.depot_id = $1
-          AND u.is_active = true
+            AND u.role_id = 12
+            AND u.is_active = true
+          ORDER BY COALESCE(de.assigned_at, u.updated_at, u.created_at) DESC
           LIMIT 1
         `,
         values: [depotId]

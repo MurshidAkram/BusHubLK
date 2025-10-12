@@ -3,6 +3,7 @@
 const Complaint = require('../models/Complaint');
 const BusRoute = require('../models/busRouteModel');
 const User = require('../models/userModel');
+const passengerNotificationService = require('../services/passengerNotificationService');
 
 // Create a new complaint
 exports.createComplaint = (req, res) => {
@@ -56,7 +57,12 @@ exports.getUserComplaints = (req, res) => {
     return res.status(401).json({ success: false, message: 'User not authenticated' });
   }
 
-  Complaint.getByUserId(userId, (err, complaints) => {
+  const limitParam = parseInt(req.query.limit, 10);
+  const offsetParam = parseInt(req.query.offset, 10);
+  const safeLimit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 500) : null;
+  const safeOffset = Number.isFinite(offsetParam) ? Math.max(offsetParam, 0) : 0;
+
+  Complaint.getByUserId(userId, { limit: safeLimit, offset: safeOffset }, (err, complaints) => {
     if (err) {
       console.error('Error fetching complaints:', err);
       return res.status(500).json({ 
@@ -65,10 +71,19 @@ exports.getUserComplaints = (req, res) => {
         error: err.message 
       });
     }
-    
+
+    const safeComplaints = Array.isArray(complaints) ? complaints : [];
+
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+
     res.status(200).json({
       success: true,
-      complaints: complaints
+      count: safeComplaints.length,
+      complaints: safeComplaints,
+      limit: safeLimit,
+      offset: safeOffset
     });
   });
 };
@@ -137,17 +152,42 @@ exports.updateComplaintStatus = (req, res) => {
       });
     }
     
-    if (result.rowCount === 0) {
+    if (!result || result.rowCount === 0) {
       return res.status(404).json({
         success: false,
         message: 'Complaint not found.'
       });
     }
     
+    const updatedComplaint = result.rows[0];
+
     res.status(200).json({
       success: true,
-      message: 'Complaint status updated successfully.'
+      message: 'Complaint status updated successfully.',
+      complaint: updatedComplaint
     });
+
+    (async () => {
+      try {
+        await passengerNotificationService.createNotification({
+          passenger_id: updatedComplaint.user_id,
+          title: 'Complaint status updated',
+          body: `Your complaint #${updatedComplaint.id} status is now "${status}"`,
+          category: 'complaint',
+          related_entity_type: 'complaint',
+          related_entity_id: updatedComplaint.id,
+          metadata: {
+            complaintId: updatedComplaint.id,
+            newStatus: status,
+            routeNumber: updatedComplaint.route_number || null
+          }
+        });
+
+        console.log('📢 Passenger notification created for complaint status change');
+      } catch (notifyErr) {
+        console.error('Failed to create passenger notification for complaint:', notifyErr);
+      }
+    })();
   });
 };
 
