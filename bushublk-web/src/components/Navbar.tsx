@@ -1,20 +1,20 @@
-import React, { useState, useContext, useEffect } from 'react'
-import { NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { HiBell, HiSearch } from 'react-icons/hi'
-import { AppContext } from '../context/AppContext'
-import { assets } from '../assets/assets'
+import React, { useContext, useEffect, useState } from 'react';
+import { AppContext } from '../context/AppContext';
+import { HiBell } from 'react-icons/hi';
+import { useNavigate, useLocation, NavLink } from 'react-router-dom';
+import { assets } from '../assets/assets';
 
 const Navbar = () => {
-  const navigate = useNavigate()
-  const location = useLocation()
-  const [showMenu, setShowMenu] = useState(false)
-  const [notificationCount, setNotificationCount] = useState(0)
-  
-  // Get authentication state from context (you'll need to add this to your AppContext)
-  // const { user, token, logout } = useContext(AppContext)
-  
-  // For now, using local state - replace with context values
-  const { user, token, logout } = useContext(AppContext);
+  const appContext = useContext(AppContext);
+  const user = appContext?.user;
+  const token = appContext?.token;
+  const logout = appContext?.logout;
+  const depotId = user?.depot_id;
+  const [notifCount, setNotifCount] = useState(0);
+  const [showMenu, setShowMenu] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+
 
   const normalizeRole = (role?: string) => role ? role.toLowerCase().replace(/\s+/g, '').replace(/-/g, '_') : '';
   const roleKey = normalizeRole(user?.role);
@@ -32,6 +32,31 @@ const Navbar = () => {
                      location.pathname.startsWith('/driver') || 
                      location.pathname.startsWith('/conductor')
 
+  useEffect(() => {
+    // Depot Operations Manager notifications (already present)
+    if (user?.role === 'depot_operations' && depotId && token) {
+      fetch(`http://localhost:5000/api/depot/${depotId}/notifications`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+        .then(res => res.json())
+        .then(data => setNotifCount(data.notifications?.length || 0));
+    }
+    // Depot Manager notifications
+    else if (user?.role === 'depot_manager' && depotId && token) {
+      fetch(`http://localhost:5000/api/depot-manager/${depotId}/notifications`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+        .then(res => res.json())
+        .then(data => setNotifCount(data.notifications?.length || 0));
+    }
+  }, [user, depotId, token]);
+
+  // Handle notification click
+  const handleNotifClick = () => {
+    if (user?.role === 'depot_operations') {
+      navigate('/depot-operations-manager/notificationscenter');
+    } else if (user?.role === 'depot_manager') {
+      navigate('/depot-manager/notifications');
   // Fetch notification count function
   const fetchNotificationCount = async () => {
     if (token && isDashboard) {
@@ -124,8 +149,6 @@ const Navbar = () => {
     } else if (roleKey === 'regional_tech' || roleKey === 'regional_technical_officer') {
       navigate('/regional-technical-officer/notifications');
     } else {
-      // Fallback for any role - navigate to their dashboard and show alert
-      console.log('Notifications not implemented for this role yet:', user?.role);
       alert('Notifications feature is not yet implemented for your role.');
     }
   };
@@ -176,7 +199,13 @@ const Navbar = () => {
       default:
         return '/'
     }
+  // Remove duplicate destructuring; already done at the top.
   }
+
+  // Remove duplicate destructuring; already done at the top.
+  // If you need to destructure, ensure appContext is not undefined:
+  // const { user, token, logout } = appContext ?? {};
+
 
   return (
     <nav className={`fixed top-0 left-0 right-0 z-50 ${
@@ -268,12 +297,13 @@ const Navbar = () => {
             {/* Dashboard Notifications (only show in dashboard) */}
             {isDashboard && token && (
               <button 
-                onClick={handleNotificationClick}
+                onClick={handleNotifClick}
                 className="p-1 rounded-full text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 relative"
               >
                 <HiBell className="h-6 w-6" />
-                {notificationCount > 0 && (
+                {notifCount > 0 && (
                   <span className="absolute top-0 right-0 h-4 w-4 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold">
+                    {notifCount > 9 ? '9+' : notifCount}
                     {notificationCount}
                   </span>
                 )}
@@ -429,4 +459,4 @@ const Navbar = () => {
   )
 }
 
-export default Navbar
+export default Navbar;
