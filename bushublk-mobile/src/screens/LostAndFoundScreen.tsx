@@ -7,14 +7,15 @@ import {
   TouchableOpacity,
   TextInput,
   StatusBar,
-  SafeAreaView,
   Alert,
   ActivityIndicator,
   Image,
   Linking,
   Platform,
+  Modal,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/Ionicons';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { Dropdown } from 'react-native-element-dropdown';
 import * as ImagePicker from 'expo-image-picker';
 import { storageAPI } from '../services/api';
@@ -74,6 +75,12 @@ interface Report {
   approximate_location?: string;
   is_verified?: boolean;
   resolved_date?: string;
+  passenger_id?: number;
+  // New depot handover fields
+  handed_to_depot_id?: number;
+  handover_date?: string;
+  handover_notes?: string;
+  depot_name?: string;
 }
 
 interface Route {
@@ -133,6 +140,16 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   
+  // Depot handover states
+  const [showDepotModal, setShowDepotModal] = useState(false);
+  const [selectedReportForHandover, setSelectedReportForHandover] = useState<Report | null>(null);
+  const [depots, setDepots] = useState<any[]>([]);
+  const [handoverData, setHandoverData] = useState({
+    depotId: null as number | null,
+    handoverDate: new Date().toISOString().split('T')[0],
+    notes: '',
+  });
+  
   const [errors, setErrors] = useState<{[key: string]: string}>({});
 
   // Helper function to format 24-hour time to 12-hour AM/PM format for display
@@ -162,7 +179,8 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
         await Promise.all([
           loadUserData(),
           loadRoutes(),
-          loadRegions()
+          loadRegions(),
+          loadDepots()
         ]);
         
         // Load reports after API is initialized
@@ -349,6 +367,72 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
       console.error('Error loading my reports:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Load depots for handover selection
+  const loadDepots = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/lost-found/depots`);
+      const data = await response.json();
+      if (data.success && data.data) {
+        setDepots(data.data);
+        console.log('✅ Depots loaded:', data.data.length);
+      } else {
+        console.error('Failed to load depots:', data.message);
+      }
+    } catch (error) {
+      console.error('Error loading depots:', error);
+    }
+  };
+
+  // Handle depot handover
+  const handleDepotHandover = async () => {
+    if (!selectedReportForHandover || !handoverData.depotId) {
+      Alert.alert('Error', 'Please select a depot');
+      return;
+    }
+
+    try {
+      const user = await storageAPI.getUserData();
+      const token = await storageAPI.getAuthToken();
+
+      if (!user || !token) {
+        Alert.alert('Error', 'Authentication required');
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/lost-found/reports/${selectedReportForHandover.report_id}/depot-handover`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          depot_id: handoverData.depotId,
+          handover_date: handoverData.handoverDate,
+          notes: handoverData.notes,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        Alert.alert('Success', 'Depot handover information updated successfully');
+        setShowDepotModal(false);
+        loadMyReports(); // Refresh the reports list
+        // Reset handover form
+        setHandoverData({
+          depotId: null,
+          handoverDate: new Date().toISOString().split('T')[0],
+          notes: '',
+        });
+        setSelectedReportForHandover(null);
+      } else {
+        Alert.alert('Error', data.message || 'Failed to update depot handover');
+      }
+    } catch (error) {
+      console.error('Error updating depot handover:', error);
+      Alert.alert('Error', 'Failed to update depot handover information');
     }
   };
 
@@ -658,7 +742,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
   const StyledTextInput = React.memo(({ icon, placeholder, value, onChangeText, multiline = false, keyboardType = 'default', error = null, maxLength, autoCapitalize = 'sentences', editable = true }: any) => (
     <View>
       <View style={[styles.inputContainer, error && styles.errorBorder]}>
-        {icon && <Icon name={icon} size={20} color={AppColors.textSecondary} style={styles.inputIcon} />}
+        {icon && <Ionicons name={icon} size={20} color={AppColors.textSecondary} style={styles.inputIcon} />}
         <TextInput
           placeholder={placeholder}
           placeholderTextColor={AppColors.textSecondary}
@@ -765,13 +849,13 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
       <View style={styles.calendarContainer}>
         <View style={styles.calendarHeader}>
           <TouchableOpacity onPress={navigateToPreviousMonth} style={styles.calendarNavButton}>
-            <Icon name="chevron-back" size={24} color={AppColors.primary} />
+            <Ionicons name="chevron-back" size={24} color={AppColors.primary} />
           </TouchableOpacity>
           <Text style={styles.calendarMonth}>
             {calendarMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
           </Text>
           <TouchableOpacity onPress={navigateToNextMonth} style={styles.calendarNavButton}>
-            <Icon name="chevron-forward" size={24} color={AppColors.primary} />
+            <Ionicons name="chevron-forward" size={24} color={AppColors.primary} />
           </TouchableOpacity>
         </View>
         
@@ -908,7 +992,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
           <View style={styles.pickerHeader}>
             <Text style={styles.pickerTitle}>Select {type === 'date' ? 'Date' : 'Time'}</Text>
             <TouchableOpacity onPress={onClose} style={styles.pickerCloseButton}>
-              <Icon name="close" size={24} color={AppColors.text} />
+              <Ionicons name="close" size={24} color={AppColors.text} />
             </TouchableOpacity>
           </View>
           
@@ -951,7 +1035,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
           }}
           activeOpacity={0.7}
         >
-          <Icon name="refresh-outline" size={20} color={AppColors.primary} />
+          <Ionicons name="refresh-outline" size={20} color={AppColors.primary} />
         </TouchableOpacity>
       </View>
       
@@ -989,7 +1073,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
         </View>
       ) : reports.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Icon name="search-outline" size={60} color={AppColors.textSecondary} />
+          <Ionicons name="search-outline" size={60} color={AppColors.textSecondary} />
           <Text style={styles.emptyTitle}>No items found</Text>
           <Text style={styles.emptyMessage}>
             {searchQuery || selectedCategory !== 'all' 
@@ -1019,7 +1103,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
             
             <View style={styles.itemDetails}>
               <View style={styles.detailRow}>
-                <Icon name="location-outline" size={18} color={AppColors.textSecondary} />
+                <Ionicons name="location-outline" size={18} color={AppColors.textSecondary} />
                 <Text style={styles.detailText}>
                   {report.approximate_location || 'Location not specified'} 
                   {report.route_number && ` - Route ${report.route_number}`}
@@ -1027,14 +1111,14 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
                 </Text>
               </View>
               <View style={styles.detailRow}>
-                <Icon name="time-outline" size={18} color={AppColors.textSecondary} />
+                <Ionicons name="time-outline" size={18} color={AppColors.textSecondary} />
                 <Text style={styles.detailText}>
                   {new Date(report.incident_date).toLocaleDateString()}, {report.incident_time}
                 </Text>
               </View>
               {report.reward_offered && report.reward_offered > 0 && (
                 <View style={styles.detailRow}>
-                  <Icon name="gift-outline" size={18} color={AppColors.success} />
+                  <Ionicons name="gift-outline" size={18} color={AppColors.success} />
                   <Text style={[styles.detailText, { color: AppColors.success, fontWeight: '600' }]}>
                     Reward: Rs. {report.reward_offered}
                   </Text>
@@ -1063,33 +1147,55 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
                   </Text>
                 )}
                 <Text style={styles.contactNote}>
-                  {report.is_verified ? 'Verified user' : 'Unverified'} • Report ID: #{report.report_reference}
+                  {report.is_verified ? '✅ Verified user' : '⚠️ Unverified'}
                 </Text>
-              </View>
-              <View style={styles.contactButtons}>
-                {report.contact_phone && (
-                  <TouchableOpacity 
-                    style={styles.contactButton}
-                    onPress={() => {
-                      Linking.openURL(`tel:${report.contact_phone}`);
-                    }}
-                  >
-                    <Icon name="call-outline" size={16} color={AppColors.primary} />
-                    <Text style={styles.contactButtonText}>Call</Text>
-                  </TouchableOpacity>
-                )}
-                {report.contact_email && (
-                  <TouchableOpacity 
-                    style={styles.contactButton}
-                    onPress={() => {
-                      Linking.openURL(`mailto:${report.contact_email}`);
-                    }}
-                  >
-                    <Icon name="mail-outline" size={16} color={AppColors.primary} />
-                    <Text style={styles.contactButtonText}>Email</Text>
-                  </TouchableOpacity>
+                
+                {/* Display depot handover information if available */}
+                {report.handed_to_depot_id && (
+                  <View style={styles.depotHandoverInfo}>
+                    <Ionicons name="business-outline" size={16} color={AppColors.success} />
+                    <Text style={styles.depotHandoverText}>
+                      Handed to depot on {report.handover_date ? new Date(report.handover_date).toLocaleDateString() : 'Unknown date'}
+                    </Text>
+                  </View>
                 )}
               </View>
+              
+              {/* Only show contact buttons if this is not the current user's report */}
+              {report.passenger_id !== (userData as any)?.id && (
+                <View style={styles.contactButtons}>
+                  {report.contact_phone && (
+                    <TouchableOpacity 
+                      style={styles.contactButton}
+                      onPress={() => {
+                        Linking.openURL(`tel:${report.contact_phone}`);
+                      }}
+                    >
+                      <Ionicons name="call-outline" size={16} color={AppColors.primary} />
+                      <Text style={styles.contactButtonText}>Call</Text>
+                    </TouchableOpacity>
+                  )}
+                  {report.contact_email && (
+                    <TouchableOpacity 
+                      style={styles.contactButton}
+                      onPress={() => {
+                        Linking.openURL(`mailto:${report.contact_email}`);
+                      }}
+                    >
+                      <Ionicons name="mail-outline" size={16} color={AppColors.primary} />
+                      <Text style={styles.contactButtonText}>Email</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
+              
+              {/* Show "Your Report" indicator for current user's reports */}
+              {report.passenger_id === (userData as any)?.id && (
+                <View style={styles.ownReportIndicator}>
+                  <Ionicons name="person-circle" size={20} color={AppColors.primary} />
+                  <Text style={styles.ownReportText}>Your Report</Text>
+                </View>
+              )}
             </View>
           </View>
         ))
@@ -1115,7 +1221,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
         </View>
       ) : myReports.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Icon name="document-outline" size={60} color={AppColors.textSecondary} />
+          <Ionicons name="document-outline" size={60} color={AppColors.textSecondary} />
           <Text style={styles.emptyTitle}>No reports yet</Text>
           <Text style={styles.emptyMessage}>
             You haven't submitted any lost or found reports yet.
@@ -1130,11 +1236,13 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
                   {report.report_type === 'lost' ? 'Lost' : 'Found'}
                 </Text>
               </View>
-              <View style={[styles.statusTag, report.status === 'resolved' ? styles.resolvedTag : styles.activeTag]}>
-                <Text style={[styles.statusTagText, report.status === 'resolved' ? styles.resolvedTagText : styles.activeTagText]}>
-                  {report.status === 'resolved' ? 'Resolved' : 'Active'}
-                </Text>
-              </View>
+              {report.status === 'resolved' && (
+                <View style={styles.resolvedTag}>
+                  <Text style={styles.resolvedTagText}>
+                    Resolved
+                  </Text>
+                </View>
+              )}
               <Text style={styles.timeStamp}>{report.time_ago}</Text>
             </View>
             
@@ -1148,7 +1256,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
             
             <View style={styles.itemDetails}>
               <View style={styles.detailRow}>
-                <Icon name="location-outline" size={18} color={AppColors.textSecondary} />
+                <Ionicons name="location-outline" size={18} color={AppColors.textSecondary} />
                 <Text style={styles.detailText}>
                   {report.approximate_location || 'Location not specified'} 
                   {report.route_number && ` - Route ${report.route_number}`}
@@ -1156,14 +1264,14 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
                 </Text>
               </View>
               <View style={styles.detailRow}>
-                <Icon name="time-outline" size={18} color={AppColors.textSecondary} />
+                <Ionicons name="time-outline" size={18} color={AppColors.textSecondary} />
                 <Text style={styles.detailText}>
                   {new Date(report.incident_date).toLocaleDateString()}, {report.incident_time}
                 </Text>
               </View>
               {report.reward_offered && report.reward_offered > 0 && (
                 <View style={styles.detailRow}>
-                  <Icon name="gift-outline" size={18} color={AppColors.success} />
+                  <Ionicons name="gift-outline" size={18} color={AppColors.success} />
                   <Text style={[styles.detailText, { color: AppColors.success, fontWeight: '600' }]}>
                     Reward: Rs. {report.reward_offered}
                   </Text>
@@ -1171,7 +1279,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
               )}
               {report.status === 'resolved' && report.resolved_date && (
                 <View style={styles.detailRow}>
-                  <Icon name="checkmark-circle-outline" size={18} color={AppColors.success} />
+                  <Ionicons name="checkmark-circle-outline" size={18} color={AppColors.success} />
                   <Text style={[styles.detailText, { color: AppColors.success }]}>
                     Resolved on {new Date(report.resolved_date).toLocaleDateString()}
                   </Text>
@@ -1191,33 +1299,68 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
             
             <View style={styles.myReportActions}>
               <View style={styles.reportInfo}>
-                <Text style={styles.reportId}>Report ID: #{report.report_reference}</Text>
-                <Text style={styles.reportStatus}>
-                  Status: {report.status === 'resolved' ? '✅ Resolved' : '🔍 Active'}
-                </Text>
+                {report.status === 'resolved' && (
+                  <Text style={styles.reportStatus}>
+                    ✅ Resolved
+                  </Text>
+                )}
+                {/* Display depot handover info if available */}
+                {report.handed_to_depot_id && report.depot_name && (
+                  <Text style={styles.depotHandoverInfo}>
+                    📦 Handed to: {report.depot_name}
+                    {report.handover_date && ` on ${new Date(report.handover_date).toLocaleDateString()}`}
+                  </Text>
+                )}
               </View>
-              {report.status !== 'resolved' && (
-                <TouchableOpacity 
-                  style={styles.resolveButton}
-                  onPress={() => {
-                    Alert.alert(
-                      'Mark as Resolved',
-                      'Are you sure you want to mark this report as resolved? This action cannot be undone.',
-                      [
-                        { text: 'Cancel', style: 'cancel' },
-                        { 
-                          text: 'Yes, Mark Resolved', 
-                          onPress: () => markAsResolved(report.report_id),
-                          style: 'default'
-                        }
-                      ]
-                    );
-                  }}
-                >
-                  <Icon name="checkmark-circle-outline" size={16} color={AppColors.success} />
-                  <Text style={styles.resolveButtonText}>Mark Resolved</Text>
-                </TouchableOpacity>
-              )}
+              
+              <View style={styles.actionButtonsContainer}>
+                {/* Depot handover button - only show for found items that aren't resolved */}
+                {report.report_type === 'found' && report.status !== 'resolved' && (
+                  <TouchableOpacity 
+                    style={styles.depotHandoverButton}
+                    onPress={() => {
+                      setSelectedReportForHandover(report);
+                      // Pre-fill existing data if available
+                      if (report.handed_to_depot_id) {
+                        setHandoverData({
+                          depotId: report.handed_to_depot_id,
+                          handoverDate: report.handover_date ? report.handover_date.split('T')[0] : new Date().toISOString().split('T')[0],
+                          notes: report.handover_notes || '',
+                        });
+                      }
+                      setShowDepotModal(true);
+                    }}
+                  >
+                    <Ionicons name="business-outline" size={16} color={AppColors.primary} />
+                    <Text style={styles.depotHandoverButtonText}>
+                      {report.handed_to_depot_id ? 'Update Depot Info' : 'Hand to Depot'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                
+                {report.status !== 'resolved' && (
+                  <TouchableOpacity 
+                    style={styles.resolveButton}
+                    onPress={() => {
+                      Alert.alert(
+                        'Mark as Resolved',
+                        'Are you sure you want to mark this report as resolved? This action cannot be undone.',
+                        [
+                          { text: 'Cancel', style: 'cancel' },
+                          { 
+                            text: 'Yes, Mark Resolved', 
+                            onPress: () => markAsResolved(report.report_id),
+                            style: 'default'
+                          }
+                        ]
+                      );
+                    }}
+                  >
+                    <Ionicons name="checkmark-circle-outline" size={16} color={AppColors.success} />
+                    <Text style={styles.resolveButtonText}>Mark Resolved</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
           </View>
         ))
@@ -1274,14 +1417,14 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
                 activeOpacity={0.8}
               >
                 <View style={[styles.toggleIconContainer, formData.reportType === 'lost' && styles.activeToggleIcon]}>
-                  <Icon name="search-outline" size={24} color={formData.reportType === 'lost' ? '#FFFFFF' : AppColors.primary} />
+                  <Ionicons name="search-outline" size={24} color={formData.reportType === 'lost' ? '#FFFFFF' : AppColors.primary} />
                 </View>
                 <View style={styles.toggleTextContainer}>
                   <Text style={[styles.toggleTitle, formData.reportType === 'lost' && styles.activeToggleTitle]}>Lost Item</Text>
                   <Text style={[styles.toggleSubtitle, formData.reportType === 'lost' && styles.activeToggleSubtitle]}>I lost something</Text>
                 </View>
                 {formData.reportType === 'lost' && (
-                  <Icon name="checkmark-circle" size={24} color="#FFFFFF" />
+                  <Ionicons name="checkmark-circle" size={24} color="#FFFFFF" />
                 )}
               </TouchableOpacity>
 
@@ -1291,14 +1434,14 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
                 activeOpacity={0.8}
               >
                 <View style={[styles.toggleIconContainer, formData.reportType === 'found' && styles.activeToggleIcon]}>
-                  <Icon name="hand-right-outline" size={24} color={formData.reportType === 'found' ? '#FFFFFF' : AppColors.primary} />
+                  <Ionicons name="hand-right-outline" size={24} color={formData.reportType === 'found' ? '#FFFFFF' : AppColors.primary} />
                 </View>
                 <View style={styles.toggleTextContainer}>
                   <Text style={[styles.toggleTitle, formData.reportType === 'found' && styles.activeToggleTitle]}>Found Item</Text>
                   <Text style={[styles.toggleSubtitle, formData.reportType === 'found' && styles.activeToggleSubtitle]}>I found something</Text>
                 </View>
                 {formData.reportType === 'found' && (
-                  <Icon name="checkmark-circle" size={24} color="#FFFFFF" />
+                  <Ionicons name="checkmark-circle" size={24} color="#FFFFFF" />
                 )}
               </TouchableOpacity>
             </View>
@@ -1316,7 +1459,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
                   activeOpacity={0.8}
                 >
                   <View style={[styles.categoryIconContainer, { backgroundColor: item.color + '20' }]}>
-                    <Icon
+                    <Ionicons
                       name={item.icon}
                       size={28}
                       color={formData.itemType === item.key ? '#FFFFFF' : item.color}
@@ -1327,7 +1470,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
                   </Text>
                   {formData.itemType === item.key && (
                     <View style={styles.selectedIndicator}>
-                      <Icon name="checkmark" size={16} color="#FFFFFF" />
+                      <Ionicons name="checkmark" size={16} color="#FFFFFF" />
                     </View>
                   )}
                 </TouchableOpacity>
@@ -1339,7 +1482,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
           {/* Continue Button */}
           <TouchableOpacity style={styles.modernPrimaryButton} onPress={validateAndProceed} activeOpacity={0.8}>
             <Text style={styles.modernButtonText}>Continue</Text>
-            <Icon name="arrow-forward" size={20} color="#FFFFFF" />
+            <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
       );
@@ -1350,7 +1493,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
           <View style={styles.modernProgressContainer}>
             <View style={styles.progressIndicator}>
               <View style={[styles.progressDot, styles.completedDot]}>
-                <Icon name="checkmark" size={16} color="#FFFFFF" />
+                <Ionicons name="checkmark" size={16} color="#FFFFFF" />
               </View>
               <View style={[styles.progressLine, styles.completedLine]} />
               <View style={[styles.progressDot, styles.activeDot]}>
@@ -1392,7 +1535,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>Where did this happen?</Text>
             <View style={styles.modernInputContainer}>
-              <Icon name="bus-outline" size={20} color={AppColors.textSecondary} style={styles.modernInputIcon} />
+              <Ionicons name="bus-outline" size={20} color={AppColors.textSecondary} style={styles.modernInputIcon} />
               <TextInput
                 placeholder="Type route number (e.g. 254, 054)"
                 placeholderTextColor={AppColors.textSecondary}
@@ -1432,7 +1575,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
                           {route.start_location} → {route.end_location}
                         </Text>
                       </View>
-                      <Icon name="chevron-forward" size={16} color={AppColors.textSecondary} />
+                      <Ionicons name="chevron-forward" size={16} color={AppColors.textSecondary} />
                     </TouchableOpacity>
                   ))
                 )}
@@ -1444,7 +1587,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>Select Region *</Text>
             <View style={styles.modernInputContainer}>
-              <Icon name="location-outline" size={20} color={AppColors.textSecondary} style={styles.modernInputIcon} />
+              <Ionicons name="location-outline" size={20} color={AppColors.textSecondary} style={styles.modernInputIcon} />
               <Dropdown
                 style={styles.dropdown}
                 placeholderStyle={styles.placeholderStyle}
@@ -1477,19 +1620,19 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
             <Text style={styles.sectionTitle}>When did this happen? *</Text>
             <View style={styles.dateTimeRow}>
               <TouchableOpacity style={styles.dateTimeButton} onPress={() => setShowDatePicker(true)} activeOpacity={0.8}>
-                <Icon name="calendar-outline" size={20} color={AppColors.primary} />
+                <Ionicons name="calendar-outline" size={20} color={AppColors.primary} />
                 <Text style={[styles.dateTimeText, !formData.date && styles.placeholderText]}>
                   {formData.date || 'Select Date'}
                 </Text>
-                <Icon name="chevron-down" size={16} color={AppColors.textSecondary} />
+                <Ionicons name="chevron-down" size={16} color={AppColors.textSecondary} />
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.dateTimeButton} onPress={() => setShowTimePicker(true)} activeOpacity={0.8}>
-                <Icon name="time-outline" size={20} color={AppColors.primary} />
+                <Ionicons name="time-outline" size={20} color={AppColors.primary} />
                 <Text style={[styles.dateTimeText, !formData.time && styles.placeholderText]}>
                   {formData.time ? formatTimeForDisplay(formData.time) : 'Select Time'}
                 </Text>
-                <Icon name="chevron-down" size={16} color={AppColors.textSecondary} />
+                <Ionicons name="chevron-down" size={16} color={AppColors.textSecondary} />
               </TouchableOpacity>
             </View>
             {(errors.date || errors.time) && (
@@ -1500,12 +1643,12 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
           {/* Navigation Buttons */}
           <View style={styles.modernButtonRow}>
             <TouchableOpacity style={styles.modernSecondaryButton} onPress={handleBackPress} activeOpacity={0.8}>
-              <Icon name="arrow-back" size={20} color={AppColors.text} />
+              <Ionicons name="arrow-back" size={20} color={AppColors.text} />
               <Text style={styles.modernSecondaryButtonText}>Back</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.modernPrimaryButton} onPress={validateAndProceed} activeOpacity={0.8}>
               <Text style={styles.modernButtonText}>Continue</Text>
-              <Icon name="arrow-forward" size={20} color="#FFFFFF" />
+              <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
         </View>
@@ -1517,11 +1660,11 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
           <View style={styles.modernProgressContainer}>
             <View style={styles.progressIndicator}>
               <View style={[styles.progressDot, styles.completedDot]}>
-                <Icon name="checkmark" size={16} color="#FFFFFF" />
+                <Ionicons name="checkmark" size={16} color="#FFFFFF" />
               </View>
               <View style={[styles.progressLine, styles.completedLine]} />
               <View style={[styles.progressDot, styles.completedDot]}>
-                <Icon name="checkmark" size={16} color="#FFFFFF" />
+                <Ionicons name="checkmark" size={16} color="#FFFFFF" />
               </View>
               <View style={[styles.progressLine, styles.completedLine]} />
               <View style={[styles.progressDot, styles.activeDot]}>
@@ -1564,7 +1707,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
                             }
                             
                             const result = await ImagePicker.launchCameraAsync({
-                              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                              mediaTypes: ['images'],
                               allowsEditing: true,
                               aspect: [4, 3],
                               quality: 0.7,
@@ -1600,7 +1743,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
                             }
                             
                             const result = await ImagePicker.launchImageLibraryAsync({
-                              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                              mediaTypes: ['images'],
                               allowsEditing: true,
                               aspect: [4, 3],
                               quality: 0.7,
@@ -1638,7 +1781,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
               }}
             >
               <View style={styles.photoUploadIcon}>
-                <Icon name="camera-outline" size={32} color={AppColors.primary} />
+                <Ionicons name="camera-outline" size={32} color={AppColors.primary} />
               </View>
               <Text style={styles.photoUploadTitle}>Add a photo</Text>
               <Text style={styles.photoUploadSubtitle}>Help others identify the item</Text>
@@ -1655,7 +1798,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>Contact Information</Text>
             <View style={styles.modernInputContainer}>
-              <Icon name="mail-outline" size={20} color={AppColors.textSecondary} style={styles.modernInputIcon} />
+              <Ionicons name="mail-outline" size={20} color={AppColors.textSecondary} style={styles.modernInputIcon} />
               <TextInput
                 placeholder="Your email address"
                 placeholderTextColor={AppColors.textSecondary}
@@ -1669,7 +1812,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
             {errors.email && <Text style={styles.modernErrorText}>{errors.email}</Text>}
 
             <View style={styles.modernInputContainer}>
-              <Icon name="call-outline" size={20} color={AppColors.textSecondary} style={styles.modernInputIcon} />
+              <Ionicons name="call-outline" size={20} color={AppColors.textSecondary} style={styles.modernInputIcon} />
               <TextInput
                 placeholder="Your phone number"
                 placeholderTextColor={AppColors.textSecondary}
@@ -1688,7 +1831,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>Reward Offered (Optional)</Text>
             <View style={styles.modernInputContainer}>
-              <Icon name="gift-outline" size={20} color={AppColors.textSecondary} style={styles.modernInputIcon} />
+              <Ionicons name="gift-outline" size={20} color={AppColors.textSecondary} style={styles.modernInputIcon} />
               <TextInput
                 placeholder="Enter reward amount (Rs.)"
                 placeholderTextColor={AppColors.textSecondary}
@@ -1705,7 +1848,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
 
           {/* Privacy Notice */}
           <View style={styles.modernPrivacyNote}>
-            <Icon name="shield-checkmark-outline" size={24} color={AppColors.primary} />
+            <Ionicons name="shield-checkmark-outline" size={24} color={AppColors.primary} />
             <Text style={styles.modernPrivacyText}>
               Your contact information is secure and will only be used to connect you with potential matches.
             </Text>
@@ -1714,7 +1857,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
           {/* Navigation Buttons */}
           <View style={styles.modernButtonRow}>
             <TouchableOpacity style={styles.modernSecondaryButton} onPress={handleBackPress} activeOpacity={0.8}>
-              <Icon name="arrow-back" size={20} color={AppColors.text} />
+              <Ionicons name="arrow-back" size={20} color={AppColors.text} />
               <Text style={styles.modernSecondaryButtonText}>Back</Text>
             </TouchableOpacity>
             <TouchableOpacity 
@@ -1726,7 +1869,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
               <Text style={styles.modernButtonText}>
                 {submitting ? 'Submitting...' : 'Submit Report'}
               </Text>
-              <Icon name="checkmark" size={20} color="#FFFFFF" />
+              <Ionicons name="checkmark" size={20} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
         </View>
@@ -1736,7 +1879,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
         <View style={styles.modernSuccessContainer}>
           <View style={styles.successAnimation}>
             <View style={styles.successIconContainer}>
-              <Icon name="checkmark-circle" size={80} color={AppColors.primary} />
+              <Ionicons name="checkmark-circle" size={80} color={AppColors.primary} />
             </View>
           </View>
           
@@ -1794,7 +1937,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton} activeOpacity={0.7}>
-            <Icon name="arrow-back" size={24} color={AppColors.text} />
+            <Ionicons name="arrow-back" size={24} color={AppColors.text} />
           </TouchableOpacity>
           
           <View style={styles.headerTitleContainer}>
@@ -1834,6 +1977,87 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
         onClose={() => setShowTimePicker(false)}
         onSelect={(time) => updateFormData('time', time)}
       />
+
+      {/* Depot Handover Modal */}
+      <Modal
+        visible={showDepotModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowDepotModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.depotModalContainer}>
+            <View style={styles.depotModalHeader}>
+              <Text style={styles.depotModalTitle}>
+                {selectedReportForHandover?.handed_to_depot_id ? 'Update Depot Handover' : 'Hand Item to Depot'}
+              </Text>
+              <TouchableOpacity 
+                onPress={() => setShowDepotModal(false)}
+                style={styles.closeButton}
+              >
+                <Ionicons name="close" size={24} color={AppColors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.depotModalContent}>
+              <Text style={styles.formLabel}>Select Depot</Text>
+              <Dropdown
+                style={styles.depotDropdown}
+                placeholderStyle={styles.dropdownPlaceholder}
+                selectedTextStyle={styles.dropdownSelectedText}
+                data={depots.map(depot => ({
+                  label: `${depot.depot_name} - ${depot.location || depot.address || 'No address'}`,
+                  value: depot.depot_id
+                }))}
+                maxHeight={200}
+                labelField="label"
+                valueField="value"
+                placeholder="Choose a depot..."
+                value={handoverData.depotId}
+                onChange={(item) => {
+                  setHandoverData(prev => ({ ...prev, depotId: item.value }));
+                }}
+              />
+
+              <Text style={styles.formLabel}>Handover Date</Text>
+              <TextInput
+                style={styles.dateInput}
+                value={handoverData.handoverDate}
+                onChangeText={(text) => setHandoverData(prev => ({ ...prev, handoverDate: text }))}
+                placeholder="YYYY-MM-DD"
+              />
+
+              <Text style={styles.formLabel}>Notes (Optional)</Text>
+              <TextInput
+                style={styles.notesInput}
+                value={handoverData.notes}
+                onChangeText={(text) => setHandoverData(prev => ({ ...prev, notes: text }))}
+                placeholder="Add any additional notes about the handover..."
+                multiline
+                numberOfLines={3}
+                textAlignVertical="top"
+              />
+
+              <View style={styles.depotModalActions}>
+                <TouchableOpacity 
+                  style={styles.cancelButton}
+                  onPress={() => setShowDepotModal(false)}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.confirmButton}
+                  onPress={handleDepotHandover}
+                >
+                  <Text style={styles.confirmButtonText}>
+                    {selectedReportForHandover?.handed_to_depot_id ? 'Update' : 'Save'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -3070,23 +3294,16 @@ const styles = StyleSheet.create({
 
   resolvedTag: {
     backgroundColor: AppColors.success + '20',
-  },
-
-  activeTag: {
-    backgroundColor: AppColors.primary + '20',
-  },
-
-  statusTagText: {
-    fontSize: 12,
-    fontWeight: '600',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginLeft: 8,
   },
 
   resolvedTagText: {
     color: AppColors.success,
-  },
-
-  activeTagText: {
-    color: AppColors.primary,
+    fontSize: 12,
+    fontWeight: '600',
   },
 
   myReportActions: {
@@ -3376,4 +3593,192 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
   },
+
+  // Depot handover and own report styles
+  depotHandoverInfo: {
+    backgroundColor: '#e8f5e8',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+
+  ownReportText: {
+    fontSize: 14,
+    color: '#666',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    padding: 12,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 8,
+    marginTop: 8,
+  },
+
+  ownReportIndicator: {
+    backgroundColor: '#e3f2fd',
+    padding: 8,
+    borderRadius: 6,
+    marginBottom: 8,
+  },
+
+  depotHandoverText: {
+    fontSize: 14,
+    color: '#2d5016',
+    fontWeight: '500',
+  },
+
+  actionButtonsContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+
+  depotHandoverButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0f9ff',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: AppColors.primary,
+    gap: 6,
+  },
+
+  depotHandoverButtonText: {
+    fontSize: 14,
+    color: AppColors.primary,
+    fontWeight: '500',
+  },
+
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  depotModalContainer: {
+    backgroundColor: 'white',
+    margin: 20,
+    borderRadius: 12,
+    maxHeight: '80%',
+    minWidth: '90%',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+
+  depotModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+
+  depotModalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: AppColors.text,
+  },
+
+  closeButton: {
+    padding: 4,
+  },
+
+  depotModalContent: {
+    padding: 20,
+  },
+
+  formLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: AppColors.text,
+    marginBottom: 8,
+    marginTop: 16,
+  },
+
+
+
+  dateInput: {
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    backgroundColor: '#f9f9f9',
+  },
+
+  notesInput: {
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    backgroundColor: '#f9f9f9',
+    height: 80,
+  },
+
+  depotModalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 24,
+    gap: 12,
+  },
+
+  cancelButton: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    alignItems: 'center',
+  },
+
+  cancelButtonText: {
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '500',
+  },
+
+  confirmButton: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 8,
+    backgroundColor: AppColors.primary,
+    alignItems: 'center',
+  },
+
+  confirmButtonText: {
+    fontSize: 16,
+    color: 'white',
+    fontWeight: '600',
+  },
+
+  // Depot dropdown styles
+  depotDropdown: {
+    height: 50,
+    borderColor: '#e0e0e0',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#f9f9f9',
+    marginBottom: 8,
+  },
+
+  dropdownPlaceholder: {
+    fontSize: 16,
+    color: '#999',
+  },
+
+  dropdownSelectedText: {
+    fontSize: 16,
+    color: AppColors.text,
+  },
+
+
 });

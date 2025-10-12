@@ -11,6 +11,7 @@ import {
   HiHeart
 } from 'react-icons/hi';
 import { useState, useEffect, useContext } from 'react';
+import type { ReactElement } from 'react';
 import { AppContext } from '../../../context/AppContext';
 import axios, { AxiosError } from 'axios';
 
@@ -28,12 +29,20 @@ interface EmergencyReport {
   id: string;
   depotid: string;
   busNumber: string;
-  type: 'fire' | 'medical' | 'mechanical';
+  type: string;
   reason: string;
-  status: 'pending' | 'resolved' | 'in-progress';
+  status: string;
   region: string;
   depot: string;
+  busId?: string;
+  assignmentId?: string;
 }
+
+interface EmergencyReportResponse {
+  success: boolean;
+  data?: any[];
+    message?: string;
+  }
 
 interface Bus {
   bus_id: string;
@@ -82,6 +91,7 @@ const DepotEngineerDashboard = () => {
   const [emergencyReports, setEmergencyReports] = useState<EmergencyReport[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [allEmergencyReports, setAllEmergencyReports] = useState<EmergencyReport[]>([]);
 
   const token = context?.token;
 
@@ -97,7 +107,8 @@ const DepotEngineerDashboard = () => {
   // Remove the hardcoded emergency reports array - we'll fetch from API
 
   const getEmergencyColor = (type: EmergencyReport['type']) => {
-    switch (type) {
+    const normalizedType = type?.toLowerCase?.() || '';
+    switch (normalizedType) {
       case 'fire': return 'bg-red-50 border-red-200';
       case 'medical': return 'bg-blue-50 border-blue-200';
       case 'mechanical': return 'bg-orange-50 border-orange-200';
@@ -106,7 +117,8 @@ const DepotEngineerDashboard = () => {
   };
 
   const getEmergencyIcon = (type: EmergencyReport['type']) => {
-    switch (type) {
+    const normalizedType = type?.toLowerCase?.() || '';
+    switch (normalizedType) {
       case 'fire': return <HiFire className="w-5 h-5 text-red-600" />;
       case 'medical': return <HiHeart className="w-5 h-5 text-blue-600" />;
       case 'mechanical': return <HiCog className="w-5 h-5 text-orange-600" />;
@@ -209,7 +221,7 @@ const DepotEngineerDashboard = () => {
         }));
         console.log('✅ Unreviewed condition reports loaded successfully:', transformedReports.length);
       } else {
-        console.error('❌ Failed to fetch pending reports:', response.data.message);
+        console.error('❌ Failed to fetch pending reports:', response.data?.message);
       }
     } catch (err) {
       const axiosError = err as AxiosError;
@@ -251,6 +263,42 @@ const DepotEngineerDashboard = () => {
   };
 
   const fetchEmergencyReports = async () => {
+    const normalizeId = (value: unknown): string | undefined => {
+      if (value === null || value === undefined) {
+        return undefined;
+      }
+      const strValue = String(value).trim();
+      return strValue.length ? strValue : undefined;
+    };
+
+    const toEmergencyReport = (report: any, statusOverride?: string): EmergencyReport | null => {
+      const busId = normalizeId(report.bus_id ?? report.busId);
+      const assignmentId = normalizeId(report.assignment_id ?? report.assignmentId);
+
+      if (!busId || !assignmentId) {
+        return null;
+      }
+
+      const normalizedType = String(report.incident_type || 'mechanical').toLowerCase();
+      const normalizedStatus = String(report.status || 'pending').toLowerCase();
+      const resolvedStatus = statusOverride || normalizedStatus;
+
+      const id = normalizeId(report.id) || `${busId}-${assignmentId}`;
+
+      return {
+        id,
+        depotid: normalizeId(report.depot_id) || '',
+        busNumber: report.vehicle_registration || report.registration_number || `Bus-${busId}`,
+        type: normalizedType,
+        reason: report.description || 'No description provided',
+        status: resolvedStatus,
+        region: report.region_name || 'Unknown Region',
+        depot: report.depot_name || 'Unknown Depot',
+        busId,
+        assignmentId
+      };
+    };
+
     try {
       // Use the depot emergency endpoint to get all reports, then filter for pending
       const apiUrl = `http://localhost:5000/api/depot/emergency`;
@@ -267,7 +315,7 @@ const DepotEngineerDashboard = () => {
       console.log('📊 Emergency reports response:', response.data);
 
       if (response.data.success) {
-        const allReports = response.data.data || [];
+  const allReports = response.data.data || [];
         
         // Log detailed information about the reports structure
         console.log('📋 All emergency reports count:', allReports.length);
@@ -277,37 +325,36 @@ const DepotEngineerDashboard = () => {
           console.log('📋 All reports with their status:', allReports.map((r: any) => ({ id: r.id, status: r.status, incident_type: r.incident_type })));
         }
         
-        // Filter for pending status reports only - only show reports with "Pending" status
-        const pendingReports = allReports.filter((report: any) => {
-          // Only include reports with exactly "Pending" status
-          const status = report.status?.toString();
-          return status === 'Pending';
-        });
+        const pendingReports = allReports.filter((report: any) => report.status?.toString() === 'Pending');
+        const mappedPending: EmergencyReport[] = pendingReports
+          .map((report: any): EmergencyReport | null => toEmergencyReport(report, 'pending'))
+          .filter((report: EmergencyReport | null): report is EmergencyReport => report !== null);
+
+        setEmergencyReports(mappedPending);
+
+        // Map all reports and retain only those with required identifiers for analytics
+        const mappedAll: EmergencyReport[] = (allReports as any[])
+          .map((report: any): EmergencyReport | null => toEmergencyReport(report))
+          .filter((report: EmergencyReport | null): report is EmergencyReport => report !== null);
+
+        setAllEmergencyReports(mappedAll);
         
-        console.log('🔍 Filtered pending reports:', pendingReports.length, pendingReports);
-        
-        const mappedReports: EmergencyReport[] = pendingReports.map((report: any) => ({
-          id: report.id.toString(),
-          depotid: report.depot_id?.toString() || '',
-          busNumber: report.vehicle_registration || report.registration_number || `Bus-${report.bus_id}`,
-          type: report.incident_type || 'mechanical', // This comes from emergency_reports.incident_type
-          reason: report.description || 'No description provided', // This comes from emergency_reports.description
-          status: 'pending', // We're filtering for pending status only
-          region: report.region_name || 'Unknown Region',
-          depot: report.depot_name || 'Unknown Depot'
-        }));
-        
-        setEmergencyReports(mappedReports);
-        
-        // Update stats with real count
+        // Update stats with new and pending report counts
+        const newCount = allReports.filter((report: any) => {
+          const status = report.status?.toString().toLowerCase();
+          const mapped = toEmergencyReport(report);
+          return status === 'new' && mapped?.busId && mapped?.assignmentId;
+        }).length;
         setStats(prevStats => ({
           ...prevStats,
-          EmergencyReports: mappedReports.length
+          EmergencyReports: newCount,
+          criticalIssues: mappedPending.length
         }));
         
-        console.log('✅ Emergency reports fetched successfully:', mappedReports.length, 'pending reports out of', allReports.length, 'total');
+        console.log('✅ Emergency reports fetched successfully:', mappedPending.length, 'pending with IDs out of', allReports.length, 'total');
+        console.log('📈 Total NEW reports:', newCount);
       } else {
-        console.error('❌ Failed to fetch emergency reports:', response.data.message);
+        console.error('❌ Failed to fetch emergency reports:', response.data?.message);
         setEmergencyReports([]); // Set empty array if fetch fails
       }
     } catch (err) {
@@ -323,7 +370,7 @@ const DepotEngineerDashboard = () => {
         console.log('🔄 Trying alternative emergency endpoint...');
         try {
           const altApiUrl = `http://localhost:5000/api/emergency`;
-          const altResponse = await axios.get(altApiUrl, {
+          const altResponse = await axios.get<EmergencyReportResponse>(altApiUrl, {
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
@@ -331,27 +378,31 @@ const DepotEngineerDashboard = () => {
           });
           
           if (altResponse.data.success) {
-            const allReports = altResponse.data.data || [];
-            const pendingReports = allReports.filter((report: any) => report.status === 'pending');
-            
-            const mappedReports: EmergencyReport[] = pendingReports.map((report: any) => ({
-              id: report.id.toString(),
-              depotid: report.depot_id?.toString() || '',
-              busNumber: report.vehicle_registration || report.registration_number || `Bus-${report.bus_id}`,
-              type: report.incident_type || 'mechanical',
-              reason: report.description || 'No description provided',
-              status: 'pending',
-              region: report.region_name || 'Unknown Region',
-              depot: report.depot_name || 'Unknown Depot'
-            }));
-            
-            setEmergencyReports(mappedReports);
+            const allAltReports = altResponse.data.data || [];
+            const pendingAltReports = allAltReports.filter((report: any) => report.status?.toString().toLowerCase() === 'pending');
+
+            const mappedPendingAlt: EmergencyReport[] = pendingAltReports
+              .map((report: any): EmergencyReport | null => toEmergencyReport(report, 'pending'))
+              .filter((report: EmergencyReport | null): report is EmergencyReport => report !== null);
+
+            setEmergencyReports(mappedPendingAlt);
+            setAllEmergencyReports(
+              (allAltReports as any[])
+                .map((report: any): EmergencyReport | null => toEmergencyReport(report))
+                .filter((report: EmergencyReport | null): report is EmergencyReport => report !== null)
+            );
+
             setStats(prevStats => ({
               ...prevStats,
-              EmergencyReports: mappedReports.length
+              EmergencyReports: allAltReports.filter((report: any) => {
+                const status = report.status?.toString().toLowerCase();
+                const mapped = toEmergencyReport(report);
+                return status === 'new' && mapped?.busId && mapped?.assignmentId;
+              }).length,
+              criticalIssues: mappedPendingAlt.length
             }));
-            
-            console.log('✅ Emergency reports loaded from alternative endpoint:', mappedReports.length);
+
+            console.log('✅ Emergency reports loaded from alternative endpoint:', mappedPendingAlt.length);
           }
         } catch (altErr) {
           console.error('❌ Alternative emergency endpoint also failed:', altErr);
@@ -386,6 +437,216 @@ const DepotEngineerDashboard = () => {
     }
   }, [token, context?.user?.role]);
 
+  // Fleet Performance Summary Component
+  const FleetPerformanceSummary = () => {
+    const operationalRate = stats.totalBuses > 0 ? ((stats.activeBuses / stats.totalBuses) * 100).toFixed(1) : '0';
+    const maintenanceRate = stats.totalBuses > 0 ? ((stats.underMaintenance / stats.totalBuses) * 100).toFixed(1) : '0';
+    
+    const performanceData = [
+      {
+        title: "Fleet Operational Rate",
+        value: `${operationalRate}%`,
+        count: stats.activeBuses,
+        total: stats.totalBuses,
+        color: "text-green-600",
+        bgColor: "bg-green-50",
+        icon: <HiCheckCircle className="w-6 h-6" />
+      },
+      {
+        title: "Maintenance Rate",
+        value: `${maintenanceRate}%`,
+        count: stats.underMaintenance,
+        total: stats.totalBuses,
+        color: "text-amber-600",
+        bgColor: "bg-amber-50",
+        icon: <HiCog className="w-6 h-6" />
+      }
+    ];
+
+    return (
+      <div className="space-y-6">
+        {/* Performance Metrics */}
+        <div className="grid grid-cols-1 gap-4">
+          {performanceData.map((metric, index) => (
+            <div key={index} className={`${metric.bgColor} rounded-xl p-4 border border-gray-200`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className={`${metric.color}`}>
+                    {metric.icon}
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-gray-800">{metric.title}</h4>
+                    <p className="text-sm text-gray-600">
+                      {typeof metric.total === 'string' ? 
+                        `${metric.count} ${metric.total}` : 
+                        `${metric.count} of ${metric.total} buses`
+                      }
+                    </p>
+                  </div>
+                </div>
+                <div className={`text-2xl font-bold ${metric.color}`}>
+                  {metric.value}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const EmergencyStatusBarChart = () => {
+    const colorPalette = ['#DC2626', '#F97316', '#F59E0B', '#10B981', '#0EA5E9', '#6366F1', '#EC4899', '#14B8A6'];
+
+    const hexToRgba = (hex: string, alpha: number) => {
+      const sanitized = hex.replace('#', '');
+      const bigint = parseInt(sanitized, 16);
+      const r = (bigint >> 16) & 255;
+      const g = (bigint >> 8) & 255;
+      const b = bigint & 255;
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    };
+
+    const validReports = allEmergencyReports.filter(report => report.busId && report.assignmentId);
+
+    // Count emergency reports by incident type
+    const typeCounts = validReports.reduce((acc, report) => {
+      const typeKey = (report.type || 'unknown').toLowerCase();
+      acc[typeKey] = (acc[typeKey] || 0) + 1;
+      return acc;
+    }, {} as { [key: string]: number });
+
+    const chartData = Object.entries(typeCounts).map(([type, count], index) => {
+      const color = colorPalette[index % colorPalette.length];
+      const label = type
+        .split('_')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+
+  let icon: ReactElement = <HiExclamationCircle className="w-4 h-4" />;
+      if (type.includes('fire')) icon = <HiFire className="w-4 h-4" />;
+      else if (type.includes('medical')) icon = <HiHeart className="w-4 h-4" />;
+      else if (type.includes('mechan')) icon = <HiCog className="w-4 h-4" />;
+
+      return {
+        status: type,
+        label,
+        count,
+        color,
+        labelBg: hexToRgba(color, 0.12),
+        labelBorder: hexToRgba(color, 0.4),
+        icon
+      };
+    });
+
+    const totalReports = chartData.reduce((sum, item) => sum + item.count, 0);
+    const [hoveredSlice, setHoveredSlice] = useState<number | null>(null);
+    const radius = 110;
+
+    if (chartData.length === 0 || totalReports === 0) {
+      return (
+        <div className="flex items-center justify-center h-80 text-gray-500">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-gradient-to-br from-emerald-100 to-emerald-200 rounded-full flex items-center justify-center mx-auto mb-4">
+              <HiCheckCircle className="w-8 h-8 text-emerald-600" />
+            </div>
+            <p className="text-lg font-medium text-gray-600">All Reports Resolved</p>
+            <p className="text-sm text-gray-500 mt-1">No pending emergency reports</p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="w-full h-80 relative flex items-center justify-center">
+        <div className="relative flex items-center justify-center">
+          <svg
+            className="w-60 h-60 sm:w-72 sm:h-72"
+            viewBox="0 0 260 260"
+            preserveAspectRatio="xMidYMid meet"
+          >
+            <g transform="translate(130, 130)">
+              {(() => {
+                let startAngle = -Math.PI / 2;
+                const labelRadius = radius * 0.6;
+                return chartData.map((item, index) => {
+                  const currentStart = startAngle;
+                  const fraction = item.count / totalReports;
+                  const sliceAngle = fraction * Math.PI * 2;
+                  const endAngle = currentStart + sliceAngle;
+                  const largeArcFlag = sliceAngle > Math.PI ? 1 : 0;
+
+                  const startX = Math.cos(currentStart) * radius;
+                  const startY = Math.sin(currentStart) * radius;
+                  const endX = Math.cos(endAngle) * radius;
+                  const endY = Math.sin(endAngle) * radius;
+
+                  const midAngle = currentStart + sliceAngle / 2;
+                  const labelX = Math.cos(midAngle) * labelRadius;
+                  const labelY = Math.sin(midAngle) * labelRadius;
+
+                  const pathData = [
+                    `M 0 0`,
+                    `L ${startX.toFixed(3)} ${startY.toFixed(3)}`,
+                    `A ${radius} ${radius} 0 ${largeArcFlag} 1 ${endX.toFixed(3)} ${endY.toFixed(3)}`,
+                    'Z'
+                  ].join(' ');
+
+                  const currentIndex = index;
+                  startAngle = endAngle;
+
+                  return (
+                    <g key={item.status}>
+                      <path
+                        d={pathData}
+                        fill={item.color}
+                        className="cursor-pointer transition-transform duration-200 origin-center"
+                        style={{
+                          transform: hoveredSlice === currentIndex ? 'scale(1.05)' : 'scale(1)'
+                        }}
+                        onMouseEnter={() => setHoveredSlice(currentIndex)}
+                        onMouseLeave={() => setHoveredSlice(null)}
+                      />
+                      {sliceAngle > 0.1 && (
+                        <text
+                          x={labelX.toFixed(1)}
+                          y={labelY.toFixed(1)}
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                          fontSize="11"
+                          fill="#ffffff"
+                          pointerEvents="none"
+                          style={{ fontWeight: 500, letterSpacing: '0.3px' }}
+                        >
+                          {item.label}
+                        </text>
+                      )}
+                    </g>
+                  );
+                });
+              })()}
+            </g>
+          </svg>
+
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 pointer-events-none">
+            {hoveredSlice !== null ? (
+              <div className="px-4 py-2 rounded-full bg-white shadow-lg border border-gray-200 text-center">
+                <p className="text-sm font-semibold text-gray-800">{chartData[hoveredSlice].label}</p>
+                <p className="text-xs text-gray-500">{chartData[hoveredSlice].count} report{chartData[hoveredSlice].count !== 1 ? 's' : ''}</p>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 pointer-events-none">
+            <div className="px-4 py-2 bg-white/90 rounded-full border border-gray-200 text-sm font-medium text-gray-700">
+              Total Reports: {totalReports}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -404,9 +665,9 @@ const DepotEngineerDashboard = () => {
           <HiExclamationCircle className="w-12 h-12 mx-auto mb-4" />
           <p className="text-xl font-medium mb-2">Error Loading Dashboard</p>
           <p className="text-sm text-gray-600 mb-4">{error}</p>
-          {error.includes('403') && (
+          {error?.includes('403') && (
             <p className="text-sm text-yellow-600 mb-4">
-              ⚠️ This might be an authentication issue. Please try logging out and logging back in.
+              This might be an authentication issue. Please try logging out and logging back in.
             </p>
           )}
           <button 
@@ -644,9 +905,36 @@ const DepotEngineerDashboard = () => {
                 <div className="text-center py-6 text-gred-500">
                   <HiCheckCircle className="w-8 h-8 mx-auto mb-2 text-red-400" />
                   <p>No pending emergency reports</p>
-                  <p className="text-xs mt-1">Check browser console for debugging info</p>
+                 
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+
+        {/* Analytics Section */}
+        <div className="mt-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Fleet Performance Summary */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+              <div className="p-4 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-700">Fleet Performance Summary</h3>
+                <p className="text-sm text-gray-500">Overview of fleet status and operational metrics</p>
+              </div>
+              <div className="p-4">
+                <FleetPerformanceSummary />
+              </div>
+            </div>
+
+            {/* Emergency Status Progress */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+              <div className="p-4 border-b border-gray-200">
+                
+                <p className="text-sm text-gray-500">Current status of all emergency reports</p>
+              </div>
+              <div className="p-4">
+                <EmergencyStatusBarChart />
+              </div>
             </div>
           </div>
         </div>

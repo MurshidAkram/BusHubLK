@@ -283,7 +283,7 @@ static async getAll() {
        ORDER BY u.user_id`,
       [role_name]
     );
-    return result.rows;
+    return result.rows;z
   }
 
   static async getUsersByDepot(depot_id) {

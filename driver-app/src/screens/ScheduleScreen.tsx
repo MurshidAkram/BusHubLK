@@ -125,13 +125,18 @@ const WeatherIcon = ({ weather }: { weather: string }) => {
 };
 
 // Simplified schedule card component
-const ScheduleCard = ({ schedule, index, isTodayAssignment }: { 
+const ScheduleCard = ({ schedule, index, isTodayAssignment, navigation }: { 
   schedule: DailyAssignment; 
   index: number; 
-  isTodayAssignment: boolean; 
+  isTodayAssignment: boolean;
+  navigation: any;
 }) => {
   const slideAnim = useRef(new Animated.Value(50)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const [isTracking, setIsTracking] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
+  const [cooldownRemaining, setCooldownRemaining] = useState(0);
+  const cooldownTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     Animated.parallel([
@@ -148,21 +153,52 @@ const ScheduleCard = ({ schedule, index, isTodayAssignment }: {
         useNativeDriver: true,
       }),
     ]).start();
+
+    // Check if tracking is active for this assignment
+    checkTrackingStatus();
   }, []);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (cooldownTimerRef.current) {
+        clearInterval(cooldownTimerRef.current);
+      }
+    };
+  }, []);
+
+  const checkTrackingStatus = async () => {
+    try {
+      // Check location service status using the async method
+      const isActive = await locationService.isTrackingActive();
+      if (isActive) {
+        setIsTracking(true);
+      } else {
+        setIsTracking(false);
+      }
+    } catch (error) {
+      console.error('Error checking tracking status:', error);
+      setIsTracking(false);
+
+    }
+  };
 
   const handleStartRoute = async () => {
     try {
-      // Debug: Log the complete schedule object to see its structure
-      console.log('🔍 Complete schedule object:', JSON.stringify(schedule, null, 2));
-      console.log('🔍 Schedule field values:', {
-        assignment_id: schedule.assignment_id,
-        bus_id: schedule.bus_id,
-        route_id: schedule.route_id,
-        driver_id: schedule.driver_id,
-      });
+      // Check if cooldown is active
+      if (cooldownRemaining > 0) {
+        Alert.alert(
+          "⏳ Please Wait",
+          `The tracking system needs a moment to reset after stopping.\n\nPlease wait ${cooldownRemaining} more second${cooldownRemaining !== 1 ? 's' : ''} before starting again.\n\nThis ensures a clean restart and prevents conflicts.`,
+          [{ text: "OK" }]
+        );
+        return;
+      }
+
+      setIsStarting(true);
 
       // Validate that required fields are present
-      if (!schedule.assignment_id || !schedule.bus_id || !schedule.route_id) {
+      if (!schedule.assignment_id || !schedule.bus_id || !schedule.route_id || !schedule.driver_id) {
         console.error('❌ Missing required assignment fields:', {
           assignment_id: schedule.assignment_id,
           bus_id: schedule.bus_id,
@@ -174,34 +210,119 @@ const ScheduleCard = ({ schedule, index, isTodayAssignment }: {
           "This assignment is missing required information. Please contact support or try refreshing the schedule.",
           [{ text: "OK" }]
         );
+        setIsStarting(false);
         return;
       }
 
-      // Set the current assignment in location service with proper data structure
-      locationService.setCurrentAssignment({
+      // Set the current assignment in location service first
+
+      await locationService.setCurrentAssignment({
+
         bus_id: schedule.bus_id,
         route_id: schedule.route_id,
         driver_id: schedule.driver_id,
         assignment_id: schedule.assignment_id,
       });
 
+
+      // Use the location service for EAS build with smart tracking
+      console.log("🚀 Starting location service for EAS build...");
+
+      await locationService.startSmartLocationTracking(
+        schedule.bus_id.toString(),
+        schedule.route_id.toString(),
+        schedule.bus_registration
+      );
+      console.log("✅ Location service started successfully");
+
+      // Update local state
+
+      setIsTracking(true);
+      setIsStarting(false);
+
       Alert.alert(
-        "Route Started",
-        `Started tracking for Bus ${schedule.bus_registration || schedule.bus_id} on Route ${schedule.route_number || schedule.route_id}`,
+        "🚌 Route Started",
+        `Continuous tracking started for Bus ${schedule.bus_registration || schedule.bus_id} on Route ${schedule.route_number || schedule.route_id}.\n\nYour location will be tracked even when the app is closed or in the background.`,
         [
-          {
-            text: "OK",
+          { 
+            text: "View Tracking",
             onPress: () => {
-              // Could navigate to tracking screen or start location tracking
-              console.log("🚌 Route started for assignment:", schedule.assignment_id);
+              // Navigate to Tracking screen to show active tracking
+              if (navigation) {
+                navigation.navigate('Tracking');
+              }
             }
-          }
+          },
+          { text: "OK" }
+
         ]
       );
     } catch (error) {
       console.error("Error starting route:", error);
-      Alert.alert("Error", "Failed to start route tracking");
+      Alert.alert("Error", "Failed to start route tracking. Please try again.");
+
+      setIsStarting(false);
     }
+  };
+
+  const handleEndRoute = async () => {
+    Alert.alert(
+      "End Schedule?",
+      "Are you sure you want to end this schedule? Location tracking will stop.",
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        {
+          text: "End Schedule",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              console.log("🛑 Ending schedule - stopping main location service...");
+              
+              // Stop main location service
+              locationService.stopLocationTracking();
+              
+              setIsTracking(false);
+              console.log("✅ Main location service stopped successfully");
+
+              // Start cooldown timer (3 seconds)
+              const cooldownSeconds = 3;
+              setCooldownRemaining(cooldownSeconds);
+              
+              // Clear any existing timer
+              if (cooldownTimerRef.current) {
+                clearInterval(cooldownTimerRef.current);
+              }
+              
+              // Countdown timer
+              let remaining = cooldownSeconds;
+              cooldownTimerRef.current = setInterval(() => {
+                remaining -= 1;
+                setCooldownRemaining(remaining);
+                
+                if (remaining <= 0) {
+                  if (cooldownTimerRef.current) {
+                    clearInterval(cooldownTimerRef.current);
+                    cooldownTimerRef.current = null;
+                  }
+                }
+              }, 1000);
+
+              Alert.alert(
+                "✅ Schedule Ended",
+                "Location tracking has been stopped and schedule completed successfully.",
+                [{ text: "OK" }]
+              );
+            } catch (error) {
+              console.error("Error ending route:", error);
+              Alert.alert("Error", "Failed to stop route tracking completely.");
+            }
+          }
+        }
+      ]
+    );
   };
 
   // Helper function to format date display
@@ -378,24 +499,71 @@ const ScheduleCard = ({ schedule, index, isTodayAssignment }: {
           )}
         </View>
 
-        {/* Action Button - Only for today */}
+        {/* Action Buttons - Only for today */}
         {isTodayAssignment && (
-          <TouchableOpacity style={styles.actionButton} onPress={handleStartRoute}>
-            <LinearGradient
-              colors={["rgba(255, 255, 255, 0.2)", "rgba(255, 255, 255, 0.1)"]}
-              style={styles.actionButtonGradient}
-            >
-              <Ionicons name="play-outline" size={18} color="#FFFFFF" />
-              <Text style={styles.actionButtonText}>Start Today's Route</Text>
-            </LinearGradient>
-          </TouchableOpacity>
+          <View style={styles.actionButtonsContainer}>
+            {!isTracking ? (
+              <TouchableOpacity 
+                style={[
+                  styles.actionButton,
+                  cooldownRemaining > 0 && styles.actionButtonDisabled
+                ]} 
+                onPress={handleStartRoute}
+                disabled={isStarting || cooldownRemaining > 0}
+              >
+                <LinearGradient
+                  colors={
+                    cooldownRemaining > 0
+                      ? ["rgba(156, 163, 175, 0.5)", "rgba(107, 114, 128, 0.5)"]
+                      : ["rgba(255, 255, 255, 0.2)", "rgba(255, 255, 255, 0.1)"]
+                  }
+                  style={styles.actionButtonGradient}
+                >
+                  {isStarting ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  ) : cooldownRemaining > 0 ? (
+                    <>
+                      <Ionicons name="time-outline" size={18} color="#FFFFFF" />
+                      <Text style={styles.actionButtonText}>
+                        Wait {cooldownRemaining}s...
+                      </Text>
+                    </>
+                  ) : (
+                    <>
+                      <Ionicons name="play-outline" size={18} color="#FFFFFF" />
+                      <Text style={styles.actionButtonText}>Start Schedule</Text>
+                    </>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+            ) : (
+              <>
+                <View style={styles.trackingIndicator}>
+                  <View style={styles.trackingDot} />
+                  <Text style={styles.trackingText}>Tracking Active</Text>
+                </View>
+                <TouchableOpacity 
+                  style={[styles.actionButton, styles.endButton]} 
+                  onPress={handleEndRoute}
+                >
+                  <LinearGradient
+                    colors={["rgba(239, 68, 68, 0.9)", "rgba(220, 38, 38, 0.9)"]}
+                    style={styles.actionButtonGradient}
+                  >
+                    <Ionicons name="stop-outline" size={18} color="#FFFFFF" />
+                    <Text style={styles.actionButtonText}>End Schedule</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
         )}
       </LinearGradient>
     </Animated.View>
   );
 };
 
-const ScheduleScreen = () => {
+const ScheduleScreen = ({ navigation }: any) => {
   const [schedules, setSchedules] = useState<DailyAssignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -478,18 +646,36 @@ const ScheduleScreen = () => {
       console.log('Final API Response:', response);
       
       if (response && Array.isArray(response)) {
-        setSchedules(response);
-        console.log('Loaded schedules array:', response.length, 'assignments');
+        // Sort assignments: today's assignment first, then by date
+        const sortedSchedules = [...response].sort((a, b) => {
+          const dateA = new Date(a.assignment_date);
+          const dateB = new Date(b.assignment_date);
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          
+          const isATodayAssignment = dateA.toDateString() === today.toDateString();
+          const isBTodayAssignment = dateB.toDateString() === today.toDateString();
+          
+          // Today's assignment comes first
+          if (isATodayAssignment && !isBTodayAssignment) return -1;
+          if (!isATodayAssignment && isBTodayAssignment) return 1;
+          
+          // If both are today or both are future/past, sort by date (ascending)
+          return dateA.getTime() - dateB.getTime();
+        });
+        
+        setSchedules(sortedSchedules);
+        console.log('Loaded and sorted schedules array:', sortedSchedules.length, 'assignments');
         // Debug: Log first assignment structure
-        if (response.length > 0) {
+        if (sortedSchedules.length > 0) {
           console.log('First assignment structure:', {
-            assignment_id: response[0].assignment_id,
-            bus_id: response[0].bus_id,
-            route_id: response[0].route_id,
-            driver_id: response[0].driver_id,
-            assignment_date: response[0].assignment_date,
+            assignment_id: sortedSchedules[0].assignment_id,
+            bus_id: sortedSchedules[0].bus_id,
+            route_id: sortedSchedules[0].route_id,
+            driver_id: sortedSchedules[0].driver_id,
+            assignment_date: sortedSchedules[0].assignment_date,
           });
-          console.log('First assignment full object:', JSON.stringify(response[0], null, 2));
+          console.log('First assignment full object:', JSON.stringify(sortedSchedules[0], null, 2));
         }
       } else if (response && !response.error && !Array.isArray(response)) {
         // If we get a single assignment, put it in an array
@@ -635,6 +821,7 @@ const ScheduleScreen = () => {
                 schedule={schedule}
                 index={index}
                 isTodayAssignment={isToday(schedule.assignment_date)}
+                navigation={navigation}
               />
             ))}
           </View>
@@ -660,7 +847,7 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 20,
-    paddingVertical: Platform.OS === "ios" ? 16 : 18,
+    paddingVertical: Platform.OS === "ios" ? 20 : 22,
     ...Platform.select({
       android: {
         elevation: 8,
@@ -677,7 +864,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    minHeight: 44,
+    minHeight: 52,
+    marginTop: 8,
   },
   titleContainer: {
     flexDirection: "row",
@@ -688,6 +876,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.1)",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.2)",
+    marginTop: 4,
   },
   headerTitle: {
     color: "#FFFFFF",
@@ -703,6 +892,7 @@ const styles = StyleSheet.create({
   },
   headerActionButton: {
     padding: 4,
+    marginTop: 4,
   },
   iconBackgroundEnhanced: {
     width: 40,
@@ -900,6 +1090,39 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: "hidden",
     marginTop: 4,
+  },
+  actionButtonDisabled: {
+    opacity: 0.7,
+  },
+  actionButtonsContainer: {
+    marginTop: 4,
+  },
+  endButton: {
+    marginTop: 8,
+  },
+  trackingIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: "rgba(16, 185, 129, 0.2)",
+    borderRadius: 12,
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  trackingDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#10B981",
+    marginRight: 8,
+  },
+  trackingText: {
+    color: "#FFFFFF",
+    fontSize: Platform.OS === "ios" ? 14 : 13,
+    fontWeight: "600",
+    fontFamily: Platform.OS === "ios" ? "System" : "Roboto",
   },
   actionButtonGradient: {
     flexDirection: "row",

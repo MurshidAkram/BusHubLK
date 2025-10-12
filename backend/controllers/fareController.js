@@ -276,7 +276,7 @@ const calculateFare = async (req, res) => {
         console.log(`📍 From: ${origin}`);
         console.log(`📍 To: ${destination}`);
 
-        const googleMapsApiKey = "AIzaSyAeXR9ct7HrHMCQXSWLrWQl5OlRYjNhbxo";
+        const googleMapsApiKey = "AIzaSyDdK_SJ8L56-s33UpzL6Gn5UYDav9ZMGdg";
         
         // Get coordinates for origin and destination
         const originCoords = await getLatLng(origin, googleMapsApiKey);
@@ -402,6 +402,95 @@ const calculateFare = async (req, res) => {
     }
 };
 
+// Get fare based on number of stops
+const getFareByStops = async (req, res) => {
+    try {
+        const { stops } = req.params;
+        const stopsCount = parseInt(stops);
+        
+        if (!stopsCount || stopsCount < 1) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Valid number of stops is required' 
+            });
+        }
+
+        console.log(`💰 Getting fare for ${stopsCount} stops`);
+
+        // Query database for exact fare
+        const fareQuery = 'SELECT fare FROM bus_fares WHERE section = $1';
+        const fareResult = await db.query(fareQuery, [stopsCount]);
+        
+        let fare;
+        
+        if (fareResult.rows.length > 0) {
+            fare = parseFloat(fareResult.rows[0].fare);
+            console.log(`✅ Found exact fare: Rs. ${fare} for ${stopsCount} stops`);
+        } else {
+            // Find closest section if exact match not found
+            const closestQuery = 'SELECT section, fare FROM bus_fares WHERE section <= $1 ORDER BY section DESC LIMIT 1';
+            const closestResult = await db.query(closestQuery, [stopsCount]);
+            
+            if (closestResult.rows.length > 0) {
+                const baseFare = parseFloat(closestResult.rows[0].fare);
+                const baseSection = closestResult.rows[0].section;
+                
+                // Extrapolate based on section difference  
+                const extraSections = stopsCount - baseSection;
+                const farePerSection = 10; // Rs. 10 per additional section
+                fare = baseFare + (extraSections * farePerSection);
+                
+                console.log(`📈 Extrapolated fare: Rs. ${fare.toFixed(2)} (from section ${baseSection})`);
+            } else {
+                // Fallback: basic calculation
+                fare = stopsCount * 15; // Rs. 15 per stop as fallback
+                console.log(`⚠️ Using fallback calculation: Rs. ${fare}`);
+            }
+        }
+
+        res.json({
+            success: true,
+            stops: stopsCount,
+            fare: parseFloat(fare.toFixed(2)),
+            currency: 'LKR'
+        });
+
+    } catch (error) {
+        console.error('Error getting fare by stops:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Server error',
+            error: error.message 
+        });
+    }
+};
+
+// Get all available fare sections
+const getAllFares = async (req, res) => {
+    try {
+        const result = await db.query('SELECT section, fare FROM bus_fares ORDER BY section');
+        
+        res.json({
+            success: true,
+            fares: result.rows.map(row => ({
+                stops: row.section,
+                fare: parseFloat(row.fare),
+                currency: 'LKR'
+            }))
+        });
+        
+    } catch (error) {
+        console.error('Error getting all fares:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Server error',
+            error: error.message 
+        });
+    }
+};
+
 module.exports = {
-    calculateFare
+    calculateFare,
+    getFareByStops,
+    getAllFares
 };

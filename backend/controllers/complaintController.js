@@ -1,6 +1,8 @@
 // File: /controllers/complaintController.js
 
 const Complaint = require('../models/Complaint');
+const BusRoute = require('../models/busRouteModel');
+const User = require('../models/userModel');
 
 // Create a new complaint
 exports.createComplaint = (req, res) => {
@@ -175,4 +177,54 @@ exports.deleteComplaint = (req, res) => {
       message: 'Complaint deleted successfully.'
     });
   });
+};
+
+/**
+ * @desc Search bus/route assignments for complaint auto-complete fields
+ * @route GET /api/complaints/bus-routes?query=
+ */
+exports.searchBusRoutes = async (req, res) => {
+  try {
+    const { query = '' } = req.query;
+    if (!query.trim()) {
+      return res.status(200).json({ success: true, data: [] });
+    }
+
+    const matches = await BusRoute.search(query.trim());
+    res.status(200).json({ success: true, data: matches });
+  } catch (error) {
+    console.error('Error searching bus routes:', error);
+    res.status(500).json({ success: false, message: 'Failed to search bus routes', error: error.message });
+  }
+};
+
+/**
+ * @desc Get the authenticated passenger contact info (email/phone)
+ * @route GET /api/complaints/my-contact
+ */
+exports.getMyContactInfo = async (req, res) => {
+  try {
+    const userId = req.user ? req.user.userId : null;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'User not authenticated' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        email: user.email || null,
+        phone: user.phone || null,
+        first_name: user.first_name || null,
+        last_name: user.last_name || null,
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching complaint contact info:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch contact info', error: error.message });
+  }
 };

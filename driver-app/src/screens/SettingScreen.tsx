@@ -10,9 +10,13 @@ import {
   SafeAreaView,
   Platform,
   StatusBar,
+  Linking,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useDriver } from "../context/DriverContext";
+import { storageAPI } from "../services/api";
 
 // App Color Palette (matching HomeScreen)
 const AppColors = {
@@ -28,17 +32,42 @@ const AppColors = {
   green: "#198754",
 };
 
-// Header component
+// Enhanced Header component with gradient
 const Header = () => (
-  <View style={styles.header}>
-    <Text style={styles.headerTitle}>Settings</Text>
-  </View>
+  <LinearGradient
+    colors={[AppColors.primary, "#0076e3"]}
+    start={{ x: 0, y: 0 }}
+    end={{ x: 1, y: 1 }}
+    style={styles.header}
+  >
+    <View style={styles.headerContent}>
+      <Ionicons
+        name="settings-outline"
+        size={24}
+        color="#FFFFFF"
+        style={{ marginRight: 8 }}
+      />
+      <Text style={styles.headerTitle}>Settings</Text>
+    </View>
+  </LinearGradient>
 );
 
-const SettingsScreen = ({ navigation }) => {
-  const [notifications, setNotifications] = useState(true);
-  const [locationTracking, setLocationTracking] = useState(true);
-  const [autoSync, setAutoSync] = useState(false);
+interface SettingItemProps {
+  icon: string;
+  title: string;
+  subtitle?: string;
+  onPress?: () => void;
+  rightComponent?: React.ReactNode;
+  showArrow?: boolean;
+}
+
+interface SettingsScreenProps {
+  navigation: any;
+}
+
+const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
+  const { driverData } = useDriver();
+  const [autoSync, setAutoSync] = useState(true);
 
   const handleLogout = async () => {
     Alert.alert("Logout", "Are you sure you want to logout?", [
@@ -48,11 +77,16 @@ const SettingsScreen = ({ navigation }) => {
         style: "destructive",
         onPress: async () => {
           try {
+            // Clear all authentication data
             await AsyncStorage.removeItem("driverToken");
             await AsyncStorage.removeItem("driverData");
-            navigation.replace("DriverLogin");
+            
+            // The RootNavigator checks auth status every second,
+            // so it will automatically redirect to login screen
+            Alert.alert("Success", "You have been logged out successfully.");
           } catch (error) {
             console.error("Logout error:", error);
+            Alert.alert("Error", "Failed to logout. Please try again.");
           }
         },
       },
@@ -60,11 +94,7 @@ const SettingsScreen = ({ navigation }) => {
   };
 
   const handleChangePassword = () => {
-    Alert.alert(
-      "Change Password",
-      "This feature is not yet available.",
-      [{ text: "OK" }]
-    );
+    navigation.navigate("ForgotPassword");
   };
 
   const handleClearCache = async () => {
@@ -76,19 +106,63 @@ const SettingsScreen = ({ navigation }) => {
         {
           text: "Clear",
           style: "destructive",
-          onPress: () => {
-            Alert.alert("Success", "Cache cleared successfully!");
+          onPress: async () => {
+            try {
+              // Use the proper storageAPI.clearCache method
+              await storageAPI.clearCache();
+              Alert.alert("Success", "Cache cleared successfully!");
+            } catch (error) {
+              Alert.alert("Error", "Failed to clear cache");
+            }
           },
         },
       ]
     );
   };
 
-  const SettingItem = ({ icon, title, subtitle, onPress, rightComponent, showArrow = true }) => (
-    <TouchableOpacity style={styles.settingItem} onPress={onPress} disabled={!onPress}>
+  const handleEmergencyCall = (number: string) => {
+    Alert.alert(
+      "Emergency Call", 
+      `Call ${number}?`, 
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Call", 
+          onPress: () => Linking.openURL(`tel:${number}`) 
+        }
+      ]
+    );
+  };
+
+  const handleHelp = () => {
+    const depotManagerInfo = driverData?.depot_manager_name 
+      ? `${driverData.depot_manager_name} (${driverData.depot_manager_phone})`
+      : "your depot manager";
+    
+    Alert.alert(
+      "Help & Support",
+      `• Check your daily assignments in the Schedule tab\n• Track your bus location in real-time\n• Report any bus issues immediately\n• Contact ${depotManagerInfo} for operational queries\n• Use emergency contacts for urgent situations\n\nFor technical support, contact ${depotManagerInfo}.`,
+      [{ text: "OK" }]
+    );
+  };
+
+  const SettingItem = ({ 
+    icon, 
+    title, 
+    subtitle, 
+    onPress, 
+    rightComponent, 
+    showArrow = true 
+  }: SettingItemProps) => (
+    <TouchableOpacity 
+      style={styles.settingItem} 
+      onPress={onPress} 
+      disabled={!onPress}
+      activeOpacity={0.7}
+    >
       <View style={styles.settingLeft}>
-        <View style={styles.settingIcon}>
-          <Ionicons name={icon} size={20} color={AppColors.red} />
+        <View style={[styles.settingIcon, { backgroundColor: AppColors.primaryMuted }]}>
+          <Ionicons name={icon as any} size={20} color={AppColors.primary} />
         </View>
         <View style={styles.settingText}>
           <Text style={styles.settingTitle}>{title}</Text>
@@ -111,36 +185,33 @@ const SettingsScreen = ({ navigation }) => {
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
       >
+        
+
         {/* App Settings */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>App Settings</Text>
           <View style={styles.sectionContent}>
             <SettingItem
-              icon="notifications-outline"
-              title="Push Notifications"
+              icon="sync-outline"
+              title="Auto Sync Data"
+              subtitle="Automatically sync your data when connected"
               rightComponent={
                 <Switch
-                  value={notifications}
-                  onValueChange={setNotifications}
+                  value={autoSync}
+                  onValueChange={setAutoSync}
                   trackColor={{ false: AppColors.border, true: AppColors.primaryMuted }}
-                  thumbColor={notifications ? AppColors.primary : AppColors.textSecondary}
+                  thumbColor={autoSync ? AppColors.primary : AppColors.textSecondary}
                 />
               }
               showArrow={false}
             />
             <SettingItem
-              icon="location-outline"
-              title="Location Tracking"
-              rightComponent={
-                <Switch
-                  value={locationTracking}
-                  onValueChange={setLocationTracking}
-                  trackColor={{ false: AppColors.border, true: AppColors.primaryMuted }}
-                  thumbColor={locationTracking ? AppColors.primary : AppColors.textSecondary}
-                />
-              }
-              showArrow={false}
+              icon="trash-outline"
+              title="Clear Cache"
+              subtitle="Clear cached data and files"
+              onPress={handleClearCache}
             />
           </View>
         </View>
@@ -152,46 +223,67 @@ const SettingsScreen = ({ navigation }) => {
             <SettingItem
               icon="person-outline"
               title="Edit Profile"
+              subtitle="Update your personal information"
               onPress={() => navigation.navigate("Profile")}
             />
             <SettingItem
               icon="lock-closed-outline"
               title="Change Password"
+              subtitle="Update your password for security"
               onPress={handleChangePassword}
             />
-            <SettingItem
-              icon="shield-checkmark-outline"
-              title="Privacy Settings"
-              onPress={() => Alert.alert("Info", "Coming soon!")}
-            />
           </View>
         </View>
 
-        {/* Data & Storage */}
+        {/* Emergency Contacts */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Data & Storage</Text>
+          <Text style={styles.sectionTitle}>Emergency Contacts</Text>
           <View style={styles.sectionContent}>
             <SettingItem
-              icon="trash-outline"
-              title="Clear Cache"
-              onPress={handleClearCache}
+              icon="call-outline"
+              title={driverData?.depot_manager_name ? `${driverData.depot_manager_name} (Depot Manager)` : "Depot Manager"}
+              subtitle={driverData?.depot_name ? `${driverData.depot_name} Depot` : "Contact your depot manager"}
+              onPress={() => handleEmergencyCall(driverData?.depot_manager_phone || "0112-345-678")}
+            />
+            <SettingItem
+              icon="medical-outline"
+              title="Emergency Services"
+              subtitle="Police, Fire, Ambulance"
+              onPress={() => handleEmergencyCall("119")}
+            />
+            <SettingItem
+              icon="bus-outline"
+              title="Transport Authority"
+              subtitle="SLTB Head Office"
+              onPress={() => handleEmergencyCall("0112-421-251")}
             />
           </View>
         </View>
 
-        {/* Support */}
+        {/* Help & Support */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Support</Text>
+          <Text style={styles.sectionTitle}>Help & Support</Text>
           <View style={styles.sectionContent}>
             <SettingItem
               icon="help-circle-outline"
-              title="Help & FAQ"
-              onPress={() => Alert.alert("Help", "Contact your depot manager for help.")}
+              title="Driver Guidelines"
+              subtitle="Important guidelines for drivers"
+              onPress={handleHelp}
             />
             <SettingItem
               icon="information-circle-outline"
-              title="About"
-              onPress={() => Alert.alert("About", "BusHubLK Driver App\nVersion 1.0.0")}
+              title="About BusHubLK"
+              subtitle="Version 1.0.0"
+              onPress={() => Alert.alert(
+                "About BusHubLK", 
+                "BusHubLK Driver App\nVersion 1.0.0\n\nDeveloped for Sri Lanka Transport Board\n\nFor technical support, contact your depot manager."
+              )}
+            />
+            <SettingItem
+              icon="flask-outline"
+              title="Test Notifications"
+              subtitle="Test the notification system"
+              onPress={() => navigation.navigate("NotificationTest")}
             />
           </View>
         </View>
@@ -213,53 +305,107 @@ const SettingsScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: AppColors.primary, // Was #005A9C
+    backgroundColor: AppColors.background,
   },
   header: {
-    backgroundColor: AppColors.primary, // Was #005A9C
-    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight + 10 : 15,
-    paddingBottom: 15,
+    paddingHorizontal: 20,
+    paddingVertical: Platform.OS === "ios" ? 20 : 22,
+    ...Platform.select({
+      android: {
+        elevation: 8,
+      },
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+      },
+    }),
+  },
+  headerContent: {
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
+    minHeight: 44,
   },
   headerTitle: {
     color: "#FFFFFF",
-    fontSize: 20,
-    fontWeight: "bold",
+    fontSize: Platform.OS === "ios" ? 21 : 20,
+    fontWeight: "600",
+    fontFamily: Platform.OS === "ios" ? "System" : "Roboto",
+    letterSpacing: 0.6,
+    textShadowColor: "rgba(0, 0, 0, 0.3)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   scrollView: {
-    backgroundColor: AppColors.background, // Was #f8fafc
+    backgroundColor: AppColors.background,
   },
   contentContainer: {
     paddingHorizontal: 20,
     paddingVertical: 20,
+    paddingBottom: 100,
   },
   section: {
     marginBottom: 24,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "bold",
-    color: AppColors.text, // Was #374151
+    color: AppColors.text,
     marginBottom: 12,
+    fontFamily: Platform.OS === "ios" ? "System" : "Roboto",
   },
   sectionContent: {
-    backgroundColor: AppColors.card, // Was #ffffff
-    borderRadius: 12,
+    backgroundColor: AppColors.card,
+    borderRadius: 16,
     overflow: "hidden",
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
+    ...Platform.select({
+      android: {
+        elevation: 2,
+      },
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+      },
+    }),
+  },
+  driverInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+  },
+  driverAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: AppColors.primaryMuted,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 16,
+  },
+  driverName: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: AppColors.text,
+    marginBottom: 4,
+    fontFamily: Platform.OS === "ios" ? "System" : "Roboto",
+  },
+  driverDetail: {
+    fontSize: 14,
+    color: AppColors.textSecondary,
+    marginBottom: 2,
   },
   settingItem: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: AppColors.border, // Was #f1f5f9
+    borderBottomColor: AppColors.border,
   },
   settingLeft: {
     flexDirection: "row",
@@ -267,10 +413,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   settingIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    backgroundColor: AppColors.primaryMuted, // Was #fef2f2
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
@@ -279,13 +424,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   settingTitle: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "600",
-    color: AppColors.text, // Was #1f2937
+    color: AppColors.text,
+    marginBottom: 2,
+    fontFamily: Platform.OS === "ios" ? "System" : "Roboto",
   },
   settingSubtitle: {
     fontSize: 13,
-    color: AppColors.textSecondary, // Was #6b7280
+    color: AppColors.textSecondary,
   },
   settingRight: {
     flexDirection: "row",
@@ -295,13 +442,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 14,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
   },
   logoutText: {
     fontSize: 16,
     fontWeight: "600",
-    color: AppColors.red, // Was #ef4444
+    color: AppColors.red,
     marginLeft: 8,
+    fontFamily: Platform.OS === "ios" ? "System" : "Roboto",
   },
 });
 

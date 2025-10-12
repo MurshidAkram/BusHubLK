@@ -1,19 +1,22 @@
-import React, { useState, useRef } from "react";
-
+import React, { useState, useRef, useCallback } from "react";
 import {
   StyleSheet,
   View,
   Text,
-  ScrollView,
   TouchableOpacity,
-  TextInput,
-  Image,
-  Platform,
   Alert,
   ActivityIndicator,
+  Platform,
+  Keyboard,
+  Pressable,
+  ScrollView,
+  TextInput,
+  TouchableWithoutFeedback,
+  Image,
   Animated,
 } from "react-native";
-import { storageAPI } from "../services/api";
+import { storageAPI, complaintAPI } from "../services/api";
+import { API_BASE_URL } from "../config/api";
 import { useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { RootStackParamList } from "../types/navigation";
@@ -47,6 +50,17 @@ const AppColors = {
 };
 
 type ComplaintsScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Complaints'>;
+
+interface BusRouteSuggestion {
+  bus_route_id: number;
+  bus_id: number | null;
+  route_id: number | null;
+  registration_number: string | null;
+  bus_registration?: string | null;
+  route_number: string | null;
+  route_name?: string | null;
+  bus_name?: string | null;
+}
 
 export default function ComplaintsScreen() {
   const navigation = useNavigation<ComplaintsScreenNavigationProp>();
@@ -88,6 +102,61 @@ export default function ComplaintsScreen() {
   const [description, setDescription] = useState("");
   const [contactInfo, setContactInfo] = useState("");
   const [image, setImage] = useState<string | null>(null);
+  const [routeSuggestions, setRouteSuggestions] = useState<BusRouteSuggestion[]>([]);
+  const [busSuggestions, setBusSuggestions] = useState<BusRouteSuggestion[]>([]);
+  const [isRouteLoading, setIsRouteLoading] = useState(false);
+  const [isBusLoading, setIsBusLoading] = useState(false);
+  const routeSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const busSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  React.useEffect(() => {
+    let isMounted = true;
+
+    const prefillContactInfo = async () => {
+      try {
+        if (contactInfo) {
+          return;
+        }
+
+        const storedUser = await storageAPI.getUserData();
+        if (isMounted && storedUser && (storedUser.email || storedUser.phone)) {
+          setContactInfo(storedUser.email ?? storedUser.phone ?? "");
+          return;
+        }
+
+        const response = await complaintAPI.getMyContactInfo();
+        if (!isMounted) {
+          return;
+        }
+
+        if (response?.success && response.data) {
+          const preferred = response.data.email || response.data.phone;
+          if (preferred) {
+            setContactInfo(preferred);
+          }
+        }
+      } catch (error) {
+        console.error("Error pre-filling complaint contact info:", error);
+      }
+    };
+
+    prefillContactInfo();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [contactInfo]);
+
+  React.useEffect(() => {
+    return () => {
+      if (routeSearchTimeout.current) {
+        clearTimeout(routeSearchTimeout.current);
+      }
+      if (busSearchTimeout.current) {
+        clearTimeout(busSearchTimeout.current);
+      }
+    };
+  }, []);
 
   // Date & Time Picker State
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -116,7 +185,7 @@ export default function ComplaintsScreen() {
     }
 
     let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [4, 3],
       quality: 0.7,
@@ -126,6 +195,115 @@ export default function ComplaintsScreen() {
       setImage(result.assets[0].uri);
     }
   };
+
+  const fetchBusRouteSuggestions = useCallback(async (query: string, mode: "route" | "bus") => {
+    const trimmed = query.trim();
+    if (!trimmed) {
+      if (mode === "route") {
+        setRouteSuggestions([]);
+      } else {
+        setBusSuggestions([]);
+      }
+      return;
+    }
+
+    try {
+      if (mode === "route") {
+        setIsRouteLoading(true);
+      } else {
+        setIsBusLoading(true);
+      }
+
+      const response = await complaintAPI.searchBusRoutes(trimmed);
+      const matches: BusRouteSuggestion[] = Array.isArray(response?.data) ? response.data : [];
+
+      if (mode === "route") {
+        setRouteSuggestions(matches.slice(0, 8));
+      } else {
+        setBusSuggestions(matches.slice(0, 8));
+      }
+    } catch (error) {
+      console.error("Error searching bus routes:", error);
+    } finally {
+      if (mode === "route") {
+        setIsRouteLoading(false);
+      } else {
+        setIsBusLoading(false);
+      }
+    }
+  }, []);
+
+  const scheduleRouteSearch = useCallback((value: string) => {
+    if (routeSearchTimeout.current) {
+      clearTimeout(routeSearchTimeout.current);
+    }
+    routeSearchTimeout.current = setTimeout(() => {
+      fetchBusRouteSuggestions(value, "route");
+    }, 350);
+  }, [fetchBusRouteSuggestions]);
+
+  const scheduleBusSearch = useCallback((value: string) => {
+    if (busSearchTimeout.current) {
+      clearTimeout(busSearchTimeout.current);
+    }
+    busSearchTimeout.current = setTimeout(() => {
+      fetchBusRouteSuggestions(value, "bus");
+    }, 350);
+  }, [fetchBusRouteSuggestions]);
+
+  const handleRouteInputChange = useCallback((value: string) => {
+    setRouteNumber(value);
+    scheduleRouteSearch(value);
+  }, [scheduleRouteSearch]);
+
+  const handleBusInputChange = useCallback((value: string) => {
+    setBusNumber(value);
+    scheduleBusSearch(value);
+  }, [scheduleBusSearch]);
+
+  const handleRouteFocus = useCallback(() => {
+    if (routeNumber.trim()) {
+      fetchBusRouteSuggestions(routeNumber, "route");
+    }
+  }, [fetchBusRouteSuggestions, routeNumber]);
+
+  const handleBusFocus = useCallback(() => {
+    if (busNumber.trim()) {
+      fetchBusRouteSuggestions(busNumber, "bus");
+    }
+  }, [fetchBusRouteSuggestions, busNumber]);
+
+  const handleRouteBlur = useCallback(() => {
+    if (routeSearchTimeout.current) {
+      clearTimeout(routeSearchTimeout.current);
+      routeSearchTimeout.current = null;
+    }
+    setTimeout(() => setRouteSuggestions([]), 150);
+  }, []);
+
+  const handleBusBlur = useCallback(() => {
+    if (busSearchTimeout.current) {
+      clearTimeout(busSearchTimeout.current);
+      busSearchTimeout.current = null;
+    }
+    setTimeout(() => setBusSuggestions([]), 150);
+  }, []);
+
+  const handleSelectSuggestion = useCallback((suggestion: BusRouteSuggestion) => {
+    const derivedRoute = suggestion.route_number ?? "";
+    const derivedBus = suggestion.registration_number ?? suggestion.bus_registration ?? "";
+
+    if (derivedRoute) {
+      setRouteNumber(derivedRoute);
+    }
+    if (derivedBus) {
+      setBusNumber(derivedBus);
+    }
+
+    setRouteSuggestions([]);
+    setBusSuggestions([]);
+    Keyboard.dismiss();
+  }, []);
 
   const handleSubmit = async () => {
     if (!complaintTypeValue || !routeNumber || !location || !description || !contactInfo) {
@@ -166,13 +344,34 @@ export default function ComplaintsScreen() {
         } as any);
       }
 
-      // Using your specified baseURL
-      const baseURL = 'http://192.168.43.114:5000';
-      const response = await fetch(`${baseURL}/api/complaints/submit`, {
+      // Use the configured API base URL instead of hardcoded IP
+      const submitUrl = `${API_BASE_URL}/api/complaints/submit`;
+      
+      console.log('🚀 Starting complaint submission to:', submitUrl);
+      console.log('📦 FormData contents:', {
+        complaintType: complaintTypeValue,
+        routeNumber,
+        busNumber,
+        location,
+        priority,
+        hasImage: !!image
+      });
+      
+      // Create a timeout promise
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('timeout')), 25000) // Increased to 25s
+      );
+      
+      const fetchPromise = fetch(submitUrl, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData,
       });
+      
+      // Race between fetch and timeout
+      console.log('⏱️ Starting fetch with 25s timeout...');
+      const response = await Promise.race([fetchPromise, timeoutPromise]) as Response;
+      console.log('✅ Response received:', response.status, response.statusText);
 
       const result = await response.json();
 
@@ -183,9 +382,24 @@ export default function ComplaintsScreen() {
       } else {
         Alert.alert("Submission Failed", result.message || "Could not submit your complaint.");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error submitting complaint:", error);
-      Alert.alert("An Error Occurred", "Please check your connection and try again.");
+      
+      // Handle different types of errors with specific messages
+      if (error.message && error.message.includes('timeout')) {
+        console.log('🕐 Complaint submission timed out after 25 seconds');
+        Alert.alert(
+          "Connection Timeout", 
+          "Your complaint submission is taking longer than expected. This might be due to:\n\n• Slow internet connection\n• Server overload\n• Large image file\n\nPlease try again or contact support."
+        );
+      } else if (error.message && error.message.includes('Network request failed')) {
+        Alert.alert(
+          "Network Error", 
+          "Unable to connect to the server. Please check:\n\n• Your internet connection\n• Server availability\n• Try again in a moment"
+        );
+      } else {
+        Alert.alert("An Error Occurred", `Please check your connection and try again.\n\nError: ${error.message}`);
+      }
     } finally {
 
       setIsSubmitting(false);
@@ -277,25 +491,106 @@ export default function ComplaintsScreen() {
             />
 
             <View style={styles.row}>
-              <View style={styles.inputGroup}>
+              <View style={[styles.inputGroup, styles.autocompleteWrapper]}>
                 <Text style={styles.label}>Route No.</Text>
                 <View style={styles.enhancedInputContainer}>
                   <Ionicons name="bus-outline" size={20} color={AppColors.primary} style={styles.inputIcon} />
-                  <TextInput style={styles.inputText} placeholder="e.g., 177" value={routeNumber} onChangeText={setRouteNumber} />
+                  <TextInput
+                    style={styles.inputText}
+                    placeholder="e.g., 177"
+                    value={routeNumber}
+                    onChangeText={handleRouteInputChange}
+                    onFocus={handleRouteFocus}
+                    onBlur={handleRouteBlur}
+                    autoCapitalize="characters"
+                  />
                 </View>
+                {(isRouteLoading || (routeSuggestions.length > 0 && routeNumber.trim().length > 0)) && (
+                  <View style={styles.suggestionsWrapper}>
+                    {isRouteLoading ? (
+                      <View style={styles.suggestionLoading}>
+                        <ActivityIndicator size="small" color={AppColors.primary} />
+                      </View>
+                    ) : (
+                      routeSuggestions.map((suggestion, index) => {
+                        const suggestionKey = `route-sugg-${suggestion.bus_route_id ?? index}-${index}`;
+                        const isLast = index === routeSuggestions.length - 1;
+                        return (
+                          <TouchableOpacity
+                            key={suggestionKey}
+                            style={[styles.suggestionItem, isLast && styles.suggestionItemLast]}
+                            onPress={() => handleSelectSuggestion(suggestion)}
+                          >
+                            <View>
+                              <Text style={styles.suggestionPrimary}>{suggestion.route_number || "Route not assigned"}</Text>
+                              {suggestion.route_name ? (
+                                <Text style={styles.suggestionSecondary}>{suggestion.route_name}</Text>
+                              ) : null}
+                            </View>
+                            {(suggestion.registration_number || suggestion.bus_registration) ? (
+                              <Text style={styles.suggestionBadge}>
+                                {suggestion.registration_number || suggestion.bus_registration}
+                              </Text>
+                            ) : null}
+                          </TouchableOpacity>
+                        );
+                      })
+                    )}
+                  </View>
+                )}
               </View>
-              <View style={styles.inputGroup}>
+              <View style={[styles.inputGroup, styles.autocompleteWrapper]}>
                 <Text style={styles.label}>Bus No. (Optional)</Text>
                 <View style={styles.enhancedInputContainer}>
                   <Ionicons name="information-circle-outline" size={20} color={AppColors.secondary} style={styles.inputIcon} />
-                  <TextInput style={styles.inputText} placeholder="e.g., ND-1234" value={busNumber} onChangeText={setBusNumber} />
+                  <TextInput
+                    style={styles.inputText}
+                    placeholder="e.g., ND-1234"
+                    value={busNumber}
+                    onChangeText={handleBusInputChange}
+                    onFocus={handleBusFocus}
+                    onBlur={handleBusBlur}
+                    autoCapitalize="characters"
+                  />
                 </View>
-
+                {(isBusLoading || (busSuggestions.length > 0 && busNumber.trim().length > 0)) && (
+                  <View style={styles.suggestionsWrapper}>
+                    {isBusLoading ? (
+                      <View style={styles.suggestionLoading}>
+                        <ActivityIndicator size="small" color={AppColors.primary} />
+                      </View>
+                    ) : (
+                      busSuggestions.map((suggestion, index) => {
+                        const suggestionKey = `bus-sugg-${suggestion.bus_route_id ?? index}-${index}`;
+                        const isLast = index === busSuggestions.length - 1;
+                        const busLabel = suggestion.registration_number || suggestion.bus_registration || "Bus not assigned";
+                        const routeLabel = suggestion.route_number
+                          ? `Route ${suggestion.route_number}${suggestion.route_name ? ` · ${suggestion.route_name}` : ""}`
+                          : suggestion.route_name || "";
+                        return (
+                          <TouchableOpacity
+                            key={suggestionKey}
+                            style={[styles.suggestionItem, isLast && styles.suggestionItemLast]}
+                            onPress={() => handleSelectSuggestion(suggestion)}
+                          >
+                            <View>
+                              <Text style={styles.suggestionPrimary}>{busLabel}</Text>
+                              {routeLabel ? (
+                                <Text style={styles.suggestionSecondary}>{routeLabel}</Text>
+                              ) : null}
+                            </View>
+                            {suggestion.route_number ? (
+                              <Text style={styles.suggestionBadge}>{suggestion.route_number}</Text>
+                            ) : null}
+                          </TouchableOpacity>
+                        );
+                      })
+                    )}
+                  </View>
+                )}
               </View>
             </View>
           </View>
-        
-
 
           {/* --- CARD 2: TIME & PLACE --- */}
           <View style={styles.card}>
@@ -416,6 +711,14 @@ const styles = StyleSheet.create({
     helperText:{fontSize:14,color:AppColors.textSecondary,marginTop:8,marginLeft:5, fontStyle: 'italic'},
     submitButton:{backgroundColor:AppColors.primary,paddingVertical:18,borderRadius:16,alignItems:"center",marginTop:10,elevation:4,shadowColor:AppColors.primary,shadowOffset:{width:0,height:4},shadowOpacity:0.3,shadowRadius:8},
     submitButtonDisabled:{backgroundColor:AppColors.textSecondary},
-    submitButtonText:{color:"#FFFFFF",fontSize:18,fontWeight:"700"},
+  submitButtonText:{color:"#FFFFFF",fontSize:18,fontWeight:"700"},
+  autocompleteWrapper:{zIndex:40},
+  suggestionsWrapper:{marginTop:8,backgroundColor:AppColors.card,borderRadius:12,borderWidth:1,borderColor:AppColors.borderLight,shadowColor:AppColors.shadow,shadowOffset:{width:0,height:4},shadowOpacity:0.15,shadowRadius:10,elevation:4,maxHeight:200,overflow:"hidden"},
+  suggestionLoading:{paddingVertical:16,alignItems:"center",justifyContent:"center"},
+  suggestionItem:{paddingVertical:12,paddingHorizontal:14,flexDirection:"row",alignItems:"center",justifyContent:"space-between",borderBottomWidth:1,borderBottomColor:AppColors.borderLight},
+  suggestionItemLast:{borderBottomWidth:0},
+  suggestionPrimary:{fontSize:16,fontWeight:"600",color:AppColors.text},
+  suggestionSecondary:{fontSize:13,color:AppColors.textSecondary,marginTop:2},
+  suggestionBadge:{fontSize:12,fontWeight:"700",color:AppColors.primaryDark,backgroundColor:AppColors.primaryLight,paddingHorizontal:10,paddingVertical:4,borderRadius:999},
 
 });

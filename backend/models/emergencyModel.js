@@ -7,11 +7,11 @@ const Emergency = {
    * @returns {Promise<object>} The newly created report.
    */
 createReport: async (reportData, client = pool) => { // <-- Add client parameter
-  const { driver_id, incidentType, description, latitude, longitude } = reportData;
+  const { driver_id, bus_id, assignment_id, incidentType, description, latitude, longitude } = reportData;
   const query = {
-    text: `INSERT INTO emergency_reports(driver_id, incident_type, description, latitude, longitude)
-           VALUES($1, $2, $3, $4, $5) RETURNING *`,
-    values: [driver_id, incidentType, description, latitude, longitude],
+    text: `INSERT INTO emergency_reports(driver_id, bus_id, assignment_id, incident_type, description, latitude, longitude)
+           VALUES($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+    values: [driver_id, bus_id, assignment_id, incidentType, description, latitude, longitude],
   };
   const { rows } = await client.query(query); // <-- Use client instead of pool
   return rows[0];

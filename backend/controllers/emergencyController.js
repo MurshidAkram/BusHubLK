@@ -1,8 +1,9 @@
+
 const Emergency = require('../models/emergencyModel');
 const pool = require('../config/db'); 
 
 const createEmergencyReport = async (req, res) => {
-  const { incidentType, description, location, driver_id } = req.body;
+  const { incidentType, description, location, driver_id, bus_id, assignment_id } = req.body;
 
   if (!driver_id) {
     return res.status(400).json({ message: 'Driver ID is required to create a report.' });
@@ -18,6 +19,8 @@ const createEmergencyReport = async (req, res) => {
 
     const reportData = {
       driver_id,
+      bus_id,
+      assignment_id,
       incidentType,
       description,
       latitude: location.latitude,

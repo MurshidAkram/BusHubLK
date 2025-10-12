@@ -63,7 +63,7 @@ INSERT INTO roles (role_name, role_description) VALUES
 INSERT INTO regions (region_name) VALUES
 ('Colombo'),
 ('Gampaha'),
-('Kaluthara'), ..
+('Kaluthara'),
 ('Wayamba'),
 ('Mahanuwara'),
 ('Sabaragamuwa'),
@@ -489,30 +489,62 @@ INSERT INTO routes (route_number, route_name, start_location, end_location, dist
 
 
 
-CREATE TABLE route_stops (
-    stop_id SERIAL PRIMARY KEY,
-    route_id INTEGER REFERENCES routes(route_id) ON DELETE CASCADE,
-    stop_name VARCHAR(100) NOT NULL,
-    stop_order INTEGER NOT NULL,
-    distance_from_start DECIMAL(5,2),
-    fare_from_start DECIMAL(6,2),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+-- Table: public.route_stops
+CREATE TABLE IF NOT EXISTS public.route_stops
+(
+    stop_id integer NOT NULL GENERATED ALWAYS AS IDENTITY ( INCREMENT 1 START 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1 ),
+    route_number character varying(10) COLLATE pg_catalog."default" NOT NULL,
+    stop_name character varying(100) COLLATE pg_catalog."default" NOT NULL,
+    stop_order integer NOT NULL,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT route_stops_pkey PRIMARY KEY (stop_id),
+    CONSTRAINT route_stops_unique_route_stop UNIQUE (route_number, stop_order),
+    CONSTRAINT route_stops_route_number_fkey FOREIGN KEY (route_number)
+        REFERENCES public.routes (route_number) MATCH SIMPLE
+        ON UPDATE NO ACTION
+        ON DELETE CASCADE
 );
 
-CREATE INDEX idx_route_stops_route_id ON route_stops(route_id);
-CREATE INDEX idx_route_stops_order ON route_stops(route_id, stop_order);
+CREATE INDEX idx_route_stops_route_number ON route_stops(route_number);
+CREATE INDEX idx_route_stops_order ON route_stops(route_number, stop_order);
 
--- Sample stops for route 154 (Kiribathgoda-Angulana)
-INSERT INTO route_stops (route_id, stop_name, stop_order, distance_from_start, fare_from_start) VALUES 
-(1, 'Kiribathgoda', 1, 0.0, 0.00),
-(1, 'Kelaniya', 2, 3.2, 8.00),
-(1, 'Peliyagoda', 3, 6.8, 12.00),
-(1, 'Colombo', 4, 12.5, 18.00),
-(1, 'Wellawatte', 5, 18.3, 25.00),
-(1, 'Dehiwala', 6, 22.1, 30.00),
-(1, 'Mount Lavinia', 7, 25.7, 35.00),
-(1, 'Moratuwa', 8, 30.2, 40.00),
-(1, 'Angulana', 9, 35.5, 45.00);
+-- Sample stops for route 138 (Pettah-Malabe)
+INSERT INTO route_stops (route_number, stop_name, stop_order) VALUES 
+('138', 'Pettah Bus Station', 1),
+('138', 'Fort Railway Station', 2),
+('138', 'Colombo Central Bus Stand', 3),
+('138', 'Borella', 4),
+('138', 'Narahenpita', 5),
+('138', 'Rajagiriya', 6),
+('138', 'Battaramulla', 7),
+('138', 'Malabe', 8),
+('138', 'Kirulapone Bus Stop', 9);
+
+-- Table: public.bus_fares
+CREATE TABLE IF NOT EXISTS public.bus_fares
+(
+    section integer NOT NULL,
+    fare numeric(10,2) NOT NULL,
+    CONSTRAINT fares_pkey PRIMARY KEY (section)
+);
+
+-- Sample bus fare data based on number of stops/sections
+INSERT INTO bus_fares (section, fare) VALUES 
+(1, 25.00),   -- 1 stop
+(2, 35.00),   -- 2 stops  
+(3, 45.00),   -- 3 stops
+(4, 55.00),   -- 4 stops
+(5, 65.00),   -- 5 stops
+(6, 75.00),   -- 6 stops
+(7, 85.00),   -- 7 stops
+(8, 95.00),   -- 8 stops
+(9, 105.00),  -- 9 stops
+(10, 115.00), -- 10 stops
+(15, 150.00), -- 15 stops
+(20, 200.00), -- 20 stops
+(25, 250.00), -- 25 stops
+(30, 300.00); -- 30 stops
 
 CREATE TABLE alerts (
     id SERIAL PRIMARY KEY,
@@ -958,3 +990,5 @@ BEGIN
     RETURN new_channel_id;
 END;
 $$ LANGUAGE plpgsql;
+-- Index for better performance
+CREATE INDEX idx_spare_parts_depot ON spare_parts_inventory(depot_id);
