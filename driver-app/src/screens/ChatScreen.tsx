@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -17,17 +17,76 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
+import { API_BASE_URL } from '../config/api';
 
-const API_BASE_URL = 'http://192.168.43.114:5000/api'; // Make sure this IP is correct
 
-const ChatScreen = ({ route, navigation }) => {
+
+const AppColors = {
+  background: '#F8F9FA',
+  card: '#FFFFFF',
+  primary: '#0056b3',
+  primaryLight: '#0076e3',
+  text: '#212529',
+  textSecondary: '#6C757D',
+  border: '#DEE2E6',
+  activeBlue: '#E7F1FF',
+};
+
+type Report = {
+  id: number;
+  driver_id: number;
+  [key: string]: unknown;
+};
+
+type ChatMessage = {
+  id: number;
+  text: string;
+  sender_type: 'driver' | 'depot';
+  created_at: string;
+};
+
+type ChatScreenProps = {
+  route: { params: { report: Report } };
+  navigation: { goBack: () => void };
+};
+
+const normalizeMessage = (message: any): ChatMessage => ({
+  id: Number(message.id),
+  text: message.text ?? '',
+  sender_type: message.sender_type === 'driver' || message.sender === 'driver' ? 'driver' : 'depot',
+  created_at: message.created_at ?? new Date().toISOString(),
+});
+
+const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
   const { report } = route.params;
-  const [messages, setMessages] = useState([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
-  const [depotPhoneNumber, setDepotPhoneNumber] = useState(null); // 👈 2. ADD STATE for phone number
-  const flatListRef = useRef(null);
+  const [depotPhoneNumber, setDepotPhoneNumber] = useState<string | null>(null); // 👈 2. ADD STATE for phone number
+  const flatListRef = useRef<FlatList<ChatMessage> | null>(null);
+
+  const reportMeta = useMemo(() => {
+    const incidentType = typeof report?.incident_type === 'string' ? report.incident_type : 'Emergency Report';
+    const status = typeof report?.status === 'string' ? report.status : 'Pending';
+    const createdAtRaw = typeof report?.created_at === 'string' ? report.created_at : undefined;
+    const createdAt = createdAtRaw ? new Date(createdAtRaw) : null;
+
+    return {
+      incidentTitle: incidentType,
+      status,
+      created: createdAt ? createdAt.toLocaleString() : 'Awaiting timestamp',
+    };
+  }, [report]);
+
+  const statusColors = useMemo(() => ({
+    Resolved: { background: '#E6F4EA', color: '#2F8F4E' },
+    Acknowledged: { background: '#FFF4E5', color: '#C27803' },
+    Pending: { background: '#E0EBFF', color: AppColors.primary },
+  }), []);
+
+  const statusStyle = statusColors[reportMeta.status as keyof typeof statusColors] ?? { background: AppColors.activeBlue, color: AppColors.primary };
 
   const fetchMessages = useCallback(async () => {
     try {
@@ -40,7 +99,8 @@ const ChatScreen = ({ route, navigation }) => {
       
       const reportWithMessages = await response.json();
       if (reportWithMessages && reportWithMessages.messages) {
-        setMessages(reportWithMessages.messages);
+        const normalizedMessages = reportWithMessages.messages.map((message: any) => normalizeMessage(message));
+        setMessages(normalizedMessages);
       }
     } catch (error) {
       console.error("Failed to fetch messages directly:", error);
@@ -87,7 +147,7 @@ const ChatScreen = ({ route, navigation }) => {
     setInputText('');
     setIsSending(true);
 
-    const optimisticMessage = {
+    const optimisticMessage: ChatMessage = {
       id: Math.random(),
       text: textToSend,
       sender_type: 'driver',
@@ -131,13 +191,22 @@ const ChatScreen = ({ route, navigation }) => {
     );
   };
 
-  const renderMessage = ({ item }) => {
+  const renderMessage = ({ item }: { item: ChatMessage }) => {
     const isUserMessage = item.sender_type === 'driver';
     return (
       <View style={[styles.messageWrapper, isUserMessage ? styles.userWrapper : styles.depotWrapper]}>
-        <View style={[styles.messageBubble, isUserMessage ? styles.userMessage : styles.depotMessage]}>
-          <Text style={styles.messageText}>{item.text}</Text>
-        </View>
+        {isUserMessage ? (
+          <LinearGradient
+            colors={[AppColors.primary, AppColors.primaryLight]}
+            style={[styles.messageBubble, styles.userMessage]}
+          >
+            <Text style={[styles.messageText, styles.userMessageText]}>{item.text}</Text>
+          </LinearGradient>
+        ) : (
+          <View style={[styles.messageBubble, styles.depotMessage]}>
+            <Text style={styles.messageText}>{item.text}</Text>
+          </View>
+        )}
         <Text style={styles.timestampText}>
           {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </Text>
@@ -149,22 +218,26 @@ const ChatScreen = ({ route, navigation }) => {
     return (
         <SafeAreaView style={styles.safeArea}>
             <View style={styles.header}><Text style={styles.headerTitle}>Loading Chat...</Text></View>
-            <ActivityIndicator size="large" color="#FFFFFF" style={{ flex: 1 }}/>
+            <ActivityIndicator size="large" color={AppColors.primary} style={{ flex: 1 }}/>
         </SafeAreaView>
     );
   }
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle="light-content" backgroundColor={AppColors.primary} />
       {/* 👇 6. MODIFY the header to include the call button */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="white" />
+          <Ionicons name="arrow-back" size={24} color={AppColors.card} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Chat with Depot</Text>
-        <TouchableOpacity onPress={handleCall} style={styles.callButton} disabled={!depotPhoneNumber}>
-            <Ionicons name="call" size={23} color={depotPhoneNumber ? "white" : "#FFFFFF"} />
+        <TouchableOpacity
+          onPress={handleCall}
+          style={[styles.callButton, !depotPhoneNumber && styles.callButtonDisabled]}
+          disabled={!depotPhoneNumber}
+        >
+            <Ionicons name="call" size={23} color={AppColors.card} />
         </TouchableOpacity>
       </View>
 
@@ -173,13 +246,20 @@ const ChatScreen = ({ route, navigation }) => {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
-        <FlatList
+        <FlatList<ChatMessage>
           ref={flatListRef}
           data={messages}
           renderItem={renderMessage}
           keyExtractor={(item) => item.id.toString()}
           style={styles.chatArea}
-          contentContainerStyle={{ paddingVertical: 10 }}
+          contentContainerStyle={styles.chatListContent}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Ionicons name="chatbubble-ellipses" size={48} color={AppColors.textSecondary} />
+              <Text style={styles.emptyTitle}>No messages yet</Text>
+              <Text style={styles.emptySubtitle}>Use the message box below to reach out to the depot.</Text>
+            </View>
+          }
           onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
           onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
         />
@@ -192,8 +272,8 @@ const ChatScreen = ({ route, navigation }) => {
             placeholder="Type your message..."
             placeholderTextColor="#9ca3af"
           />
-          <TouchableOpacity style={[styles.sendButton, isSending && { backgroundColor: '#9ca3af' }]} onPress={handleSend} disabled={isSending}>
-            {isSending ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Ionicons name="send" size={22} color="#FFFFFF" />}
+          <TouchableOpacity style={[styles.sendButton, isSending && styles.sendButtonDisabled]} onPress={handleSend} disabled={isSending}>
+            {isSending ? <ActivityIndicator size="small" color={AppColors.card} /> : <Ionicons name="send" size={22} color={AppColors.card} />}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -203,37 +283,107 @@ const ChatScreen = ({ route, navigation }) => {
 
 // 👇 7. ADD styles for the new button
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#111827' },
+  safeArea: { flex: 1, backgroundColor: AppColors.background },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12,
-    backgroundColor: '#1c5bb4ff', paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 16,
-    borderBottomWidth: 1, borderBottomColor: '#374151'
+    backgroundColor: AppColors.primary, paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 12 : 20,
+    borderBottomWidth: 1, borderBottomColor: AppColors.primaryLight,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 3,
   },
   backButton: { padding: 4 },
   callButton: { padding: 4 }, // Style for the call button
-  headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF' },
-  chatArea: { flex: 1, paddingHorizontal: 10 },
+  callButtonDisabled: { opacity: 0.5 },
+  headerTitle: { fontSize: 18, fontWeight: 'bold', color: AppColors.card },
+  reportCard: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 10,
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: AppColors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  reportRow: { flexDirection: 'row', alignItems: 'center' },
+  reportIconWrapper: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: AppColors.card,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: AppColors.border,
+    marginRight: 12,
+  },
+  reportDetails: { flex: 1 },
+  reportTitle: { fontSize: 17, fontWeight: '600', color: AppColors.text, marginBottom: 4 },
+  reportSubtitle: { fontSize: 13, color: AppColors.textSecondary },
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  statusBadgeText: { fontSize: 12, fontWeight: '700' },
+  chatArea: { flex: 1, paddingHorizontal: 10, backgroundColor: AppColors.background },
+  chatListContent: { paddingVertical: 12 },
   messageWrapper: { marginVertical: 5, maxWidth: '85%' },
   userWrapper: { alignSelf: 'flex-end' },
   depotWrapper: { alignSelf: 'flex-start' },
-  messageBubble: { paddingVertical: 10, paddingHorizontal: 14, borderRadius: 18 },
-  userMessage: { backgroundColor: '#1c5bb4ff', borderBottomRightRadius: 4 },
-  depotMessage: { backgroundColor: '#374151', borderBottomLeftRadius: 4 },
-  messageText: { color: '#FFFFFF', fontSize: 16 },
-  timestampText: { color: '#6b7280', fontSize: 11, marginTop: 4, marginHorizontal: 6 },
+  messageBubble: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  userMessage: { borderBottomRightRadius: 6, borderColor: 'transparent', overflow: 'hidden' },
+  depotMessage: { backgroundColor: AppColors.card, borderBottomLeftRadius: 6, borderColor: AppColors.border },
+  messageText: { color: AppColors.text, fontSize: 16, lineHeight: 22 },
+  timestampText: { color: AppColors.textSecondary, fontSize: 11, marginTop: 4, marginHorizontal: 6 },
   inputContainer: {
-    flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8,
-    borderTopWidth: 1, borderTopColor: '#374151', backgroundColor: '#1f2937',
+    flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10,
+    borderTopWidth: 1, borderTopColor: AppColors.border, backgroundColor: AppColors.card,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
+    elevation: 6,
   },
   input: {
-    flex: 1, backgroundColor: '#374151', color: '#FFFFFF', borderRadius: 22,
-    paddingHorizontal: 16, paddingVertical: Platform.OS === 'ios' ? 12 : 8,
+    flex: 1, backgroundColor: AppColors.background, color: AppColors.text, borderRadius: 22,
+    paddingHorizontal: 16, paddingVertical: Platform.OS === 'ios' ? 12 : 10,
     fontSize: 16, marginRight: 8,
+    borderWidth: 1,
+    borderColor: AppColors.border,
   },
   sendButton: {
-    backgroundColor: '#1c5bb4ff', borderRadius: 22, width: 44, height: 44,
+    backgroundColor: AppColors.primary, borderRadius: 22, width: 44, height: 44,
     justifyContent: 'center', alignItems: 'center',
   },
+  sendButtonDisabled: { backgroundColor: AppColors.textSecondary },
+  userMessageText: { color: AppColors.card },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 60,
+    gap: 12,
+  },
+  emptyTitle: { fontSize: 18, fontWeight: '600', color: AppColors.text },
+  emptySubtitle: { fontSize: 14, color: AppColors.textSecondary, textAlign: 'center', paddingHorizontal: 24 },
 });
 
 export default ChatScreen;

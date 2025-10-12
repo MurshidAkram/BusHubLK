@@ -10,6 +10,7 @@ router.get('/routes/search', lostFoundController.searchRoutes);
 router.get('/regions', lostFoundController.getRegions);
 router.get('/routes/:route_number/buses', lostFoundController.getBusesForRoute);
 router.get('/statistics', lostFoundController.getStatistics);
+router.get('/depots', lostFoundController.getDepots);
 
 // Submit a new lost/found report (public route)
 router.post('/reports', lostFoundController.uploadMiddleware, lostFoundController.submitReport);
@@ -34,5 +35,8 @@ router.get('/reports/:report_id/matches', lostFoundController.getMatches);
 
 // Update match status
 router.put('/matches/:match_id', lostFoundController.updateMatchStatus);
+
+// Update depot handover information
+router.post('/reports/:reportId/depot-handover', lostFoundController.updateDepotHandover);
 
 module.exports = router;

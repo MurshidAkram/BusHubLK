@@ -189,6 +189,9 @@ const getDepotServiceMonitor = async (req, res) => {
           // Get last completed inspection date for this depot
           const lastInspectionResult = await RegionDepot.getLastInspectionDate(depot.depot_id);
 
+          // Get detailed bus information for this depot
+          const buses = await RegionDepot.getBusDetailsByDepot(depot.depot_id);
+
           return {
             depot: depot.depot_name,
             depot_id: depot.depot_id,
@@ -197,7 +200,8 @@ const getDepotServiceMonitor = async (req, res) => {
             in_service: parseInt(busStatusResults.in_service) || 0,
             out_of_service: parseInt(busStatusResults.out_of_service) || 0,
             under_maintenance: parseInt(busStatusResults.under_maintenance) || 0,
-            lastInspection: lastInspectionResult?.last_inspection_date || 'Never'
+            lastInspection: lastInspectionResult?.last_inspection_date || 'Never',
+            buses
           };
         } catch (error) {
           console.error(`Error getting service data for depot ${depot.depot_id}:`, error);
@@ -209,7 +213,8 @@ const getDepotServiceMonitor = async (req, res) => {
             in_service: 0,
             out_of_service: 0,
             under_maintenance: 0,
-            lastInspection: 'Error'
+            lastInspection: 'Error',
+            buses: []
           };
         }
       })

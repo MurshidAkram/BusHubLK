@@ -1,3 +1,4 @@
+
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
@@ -256,6 +257,14 @@ try {
 }
 
 try {
+  const depotEngineerNotificationRoutes = require('./routes/depotEngineerNotificationRoutes');
+  app.use('/api/depot-engineer', depotEngineerNotificationRoutes);
+  console.log('✅ depotEngineerNotificationRoutes loaded');
+} catch (error) {
+  console.log('❌ depotEngineerNotificationRoutes error:', error.message);
+}
+
+try {
   const sparePartsRoutes = require('./routes/sparePartsRoutes');
   app.use('/api/depot-engineer/spare-parts', sparePartsRoutes);
   console.log('✅ sparePartsRoutes loaded');
@@ -263,12 +272,29 @@ try {
   console.log('❌ sparePartsRoutes error:', error.message);
 }
 
+
 try {
   const depotEmergencyRoutes = require('./routes/depotEmergencyRoutes');
   app.use('/api/depot/emergency', depotEmergencyRoutes);
   console.log('✅ depotEmergencyRoutes loaded');
 } catch (error) {
   console.log('❌ depotEmergencyRoutes error:', error.message);
+}
+
+try {
+  const depotManagerRoutes = require('./routes/depotManagerRoutes');
+  app.use('/api/depot-manager', depotManagerRoutes);
+  console.log('✅ depotManagerRoutes loaded');
+} catch (error) {
+  console.log('❌ depotManagerRoutes error:', error.message);
+}
+
+try {
+  const emergencyRoutes = require('./routes/emergencyRoutes');
+  app.use('/api/emergency', emergencyRoutes);
+  console.log('✅ emergencyRoutes loaded');
+} catch (error) {
+  console.log('❌ emergencyRoutes error:', error.message);
 }
 
 try {

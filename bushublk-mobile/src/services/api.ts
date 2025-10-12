@@ -119,13 +119,21 @@ export const submitEmergencyReport = async (reportData: any) => {
 };
 
 export const submitComplaintReport = async (reportData: any) => {
-  const response = await fetch(`${API_BASE_URL}/api/complaint-report`, {
+  // Create a timeout promise
+  const timeoutPromise = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('timeout')), 15000)
+  );
+  
+  const fetchPromise = fetch(`${API_BASE_URL}/api/complaint-report`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(reportData),
   });
+  
+  // Race between fetch and timeout
+  const response = await Promise.race([fetchPromise, timeoutPromise]) as Response;
   return response.json();
 };
 
@@ -197,5 +205,18 @@ export const storageAPI = {
 };
 
 export { busLiveTrackingAPI, API_BASE_URL };
+
+export const complaintAPI = {
+  searchBusRoutes: async (query: string) => {
+    const response = await api.get('/api/complaints/bus-routes', {
+      params: { query },
+    });
+    return response.data;
+  },
+  getMyContactInfo: async () => {
+    const response = await api.get('/api/complaints/my-contact');
+    return response.data;
+  },
+};
 
 export default api;

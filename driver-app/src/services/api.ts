@@ -28,8 +28,10 @@ export const driverAPI = {
       return data;
     } catch (error) {
       console.error("❌ Fetch error:", error);
-      console.error("❌ Error message:", error.message);
-      console.error("❌ Error stack:", error.stack);
+      if (error instanceof Error) {
+        console.error("❌ Error message:", error.message);
+        console.error("❌ Error stack:", error.stack);
+      }
       throw error;
     }
   },
@@ -140,6 +142,26 @@ export const driverAPI = {
       },
     });
     return response.json();
+  },
+
+  // Get route details by ID
+  getRouteById: async (routeId: string) => {
+    const token = await storageAPI.getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/routes`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch routes: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    const route = data.routes?.find((r: any) => r.route_id.toString() === routeId.toString());
+    return route || null;
   },
 
   // Get driver's upcoming assignments for schedule view

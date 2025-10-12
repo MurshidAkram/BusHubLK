@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -117,39 +118,52 @@ const MaintenanceDashboard = () => {
       try {
         if (!token) return;
 
+        const headers = {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        };
+
+        let upcoming: Inspection[] = [];
+        let completed: Inspection[] = [];
+        let completedCount = 0;
+
         // Fetch upcoming inspections (pending)
-        const upcomingResponse = await fetch('http://localhost:5000/api/inspections/upcoming', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        
+        const upcomingResponse = await fetch('http://localhost:5000/api/inspections/upcoming', { headers });
         if (upcomingResponse.ok) {
           const upcomingData = await upcomingResponse.json();
-          const upcoming = upcomingData.inspections || [];
+          upcoming = upcomingData.inspections || [];
           setUpcomingInspections(upcoming);
-          
-          // Fetch past inspections (completed)
-          const pastResponse = await fetch('http://localhost:5000/api/inspections/past', {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
+        }
+
+        // Fetch past inspections (completed within last month)
+        const pastResponse = await fetch('http://localhost:5000/api/inspections/past', { headers });
+        if (pastResponse.ok) {
+          const pastData = await pastResponse.json();
+          completed = pastData.inspections || [];
+          setCompletedInspections(completed);
+        }
+
+        // Fetch total completed count from inspections table
+        const countResponse = await fetch('http://localhost:5000/api/inspections/status/Completed/count', { headers });
+        if (countResponse.ok) {
+          const countData = await countResponse.json();
+          if (countData && countData.success) {
+            const numericCount = typeof countData.count === 'number' ? countData.count : parseInt(countData.count, 10);
+            if (!Number.isNaN(numericCount)) {
+              completedCount = numericCount;
             }
-          });
-          
-          if (pastResponse.ok) {
-            const pastData = await pastResponse.json();
-            const completed = pastData.inspections || [];
-            setCompletedInspections(completed);
-            
-            // Update inspection counts with correct data
-            setInspectionCounts({
-              completed: completed.length,
-              pending: upcoming.length
-            });
           }
         }
+
+        // Fall back to recent completed inspections if the count endpoint fails
+        if (completedCount === 0 && completed.length > 0) {
+          completedCount = completed.length;
+        }
+
+        setInspectionCounts({
+          completed: completedCount,
+          pending: upcoming.length
+        });
         
       } catch (err) {
         console.error('Error fetching inspection data:', err);
@@ -625,8 +639,8 @@ const MaintenanceDashboard = () => {
         <div className="mt-8">
           <div className="bg-white rounded-lg shadow-sm p-6">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-semibold text-gray-900">Incident Statistics</h2>
-              <p className="text-sm text-gray-600">Region-wide incident reports by type</p>
+              <h2 className="text-lg font-semibold text-gray-900">Escalated Incident Statistics</h2>
+             
             </div>
             <IncidentStatisticsChart />
           </div>

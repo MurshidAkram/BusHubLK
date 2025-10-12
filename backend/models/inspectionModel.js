@@ -141,6 +141,17 @@ class Inspection {
     );
     return result.rows;
   }
+
+  // Get inspection count by status for a regional technical officer
+  static async getInspectionCountByStatus(user_id, status) {
+    const result = await db.query(
+      `SELECT COUNT(*)::int AS count
+       FROM inspections
+       WHERE user_id = $1 AND status = $2`,
+      [user_id, status]
+    );
+    return result.rows[0] ? result.rows[0].count : 0;
+  }
 }
 
 module.exports = Inspection;

@@ -790,7 +790,7 @@ const Servicehistoryexplorer = () => {
                     <tr key={service.service_id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">{service.registration_number}</div>
-                        <div className="text-sm text-gray-500">{service.model} ({service.year})</div>
+                        {/* <div className="text-sm text-gray-500">{service.model} ({service.year})</div> */}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {service.service_type}
@@ -817,7 +817,7 @@ const Servicehistoryexplorer = () => {
                     <tr key={part.usage_id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">{part.registration_number}</div>
-                        <div className="text-sm text-gray-500">{part.model} ({part.year})</div>
+                        {/* <div className="text-sm text-gray-500">{part.model} ({part.year})</div> */}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {part.part_name}

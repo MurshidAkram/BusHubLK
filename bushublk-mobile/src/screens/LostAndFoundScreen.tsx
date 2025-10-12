@@ -7,13 +7,14 @@ import {
   TouchableOpacity,
   TextInput,
   StatusBar,
-  SafeAreaView,
   Alert,
   ActivityIndicator,
   Image,
   Linking,
   Platform,
+  Modal,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Dropdown } from 'react-native-element-dropdown';
 import * as ImagePicker from 'expo-image-picker';
@@ -74,6 +75,12 @@ interface Report {
   approximate_location?: string;
   is_verified?: boolean;
   resolved_date?: string;
+  passenger_id?: number;
+  // New depot handover fields
+  handed_to_depot_id?: number;
+  handover_date?: string;
+  handover_notes?: string;
+  depot_name?: string;
 }
 
 interface Route {
@@ -133,6 +140,16 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   
+  // Depot handover states
+  const [showDepotModal, setShowDepotModal] = useState(false);
+  const [selectedReportForHandover, setSelectedReportForHandover] = useState<Report | null>(null);
+  const [depots, setDepots] = useState<any[]>([]);
+  const [handoverData, setHandoverData] = useState({
+    depotId: null as number | null,
+    handoverDate: new Date().toISOString().split('T')[0],
+    notes: '',
+  });
+  
   const [errors, setErrors] = useState<{[key: string]: string}>({});
 
   // Helper function to format 24-hour time to 12-hour AM/PM format for display
@@ -162,7 +179,8 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
         await Promise.all([
           loadUserData(),
           loadRoutes(),
-          loadRegions()
+          loadRegions(),
+          loadDepots()
         ]);
         
         // Load reports after API is initialized
@@ -349,6 +367,72 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
       console.error('Error loading my reports:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Load depots for handover selection
+  const loadDepots = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/lost-found/depots`);
+      const data = await response.json();
+      if (data.success && data.data) {
+        setDepots(data.data);
+        console.log('✅ Depots loaded:', data.data.length);
+      } else {
+        console.error('Failed to load depots:', data.message);
+      }
+    } catch (error) {
+      console.error('Error loading depots:', error);
+    }
+  };
+
+  // Handle depot handover
+  const handleDepotHandover = async () => {
+    if (!selectedReportForHandover || !handoverData.depotId) {
+      Alert.alert('Error', 'Please select a depot');
+      return;
+    }
+
+    try {
+      const user = await storageAPI.getUserData();
+      const token = await storageAPI.getAuthToken();
+
+      if (!user || !token) {
+        Alert.alert('Error', 'Authentication required');
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/lost-found/reports/${selectedReportForHandover.report_id}/depot-handover`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          depot_id: handoverData.depotId,
+          handover_date: handoverData.handoverDate,
+          notes: handoverData.notes,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        Alert.alert('Success', 'Depot handover information updated successfully');
+        setShowDepotModal(false);
+        loadMyReports(); // Refresh the reports list
+        // Reset handover form
+        setHandoverData({
+          depotId: null,
+          handoverDate: new Date().toISOString().split('T')[0],
+          notes: '',
+        });
+        setSelectedReportForHandover(null);
+      } else {
+        Alert.alert('Error', data.message || 'Failed to update depot handover');
+      }
+    } catch (error) {
+      console.error('Error updating depot handover:', error);
+      Alert.alert('Error', 'Failed to update depot handover information');
     }
   };
 
@@ -1063,33 +1147,55 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
                   </Text>
                 )}
                 <Text style={styles.contactNote}>
-                  {report.is_verified ? 'Verified user' : 'Unverified'} • Report ID: #{report.report_reference}
+                  {report.is_verified ? '✅ Verified user' : '⚠️ Unverified'}
                 </Text>
-              </View>
-              <View style={styles.contactButtons}>
-                {report.contact_phone && (
-                  <TouchableOpacity 
-                    style={styles.contactButton}
-                    onPress={() => {
-                      Linking.openURL(`tel:${report.contact_phone}`);
-                    }}
-                  >
-                    <Ionicons name="call-outline" size={16} color={AppColors.primary} />
-                    <Text style={styles.contactButtonText}>Call</Text>
-                  </TouchableOpacity>
-                )}
-                {report.contact_email && (
-                  <TouchableOpacity 
-                    style={styles.contactButton}
-                    onPress={() => {
-                      Linking.openURL(`mailto:${report.contact_email}`);
-                    }}
-                  >
-                    <Ionicons name="mail-outline" size={16} color={AppColors.primary} />
-                    <Text style={styles.contactButtonText}>Email</Text>
-                  </TouchableOpacity>
+                
+                {/* Display depot handover information if available */}
+                {report.handed_to_depot_id && (
+                  <View style={styles.depotHandoverInfo}>
+                    <Ionicons name="business-outline" size={16} color={AppColors.success} />
+                    <Text style={styles.depotHandoverText}>
+                      Handed to depot on {report.handover_date ? new Date(report.handover_date).toLocaleDateString() : 'Unknown date'}
+                    </Text>
+                  </View>
                 )}
               </View>
+              
+              {/* Only show contact buttons if this is not the current user's report */}
+              {report.passenger_id !== (userData as any)?.id && (
+                <View style={styles.contactButtons}>
+                  {report.contact_phone && (
+                    <TouchableOpacity 
+                      style={styles.contactButton}
+                      onPress={() => {
+                        Linking.openURL(`tel:${report.contact_phone}`);
+                      }}
+                    >
+                      <Ionicons name="call-outline" size={16} color={AppColors.primary} />
+                      <Text style={styles.contactButtonText}>Call</Text>
+                    </TouchableOpacity>
+                  )}
+                  {report.contact_email && (
+                    <TouchableOpacity 
+                      style={styles.contactButton}
+                      onPress={() => {
+                        Linking.openURL(`mailto:${report.contact_email}`);
+                      }}
+                    >
+                      <Ionicons name="mail-outline" size={16} color={AppColors.primary} />
+                      <Text style={styles.contactButtonText}>Email</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
+              
+              {/* Show "Your Report" indicator for current user's reports */}
+              {report.passenger_id === (userData as any)?.id && (
+                <View style={styles.ownReportIndicator}>
+                  <Ionicons name="person-circle" size={20} color={AppColors.primary} />
+                  <Text style={styles.ownReportText}>Your Report</Text>
+                </View>
+              )}
             </View>
           </View>
         ))
@@ -1130,11 +1236,13 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
                   {report.report_type === 'lost' ? 'Lost' : 'Found'}
                 </Text>
               </View>
-              <View style={[styles.statusTag, report.status === 'resolved' ? styles.resolvedTag : styles.activeTag]}>
-                <Text style={[styles.statusTagText, report.status === 'resolved' ? styles.resolvedTagText : styles.activeTagText]}>
-                  {report.status === 'resolved' ? 'Resolved' : 'Active'}
-                </Text>
-              </View>
+              {report.status === 'resolved' && (
+                <View style={styles.resolvedTag}>
+                  <Text style={styles.resolvedTagText}>
+                    Resolved
+                  </Text>
+                </View>
+              )}
               <Text style={styles.timeStamp}>{report.time_ago}</Text>
             </View>
             
@@ -1191,33 +1299,68 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
             
             <View style={styles.myReportActions}>
               <View style={styles.reportInfo}>
-                <Text style={styles.reportId}>Report ID: #{report.report_reference}</Text>
-                <Text style={styles.reportStatus}>
-                  Status: {report.status === 'resolved' ? '✅ Resolved' : '🔍 Active'}
-                </Text>
+                {report.status === 'resolved' && (
+                  <Text style={styles.reportStatus}>
+                    ✅ Resolved
+                  </Text>
+                )}
+                {/* Display depot handover info if available */}
+                {report.handed_to_depot_id && report.depot_name && (
+                  <Text style={styles.depotHandoverInfo}>
+                    📦 Handed to: {report.depot_name}
+                    {report.handover_date && ` on ${new Date(report.handover_date).toLocaleDateString()}`}
+                  </Text>
+                )}
               </View>
-              {report.status !== 'resolved' && (
-                <TouchableOpacity 
-                  style={styles.resolveButton}
-                  onPress={() => {
-                    Alert.alert(
-                      'Mark as Resolved',
-                      'Are you sure you want to mark this report as resolved? This action cannot be undone.',
-                      [
-                        { text: 'Cancel', style: 'cancel' },
-                        { 
-                          text: 'Yes, Mark Resolved', 
-                          onPress: () => markAsResolved(report.report_id),
-                          style: 'default'
-                        }
-                      ]
-                    );
-                  }}
-                >
-                  <Ionicons name="checkmark-circle-outline" size={16} color={AppColors.success} />
-                  <Text style={styles.resolveButtonText}>Mark Resolved</Text>
-                </TouchableOpacity>
-              )}
+              
+              <View style={styles.actionButtonsContainer}>
+                {/* Depot handover button - only show for found items that aren't resolved */}
+                {report.report_type === 'found' && report.status !== 'resolved' && (
+                  <TouchableOpacity 
+                    style={styles.depotHandoverButton}
+                    onPress={() => {
+                      setSelectedReportForHandover(report);
+                      // Pre-fill existing data if available
+                      if (report.handed_to_depot_id) {
+                        setHandoverData({
+                          depotId: report.handed_to_depot_id,
+                          handoverDate: report.handover_date ? report.handover_date.split('T')[0] : new Date().toISOString().split('T')[0],
+                          notes: report.handover_notes || '',
+                        });
+                      }
+                      setShowDepotModal(true);
+                    }}
+                  >
+                    <Ionicons name="business-outline" size={16} color={AppColors.primary} />
+                    <Text style={styles.depotHandoverButtonText}>
+                      {report.handed_to_depot_id ? 'Update Depot Info' : 'Hand to Depot'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                
+                {report.status !== 'resolved' && (
+                  <TouchableOpacity 
+                    style={styles.resolveButton}
+                    onPress={() => {
+                      Alert.alert(
+                        'Mark as Resolved',
+                        'Are you sure you want to mark this report as resolved? This action cannot be undone.',
+                        [
+                          { text: 'Cancel', style: 'cancel' },
+                          { 
+                            text: 'Yes, Mark Resolved', 
+                            onPress: () => markAsResolved(report.report_id),
+                            style: 'default'
+                          }
+                        ]
+                      );
+                    }}
+                  >
+                    <Ionicons name="checkmark-circle-outline" size={16} color={AppColors.success} />
+                    <Text style={styles.resolveButtonText}>Mark Resolved</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
           </View>
         ))
@@ -1316,7 +1459,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
                   activeOpacity={0.8}
                 >
                   <View style={[styles.categoryIconContainer, { backgroundColor: item.color + '20' }]}>
-                    <Icon
+                    <Ionicons
                       name={item.icon}
                       size={28}
                       color={formData.itemType === item.key ? '#FFFFFF' : item.color}
@@ -1564,7 +1707,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
                             }
                             
                             const result = await ImagePicker.launchCameraAsync({
-                              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                              mediaTypes: ['images'],
                               allowsEditing: true,
                               aspect: [4, 3],
                               quality: 0.7,
@@ -1600,7 +1743,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
                             }
                             
                             const result = await ImagePicker.launchImageLibraryAsync({
-                              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                              mediaTypes: ['images'],
                               allowsEditing: true,
                               aspect: [4, 3],
                               quality: 0.7,
@@ -1834,6 +1977,87 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
         onClose={() => setShowTimePicker(false)}
         onSelect={(time) => updateFormData('time', time)}
       />
+
+      {/* Depot Handover Modal */}
+      <Modal
+        visible={showDepotModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowDepotModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.depotModalContainer}>
+            <View style={styles.depotModalHeader}>
+              <Text style={styles.depotModalTitle}>
+                {selectedReportForHandover?.handed_to_depot_id ? 'Update Depot Handover' : 'Hand Item to Depot'}
+              </Text>
+              <TouchableOpacity 
+                onPress={() => setShowDepotModal(false)}
+                style={styles.closeButton}
+              >
+                <Ionicons name="close" size={24} color={AppColors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.depotModalContent}>
+              <Text style={styles.formLabel}>Select Depot</Text>
+              <Dropdown
+                style={styles.depotDropdown}
+                placeholderStyle={styles.dropdownPlaceholder}
+                selectedTextStyle={styles.dropdownSelectedText}
+                data={depots.map(depot => ({
+                  label: `${depot.depot_name} - ${depot.location || depot.address || 'No address'}`,
+                  value: depot.depot_id
+                }))}
+                maxHeight={200}
+                labelField="label"
+                valueField="value"
+                placeholder="Choose a depot..."
+                value={handoverData.depotId}
+                onChange={(item) => {
+                  setHandoverData(prev => ({ ...prev, depotId: item.value }));
+                }}
+              />
+
+              <Text style={styles.formLabel}>Handover Date</Text>
+              <TextInput
+                style={styles.dateInput}
+                value={handoverData.handoverDate}
+                onChangeText={(text) => setHandoverData(prev => ({ ...prev, handoverDate: text }))}
+                placeholder="YYYY-MM-DD"
+              />
+
+              <Text style={styles.formLabel}>Notes (Optional)</Text>
+              <TextInput
+                style={styles.notesInput}
+                value={handoverData.notes}
+                onChangeText={(text) => setHandoverData(prev => ({ ...prev, notes: text }))}
+                placeholder="Add any additional notes about the handover..."
+                multiline
+                numberOfLines={3}
+                textAlignVertical="top"
+              />
+
+              <View style={styles.depotModalActions}>
+                <TouchableOpacity 
+                  style={styles.cancelButton}
+                  onPress={() => setShowDepotModal(false)}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.confirmButton}
+                  onPress={handleDepotHandover}
+                >
+                  <Text style={styles.confirmButtonText}>
+                    {selectedReportForHandover?.handed_to_depot_id ? 'Update' : 'Save'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -3070,23 +3294,16 @@ const styles = StyleSheet.create({
 
   resolvedTag: {
     backgroundColor: AppColors.success + '20',
-  },
-
-  activeTag: {
-    backgroundColor: AppColors.primary + '20',
-  },
-
-  statusTagText: {
-    fontSize: 12,
-    fontWeight: '600',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginLeft: 8,
   },
 
   resolvedTagText: {
     color: AppColors.success,
-  },
-
-  activeTagText: {
-    color: AppColors.primary,
+    fontSize: 12,
+    fontWeight: '600',
   },
 
   myReportActions: {
@@ -3376,4 +3593,192 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
   },
+
+  // Depot handover and own report styles
+  depotHandoverInfo: {
+    backgroundColor: '#e8f5e8',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+
+  ownReportText: {
+    fontSize: 14,
+    color: '#666',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    padding: 12,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 8,
+    marginTop: 8,
+  },
+
+  ownReportIndicator: {
+    backgroundColor: '#e3f2fd',
+    padding: 8,
+    borderRadius: 6,
+    marginBottom: 8,
+  },
+
+  depotHandoverText: {
+    fontSize: 14,
+    color: '#2d5016',
+    fontWeight: '500',
+  },
+
+  actionButtonsContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+
+  depotHandoverButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0f9ff',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: AppColors.primary,
+    gap: 6,
+  },
+
+  depotHandoverButtonText: {
+    fontSize: 14,
+    color: AppColors.primary,
+    fontWeight: '500',
+  },
+
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  depotModalContainer: {
+    backgroundColor: 'white',
+    margin: 20,
+    borderRadius: 12,
+    maxHeight: '80%',
+    minWidth: '90%',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+
+  depotModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+
+  depotModalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: AppColors.text,
+  },
+
+  closeButton: {
+    padding: 4,
+  },
+
+  depotModalContent: {
+    padding: 20,
+  },
+
+  formLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: AppColors.text,
+    marginBottom: 8,
+    marginTop: 16,
+  },
+
+
+
+  dateInput: {
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    backgroundColor: '#f9f9f9',
+  },
+
+  notesInput: {
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    backgroundColor: '#f9f9f9',
+    height: 80,
+  },
+
+  depotModalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 24,
+    gap: 12,
+  },
+
+  cancelButton: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    alignItems: 'center',
+  },
+
+  cancelButtonText: {
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '500',
+  },
+
+  confirmButton: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 8,
+    backgroundColor: AppColors.primary,
+    alignItems: 'center',
+  },
+
+  confirmButtonText: {
+    fontSize: 16,
+    color: 'white',
+    fontWeight: '600',
+  },
+
+  // Depot dropdown styles
+  depotDropdown: {
+    height: 50,
+    borderColor: '#e0e0e0',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#f9f9f9',
+    marginBottom: 8,
+  },
+
+  dropdownPlaceholder: {
+    fontSize: 16,
+    color: '#999',
+  },
+
+  dropdownSelectedText: {
+    fontSize: 16,
+    color: AppColors.text,
+  },
+
+
 });

@@ -16,6 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useDriver } from "../context/DriverContext";
+import { storageAPI } from "../services/api";
 
 // App Color Palette (matching HomeScreen)
 const AppColors = {
@@ -107,7 +108,8 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
           style: "destructive",
           onPress: async () => {
             try {
-              await AsyncStorage.removeItem("driverData");
+              // Use the proper storageAPI.clearCache method
+              await storageAPI.clearCache();
               Alert.alert("Success", "Cache cleared successfully!");
             } catch (error) {
               Alert.alert("Error", "Failed to clear cache");
@@ -133,9 +135,13 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
   };
 
   const handleHelp = () => {
+    const depotManagerInfo = driverData?.depot_manager_name 
+      ? `${driverData.depot_manager_name} (${driverData.depot_manager_phone})`
+      : "your depot manager";
+    
     Alert.alert(
       "Help & Support",
-      "• Check your daily assignments in the Schedule tab\n• Track your bus location in real-time\n• Report any bus issues immediately\n• Contact your depot manager for operational queries\n• Use emergency contacts for urgent situations\n\nFor technical support, contact your depot manager.",
+      `• Check your daily assignments in the Schedule tab\n• Track your bus location in real-time\n• Report any bus issues immediately\n• Contact ${depotManagerInfo} for operational queries\n• Use emergency contacts for urgent situations\n\nFor technical support, contact ${depotManagerInfo}.`,
       [{ text: "OK" }]
     );
   };
@@ -235,9 +241,9 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
           <View style={styles.sectionContent}>
             <SettingItem
               icon="call-outline"
-              title="Depot Manager"
-              subtitle="Contact your depot manager"
-              onPress={() => handleEmergencyCall("0112-345-678")}
+              title={driverData?.depot_manager_name ? `${driverData.depot_manager_name} (Depot Manager)` : "Depot Manager"}
+              subtitle={driverData?.depot_name ? `${driverData.depot_name} Depot` : "Contact your depot manager"}
+              onPress={() => handleEmergencyCall(driverData?.depot_manager_phone || "0112-345-678")}
             />
             <SettingItem
               icon="medical-outline"

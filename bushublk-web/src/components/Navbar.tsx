@@ -16,6 +16,9 @@ const Navbar = () => {
   const location = useLocation();
 
 
+  const normalizeRole = (role?: string) => role ? role.toLowerCase().replace(/\s+/g, '').replace(/-/g, '_') : '';
+  const roleKey = normalizeRole(user?.role);
+
   // Check if we're in a dashboard route
   const isDashboard = location.pathname.startsWith('/admin') || 
                      location.pathname.startsWith('/depot-manager') ||
@@ -54,10 +57,117 @@ const Navbar = () => {
       navigate('/depot-operations-manager/notificationscenter');
     } else if (user?.role === 'depot_manager') {
       navigate('/depot-manager/notifications');
+  // Fetch notification count function
+  const fetchNotificationCount = async () => {
+    if (token && isDashboard) {
+      try {
+        if (roleKey === 'depot_engineer') {
+          const response = await fetch('http://localhost:5000/api/depot-engineer/notifications/unread-count', {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            setNotificationCount(data.unreadCount || 0);
+            return;
+          }
+        }
+
+        if (roleKey === 'regional_tech' || roleKey === 'regional_technical_officer') {
+          const response = await fetch('http://localhost:5000/api/rto/notifications/unread-count', {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            setNotificationCount(data.unreadCount || 0);
+            return;
+          }
+        }
+
+        const response = await fetch('http://localhost:5000/api/notifications/unread-count', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setNotificationCount(data.unreadCount || 0);
+        }
+      } catch (error) {
+        console.error('Error fetching notification count:', error);
+        // Fallback to just general notifications
+        try {
+          const response = await fetch('http://localhost:5000/api/notifications/unread-count', {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            setNotificationCount(data.unreadCount || 0);
+          } else {
+            setNotificationCount(0);
+          }
+        } catch (fallbackError) {
+          console.error('Error fetching fallback notification count:', fallbackError);
+          setNotificationCount(0);
+        }
+      }
+    }
+  };
+
+  // Fetch notification count
+  useEffect(() => {
+    fetchNotificationCount();
+    
+    // Refresh notification count every 30 seconds
+    const interval = setInterval(fetchNotificationCount, 30000);
+    
+    return () => clearInterval(interval);
+  }, [token, isDashboard, roleKey]);
+
+  // Handle notification click
+  const handleNotificationClick = () => {
+    console.log('User role:', user?.role); // Debug log
+    
+    // Check for different possible role values
+    if (roleKey === 'depot_engineer') {
+      navigate('/depot-engineer/notifications');
+    } else if (roleKey === 'depot_manager') {
+      navigate('/depot-manager/notifications');
+    } else if (roleKey === 'regional_tech' || roleKey === 'regional_technical_officer') {
+      navigate('/regional-technical-officer/notifications');
     } else {
       alert('Notifications feature is not yet implemented for your role.');
     }
   };
+
+  // Function to refresh notification count (can be called from other components)
+  const refreshNotificationCount = () => {
+    if (token && isDashboard) {
+      fetchNotificationCount();
+    }
+  };
+
+  // Expose refresh function globally for other components to use
+  useEffect(() => {
+    (window as any).refreshNotificationCount = refreshNotificationCount;
+    return () => {
+      delete (window as any).refreshNotificationCount;
+    };
+  }, [token, isDashboard, roleKey]);
+
 
   // Function to get dashboard route based on user role
   const getDashboardRoute = (role: string) => {
@@ -70,7 +180,11 @@ const Navbar = () => {
         return '/depot-operations-manager'
       case 'depot-engineer':
         return '/depot-engineer'
+      case 'regional_tech':
+        return '/regional-technical-officer'
       case 'regional-technical-officer':
+        return '/regional-technical-officer'
+      case 'regional_technical_officer':
         return '/regional-technical-officer'
       case 'regional-operations-officer':
         return '/regional-operations-officer'
@@ -190,6 +304,7 @@ const Navbar = () => {
                 {notifCount > 0 && (
                   <span className="absolute top-0 right-0 h-4 w-4 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold">
                     {notifCount > 9 ? '9+' : notifCount}
+                    {notificationCount}
                   </span>
                 )}
               </button>

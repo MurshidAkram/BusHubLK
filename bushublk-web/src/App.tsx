@@ -68,6 +68,7 @@ import Regionservicemonitor from './pages/dashboards/regional-tech/Regionservice
 import Inspectionschedular from './pages/dashboards/regional-tech/Inspectionschedular'
 import Rtoissuetracker from './pages/dashboards/regional-tech/Rtoissuetracker'
 import Regioncommunityhub from './pages/dashboards/regional-tech/Regioncommunityhub'
+import RTONotifications from './pages/dashboards/regional-tech/RTONotifications'
 
 
 // Regional Operations Officer Components
@@ -98,6 +99,7 @@ import Servicehistoryexplorer from './pages/dashboards/dgm-tech/Servicehistoryex
 import GenerateReports from './pages/dashboards/dgm-tech/GenerateReports'
 //import Dgmtechnicalissue from './pages/dashboards/dgm-tech/Dgmtechnicalissue'
 import Dgmcommunityhub from './pages/dashboards/dgm-tech/Dgmcommunityhub'
+import Dgmtech_notification from './pages/dashboards/dgm-tech/Dgmtech_notification'
 
 
 // CEO Components
@@ -232,6 +234,7 @@ const App = () => {
           <Route path="Regionservicemonitor" element={<Regionservicemonitor />} />
           <Route path="Rtoissuetracker" element={<Rtoissuetracker />} />
           <Route path="Regioncommunityhub" element={<Regioncommunityhub />} />
+          <Route path="notifications" element={<RTONotifications />} />
           {/* Add individual pages later */}
         </Route>
         </Route>
@@ -275,6 +278,7 @@ const App = () => {
     <Route path="GenerateReports" element={<GenerateReports />} />
     {/* <Route path="Dgmtechnicalissue" element={<Dgmtechnicalissue />} /> */}
     <Route path="Dgmcommunityhub" element={<Dgmcommunityhub />} />
+    <Route path="Dgmtech_notification" element={<Dgmtech_notification />} />
   </Route>
 </Route>
 

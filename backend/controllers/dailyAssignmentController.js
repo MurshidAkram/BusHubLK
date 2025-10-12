@@ -63,11 +63,12 @@ const deleteAssignment = async (req, res) => {
 const getAssignmentByDriver = async (req, res) => {
   const { driver_id } = req.params;
   try {
-    const assignment = await DailyAssignment.getByDriverId(driver_id);
-    if (!assignment) {
+    const assignments = await DailyAssignment.getByDriverId(driver_id);
+    if (!assignments || assignments.length === 0) {
       return res.status(404).json({ error: 'No active assignment found for this driver' });
     }
-    res.json(assignment);
+    // Return the most recent assignment (first in the ordered list)
+    res.json(assignments[0]);
   } catch (err) {
     console.error('Get assignment by driver error:', err);
     res.status(500).json({ error: 'Server error' });
