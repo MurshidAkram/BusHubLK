@@ -236,6 +236,14 @@ try {
 }
 
 try {
+  const depotEngineerNotificationRoutes = require('./routes/depotEngineerNotificationRoutes');
+  app.use('/api/depot-engineer', depotEngineerNotificationRoutes);
+  console.log('✅ depotEngineerNotificationRoutes loaded');
+} catch (error) {
+  console.log('❌ depotEngineerNotificationRoutes error:', error.message);
+}
+
+try {
   const sparePartsRoutes = require('./routes/sparePartsRoutes');
   app.use('/api/depot-engineer/spare-parts', sparePartsRoutes);
   console.log('✅ sparePartsRoutes loaded');

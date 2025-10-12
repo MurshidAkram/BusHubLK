@@ -33,107 +33,32 @@ const Navbar = () => {
   const fetchNotificationCount = async () => {
     if (token && isDashboard) {
       try {
-        const requests = [
-          fetch('http://localhost:5000/api/notifications/unread-count', {
+        if (user?.role === 'depot_engineer' || user?.role === 'depot-engineer') {
+          const response = await fetch('http://localhost:5000/api/depot-engineer/notifications/unread-count', {
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
             }
-          })
-        ];
+          });
 
-        // Add scheduling stats request only for depot engineers
-        if (user?.role === 'depot_engineer' || user?.role === 'depot-engineer') {
-          requests.push(
-            fetch('http://localhost:5000/api/depot-engineer/service-schedules/stats', {
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-              }
-            })
-          );
-          
-          // Add bus condition reports count
-          requests.push(
-            fetch('http://localhost:5000/api/bus-condition-reports', {
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-              }
-            })
-          );
-          
-          // Add emergency reports count
-          requests.push(
-            fetch('http://localhost:5000/api/depot/emergency', {
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-              }
-            })
-          );
+          if (response.ok) {
+            const data = await response.json();
+            setNotificationCount(data.unreadCount || 0);
+            return;
+          }
         }
 
-        const responses = await Promise.all(requests);
-        let totalUnreadCount = 0;
-        
-        // Add general notification count
-        if (responses[0] && responses[0].ok) {
-          const generalData = await responses[0].json();
-          const generalCount = generalData.unreadCount || 0;
-          totalUnreadCount += generalCount;
-          console.log('General notifications count:', generalCount);
-        }
-        
-        // Add scheduling notification count (only for depot engineers)
-        if (responses[1] && responses[1].ok && (user?.role === 'depot_engineer' || user?.role === 'depot-engineer')) {
-          const schedulingData = await responses[1].json();
-          if (schedulingData.success && schedulingData.stats) {
-            const stats = schedulingData.stats;
-            console.log('Scheduling stats:', stats);
-            
-            let schedulingCount = 0;
-            // Count scheduling notifications that would be created
-            if (stats.critical_overdue_count > 0) schedulingCount += 1;
-            if (stats.overdue_count > 0) schedulingCount += 1;
-            if (stats.due_today_count > 0) schedulingCount += 1;
-            if (stats.upcoming_count > 0) schedulingCount += 1;
-            
-            totalUnreadCount += schedulingCount;
-            console.log('Scheduling notifications count:', schedulingCount);
+        const response = await fetch('http://localhost:5000/api/notifications/unread-count', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
           }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setNotificationCount(data.unreadCount || 0);
         }
-        
-        // Add bus condition reports count (only for depot engineers)
-        if (responses[2] && responses[2].ok && (user?.role === 'depot_engineer' || user?.role === 'depot-engineer')) {
-          const conditionData = await responses[2].json();
-          if (conditionData.success && conditionData.data) {
-            // Count unreviewed condition reports only
-            const conditionCount = conditionData.data.filter((report: any) => {
-              return report.review_status === 'pending' || !report.review_status;
-            }).length;
-            
-            totalUnreadCount += conditionCount;
-            console.log('Condition reports notifications count:', conditionCount);
-          }
-        }
-        
-        // Add emergency reports count (only for depot engineers)
-        if (responses[3] && responses[3].ok && (user?.role === 'depot_engineer' || user?.role === 'depot-engineer')) {
-          const emergencyData = await responses[3].json();
-          if (emergencyData.success && emergencyData.data) {
-            // Count emergency reports with exactly "Pending" status
-            const emergencyCount = emergencyData.data.filter((report: any) => {
-              return report.status === 'Pending';
-            }).length;
-            
-            totalUnreadCount += emergencyCount;
-            console.log('Emergency reports notifications count:', emergencyCount);
-          }
-        }
-        
-        console.log('Total notification count:', totalUnreadCount);
-        setNotificationCount(totalUnreadCount);
       } catch (error) {
         console.error('Error fetching notification count:', error);
         // Fallback to just general notifications
@@ -148,9 +73,12 @@ const Navbar = () => {
           if (response.ok) {
             const data = await response.json();
             setNotificationCount(data.unreadCount || 0);
+          } else {
+            setNotificationCount(0);
           }
         } catch (fallbackError) {
           console.error('Error fetching fallback notification count:', fallbackError);
+          setNotificationCount(0);
         }
       }
     }
@@ -324,7 +252,7 @@ const Navbar = () => {
                 <HiBell className="h-6 w-6" />
                 {notificationCount > 0 && (
                   <span className="absolute top-0 right-0 h-4 w-4 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold">
-                    {notificationCount > 9 ? '9+' : notificationCount}
+                    {notificationCount}
                   </span>
                 )}
               </button>
