@@ -1,20 +1,20 @@
-import React, { useState, useContext, useEffect } from 'react'
-import { NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { HiBell, HiSearch } from 'react-icons/hi'
-import { AppContext } from '../context/AppContext'
-import { assets } from '../assets/assets'
+import React, { useContext, useEffect, useState } from 'react';
+import { AppContext } from '../context/AppContext';
+import { HiBell } from 'react-icons/hi';
+import { useNavigate, useLocation, NavLink } from 'react-router-dom';
+import { assets } from '../assets/assets';
 
 const Navbar = () => {
-  const navigate = useNavigate()
-  const location = useLocation()
-  const [showMenu, setShowMenu] = useState(false)
-  const [notificationCount, setNotificationCount] = useState(0)
-  
-  // Get authentication state from context (you'll need to add this to your AppContext)
-  // const { user, token, logout } = useContext(AppContext)
-  
-  // For now, using local state - replace with context values
-  const { user, token, logout } = useContext(AppContext);
+  const appContext = useContext(AppContext);
+  const user = appContext?.user;
+  const token = appContext?.token;
+  const logout = appContext?.logout;
+  const depotId = user?.depot_id;
+  const [notifCount, setNotifCount] = useState(0);
+  const [showMenu, setShowMenu] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+
 
   // Check if we're in a dashboard route
   const isDashboard = location.pathname.startsWith('/admin') || 
@@ -29,176 +29,35 @@ const Navbar = () => {
                      location.pathname.startsWith('/driver') || 
                      location.pathname.startsWith('/conductor')
 
-  // Fetch notification count function
-  const fetchNotificationCount = async () => {
-    if (token && isDashboard) {
-      try {
-        const requests = [
-          fetch('http://localhost:5000/api/notifications/unread-count', {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            }
-          })
-        ];
-
-        // Add scheduling stats request only for depot engineers
-        if (user?.role === 'depot_engineer' || user?.role === 'depot-engineer') {
-          requests.push(
-            fetch('http://localhost:5000/api/depot-engineer/service-schedules/stats', {
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-              }
-            })
-          );
-          
-          // Add bus condition reports count
-          requests.push(
-            fetch('http://localhost:5000/api/bus-condition-reports', {
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-              }
-            })
-          );
-          
-          // Add emergency reports count
-          requests.push(
-            fetch('http://localhost:5000/api/depot/emergency', {
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-              }
-            })
-          );
-        }
-
-        const responses = await Promise.all(requests);
-        let totalUnreadCount = 0;
-        
-        // Add general notification count
-        if (responses[0] && responses[0].ok) {
-          const generalData = await responses[0].json();
-          const generalCount = generalData.unreadCount || 0;
-          totalUnreadCount += generalCount;
-          console.log('General notifications count:', generalCount);
-        }
-        
-        // Add scheduling notification count (only for depot engineers)
-        if (responses[1] && responses[1].ok && (user?.role === 'depot_engineer' || user?.role === 'depot-engineer')) {
-          const schedulingData = await responses[1].json();
-          if (schedulingData.success && schedulingData.stats) {
-            const stats = schedulingData.stats;
-            console.log('Scheduling stats:', stats);
-            
-            let schedulingCount = 0;
-            // Count scheduling notifications that would be created
-            if (stats.critical_overdue_count > 0) schedulingCount += 1;
-            if (stats.overdue_count > 0) schedulingCount += 1;
-            if (stats.due_today_count > 0) schedulingCount += 1;
-            if (stats.upcoming_count > 0) schedulingCount += 1;
-            
-            totalUnreadCount += schedulingCount;
-            console.log('Scheduling notifications count:', schedulingCount);
-          }
-        }
-        
-        // Add bus condition reports count (only for depot engineers)
-        if (responses[2] && responses[2].ok && (user?.role === 'depot_engineer' || user?.role === 'depot-engineer')) {
-          const conditionData = await responses[2].json();
-          if (conditionData.success && conditionData.data) {
-            // Count unreviewed condition reports only
-            const conditionCount = conditionData.data.filter((report: any) => {
-              return report.review_status === 'pending' || !report.review_status;
-            }).length;
-            
-            totalUnreadCount += conditionCount;
-            console.log('Condition reports notifications count:', conditionCount);
-          }
-        }
-        
-        // Add emergency reports count (only for depot engineers)
-        if (responses[3] && responses[3].ok && (user?.role === 'depot_engineer' || user?.role === 'depot-engineer')) {
-          const emergencyData = await responses[3].json();
-          if (emergencyData.success && emergencyData.data) {
-            // Count emergency reports with exactly "Pending" status
-            const emergencyCount = emergencyData.data.filter((report: any) => {
-              return report.status === 'Pending';
-            }).length;
-            
-            totalUnreadCount += emergencyCount;
-            console.log('Emergency reports notifications count:', emergencyCount);
-          }
-        }
-        
-        console.log('Total notification count:', totalUnreadCount);
-        setNotificationCount(totalUnreadCount);
-      } catch (error) {
-        console.error('Error fetching notification count:', error);
-        // Fallback to just general notifications
-        try {
-          const response = await fetch('http://localhost:5000/api/notifications/unread-count', {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            }
-          });
-          
-          if (response.ok) {
-            const data = await response.json();
-            setNotificationCount(data.unreadCount || 0);
-          }
-        } catch (fallbackError) {
-          console.error('Error fetching fallback notification count:', fallbackError);
-        }
-      }
-    }
-  };
-
-  // Fetch notification count
   useEffect(() => {
-    fetchNotificationCount();
-    
-    // Refresh notification count every 30 seconds
-    const interval = setInterval(fetchNotificationCount, 30000);
-    
-    return () => clearInterval(interval);
-  }, [token, isDashboard, user?.role]);
+    // Depot Operations Manager notifications (already present)
+    if (user?.role === 'depot_operations' && depotId && token) {
+      fetch(`http://localhost:5000/api/depot/${depotId}/notifications`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+        .then(res => res.json())
+        .then(data => setNotifCount(data.notifications?.length || 0));
+    }
+    // Depot Manager notifications
+    else if (user?.role === 'depot_manager' && depotId && token) {
+      fetch(`http://localhost:5000/api/depot-manager/${depotId}/notifications`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+        .then(res => res.json())
+        .then(data => setNotifCount(data.notifications?.length || 0));
+    }
+  }, [user, depotId, token]);
 
   // Handle notification click
-  const handleNotificationClick = () => {
-    console.log('User role:', user?.role); // Debug log
-    
-    // Check for different possible role values
-    if (user?.role === 'depot-engineer' || user?.role === 'depot_engineer') {
-      navigate('/depot-engineer/notifications');
-    } else if (user?.role === 'depot_manager' || user?.role === 'depot-manager') {
+  const handleNotifClick = () => {
+    if (user?.role === 'depot_operations') {
+      navigate('/depot-operations-manager/notificationscenter');
+    } else if (user?.role === 'depot_manager') {
       navigate('/depot-manager/notifications');
-    } else if (user?.role === 'regional_tech' || user?.role === 'regional-technical-officer') {
-      navigate('/regional-technical-officer/notifications');
     } else {
-      // Fallback for any role - navigate to their dashboard and show alert
-      console.log('Notifications not implemented for this role yet:', user?.role);
       alert('Notifications feature is not yet implemented for your role.');
     }
   };
-
-  // Function to refresh notification count (can be called from other components)
-  const refreshNotificationCount = () => {
-    if (token && isDashboard) {
-      fetchNotificationCount();
-    }
-  };
-
-  // Expose refresh function globally for other components to use
-  useEffect(() => {
-    (window as any).refreshNotificationCount = refreshNotificationCount;
-    return () => {
-      delete (window as any).refreshNotificationCount;
-    };
-  }, [token, isDashboard, user?.role]);
-
 
   // Function to get dashboard route based on user role
   const getDashboardRoute = (role: string) => {
@@ -226,7 +85,13 @@ const Navbar = () => {
       default:
         return '/'
     }
+  // Remove duplicate destructuring; already done at the top.
   }
+
+  // Remove duplicate destructuring; already done at the top.
+  // If you need to destructure, ensure appContext is not undefined:
+  // const { user, token, logout } = appContext ?? {};
+
 
   return (
     <nav className={`fixed top-0 left-0 right-0 z-50 ${
@@ -318,13 +183,13 @@ const Navbar = () => {
             {/* Dashboard Notifications (only show in dashboard) */}
             {isDashboard && token && (
               <button 
-                onClick={handleNotificationClick}
+                onClick={handleNotifClick}
                 className="p-1 rounded-full text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 relative"
               >
                 <HiBell className="h-6 w-6" />
-                {notificationCount > 0 && (
+                {notifCount > 0 && (
                   <span className="absolute top-0 right-0 h-4 w-4 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold">
-                    {notificationCount > 9 ? '9+' : notificationCount}
+                    {notifCount > 9 ? '9+' : notifCount}
                   </span>
                 )}
               </button>
@@ -479,4 +344,4 @@ const Navbar = () => {
   )
 }
 
-export default Navbar
+export default Navbar;

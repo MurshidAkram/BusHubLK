@@ -158,16 +158,7 @@ const NotificationsCenter = () => {
               </p>
             </div>
           </div>
-          <div className="flex gap-3 mt-4 lg:mt-0">
-            <button
-              onClick={markAllAsRead}
-              disabled={notifications.length === 0}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-            >
-              <HiCheck className="w-4 h-4" />
-              Mark All Read
-            </button>
-          </div>
+          
         </div>
       </div>
 
