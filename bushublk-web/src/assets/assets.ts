@@ -1,5 +1,6 @@
 import appointment_img from './appointment_img.png'
-import header_img from './header_img.png'
+import header_img from './header_img.jpg'
+import avatar from './avatar.jpg'
 import group_profiles from './group_profiles.png'
 import profile_pic from './profile_pic.png'
 import contact_image from './contact_image.png'
@@ -69,7 +70,8 @@ export const assets = {
     team4,
     team5,
     team6,
-    team7
+    team7,
+    avatar
 }
 
 export const doctors = [

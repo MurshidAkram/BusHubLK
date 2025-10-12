@@ -96,15 +96,59 @@ static async getRoleSpecificDetails(user_id, role_name) {
     return result.rows[0];
   }
 
-  static async getAll() {
-    const result = await db.query(
-      `SELECT u.*, r.role_name, r.role_description 
-       FROM users u 
-       JOIN roles r ON u.role_id = r.role_id 
-       ORDER BY u.user_id`
-    );
-    return result.rows;
-  }
+  // Add this updated getAll method to your userModel.js
+// Replace the existing static async getAll() method with this:
+
+// Add this updated getAll method to your userModel.js
+// Replace the existing static async getAll() method with this:
+
+static async getAll() {
+  const result = await db.query(
+    `SELECT 
+      u.user_id as id,
+      u.user_id,
+      u.username,
+      u.email,
+      u.first_name,
+      u.last_name,
+      u.phone,
+      u.is_active,
+      u.last_login,
+      u.created_at,
+      r.role_name as role,
+      r.role_name,
+      r.role_description,
+      -- Get region_id from various role tables
+      COALESCE(
+        rto.region_id,
+        roo.region_id,
+        dm.region_id,
+        dom.region_id,
+        de.region_id,
+        d.region_id,
+        c.region_id
+      ) as region_id,
+      -- Get depot_id from various role tables
+      COALESCE(
+        dm.depot_id,
+        dom.depot_id,
+        de.depot_id,
+        d.depot_id,
+        c.depot_id
+      ) as depot_id
+    FROM users u
+    JOIN roles r ON u.role_id = r.role_id
+    LEFT JOIN regional_technical_officers rto ON u.user_id = rto.rto_id
+    LEFT JOIN regional_operations_officers roo ON u.user_id = roo.roo_id
+    LEFT JOIN depot_managers dm ON u.user_id = dm.depot_manager_id
+    LEFT JOIN depot_operation_managers dom ON u.user_id = dom.depot_op_manager_id
+    LEFT JOIN depot_engineers de ON u.user_id = de.depot_engineer_id
+    LEFT JOIN drivers d ON u.user_id = d.driver_id
+    LEFT JOIN conductors c ON u.user_id = c.conductor_id
+    ORDER BY u.user_id`
+  );
+  return result.rows;
+}
 
   static async getAllRoles() {
     const result = await db.query('SELECT * FROM roles ORDER BY role_id');

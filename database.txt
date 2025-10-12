@@ -837,470 +837,124 @@ CREATE INDEX idx_busdailychecklists_checker_id ON busdailychecklists(checker_id)
 CREATE INDEX idx_busdailychecklists_check_date ON busdailychecklists(check_date);
 CREATE INDEX idx_busdailychecklists_all_parts_checked ON busdailychecklists(all_parts_checked);
 
--- Conversations table: stores chat threads between users
-CREATE TABLE conversations (
-    conversation_id SERIAL PRIMARY KEY,
-    conversation_type VARCHAR(20) NOT NULL CHECK (conversation_type IN ('one_to_one', 'announcement')),
+
+CREATE TABLE communication_channels (
+    channel_id SERIAL PRIMARY KEY,
+    channel_type VARCHAR(20) NOT NULL CHECK (channel_type IN ('direct', 'announcement')),
+    channel_name VARCHAR(100),
     created_by INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    last_message_at TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Conversation participants: tracks who is part of each conversation
-CREATE TABLE conversation_participants (
-    id SERIAL PRIMARY KEY,
-    conversation_id INTEGER NOT NULL REFERENCES conversations(conversation_id) ON DELETE CASCADE,
+-- Channel Participants Table
+-- Links users to channels (many-to-many relationship)
+CREATE TABLE channel_participants (
+    participant_id SERIAL PRIMARY KEY,
+    channel_id INTEGER NOT NULL REFERENCES communication_channels(channel_id) ON DELETE CASCADE,
     user_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    can_send BOOLEAN DEFAULT TRUE,
     joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    last_read_at TIMESTAMP,
-    is_active BOOLEAN DEFAULT TRUE,
-    UNIQUE(conversation_id, user_id)
+    last_read_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(channel_id, user_id)
 );
 
--- Messages table: stores all messages
+-- Messages Table
+-- Stores all messages sent in channels
 CREATE TABLE messages (
     message_id SERIAL PRIMARY KEY,
-    conversation_id INTEGER NOT NULL REFERENCES conversations(conversation_id) ON DELETE CASCADE,
+    channel_id INTEGER NOT NULL REFERENCES communication_channels(channel_id) ON DELETE CASCADE,
     sender_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
     message_text TEXT NOT NULL,
-    is_announcement BOOLEAN DEFAULT FALSE,
+    is_read BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    is_deleted BOOLEAN DEFAULT FALSE
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Announcements table: for one-way broadcast messages
-CREATE TABLE announcements (
-    announcement_id SERIAL PRIMARY KEY,
-    sender_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-    title VARCHAR(255) NOT NULL,
-    message TEXT NOT NULL,
-    target_type VARCHAR(20) NOT NULL CHECK (target_type IN ('region', 'depot', 'system_wide')),
-    target_region_id INTEGER REFERENCES regions(region_id) ON DELETE CASCADE,
-    target_depot_id INTEGER REFERENCES depots(depot_id) ON DELETE CASCADE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    is_active BOOLEAN DEFAULT TRUE
-);
-
--- Announcement recipients: tracks who received the announcement
-CREATE TABLE announcement_recipients (
-    id SERIAL PRIMARY KEY,
-    announcement_id INTEGER NOT NULL REFERENCES announcements(announcement_id) ON DELETE CASCADE,
-    user_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-    read_at TIMESTAMP,
-    UNIQUE(announcement_id, user_id)
-);
-
--- Message read receipts: tracks when users read messages
-CREATE TABLE message_read_receipts (
-    id SERIAL PRIMARY KEY,
+-- Message Read Status Table
+-- Tracks which users have read which messages
+CREATE TABLE message_read_status (
+    read_status_id SERIAL PRIMARY KEY,
     message_id INTEGER NOT NULL REFERENCES messages(message_id) ON DELETE CASCADE,
     user_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
     read_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(message_id, user_id)
 );
 
--- User contact permissions: defines who can message whom based on hierarchy
-CREATE TABLE user_contact_permissions (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-    can_contact_user_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-    permission_type VARCHAR(20) NOT NULL CHECK (permission_type IN ('direct', 'announcement')),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(user_id, can_contact_user_id, permission_type)
-);
-
--- Indexes for performance
-CREATE INDEX idx_conversations_updated_at ON conversations(updated_at DESC);
-CREATE INDEX idx_conversations_created_by ON conversations(created_by);
-CREATE INDEX idx_conversation_participants_user ON conversation_participants(user_id);
-CREATE INDEX idx_conversation_participants_conversation ON conversation_participants(conversation_id);
-CREATE INDEX idx_messages_conversation ON messages(conversation_id);
+-- Indexes for better performance
+CREATE INDEX idx_channels_created_by ON communication_channels(created_by);
+CREATE INDEX idx_channels_type ON communication_channels(channel_type);
+CREATE INDEX idx_channel_participants_user ON channel_participants(user_id);
+CREATE INDEX idx_channel_participants_channel ON channel_participants(channel_id);
+CREATE INDEX idx_messages_channel ON messages(channel_id);
 CREATE INDEX idx_messages_sender ON messages(sender_id);
-CREATE INDEX idx_messages_created_at ON messages(created_at DESC);
-CREATE INDEX idx_announcements_target_region ON announcements(target_region_id);
-CREATE INDEX idx_announcements_target_depot ON announcements(target_depot_id);
-CREATE INDEX idx_announcements_sender ON announcements(sender_id);
-CREATE INDEX idx_announcement_recipients_user ON announcement_recipients(user_id);
-CREATE INDEX idx_message_read_receipts_user ON message_read_receipts(user_id);
-CREATE INDEX idx_message_read_receipts_message ON message_read_receipts(message_id);
+CREATE INDEX idx_messages_created ON messages(created_at DESC);
+CREATE INDEX idx_message_read_status_message ON message_read_status(message_id);
+CREATE INDEX idx_message_read_status_user ON message_read_status(user_id);
 
--- Function to update conversation's last_message_at
-CREATE OR REPLACE FUNCTION update_conversation_timestamp()
+-- Function to update updated_at timestamp
+CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
-    UPDATE conversations 
-    SET last_message_at = NEW.created_at,
-        updated_at = NEW.created_at
-    WHERE conversation_id = NEW.conversation_id;
+    NEW.updated_at = CURRENT_TIMESTAMP;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
--- Trigger to automatically update conversation timestamp
-CREATE TRIGGER trigger_update_conversation_timestamp
-AFTER INSERT ON messages
-FOR EACH ROW
-EXECUTE FUNCTION update_conversation_timestamp();
+-- Triggers for updated_at
+CREATE TRIGGER update_communication_channels_updated_at
+    BEFORE UPDATE ON communication_channels
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
 
--- New function that updates permissions for a specific user
-CREATE OR REPLACE FUNCTION update_user_permissions(p_user_id INTEGER)
-RETURNS void AS $$
+CREATE TRIGGER update_messages_updated_at
+    BEFORE UPDATE ON messages
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- Function to get or create a direct channel between two users
+CREATE OR REPLACE FUNCTION get_or_create_direct_channel(
+    user1_id INTEGER,
+    user2_id INTEGER
+)
+RETURNS INTEGER AS $$
 DECLARE
-    v_role_name VARCHAR(50);
-    v_depot_id INTEGER;
-    v_region_id INTEGER;
+    existing_channel_id INTEGER;
+    new_channel_id INTEGER;
 BEGIN
-    -- Get user's role and details
-    SELECT r.role_name 
-    INTO v_role_name
-    FROM users u
-    JOIN roles r ON u.role_id = r.role_id
-    WHERE u.user_id = p_user_id;
+    -- Check if a direct channel already exists between these two users
+    SELECT c.channel_id INTO existing_channel_id
+    FROM communication_channels c
+    WHERE c.channel_type = 'direct'
+    AND EXISTS (
+        SELECT 1 FROM channel_participants cp1
+        WHERE cp1.channel_id = c.channel_id AND cp1.user_id = user1_id
+    )
+    AND EXISTS (
+        SELECT 1 FROM channel_participants cp2
+        WHERE cp2.channel_id = c.channel_id AND cp2.user_id = user2_id
+    )
+    AND (
+        SELECT COUNT(*) FROM channel_participants cp
+        WHERE cp.channel_id = c.channel_id
+    ) = 2
+    LIMIT 1;
 
-    -- Clear existing permissions for this user
-    DELETE FROM user_contact_permissions WHERE user_id = p_user_id;
-
-    -- Admin can contact anyone
-    IF v_role_name = 'admin' THEN
-        INSERT INTO user_contact_permissions (user_id, can_contact_user_id, permission_type)
-        SELECT p_user_id, u.user_id, 'direct'
-        FROM users u
-        WHERE u.user_id != p_user_id;
-        RETURN;
+    IF existing_channel_id IS NOT NULL THEN
+        RETURN existing_channel_id;
     END IF;
 
-    -- CEO can contact DGMs
-    IF v_role_name = 'ceo' THEN
-        INSERT INTO user_contact_permissions (user_id, can_contact_user_id, permission_type)
-        SELECT p_user_id, dt.dgm_technical_id, 'direct'
-        FROM dgm_technical dt
-        UNION
-        SELECT p_user_id, do.dgm_operations_id, 'direct'
-        FROM dgm_operations do;
-        RETURN;
-    END IF;
+    -- Create new channel
+    INSERT INTO communication_channels (channel_type, created_by)
+    VALUES ('direct', user1_id)
+    RETURNING channel_id INTO new_channel_id;
 
-    -- DGM Technical
-    IF v_role_name = 'dgm_technical' THEN
-        -- Can contact CEO
-        INSERT INTO user_contact_permissions (user_id, can_contact_user_id, permission_type)
-        SELECT p_user_id, c.ceo_id, 'direct' FROM ceo c;
-        
-        -- Can contact all Regional Technical Officers
-        INSERT INTO user_contact_permissions (user_id, can_contact_user_id, permission_type)
-        SELECT p_user_id, rto.rto_id, 'direct'
-        FROM regional_technical_officers rto;
-        RETURN;
-    END IF;
+    -- Add both participants
+    INSERT INTO channel_participants (channel_id, user_id, can_send)
+    VALUES 
+        (new_channel_id, user1_id, TRUE),
+        (new_channel_id, user2_id, TRUE);
 
-    -- DGM Operations
-    IF v_role_name = 'dgm_operations' THEN
-        -- Can contact CEO
-        INSERT INTO user_contact_permissions (user_id, can_contact_user_id, permission_type)
-        SELECT p_user_id, c.ceo_id, 'direct' FROM ceo c;
-        
-        -- Can contact all Regional Operations Officers
-        INSERT INTO user_contact_permissions (user_id, can_contact_user_id, permission_type)
-        SELECT p_user_id, roo.roo_id, 'direct'
-        FROM regional_operations_officers roo;
-        RETURN;
-    END IF;
-
-    -- Regional Technical Officer
-    IF v_role_name = 'regional_tech' THEN
-        SELECT region_id INTO v_region_id
-        FROM regional_technical_officers
-        WHERE rto_id = p_user_id;
-
-        -- Can contact DGM Technical
-        INSERT INTO user_contact_permissions (user_id, can_contact_user_id, permission_type)
-        SELECT p_user_id, dt.dgm_technical_id, 'direct'
-        FROM dgm_technical dt;
-
-        -- Can contact depot engineers and managers in their region
-        INSERT INTO user_contact_permissions (user_id, can_contact_user_id, permission_type)
-        SELECT p_user_id, de.depot_engineer_id, 'direct'
-        FROM depot_engineers de WHERE de.region_id = v_region_id
-        UNION
-        SELECT p_user_id, dm.depot_manager_id, 'direct'
-        FROM depot_managers dm WHERE dm.region_id = v_region_id;
-        RETURN;
-    END IF;
-
-    -- Regional Operations Officer
-    IF v_role_name = 'regional_operations' THEN
-        SELECT region_id INTO v_region_id
-        FROM regional_operations_officers
-        WHERE roo_id = p_user_id;
-
-        -- Can contact DGM Operations
-        INSERT INTO user_contact_permissions (user_id, can_contact_user_id, permission_type)
-        SELECT p_user_id, do.dgm_operations_id, 'direct'
-        FROM dgm_operations do;
-
-        -- Can contact depot managers and operations managers in their region
-        INSERT INTO user_contact_permissions (user_id, can_contact_user_id, permission_type)
-        SELECT p_user_id, dm.depot_manager_id, 'direct'
-        FROM depot_managers dm WHERE dm.region_id = v_region_id
-        UNION
-        SELECT p_user_id, dom.depot_op_manager_id, 'direct'
-        FROM depot_operation_managers dom WHERE dom.region_id = v_region_id;
-        RETURN;
-    END IF;
-
-    -- Depot Engineer
-    IF v_role_name = 'depot_engineer' THEN
-        SELECT depot_id, region_id INTO v_depot_id, v_region_id
-        FROM depot_engineers WHERE depot_engineer_id = p_user_id;
-
-        -- Can contact Regional Technical Officer
-        INSERT INTO user_contact_permissions (user_id, can_contact_user_id, permission_type)
-        SELECT p_user_id, rto.rto_id, 'direct'
-        FROM regional_technical_officers rto WHERE rto.region_id = v_region_id;
-
-        -- Can contact depot manager and operations manager in same depot
-        INSERT INTO user_contact_permissions (user_id, can_contact_user_id, permission_type)
-        SELECT p_user_id, dm.depot_manager_id, 'direct'
-        FROM depot_managers dm WHERE dm.depot_id = v_depot_id
-        UNION
-        SELECT p_user_id, dom.depot_op_manager_id, 'direct'
-        FROM depot_operation_managers dom WHERE dom.depot_id = v_depot_id;
-        RETURN;
-    END IF;
-
-    -- Depot Manager
-    IF v_role_name = 'depot_manager' THEN
-        SELECT depot_id, region_id INTO v_depot_id, v_region_id
-        FROM depot_managers WHERE depot_manager_id = p_user_id;
-
-        -- Can contact Regional Officers
-        INSERT INTO user_contact_permissions (user_id, can_contact_user_id, permission_type)
-        SELECT p_user_id, rto.rto_id, 'direct'
-        FROM regional_technical_officers rto WHERE rto.region_id = v_region_id
-        UNION
-        SELECT p_user_id, roo.roo_id, 'direct'
-        FROM regional_operations_officers roo WHERE roo.region_id = v_region_id;
-
-        -- Can contact depot engineer and operations manager in same depot
-        INSERT INTO user_contact_permissions (user_id, can_contact_user_id, permission_type)
-        SELECT p_user_id, de.depot_engineer_id, 'direct'
-        FROM depot_engineers de WHERE de.depot_id = v_depot_id
-        UNION
-        SELECT p_user_id, dom.depot_op_manager_id, 'direct'
-        FROM depot_operation_managers dom WHERE dom.depot_id = v_depot_id;
-        RETURN;
-    END IF;
-
-    -- Depot Operations Manager
-    IF v_role_name = 'depot_operations' THEN
-        SELECT depot_id, region_id INTO v_depot_id, v_region_id
-        FROM depot_operation_managers WHERE depot_op_manager_id = p_user_id;
-
-        -- Can contact Regional Operations Officer
-        INSERT INTO user_contact_permissions (user_id, can_contact_user_id, permission_type)
-        SELECT p_user_id, roo.roo_id, 'direct'
-        FROM regional_operations_officers roo WHERE roo.region_id = v_region_id;
-
-        -- Can contact depot manager and engineer in same depot
-        INSERT INTO user_contact_permissions (user_id, can_contact_user_id, permission_type)
-        SELECT p_user_id, dm.depot_manager_id, 'direct'
-        FROM depot_managers dm WHERE dm.depot_id = v_depot_id
-        UNION
-        SELECT p_user_id, de.depot_engineer_id, 'direct'
-        FROM depot_engineers de WHERE de.depot_id = v_depot_id;
-        RETURN;
-    END IF;
-
-END;
-$$ LANGUAGE plpgsql;
-
--- Function to update permissions for users who can contact a specific user
-CREATE OR REPLACE FUNCTION update_reverse_permissions(p_user_id INTEGER)
-RETURNS void AS $$
-DECLARE
-    v_role_name VARCHAR(50);
-    v_depot_id INTEGER;
-    v_region_id INTEGER;
-BEGIN
-    -- Get user's role and details
-    SELECT r.role_name 
-    INTO v_role_name
-    FROM users u
-    JOIN roles r ON u.role_id = r.role_id
-    WHERE u.user_id = p_user_id;
-
-    -- Get depot/region if applicable
-    IF v_role_name IN ('depot_engineer', 'depot_manager', 'depot_operations') THEN
-        SELECT COALESCE(de.depot_id, dm.depot_id, dom.depot_id),
-               COALESCE(de.region_id, dm.region_id, dom.region_id)
-        INTO v_depot_id, v_region_id
-        FROM users u
-        LEFT JOIN depot_engineers de ON u.user_id = de.depot_engineer_id
-        LEFT JOIN depot_managers dm ON u.user_id = dm.depot_manager_id
-        LEFT JOIN depot_operation_managers dom ON u.user_id = dom.depot_op_manager_id
-        WHERE u.user_id = p_user_id;
-    ELSIF v_role_name IN ('regional_tech', 'regional_operations') THEN
-        SELECT COALESCE(rto.region_id, roo.region_id)
-        INTO v_region_id
-        FROM users u
-        LEFT JOIN regional_technical_officers rto ON u.user_id = rto.rto_id
-        LEFT JOIN regional_operations_officers roo ON u.user_id = roo.roo_id
-        WHERE u.user_id = p_user_id;
-    END IF;
-
-    -- Clear existing reverse permissions (where others can contact this user)
-    DELETE FROM user_contact_permissions WHERE can_contact_user_id = p_user_id;
-
-    -- Rebuild reverse permissions based on who should be able to contact this user
-    
-    -- Everyone can be contacted by admin
-    INSERT INTO user_contact_permissions (user_id, can_contact_user_id, permission_type)
-    SELECT a.admin_id, p_user_id, 'direct'
-    FROM admins a;
-
-    -- Role-specific reverse permissions
-    CASE v_role_name
-        WHEN 'ceo' THEN
-            -- DGMs can contact CEO
-            INSERT INTO user_contact_permissions (user_id, can_contact_user_id, permission_type)
-            SELECT dt.dgm_technical_id, p_user_id, 'direct' FROM dgm_technical dt
-            UNION
-            SELECT do.dgm_operations_id, p_user_id, 'direct' FROM dgm_operations do;
-
-        WHEN 'dgm_technical' THEN
-            -- CEO and Regional Tech Officers can contact DGM Technical
-            INSERT INTO user_contact_permissions (user_id, can_contact_user_id, permission_type)
-            SELECT c.ceo_id, p_user_id, 'direct' FROM ceo c
-            UNION
-            SELECT rto.rto_id, p_user_id, 'direct' FROM regional_technical_officers rto;
-
-        WHEN 'dgm_operations' THEN
-            -- CEO and Regional Operations Officers can contact DGM Operations
-            INSERT INTO user_contact_permissions (user_id, can_contact_user_id, permission_type)
-            SELECT c.ceo_id, p_user_id, 'direct' FROM ceo c
-            UNION
-            SELECT roo.roo_id, p_user_id, 'direct' FROM regional_operations_officers roo;
-
-        WHEN 'regional_tech' THEN
-            -- DGM Technical, depot engineers and managers in region can contact
-            INSERT INTO user_contact_permissions (user_id, can_contact_user_id, permission_type)
-            SELECT dt.dgm_technical_id, p_user_id, 'direct' FROM dgm_technical dt
-            UNION
-            SELECT de.depot_engineer_id, p_user_id, 'direct' 
-            FROM depot_engineers de WHERE de.region_id = v_region_id
-            UNION
-            SELECT dm.depot_manager_id, p_user_id, 'direct'
-            FROM depot_managers dm WHERE dm.region_id = v_region_id;
-
-        WHEN 'regional_operations' THEN
-            -- DGM Operations, depot managers and ops managers in region can contact
-            INSERT INTO user_contact_permissions (user_id, can_contact_user_id, permission_type)
-            SELECT do.dgm_operations_id, p_user_id, 'direct' FROM dgm_operations do
-            UNION
-            SELECT dm.depot_manager_id, p_user_id, 'direct'
-            FROM depot_managers dm WHERE dm.region_id = v_region_id
-            UNION
-            SELECT dom.depot_op_manager_id, p_user_id, 'direct'
-            FROM depot_operation_managers dom WHERE dom.region_id = v_region_id;
-
-        WHEN 'depot_engineer' THEN
-            -- Regional tech, depot manager, and depot ops manager can contact
-            INSERT INTO user_contact_permissions (user_id, can_contact_user_id, permission_type)
-            SELECT rto.rto_id, p_user_id, 'direct'
-            FROM regional_technical_officers rto WHERE rto.region_id = v_region_id
-            UNION
-            SELECT dm.depot_manager_id, p_user_id, 'direct'
-            FROM depot_managers dm WHERE dm.depot_id = v_depot_id
-            UNION
-            SELECT dom.depot_op_manager_id, p_user_id, 'direct'
-            FROM depot_operation_managers dom WHERE dom.depot_id = v_depot_id;
-
-        WHEN 'depot_manager' THEN
-            -- Regional officers, depot engineer, and depot ops manager can contact
-            INSERT INTO user_contact_permissions (user_id, can_contact_user_id, permission_type)
-            SELECT rto.rto_id, p_user_id, 'direct'
-            FROM regional_technical_officers rto WHERE rto.region_id = v_region_id
-            UNION
-            SELECT roo.roo_id, p_user_id, 'direct'
-            FROM regional_operations_officers roo WHERE roo.region_id = v_region_id
-            UNION
-            SELECT de.depot_engineer_id, p_user_id, 'direct'
-            FROM depot_engineers de WHERE de.depot_id = v_depot_id
-            UNION
-            SELECT dom.depot_op_manager_id, p_user_id, 'direct'
-            FROM depot_operation_managers dom WHERE dom.depot_id = v_depot_id;
-
-        WHEN 'depot_operations' THEN
-            -- Regional ops, depot manager, and depot engineer can contact
-            INSERT INTO user_contact_permissions (user_id, can_contact_user_id, permission_type)
-            SELECT roo.roo_id, p_user_id, 'direct'
-            FROM regional_operations_officers roo WHERE roo.region_id = v_region_id
-            UNION
-            SELECT dm.depot_manager_id, p_user_id, 'direct'
-            FROM depot_managers dm WHERE dm.depot_id = v_depot_id
-            UNION
-            SELECT de.depot_engineer_id, p_user_id, 'direct'
-            FROM depot_engineers de WHERE de.depot_id = v_depot_id;
-
-        ELSE
-            -- Default: no special reverse permissions
-            NULL;
-    END CASE;
-
-END;
-$$ LANGUAGE plpgsql;
-
--- Trigger function to auto-update permissions when role-specific records are inserted
-CREATE OR REPLACE FUNCTION trigger_update_permissions()
-RETURNS TRIGGER AS $$
-BEGIN
-    -- Update permissions for the new user
-    PERFORM update_user_permissions(NEW.depot_engineer_id);
-    PERFORM update_reverse_permissions(NEW.depot_engineer_id);
-    
-    -- Also update permissions for related users
-    -- (e.g., when new depot engineer added, update depot manager and regional tech)
-    IF TG_TABLE_NAME = 'depot_engineers' THEN
-        -- Update depot manager and ops manager in same depot
-        PERFORM update_user_permissions(dm.depot_manager_id)
-        FROM depot_managers dm WHERE dm.depot_id = NEW.depot_id;
-        
-        PERFORM update_user_permissions(dom.depot_op_manager_id)
-        FROM depot_operation_managers dom WHERE dom.depot_id = NEW.depot_id;
-        
-        -- Update regional tech officer
-        PERFORM update_user_permissions(rto.rto_id)
-        FROM regional_technical_officers rto WHERE rto.region_id = NEW.region_id;
-    END IF;
-    
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
--- Create triggers for all role-specific tables
-CREATE TRIGGER auto_update_permissions_depot_engineer
-AFTER INSERT ON depot_engineers
-FOR EACH ROW EXECUTE FUNCTION trigger_update_permissions();
-
--- Note: You'll need to create similar triggers for other role tables
--- Or use a more generic approach
-
--- Utility function to rebuild all permissions (use sparingly)
-CREATE OR REPLACE FUNCTION rebuild_all_permissions()
-RETURNS void AS $$
-DECLARE
-    user_record RECORD;
-BEGIN
-    -- Truncate and rebuild everything
-    TRUNCATE user_contact_permissions;
-    
-    -- Update for each user
-    FOR user_record IN SELECT user_id FROM users WHERE is_active = true
-    LOOP
-        PERFORM update_user_permissions(user_record.user_id);
-        PERFORM update_reverse_permissions(user_record.user_id);
-    END LOOP;
+    RETURN new_channel_id;
 END;
 $$ LANGUAGE plpgsql;

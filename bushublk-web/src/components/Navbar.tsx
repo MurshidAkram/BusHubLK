@@ -336,7 +336,7 @@ const Navbar = () => {
                 <div className='flex items-center gap-3 cursor-pointer px-3 py-2 rounded-full hover:bg-gray-100 transition-all duration-200'>
                   <img 
                     className='w-9 h-9 rounded-full border-2 border-gray-200 hover:border-blue-400 transition-all duration-200' 
-                    src={user.avatar} 
+                    src={assets.avatar} 
                     alt="Profile"
                   />
                   {isDashboard && (
@@ -381,12 +381,6 @@ const Navbar = () => {
                       Back to Home
                     </button>
                   )}
-                  
-                  <button 
-                    className='w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-150'
-                  >
-                    Settings
-                  </button>
                   
                   <div className='border-t border-gray-100 mt-1 pt-1'>
                     <button 

@@ -74,7 +74,7 @@ const RegionalTechnicalOfficerSidebarContent = () => {
         }
       >
          <HiUsers className="mr-3 flex-shrink-0 h-5 w-5" />
-      Contact
+      Communcation Hub
       </NavLink>
 
     

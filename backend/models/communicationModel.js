@@ -252,21 +252,21 @@ static async getAvailableContacts(userId, filters = {}) {
     const user = userInfo.rows[0];
     const { role_name, depot_id, region_id } = user;
 
-    console.log('User info:', { userId, role_name, depot_id, region_id, filters });
-
     let query = '';
     let params = [];
 
-    // ==================== DEPOT LEVEL ====================
-    
-    // Depot Engineer can chat with: Depot Manager, Depot Operations Manager, Regional Technical Officer
+    // Depot Engineer
     if (role_name === 'depot_engineer') {
       query = `
         SELECT 
           u.user_id, 
           u.username,
           u.first_name || ' ' || u.last_name as name,
-          r.role_name as role
+          r.role_name as role,
+          COALESCE(
+            (SELECT d.depot_name FROM depots d WHERE d.depot_id = $2),
+            (SELECT reg.region_name FROM regions reg WHERE reg.region_id = $3)
+          ) as region_name
         FROM users u
         JOIN roles r ON u.role_id = r.role_id
         WHERE u.user_id != $1
@@ -287,14 +287,18 @@ static async getAvailableContacts(userId, filters = {}) {
       params = [userId, depot_id, region_id];
     }
     
-    // Depot Operations Manager can chat with: Depot Manager, Depot Engineer, Regional Operations Officer
+    // Depot Operations Manager
     else if (role_name === 'depot_operations') {
       query = `
         SELECT 
           u.user_id, 
           u.username,
           u.first_name || ' ' || u.last_name as name,
-          r.role_name as role
+          r.role_name as role,
+          COALESCE(
+            (SELECT d.depot_name FROM depots d WHERE d.depot_id = $2),
+            (SELECT reg.region_name FROM regions reg WHERE reg.region_id = $3)
+          ) as region_name
         FROM users u
         JOIN roles r ON u.role_id = r.role_id
         WHERE u.user_id != $1
@@ -315,14 +319,15 @@ static async getAvailableContacts(userId, filters = {}) {
       params = [userId, depot_id, region_id];
     }
     
-    // Depot Manager can chat with: Depot Operations Manager, Depot Engineer
+    // Depot Manager
     else if (role_name === 'depot_manager') {
       query = `
         SELECT 
           u.user_id, 
           u.username,
           u.first_name || ' ' || u.last_name as name,
-          r.role_name as role
+          r.role_name as role,
+          (SELECT d.depot_name FROM depots d WHERE d.depot_id = $2) as region_name
         FROM users u
         JOIN roles r ON u.role_id = r.role_id
         WHERE u.user_id != $1
@@ -340,9 +345,7 @@ static async getAvailableContacts(userId, filters = {}) {
       params = [userId, depot_id];
     }
     
-    // ==================== REGIONAL LEVEL ====================
-    
-    // Regional Technical Officer can chat with: Depot Engineers, Depot Managers in region, DGM Technical
+    // Regional Technical Officer
     else if (role_name === 'regional_tech') {
       query = `
         SELECT 
@@ -350,7 +353,10 @@ static async getAvailableContacts(userId, filters = {}) {
           u.username,
           u.first_name || ' ' || u.last_name as name,
           r.role_name as role,
-          COALESCE(de.depot_id, dm.depot_id) as depot_id
+          COALESCE(
+            (SELECT d.depot_name FROM depots d WHERE d.depot_id = COALESCE(de.depot_id, dm.depot_id)),
+            (SELECT reg.region_name FROM regions reg WHERE reg.region_id = $2)
+          ) as region_name
         FROM users u
         JOIN roles r ON u.role_id = r.role_id
         LEFT JOIN depot_engineers de ON u.user_id = de.depot_engineer_id AND de.region_id = $2
@@ -373,7 +379,7 @@ static async getAvailableContacts(userId, filters = {}) {
       params = [userId, region_id];
     }
     
-    // Regional Operations Officer can chat with: Depot Operations Managers, Depot Managers in region, DGM Operations
+    // Regional Operations Officer
     else if (role_name === 'regional_operations') {
       query = `
         SELECT 
@@ -381,7 +387,10 @@ static async getAvailableContacts(userId, filters = {}) {
           u.username,
           u.first_name || ' ' || u.last_name as name,
           r.role_name as role,
-          COALESCE(dom.depot_id, dm.depot_id) as depot_id
+          COALESCE(
+            (SELECT d.depot_name FROM depots d WHERE d.depot_id = COALESCE(dom.depot_id, dm.depot_id)),
+            (SELECT reg.region_name FROM regions reg WHERE reg.region_id = $2)
+          ) as region_name
         FROM users u
         JOIN roles r ON u.role_id = r.role_id
         LEFT JOIN depot_operation_managers dom ON u.user_id = dom.depot_op_manager_id AND dom.region_id = $2
@@ -404,9 +413,7 @@ static async getAvailableContacts(userId, filters = {}) {
       params = [userId, region_id];
     }
     
-    // ==================== DGM LEVEL ====================
-    
-    // DGM Technical can chat with: Regional Technical Officers (filtered by region), CEO
+    // DGM Technical
     else if (role_name === 'dgm_technical') {
       const regionFilter = filters.regionId ? 'AND rto.region_id = $2' : '';
       query = `
@@ -415,7 +422,6 @@ static async getAvailableContacts(userId, filters = {}) {
           u.username,
           u.first_name || ' ' || u.last_name as name,
           r.role_name as role,
-          rto.region_id,
           reg.region_name
         FROM users u
         JOIN roles r ON u.role_id = r.role_id
@@ -438,7 +444,7 @@ static async getAvailableContacts(userId, filters = {}) {
       params = filters.regionId ? [userId, filters.regionId] : [userId];
     }
     
-    // DGM Operations can chat with: Regional Operations Officers (filtered by region), CEO
+    // DGM Operations
     else if (role_name === 'dgm_operations') {
       const regionFilter = filters.regionId ? 'AND roo.region_id = $2' : '';
       query = `
@@ -447,7 +453,6 @@ static async getAvailableContacts(userId, filters = {}) {
           u.username,
           u.first_name || ' ' || u.last_name as name,
           r.role_name as role,
-          roo.region_id,
           reg.region_name
         FROM users u
         JOIN roles r ON u.role_id = r.role_id
@@ -470,16 +475,68 @@ static async getAvailableContacts(userId, filters = {}) {
       params = filters.regionId ? [userId, filters.regionId] : [userId];
     }
     
-    // ==================== ADMIN LEVEL ====================
+    // CEO
+    else if (role_name === 'ceo') {
+      const regionFilter = filters.regionId ? 
+        'AND (rto.region_id = $2 OR roo.region_id = $2)' : '';
+      query = `
+        SELECT 
+          u.user_id, 
+          u.username,
+          u.first_name || ' ' || u.last_name as name,
+          r.role_name as role,
+          COALESCE(reg1.region_name, reg2.region_name) as region_name
+        FROM users u
+        JOIN roles r ON u.role_id = r.role_id
+        LEFT JOIN regional_technical_officers rto ON u.user_id = rto.rto_id
+        LEFT JOIN regional_operations_officers roo ON u.user_id = roo.roo_id
+        LEFT JOIN regions reg1 ON rto.region_id = reg1.region_id
+        LEFT JOIN regions reg2 ON roo.region_id = reg2.region_id
+        WHERE u.user_id != $1
+        AND u.is_active = true
+        AND (
+          r.role_name IN ('dgm_technical', 'dgm_operations')
+          OR (r.role_name = 'regional_tech' ${regionFilter})
+          OR (r.role_name = 'regional_operations' ${regionFilter})
+        )
+        ORDER BY 
+          CASE r.role_name
+            WHEN 'dgm_technical' THEN 1
+            WHEN 'dgm_operations' THEN 2
+            WHEN 'regional_tech' THEN 3
+            WHEN 'regional_operations' THEN 4
+          END,
+          COALESCE(reg1.region_name, reg2.region_name),
+          u.first_name
+      `;
+      params = filters.regionId ? [userId, filters.regionId] : [userId];
+    }
     
-    // Admin can chat with anyone
+    // Admin
     else if (role_name === 'admin') {
       query = `
         SELECT 
           u.user_id, 
           u.username,
           u.first_name || ' ' || u.last_name as name,
-          r.role_name as role
+          r.role_name as role,
+          COALESCE(
+            (SELECT reg.region_name FROM regions reg 
+             JOIN depot_managers dm ON dm.region_id = reg.region_id 
+             WHERE dm.depot_manager_id = u.user_id LIMIT 1),
+            (SELECT reg.region_name FROM regions reg 
+             JOIN depot_operation_managers dom ON dom.region_id = reg.region_id 
+             WHERE dom.depot_op_manager_id = u.user_id LIMIT 1),
+            (SELECT reg.region_name FROM regions reg 
+             JOIN depot_engineers de ON de.region_id = reg.region_id 
+             WHERE de.depot_engineer_id = u.user_id LIMIT 1),
+            (SELECT reg.region_name FROM regions reg 
+             JOIN regional_technical_officers rto ON rto.region_id = reg.region_id 
+             WHERE rto.rto_id = u.user_id LIMIT 1),
+            (SELECT reg.region_name FROM regions reg 
+             JOIN regional_operations_officers roo ON roo.region_id = reg.region_id 
+             WHERE roo.roo_id = u.user_id LIMIT 1)
+          ) as region_name
         FROM users u
         JOIN roles r ON u.role_id = r.role_id
         WHERE u.user_id != $1
@@ -489,7 +546,6 @@ static async getAvailableContacts(userId, filters = {}) {
       params = [userId];
     }
     
-    // If no role matched or query not set, return empty array
     if (!query) {
       console.log('No matching role found for contacts query');
       return [];
@@ -505,8 +561,6 @@ static async getAvailableContacts(userId, filters = {}) {
     throw error;
   }
 }
- // Get channel info
-// Fixed getChannelInfo method for communicationModel.js
 
 static async getChannelInfo(channelId, userId) {
   try {
@@ -697,12 +751,30 @@ static async createAnnouncementChannel(creatorId, targetType, targetId, channelN
   try {
     await client.query('BEGIN');
     
-    // Create announcement channel
+    // Get target name for better channel naming
+    let targetName = '';
+    if (targetType === 'region') {
+      const regionResult = await client.query(
+        'SELECT region_name FROM regions WHERE region_id = $1',
+        [targetId]
+      );
+      targetName = regionResult.rows[0]?.region_name || '';
+    } else if (targetType === 'depot') {
+      const depotResult = await client.query(
+        'SELECT depot_name FROM depots WHERE depot_id = $1',
+        [targetId]
+      );
+      targetName = depotResult.rows[0]?.depot_name || '';
+    }
+    
+    // Create announcement channel with enhanced name
+    const enhancedChannelName = `${channelName} (${targetType === 'region' ? '🌍' : '🏢'} ${targetName})`;
+    
     const channelResult = await client.query(
       `INSERT INTO communication_channels (channel_type, channel_name, created_by)
        VALUES ('announcement', $1, $2)
        RETURNING channel_id`,
-      [channelName, creatorId]
+      [enhancedChannelName, creatorId]
     );
     
     const channelId = channelResult.rows[0].channel_id;
@@ -719,7 +791,6 @@ static async createAnnouncementChannel(creatorId, targetType, targetId, channelN
     let recipientsParams = [channelId];
     
     if (targetType === 'region') {
-      // Add all active users in the region - FIXED: removed DISTINCT keyword
       recipientsQuery = `
         INSERT INTO channel_participants (channel_id, user_id, can_send)
         SELECT $1, u.user_id, false
@@ -743,7 +814,6 @@ static async createAnnouncementChannel(creatorId, targetType, targetId, channelN
       recipientsParams.push(creatorId, targetId);
       
     } else if (targetType === 'depot') {
-      // Add all active users in the depot - FIXED: removed DISTINCT keyword
       recipientsQuery = `
         INSERT INTO channel_participants (channel_id, user_id, can_send)
         SELECT $1, u.user_id, false
