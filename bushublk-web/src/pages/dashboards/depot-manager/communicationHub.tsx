@@ -1,25 +1,17 @@
-import React, { useState, useEffect, useRef, useContext } from 'react';
+import { useState, useEffect, useRef, useContext } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { Send, Users, Plus, MessageSquare, AlertCircle, Megaphone } from 'lucide-react';
 import { AppContext } from '../../../context/AppContext';
-import { Send, Users, Plus, MessageSquare, AlertCircle } from 'lucide-react';
 
 const API_URL = 'http://localhost:5000';
 
-// Type definitions
 interface User {
   id: string;
   username: string;
   email: string;
   first_name: string;
   last_name: string;
-  phone?: string;
   role: string;
-  is_active: boolean;
-  last_login?: string;
-  created_at?: string;
-  avatar?: string;
-  depot_id?: number;
-  region_id?: number;
 }
 
 interface Message {
@@ -39,6 +31,7 @@ interface ChannelParticipant {
 
 interface Channel {
   channel_id: string;
+  channel_type: string;
   channel_name?: string;
   participants: ChannelParticipant[];
   last_message?: {
@@ -53,21 +46,17 @@ interface Contact {
   user_id: string;
   name: string;
   role: string;
+  region_name?: string;
 }
 
 interface AppContextType {
   user: User | null;
   token: string | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  login: (userData: User, token: string) => void;
-  logout: () => void;
-  updateUser: (userData: Partial<User>) => void;
 }
 
-const CommunicationHub = () => {
-  const context = useContext(AppContext);
-  const { token, user } = context as AppContextType;
+const DepotRegionalCommunicationHub = () => {
+  const context = useContext(AppContext) as AppContextType;
+  const { token, user } = context;
   
   const [socket, setSocket] = useState<Socket | null>(null);
   const [channels, setChannels] = useState<Channel[]>([]);
@@ -79,21 +68,24 @@ const CommunicationHub = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [typingUsers, setTypingUsers] = useState<Record<string, boolean>>({});
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const formatTimeAgo = (dateString: string): string => {
     const date = new Date(dateString);
     const now = new Date();
-    const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
     
-    if (seconds < 60) return 'just now';
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes}m ago`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}h ago`;
-    const days = Math.floor(hours / 24);
-    if (days < 7) return `${days}d ago`;
+    if (diffMins < 1) return 'just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays < 7) return `${diffDays}d ago`;
+    
     return date.toLocaleDateString();
   };
 
@@ -109,11 +101,12 @@ const CommunicationHub = () => {
       newSocket.emit('join_channels');
     });
 
-    newSocket.on('new_message', ({ channelId, message }: { channelId: string; message: Message }) => {
+    newSocket.on('new_message', ({ channelId, message }) => {
       if (activeChannel?.channel_id === channelId) {
         setMessages(prev => [...prev, message]);
-        scrollToBottom();
+        setTimeout(scrollToBottom, 100);
       }
+      
       setChannels(prev => prev.map(ch => {
         if (ch.channel_id === channelId) {
           return {
@@ -130,13 +123,13 @@ const CommunicationHub = () => {
       }));
     });
 
-    newSocket.on('user_typing', ({ userId, channelId }: { userId: string; channelId: string }) => {
+    newSocket.on('user_typing', ({ userId, channelId }) => {
       if (activeChannel?.channel_id === channelId) {
         setTypingUsers(prev => ({ ...prev, [userId]: true }));
       }
     });
 
-    newSocket.on('user_stopped_typing', ({ userId }: { userId: string }) => {
+    newSocket.on('user_stopped_typing', ({ userId }) => {
       setTypingUsers(prev => {
         const updated = { ...prev };
         delete updated[userId];
@@ -144,17 +137,12 @@ const CommunicationHub = () => {
       });
     });
 
-    newSocket.on('connect_error', (err) => {
-      console.error('Socket connection error:', err);
-      setError('Failed to connect to real-time messaging');
-    });
-
     setSocket(newSocket);
 
     return () => {
       newSocket.close();
     };
-  }, [token, activeChannel]);
+  }, [token, activeChannel?.channel_id]);
 
   useEffect(() => {
     if (token) {
@@ -176,7 +164,7 @@ const CommunicationHub = () => {
       }
       markChannelAsRead(activeChannel.channel_id);
     }
-  }, [activeChannel, token, socket]);
+  }, [activeChannel?.channel_id, token]);
 
   useEffect(() => {
     scrollToBottom();
@@ -189,9 +177,7 @@ const CommunicationHub = () => {
   const fetchChannels = async () => {
     try {
       const response = await fetch(`${API_URL}/api/communication/channels`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
       if (data.success) {
@@ -208,9 +194,7 @@ const CommunicationHub = () => {
   const fetchContacts = async () => {
     try {
       const response = await fetch(`${API_URL}/api/communication/contacts`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
       if (data.success) {
@@ -225,9 +209,7 @@ const CommunicationHub = () => {
   const fetchMessages = async (channelId: string) => {
     try {
       const response = await fetch(`${API_URL}/api/communication/channels/${channelId}/messages`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
       if (data.success) {
@@ -243,9 +225,7 @@ const CommunicationHub = () => {
     try {
       await fetch(`${API_URL}/api/communication/channels/${channelId}/read`, {
         method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       setChannels(prev => prev.map(ch => 
         ch.channel_id === channelId ? { ...ch, unread_count: 0 } : ch
@@ -271,10 +251,21 @@ const CommunicationHub = () => {
 
       const data = await response.json();
       if (data.success) {
+        const newMessage: Message = {
+          message_id: data.message.message_id,
+          sender_id: user?.id || '',
+          sender_name: `${user?.first_name} ${user?.last_name}`,
+          message_text: messageText.trim(),
+          created_at: new Date().toISOString()
+        };
+        setMessages(prev => [...prev, newMessage]);
         setMessageText('');
+        
         if (socket) {
           socket.emit('typing_stop', { channelId: activeChannel.channel_id });
         }
+        
+        setTimeout(scrollToBottom, 100);
       }
     } catch (err) {
       console.error('Error sending message:', err);
@@ -295,9 +286,8 @@ const CommunicationHub = () => {
 
       const data = await response.json();
       if (data.success) {
-        // Use the channel data returned from the API directly
         setActiveChannel(data.channel);
-        await fetchChannels(); // Update the channels list
+        await fetchChannels();
         setShowContacts(false);
       }
     } catch (err) {
@@ -308,13 +298,8 @@ const CommunicationHub = () => {
 
   const handleTyping = () => {
     if (!socket || !activeChannel) return;
-
     socket.emit('typing_start', { channelId: activeChannel.channel_id });
-
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
-
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     typingTimeoutRef.current = setTimeout(() => {
       socket.emit('typing_stop', { channelId: activeChannel.channel_id });
     }, 1000);
@@ -322,12 +307,10 @@ const CommunicationHub = () => {
 
   const getChannelName = (channel: Channel): string => {
     if (channel.channel_name) return channel.channel_name;
-    
     const otherParticipant = channel.participants?.[0];
     if (otherParticipant) {
       return `${otherParticipant.first_name} ${otherParticipant.last_name}`;
     }
-    
     return 'Unknown';
   };
 
@@ -343,82 +326,95 @@ const CommunicationHub = () => {
       depot_engineer: 'bg-green-100 text-green-800',
       regional_tech: 'bg-orange-100 text-orange-800',
       regional_operations: 'bg-cyan-100 text-cyan-800',
+      dgm_technical: 'bg-indigo-100 text-indigo-800',
+      dgm_operations: 'bg-teal-100 text-teal-800',
     };
     return colors[role] || 'bg-gray-100 text-gray-800';
   };
 
   const formatRoleName = (role: string): string => {
-    return role?.split('_').map(word => 
+    return role?.split('_').map((word: string) => 
       word.charAt(0).toUpperCase() + word.slice(1)
     ).join(' ') || '';
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 font-medium">Loading messages...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] bg-white rounded-2xl shadow-lg overflow-hidden">
-      <div className="w-80 border-r border-gray-200 flex flex-col bg-gray-50">
-        <div className="p-4 border-b border-gray-200 bg-white">
+    <div className="flex h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      {/* Sidebar */}
+      <div className="w-96 bg-white border-r border-gray-200 flex flex-col shadow-xl">
+        <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-purple-600">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-              <MessageSquare className="w-5 h-5" />
-              Messages
-            </h2>
+            <div>
+              <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                <MessageSquare className="w-6 h-6" />
+                Messages
+              </h2>
+              <p className="text-blue-100 text-sm mt-1">
+                {channels.filter(ch => ch.channel_type === 'direct').length} conversation{channels.filter(ch => ch.channel_type === 'direct').length !== 1 ? 's' : ''}
+              </p>
+            </div>
             <button
               onClick={() => setShowContacts(!showContacts)}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-3 bg-white/20 hover:bg-white/30 rounded-xl transition-all backdrop-blur-sm"
               title="New conversation"
             >
-              <Plus className="w-5 h-5 text-gray-600" />
+              <Plus className="w-5 h-5 text-white" />
             </button>
           </div>
-          <p className="text-sm text-gray-500">
-            {channels.length} conversation{channels.length !== 1 ? 's' : ''}
-          </p>
         </div>
 
         {showContacts && (
-          <div className="absolute top-0 left-0 w-80 h-full bg-white z-10 shadow-xl">
-            <div className="p-4 border-b border-gray-200">
+          <div className="absolute top-0 left-0 w-96 h-full bg-white z-10 shadow-xl">
+            <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-purple-600">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">New Conversation</h3>
+                <h3 className="text-xl font-bold text-white">New Conversation</h3>
                 <button
                   onClick={() => setShowContacts(false)}
-                  className="text-gray-500 hover:text-gray-700"
+                  className="text-white hover:bg-white/20 p-2 rounded-xl transition-all"
                 >
                   ✕
                 </button>
               </div>
             </div>
-            <div className="overflow-y-auto h-[calc(100%-4rem)]">
+            <div className="overflow-y-auto h-[calc(100%-5rem)] p-4">
               {contacts.length === 0 ? (
-                <div className="p-4 text-center text-gray-500">
-                  <Users className="w-12 h-12 mx-auto mb-2 text-gray-400" />
-                  <p>No contacts available</p>
+                <div className="text-center py-12 text-gray-500">
+                  <Users className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                  <p className="font-medium text-gray-700">No contacts available</p>
                 </div>
               ) : (
-                <div className="p-2">
+                <div className="space-y-2">
                   {contacts.map((contact) => (
                     <button
                       key={contact.user_id}
                       onClick={() => startNewChat(contact)}
-                      className="w-full p-3 hover:bg-gray-50 rounded-lg text-left transition-colors border border-transparent hover:border-gray-200"
+                      className="w-full p-4 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 rounded-2xl text-left transition-all border-2 border-transparent hover:border-blue-200"
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold">
+                      <div className="flex items-center gap-4">
+                        <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center text-white font-bold text-lg shadow-lg">
                           {contact.name.charAt(0)}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium text-gray-900 truncate">{contact.name}</p>
-                          <p className={`text-xs px-2 py-0.5 rounded-full inline-block ${getRoleBadgeColor(contact.role)}`}>
+                          <p className="font-bold text-gray-900 truncate text-lg">{contact.name}</p>
+                          <p className={`text-xs px-3 py-1 rounded-full inline-block font-medium ${getRoleBadgeColor(contact.role)}`}>
                             {formatRoleName(contact.role)}
                           </p>
+                          {contact.region_name && (
+                            <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                              <span>📍</span> {contact.region_name}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </button>
@@ -430,44 +426,46 @@ const CommunicationHub = () => {
         )}
 
         <div className="flex-1 overflow-y-auto">
-          {channels.length === 0 ? (
-            <div className="p-4 text-center text-gray-500">
-              <MessageSquare className="w-12 h-12 mx-auto mb-2 text-gray-400" />
+          {/* Direct Messages */}
+          <div className="p-4 bg-gray-50">
+            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide">Conversations</h3>
+          </div>
+          {channels.filter(ch => ch.channel_type === 'direct').length === 0 ? (
+            <div className="p-8 text-center text-gray-500">
+              <MessageSquare className="w-12 h-12 mx-auto mb-2 text-gray-300" />
               <p className="mb-2">No conversations yet</p>
               <button
                 onClick={() => setShowContacts(true)}
-                className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                className="text-blue-600 hover:text-blue-700 text-sm font-semibold"
               >
-                Start a conversation
+                Start a conversation →
               </button>
             </div>
           ) : (
-            channels.map((channel) => (
+            channels.filter(ch => ch.channel_type === 'direct').map((channel) => (
               <button
                 key={channel.channel_id}
                 onClick={() => setActiveChannel(channel)}
-                className={`w-full p-4 text-left border-b border-gray-200 transition-colors ${
+                className={`w-full p-4 text-left border-b border-gray-100 transition-all ${
                   activeChannel?.channel_id === channel.channel_id
-                    ? 'bg-blue-50 border-l-4 border-l-blue-600'
-                    : 'hover:bg-gray-100'
+                    ? 'bg-gradient-to-r from-blue-50 to-purple-50 border-l-4 border-l-blue-600'
+                    : 'hover:bg-gray-50'
                 }`}
               >
                 <div className="flex items-start gap-3">
-                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0">
+                  <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center text-white font-bold flex-shrink-0 shadow-lg">
                     {getChannelName(channel).charAt(0)}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
-                      <p className="font-semibold text-gray-900 truncate">
-                        {getChannelName(channel)}
-                      </p>
+                      <p className="font-bold text-gray-900 truncate">{getChannelName(channel)}</p>
                       {channel.unread_count > 0 && (
-                        <span className="bg-blue-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                        <span className="bg-gradient-to-r from-blue-600 to-purple-600 text-white text-xs font-bold px-2.5 py-1 rounded-full">
                           {channel.unread_count}
                         </span>
                       )}
                     </div>
-                    <p className={`text-xs px-2 py-0.5 rounded-full inline-block mb-1 ${getRoleBadgeColor(getChannelRole(channel))}`}>
+                    <p className={`text-xs px-2 py-0.5 rounded-full inline-block mb-1 font-medium ${getRoleBadgeColor(getChannelRole(channel))}`}>
                       {formatRoleName(getChannelRole(channel))}
                     </p>
                     {channel.last_message && (
@@ -480,33 +478,85 @@ const CommunicationHub = () => {
               </button>
             ))
           )}
+
+          {/* Announcements */}
+          {channels.filter(ch => ch.channel_type === 'announcement').length > 0 && (
+            <>
+              <div className="p-4 bg-orange-50 border-t-2 border-orange-200 mt-4">
+                <h3 className="text-xs font-bold text-orange-700 uppercase tracking-wide flex items-center gap-2">
+                  <Megaphone className="w-4 h-4" />
+                  Announcements
+                </h3>
+              </div>
+              {channels.filter(ch => ch.channel_type === 'announcement').map((channel) => (
+                <button
+                  key={channel.channel_id}
+                  onClick={() => setActiveChannel(channel)}
+                  className={`w-full p-4 text-left border-b border-orange-100 transition-all ${
+                    activeChannel?.channel_id === channel.channel_id
+                      ? 'bg-gradient-to-r from-orange-50 to-red-50 border-l-4 border-l-orange-600'
+                      : 'hover:bg-orange-50/50'
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold flex-shrink-0 shadow-lg bg-gradient-to-br from-orange-500 to-red-600">
+                      <Megaphone className="w-7 h-7" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-gray-900 truncate mb-1">{getChannelName(channel)}</p>
+                      <span className="text-xs px-2 py-0.5 rounded-full inline-block mb-1 bg-orange-100 text-orange-800 font-medium">
+                        📢 Announcement
+                      </span>
+                      {channel.last_message && (
+                        <p className="text-sm text-gray-600 truncate">
+                          {channel.last_message.message_text}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </>
+          )}
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col">
+      {/* Main Chat Area */}
+      <div className="flex-1 flex flex-col bg-white">
         {activeChannel ? (
           <>
-            <div className="p-4 border-b border-gray-200 bg-white">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold">
-                  {getChannelName(activeChannel).charAt(0)}
+            <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-purple-600 shadow-lg">
+              <div className="flex items-center gap-4">
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white font-bold shadow-lg ${
+                  activeChannel.channel_type === 'announcement'
+                    ? 'bg-white/20 backdrop-blur-sm'
+                    : 'bg-white/20 backdrop-blur-sm'
+                }`}>
+                  {activeChannel.channel_type === 'announcement' ? (
+                    <Megaphone className="w-6 h-6" />
+                  ) : (
+                    getChannelName(activeChannel).charAt(0)
+                  )}
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900">{getChannelName(activeChannel)}</h3>
-                  <p className={`text-xs px-2 py-0.5 rounded-full inline-block ${getRoleBadgeColor(getChannelRole(activeChannel))}`}>
-                    {formatRoleName(getChannelRole(activeChannel))}
-                  </p>
+                  <h3 className="font-bold text-white text-lg">{getChannelName(activeChannel)}</h3>
+                  {activeChannel.channel_type === 'announcement' ? (
+                    <p className="text-xs text-blue-100 font-medium">📢 Announcement • Read-only</p>
+                  ) : (
+                    <p className="text-xs text-blue-100 font-medium">
+                      {formatRoleName(getChannelRole(activeChannel))}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+            <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gradient-to-br from-gray-50 to-blue-50">
               {messages.length === 0 ? (
                 <div className="flex items-center justify-center h-full text-gray-500">
                   <div className="text-center">
-                    <MessageSquare className="w-16 h-16 mx-auto mb-2 text-gray-400" />
-                    <p>No messages yet</p>
-                    <p className="text-sm">Start the conversation!</p>
+                    <MessageSquare className="w-20 h-20 mx-auto mb-4 text-gray-300" />
+                    <p className="text-lg font-medium text-gray-700">No messages yet</p>
                   </div>
                 </div>
               ) : (
@@ -517,23 +567,23 @@ const CommunicationHub = () => {
                       key={message.message_id}
                       className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
                     >
-                      <div className={`max-w-md ${isOwn ? 'order-2' : 'order-1'}`}>
+                      <div className={`max-w-xl ${isOwn ? 'order-2' : 'order-1'}`}>
                         {!isOwn && (
-                          <p className="text-xs text-gray-600 mb-1 ml-2">
+                          <p className="text-xs text-gray-600 mb-1 ml-3 font-medium">
                             {message.sender_name}
                           </p>
                         )}
                         <div
-                          className={`px-4 py-2 rounded-2xl ${
+                          className={`px-5 py-3 rounded-3xl shadow-md ${
                             isOwn
-                              ? 'bg-blue-600 text-white rounded-br-sm'
-                              : 'bg-white text-gray-900 rounded-bl-sm shadow'
+                              ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-br-md'
+                              : 'bg-white text-gray-900 rounded-bl-md border border-gray-200'
                           }`}
                         >
-                          <p className="text-sm whitespace-pre-wrap break-words">
+                          <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">
                             {message.message_text}
                           </p>
-                          <p className={`text-xs mt-1 ${isOwn ? 'text-blue-100' : 'text-gray-500'}`}>
+                          <p className={`text-xs mt-2 ${isOwn ? 'text-blue-100' : 'text-gray-500'}`}>
                             {formatTimeAgo(message.created_at)}
                           </p>
                         </div>
@@ -546,7 +596,7 @@ const CommunicationHub = () => {
               {Object.keys(typingUsers).length > 0 && (
                 <div className="flex items-center gap-2 text-sm text-gray-500">
                   <div className="flex gap-1">
-                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></span>
                     <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
                     <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
                   </div>
@@ -557,53 +607,69 @@ const CommunicationHub = () => {
               <div ref={messagesEndRef} />
             </div>
 
-            <div className="p-4 border-t border-gray-200 bg-white">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={messageText}
-                  onChange={(e) => {
-                    setMessageText(e.target.value);
-                    handleTyping();
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      sendMessage(e);
-                    }
-                  }}
-                  placeholder="Type a message..."
-                  className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                <button
-                  onClick={sendMessage}
-                  disabled={!messageText.trim()}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-                >
-                  <Send className="w-5 h-5" />
-                  Send
-                </button>
+            {activeChannel.channel_type === 'announcement' ? (
+              <div className="p-6 border-t border-gray-200 bg-orange-50">
+                <div className="flex items-center justify-center gap-2 text-orange-700">
+                  <Megaphone className="w-5 h-5" />
+                  <p className="text-sm font-medium">This is an announcement channel. You cannot reply.</p>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="p-6 border-t border-gray-200 bg-white shadow-lg">
+                <form onSubmit={sendMessage} className="flex gap-3">
+                  <input
+                    type="text"
+                    value={messageText}
+                    onChange={(e) => {
+                      setMessageText(e.target.value);
+                      handleTyping();
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        sendMessage(e);
+                      }
+                    }}
+                    placeholder="Type a message..."
+                    className="flex-1 px-5 py-4 border-2 border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!messageText.trim()}
+                    className="px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-2xl hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2 font-semibold"
+                  >
+                    <Send className="w-5 h-5" />
+                    Send
+                  </button>
+                </form>
+              </div>
+            )}
           </>
         ) : (
-          <div className="flex items-center justify-center h-full text-gray-500 bg-gray-50">
+          <div className="flex items-center justify-center h-full bg-gradient-to-br from-blue-50 to-purple-50">
             <div className="text-center">
-              <MessageSquare className="w-20 h-20 mx-auto mb-4 text-gray-400" />
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                Select a conversation
+              <MessageSquare className="w-24 h-24 mx-auto mb-6 text-gray-300" />
+              <h3 className="text-2xl font-bold text-gray-900 mb-3">
+                Welcome, {user?.first_name}!
               </h3>
-              <p>Choose a conversation from the list or start a new one</p>
+              <p className="text-gray-600 mb-6">Select a conversation to start messaging</p>
+              <button
+                onClick={() => setShowContacts(true)}
+                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all flex items-center gap-2 font-semibold mx-auto"
+              >
+                <Plus className="w-5 h-5" />
+                New Chat
+              </button>
             </div>
           </div>
         )}
       </div>
 
       {error && (
-        <div className="fixed bottom-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2">
-          <AlertCircle className="w-5 h-5" />
-          <span>{error}</span>
-          <button onClick={() => setError(null)} className="ml-2 hover:text-red-200">
+        <div className="fixed bottom-6 right-6 bg-gradient-to-r from-red-500 to-red-600 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3">
+          <AlertCircle className="w-6 h-6" />
+          <span className="font-medium">{error}</span>
+          <button onClick={() => setError(null)} className="ml-2 hover:bg-white/20 p-1 rounded-lg">
             ✕
           </button>
         </div>
@@ -612,4 +678,4 @@ const CommunicationHub = () => {
   );
 };
 
-export default CommunicationHub;
+export default DepotRegionalCommunicationHub;
