@@ -850,9 +850,7 @@ const DepotEngineerDashboard = () => {
             <div className="p-4 border-b border-gray-200 flex justify-between items-center">
               <h3 className="text-lg font-semibold text-red-700">Emergency Reports</h3>
               <div className="flex items-center gap-2">
-                <span className="bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full">
-                  {stats.EmergencyReports} active
-                </span>
+               
                 <button
                   onClick={fetchEmergencyReports}
                   className="text-blue-600 hover:text-blue-800 p-1"

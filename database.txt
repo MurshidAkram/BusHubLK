@@ -992,3 +992,34 @@ END;
 $$ LANGUAGE plpgsql;
 -- Index for better performance
 CREATE INDEX idx_spare_parts_depot ON spare_parts_inventory(depot_id);
+
+-- notifications each depot engineer has read
+CREATE TABLE depot_engineer_notifications_read (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    source_type VARCHAR(50) NOT NULL,
+    source_id BIGINT NOT NULL,
+    depot_id INTEGER REFERENCES depots(depot_id) ON DELETE CASCADE,
+    region_id INTEGER REFERENCES regions(region_id) ON DELETE CASCADE,
+    is_read BOOLEAN NOT NULL DEFAULT TRUE,
+    read_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (user_id, source_type, source_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_depot_engineer_notifications_read_user ON depot_engineer_notifications_read(user_id);
+CREATE INDEX IF NOT EXISTS idx_depot_engineer_notifications_read_lookup ON depot_engineer_notifications_read(source_type, source_id);
+
+-- notifications each regional technical officer (RTO) has read
+CREATE TABLE rto_notifications_read (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    source_type VARCHAR(50) NOT NULL,
+    source_id BIGINT NOT NULL,
+    region_id INTEGER REFERENCES regions(region_id) ON DELETE CASCADE,
+    is_read BOOLEAN NOT NULL DEFAULT TRUE,
+    read_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (user_id, source_type, source_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_rto_notifications_read_user ON rto_notifications_read(user_id);
+CREATE INDEX IF NOT EXISTS idx_rto_notifications_read_lookup ON rto_notifications_read(source_type, source_id);

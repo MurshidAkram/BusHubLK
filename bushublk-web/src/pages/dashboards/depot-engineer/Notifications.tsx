@@ -1,757 +1,281 @@
-import React, { useState, useEffect, useContext } from 'react';
-import { FaBell, FaExclamationTriangle, FaClock, FaCheckCircle, FaTimes, FaCalendarAlt, FaExclamationCircle, FaFileAlt, FaExclamation } from 'react-icons/fa';
+import React, { useEffect, useState, useContext, useMemo, useCallback } from 'react';
 import { AppContext } from '../../../context/AppContext';
+import { HiOutlineBell, HiOutlineShieldExclamation, HiOutlineCheckCircle } from 'react-icons/hi';
+import { AxiosError } from 'axios';
+import axios from 'axios';
 
-interface Notification {
-  id: number | string;
-  title: string;
-  message: string;
-  type: 'inspection' | 'urgent' | 'info' | 'success' | 'warning' | 'overdue' | 'critical_overdue' | 'schedule' | 'condition_report' | 'emergency' | 'due_today';
-  read: boolean;
-  created_at: string;
-  inspection_id?: number;
-  schedule_id?: number;
-  bus_registration?: string;
-  assigned_by?: string;
-  category?: 'inspection' | 'scheduling' | 'condition_reports' | 'emergency_reports';
-  priority?: number; // 1 = highest priority (critical), 4 = lowest priority
-}
+type NotificationSourceType = 'bus_condition_report' | 'emergency_report' | 'emergency_message' | 'inspection' | 'manager_chat';
+
+type DepotEngineerNotification = {
+	source_type: NotificationSourceType;
+	source_id: number;
+	created_at: string;
+	title: string;
+	message: string;
+	status: string;
+	bus_id: number | null;
+	registration_number: string | null;
+	driver_id: number | null;
+	depot_id: number | null;
+	region_id: number | null;
+	priority: string;
+	meta?: Record<string, unknown> | null;
+	read_at: string | null;
+	is_read: boolean;
+};
+
+type FetchState = 'idle' | 'loading' | 'error' | 'success';
+
+const PRIORITY_BADGE: Record<string, string> = {
+	critical: 'bg-red-100 text-red-800',
+	high: 'bg-orange-100 text-orange-800',
+	medium: 'bg-blue-100 text-blue-800',
+	low: 'bg-gray-100 text-gray-600'
+};
+
+const SOURCE_LABEL: Record<NotificationSourceType, string> = {
+	bus_condition_report: 'Bus Condition',
+	emergency_report: 'Emergency Report',
+	emergency_message: 'Emergency Message',
+	inspection: 'Inspection',
+	manager_chat: 'Manager Chat'
+};
 
 const Notifications: React.FC = () => {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string>('');
-  const [filter, setFilter] = useState<string>('all'); // all, unread, read
-  const [categoryFilter, setCategoryFilter] = useState<string>('all'); 
+		const appContext = useContext(AppContext);
+		const token = appContext?.token || null;
+		const user = appContext?.user;
+	const [notifications, setNotifications] = useState<DepotEngineerNotification[]>([]);
+	const [state, setState] = useState<FetchState>('idle');
+	const [error, setError] = useState<string | null>(null);
 
-  const context = useContext(AppContext);
+	const filteredNotifications = useMemo(() => notifications.filter((notification) => !notification.is_read), [notifications]);
 
-  // Fetch notifications on component mount
-  useEffect(() => {
-    const fetchNotifications = async () => {
-      try {
-        setLoading(true);
-        setError('');
-        
-        if (!context?.token) {
-          setError('Authentication required');
-          return;
-        }
+	const refreshGlobalCount = () => {
+		if (typeof window !== 'undefined' && typeof (window as any).refreshNotificationCount === 'function') {
+			(window as any).refreshNotificationCount();
+		}
+	};
 
-        // Fetch all notifications including scheduling ones
-        const requests = [
-          // Fetch general notifications
-          fetch('http://localhost:5000/api/notifications', {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${context.token}`,
-              'Content-Type': 'application/json'
-            }
-          }),
-          // Fetch scheduling statistics to create notifications
-          fetch('http://localhost:5000/api/depot-engineer/service-schedules/stats', {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${context.token}`,
-              'Content-Type': 'application/json'
-            }
-          })
-        ];
+	const formatDate = (value: string) => {
+		const date = new Date(value);
+		if (Number.isNaN(date.getTime())) {
+			return value;
+		}
+		return date.toLocaleString('en-GB', {
+			year: 'numeric',
+			month: 'short',
+			day: 'numeric',
+			hour: '2-digit',
+			minute: '2-digit'
+		});
+	};
 
-        // Add inspection notifications fetch if available
-        try {
-          requests.push(
-            fetch('http://localhost:5000/api/inspections/depot-engineer', {
-              method: 'GET',
-              headers: {
-                'Authorization': `Bearer ${context.token}`,
-                'Content-Type': 'application/json'
-              }
-            })
-          );
-        } catch (e) {
-          console.log('Inspection API not available, continuing with other notifications');
-        }
+	const fetchNotifications = useCallback(async () => {
+		if (!token) return;
 
-        // Add bus condition reports fetch
-        try {
-          requests.push(
-            fetch('http://localhost:5000/api/bus-condition-reports', {
-              method: 'GET',
-              headers: {
-                'Authorization': `Bearer ${context.token}`,
-                'Content-Type': 'application/json'
-              }
-            })
-          );
-        } catch (e) {
-          console.log('Bus condition reports API not available, continuing with other notifications');
-        }
+		setState('loading');
+		setError(null);
 
-        // Add emergency reports fetch
-        try {
-          requests.push(
-            fetch('http://localhost:5000/api/depot/emergency', {
-              method: 'GET',
-              headers: {
-                'Authorization': `Bearer ${context.token}`,
-                'Content-Type': 'application/json'
-              }
-            })
-          );
-        } catch (e) {
-          console.log('Emergency reports API not available, continuing with other notifications');
-        }
+		try {
+			const response = await axios.get('http://localhost:5000/api/depot-engineer/notifications', {
+				headers: {
+					Authorization: `Bearer ${token}`
+				},
+				params: {
+					limit: 200,
+					includeRead: false
+				}
+			});
 
-        const responses = await Promise.all(requests.map(req => 
-          req.catch(err => {
-            console.log('Request failed:', err);
-            return { ok: false, json: () => Promise.resolve({ success: false }) };
-          })
-        ));
+			if (response.data?.success) {
+				setNotifications(response.data.notifications || []);
+				setState('success');
+			} else {
+				setState('error');
+				setError(response.data?.message || 'Failed to fetch notifications');
+			}
+		} catch (err) {
+			const axiosErr = err as AxiosError<{ message?: string }>;
+			setError(axiosErr.response?.data?.message || axiosErr.message);
+			setState('error');
+		}
+	}, [token]);
 
-        const generalData = await responses[0].json();
-        const schedulingData = await responses[1].json();
-        const inspectionData = responses[2] ? await responses[2].json() : { success: false };
-        const conditionReportsData = responses[3] ? await responses[3].json() : { success: false };
-        const emergencyReportsData = responses[4] ? await responses[4].json() : { success: false };
+	const markAsRead = async (notification: DepotEngineerNotification) => {
+		if (!token) return;
+		if (notification.is_read) return;
 
-        if (!responses[0].ok && !generalData.success) {
-          console.warn('General notifications failed, continuing with other sources');
-        }
+		try {
+			const response = await axios.post(
+				'http://localhost:5000/api/depot-engineer/notifications/mark-read',
+				{
+					sourceType: notification.source_type,
+					sourceId: notification.source_id
+				},
+				{
+					headers: {
+						Authorization: `Bearer ${token}`
+					}
+				}
+			);
 
-        let allNotifications = [];
+			if (response.data?.success) {
+				setNotifications((prev) =>
+					prev.filter(
+						(item) =>
+							!(item.source_type === notification.source_type && item.source_id === notification.source_id)
+					)
+				);
+				refreshGlobalCount();
+			}
+		} catch (err) {
+			console.error('Failed to mark notification as read:', err);
+		}
+	};
 
-        // Add general notifications
-        if (generalData.success) {
-          console.log('📧 Raw general notifications from API:', generalData.notifications);
-          
-          const generalNotifications = (generalData.notifications || []).map((notif: any) => {
-            const mappedNotif = {
-              ...notif,
-              // Set category based on notification type or content if not already set
-              category: notif.category || 
-                       (notif.type === 'inspection' ? 'inspection' : 
-                        notif.title?.toLowerCase().includes('inspection') ? 'inspection' :
-                        notif.message?.toLowerCase().includes('inspection') ? 'inspection' :
-                        notif.type === 'condition_report' ? 'condition_reports' :
-                        notif.title?.toLowerCase().includes('condition') ? 'condition_reports' :
-                        notif.message?.toLowerCase().includes('condition') ? 'condition_reports' :
-                        notif.type === 'emergency' ? 'emergency_reports' :
-                        notif.title?.toLowerCase().includes('emergency') ? 'emergency_reports' :
-                        notif.message?.toLowerCase().includes('emergency') ? 'emergency_reports' :
-                        notif.type === 'urgent' ? 'emergency_reports' : 'condition_reports'),
-              // Set priority based on type
-              priority: notif.priority || 
-                       (notif.type === 'urgent' ? 2 : 
-                        notif.type === 'emergency' ? 2 :
-                        notif.type === 'warning' ? 3 : 
-                        notif.type === 'inspection' ? 3 : 
-                        notif.type === 'condition_report' ? 4 : 5) // Normal priority for other notifications
-            };
-            
-            if (notif.type === 'inspection' || mappedNotif.category === 'inspection') {
-              console.log('🔍 Found inspection notification:', {
-                id: mappedNotif.id,
-                title: mappedNotif.title,
-                type: mappedNotif.type,
-                category: mappedNotif.category,
-                original_category: notif.category
-              });
-            }
-            
-            return mappedNotif;
-          });
-          
-          allNotifications = generalNotifications;
-          console.log('📊 Notification categories:', {
-            inspection: generalNotifications.filter((n: any) => n.category === 'inspection').length,
-            condition_reports: generalNotifications.filter((n: any) => n.category === 'condition_reports').length,
-            emergency_reports: generalNotifications.filter((n: any) => n.category === 'emergency_reports').length,
-            total: generalNotifications.length
-          });
-        }
+	const markAllAsRead = async () => {
+		if (!token) return;
 
-        // Add inspection-specific notifications if available
-        if (inspectionData.success && inspectionData.inspections) {
-          const inspectionNotifications = inspectionData.inspections
-            .filter((inspection: any) => inspection.needs_attention || inspection.status === 'pending')
-            .map((inspection: any) => ({
-              id: `inspection_${inspection.id}_${Date.now()}`,
-              title: `Inspection Required: ${inspection.bus_registration}`,
-              message: `Bus ${inspection.bus_registration} requires inspection. ${inspection.notes || 'Please complete the inspection as soon as possible.'}`,
-              type: 'inspection',
-              category: 'inspection',
-              read: false,
-              created_at: inspection.created_at || new Date().toISOString(),
-              inspection_id: inspection.id,
-              bus_registration: inspection.bus_registration,
-              priority: 3
-            }));
-          
-          allNotifications.push(...inspectionNotifications);
-          console.log('Inspection-specific notifications added:', inspectionNotifications.length);
-        }
+		try {
+			const response = await axios.post(
+				'http://localhost:5000/api/depot-engineer/notifications/mark-all-read',
+				{},
+				{
+					headers: {
+						Authorization: `Bearer ${token}`
+					}
+				}
+			);
 
-        // Add bus condition reports notifications
-        if (conditionReportsData.success && conditionReportsData.data) {
-          console.log('🚗 Processing bus condition reports:', conditionReportsData.data.length);
-          const conditionNotifications = conditionReportsData.data
-            .filter((report: any) => {
-              // Only include unreviewed reports (review_status = 'pending' or null)
-              return report.review_status === 'pending' || !report.review_status;
-            })
-            .map((report: any) => ({
-              id: `condition_${report.report_id}_${Date.now()}`,
-              title: `Bus Condition Report: ${report.registration_number || 'Unknown Bus'}`,
-              message: `Driver ${report.driver_first_name || ''} ${report.driver_last_name || ''} reported: ${report.condition_status}. ${report.description || 'No description provided.'}`,
-              type: 'condition_report',
-              category: 'condition_reports',
-              read: false,
-              created_at: report.report_time || report.created_at || new Date().toISOString(),
-              bus_registration: report.registration_number,
-              priority: report.condition_status?.toLowerCase().includes('critical') ? 2 : 
-                       report.condition_status?.toLowerCase().includes('urgent') ? 2 : 4
-            }));
-          
-          allNotifications.push(...conditionNotifications);
-          console.log('🚗 Bus condition notifications added:', conditionNotifications.length);
-        }
+			if (response.data?.success) {
+				setNotifications([]);
+				refreshGlobalCount();
+			}
+		} catch (err) {
+			console.error('Failed to mark notifications as read:', err);
+		}
+	};
 
-        // Add emergency reports notifications (only pending status)
-        if (emergencyReportsData.success && emergencyReportsData.data) {
-          console.log('🚨 Processing emergency reports:', emergencyReportsData.data.length);
-          const emergencyNotifications = emergencyReportsData.data
-            .filter((report: any) => {
-              // Only include reports with exactly "Pending" status
-              return report.status === 'Pending';
-            })
-            .map((report: any) => ({
-              id: `emergency_${report.id}_${Date.now()}`,
-              title: `Emergency Report: ${report.incident_type || 'Unknown Incident'}`,
-              message: `Driver ${report.driver_name || 'Unknown'} reported: ${report.description || 'No description provided'}. Location: ${report.latitude && report.longitude ? `${Number(report.latitude).toFixed(4)}, ${Number(report.longitude).toFixed(4)}` : 'Unknown'}`,
-              type: 'emergency',
-              category: 'emergency_reports',
-              read: false,
-              created_at: report.created_at || new Date().toISOString(),
-              bus_registration: report.vehicle_registration,
-              priority: 1 // Emergency reports always have highest priority
-            }));
-          
-          allNotifications.push(...emergencyNotifications);
-          console.log('🚨 Emergency notifications added:', emergencyNotifications.length);
-        }
+	useEffect(() => {
+		if (!token) {
+			setError('Please log in to view notifications.');
+			setState('error');
+			return;
+		}
 
-        // Create scheduling notifications from statistics
-        if (schedulingData.success && schedulingData.stats) {
-          const stats = schedulingData.stats;
-          
-          // Create critical overdue notification (highest priority)
-          if (stats.critical_overdue_count > 0) {
-            allNotifications.push({
-              id: `critical_overdue_${Date.now()}`,
-              title: 'Critical Overdue Services',
-              message: `You have ${stats.critical_overdue_count} critical overdue service${stats.critical_overdue_count > 1 ? 's' : ''} that require immediate attention.`,
-              type: 'critical_overdue',
-              category: 'scheduling',
-              read: false,
-              created_at: new Date().toISOString(),
-              schedule_id: null,
-              priority: 1
-            });
-          }
+		if (user?.role !== 'depot_engineer') {
+			setError('Notifications are only available for depot engineers.');
+			setState('error');
+			return;
+		}
 
-          // Create overdue notification (high priority)
-          if (stats.overdue_count > 0) {
-            allNotifications.push({
-              id: `overdue_${Date.now()}`,
-              title: 'Overdue Services',
-              message: `You have ${stats.overdue_count} overdue service${stats.overdue_count > 1 ? 's' : ''} that need to be addressed.`,
-              type: 'overdue',
-              category: 'scheduling',
-              read: false,
-              created_at: new Date().toISOString(),
-              schedule_id: null,
-              priority: 2
-            });
-          }
+		fetchNotifications();
+	}, [token, user?.role, fetchNotifications]);
 
-          // Create due today notification (high priority)
-          if (stats.due_today_count > 0) {
-            allNotifications.push({
-              id: `due_today_${Date.now()}`,
-              title: 'Services Due Today',
-              message: `You have ${stats.due_today_count} service${stats.due_today_count > 1 ? 's' : ''} scheduled for today that need attention.`,
-              type: 'due_today',
-              category: 'scheduling',
-              read: false,
-              created_at: new Date().toISOString(),
-              schedule_id: null,
-              priority: 3
-            });
-          }
+	const unreadCount = useMemo(() => filteredNotifications.length, [filteredNotifications]);
 
-          // Create upcoming services notification (normal priority)
-          if (stats.upcoming_count > 0) {
-            allNotifications.push({
-              id: `upcoming_${Date.now()}`,
-              title: 'Upcoming Services',
-              message: `You have ${stats.upcoming_count} service${stats.upcoming_count > 1 ? 's' : ''} scheduled for the next 7 days.`,
-              type: 'schedule',
-              category: 'scheduling',
-              read: false,
-              created_at: new Date().toISOString(),
-              schedule_id: null,
-              priority: 4
-            });
-          }
-        }
+	return (
+		<div className="p-6 bg-gray-50 min-h-screen">
+			<div className="max-w-6xl mx-auto">
+				<div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+					<div>
+						<h1 className="text-2xl font-semibold text-gray-900 flex items-center gap-2">
+							<HiOutlineBell className="text-blue-600" />
+							Depot Engineer Notifications
+						</h1>
+						<p className="text-sm text-gray-600">Incoming reports from drivers and automated inspections for your depot</p>
+					</div>
+					<div className="flex flex-wrap items-center gap-3">
+						<div className="bg-white border border-gray-200 rounded-full px-4 py-1 text-sm text-gray-600">
+							Unread: <span className="font-semibold text-blue-600">{unreadCount}</span>
+						</div>
+						<button
+							onClick={markAllAsRead}
+							className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-green-600 text-white text-sm font-medium hover:bg-green-700"
+						>
+							<HiOutlineCheckCircle />
+							Mark All as Read
+						</button>
+					</div>
+				</div>
 
-        const sortedNotifications = allNotifications.sort((a: Notification, b: Notification) => {
-          // Sort by priority first (1 = highest priority)
-          const priorityA = a.priority || 999;
-          const priorityB = b.priority || 999;
-          
-          if (priorityA !== priorityB) {
-            return priorityA - priorityB;
-          }
-          
-          // Then sort by read status (unread first)
-          if (a.read !== b.read) {
-            return a.read ? 1 : -1;
-          }
-          
-          // Finally sort by creation time (newest first)
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-        });
+				{state === 'loading' && (
+					<div className="bg-white rounded-lg shadow-sm p-6 text-center text-gray-600">Loading notifications…</div>
+				)}
 
-        console.log('🎯 Final notification summary:', {
-          total: sortedNotifications.length,
-          byCategory: {
-            inspection: sortedNotifications.filter((n: Notification) => n.category === 'inspection').length,
-            scheduling: sortedNotifications.filter((n: Notification) => n.category === 'scheduling').length,
-            condition_reports: sortedNotifications.filter((n: Notification) => n.category === 'condition_reports').length,
-            emergency_reports: sortedNotifications.filter((n: Notification) => n.category === 'emergency_reports').length,
-            uncategorized: sortedNotifications.filter((n: Notification) => !n.category).length
-          },
-          byPriority: {
-            critical: sortedNotifications.filter((n: Notification) => n.priority === 1).length,
-            high: sortedNotifications.filter((n: Notification) => n.priority === 2).length,
-            medium: sortedNotifications.filter((n: Notification) => n.priority === 3).length,
-            normal: sortedNotifications.filter((n: Notification) => n.priority === 4).length,
-            low: sortedNotifications.filter((n: Notification) => n.priority === 5).length
-          }
-        });
+				{state === 'error' && (
+					<div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-4 flex items-start gap-3">
+						<HiOutlineShieldExclamation className="text-red-500 mt-1" size={20} />
+						<div>
+							<p className="font-medium">Unable to load notifications.</p>
+							<p className="text-sm">{error}</p>
+						</div>
+					</div>
+				)}
 
-        setNotifications(sortedNotifications);
-      } catch (err: any) {
-        console.error('Error fetching notifications:', err);
-        setError(err.message || 'Failed to load notifications');
-        setNotifications([]);
-      } finally {
-        setLoading(false);
-      }
-    };
+				{state === 'success' && filteredNotifications.length === 0 && (
+					<div className="bg-white rounded-lg shadow-sm p-8 text-center text-gray-500">
+						<HiOutlineBell className="mx-auto text-3xl mb-2 text-gray-400" />
+						<p className="font-medium">No notifications to display.</p>
+						<p className="text-sm">All caught up! Check back later for new activity.</p>
+					</div>
+				)}
 
-    fetchNotifications();
-  }, [context?.token]);
-
-  // Mark notification as read
-  const markAsRead = async (notificationId: number | string) => {
-    try {
-      // Skip API call for generated notifications (string IDs)
-      if (typeof notificationId === 'string') {
-        setNotifications(prev => 
-          prev.map(notif => 
-            notif.id === notificationId ? { ...notif, read: true } : notif
-          )
-        );
-        // Refresh navbar notification count
-        if ((window as any).refreshNotificationCount) {
-          (window as any).refreshNotificationCount();
-        }
-        return;
-      }
-
-      const response = await fetch(`http://localhost:5000/api/notifications/${notificationId}/read`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${context?.token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        setNotifications(prev => 
-          prev.map(notif => 
-            notif.id === notificationId ? { ...notif, read: true } : notif
-          )
-        );
-        // Refresh navbar notification count
-        if ((window as any).refreshNotificationCount) {
-          (window as any).refreshNotificationCount();
-        }
-      }
-    } catch (err) {
-      console.error('Error marking notification as read:', err);
-    }
-  };
-
-  // Mark all notifications as read
-  const markAllAsRead = async () => {
-    try {
-      const response = await fetch('http://localhost:5000/api/notifications/mark-all-read', {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${context?.token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        setNotifications(prev => prev.map(notif => ({ ...notif, read: true })));
-        // Refresh navbar notification count
-        if ((window as any).refreshNotificationCount) {
-          (window as any).refreshNotificationCount();
-        }
-      }
-    } catch (err) {
-      console.error('Error marking all notifications as read:', err);
-    }
-  };
-
-  // Delete notification
-  const deleteNotification = async (notificationId: number | string) => {
-    try {
-      // For generated notifications (string IDs), just remove from state
-      if (typeof notificationId === 'string') {
-        setNotifications(prev => prev.filter(notif => notif.id !== notificationId));
-        // Refresh navbar notification count
-        if ((window as any).refreshNotificationCount) {
-          (window as any).refreshNotificationCount();
-        }
-        return;
-      }
-
-      const response = await fetch(`http://localhost:5000/api/notifications/${notificationId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${context?.token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        setNotifications(prev => prev.filter(notif => notif.id !== notificationId));
-        // Refresh navbar notification count
-        if ((window as any).refreshNotificationCount) {
-          (window as any).refreshNotificationCount();
-        }
-      }
-    } catch (err) {
-      console.error('Error deleting notification:', err);
-    }
-  };
-
-  // Get notification icon based on type
-  const getNotificationIcon = (type: string) => {
-    switch (type) {
-      case 'inspection':
-        return <FaExclamationTriangle className="text-blue-500" />;
-      case 'urgent':
-        return <FaExclamationTriangle className="text-red-500" />;
-      case 'emergency':
-        return <FaExclamation className="text-red-600" />;
-      case 'critical_overdue':
-        return <FaExclamationCircle className="text-red-600" />;
-      case 'overdue':
-        return <FaExclamationTriangle className="text-orange-500" />;
-      case 'due_today':
-        return <FaClock className="text-yellow-600" />;
-      case 'schedule':
-        return <FaCalendarAlt className="text-blue-500" />;
-      case 'condition_report':
-        return <FaFileAlt className="text-purple-500" />;
-      case 'warning':
-        return <FaExclamationTriangle className="text-yellow-500" />;
-      case 'success':
-        return <FaCheckCircle className="text-green-500" />;
-      case 'info':
-        return <FaBell className="text-blue-400" />;
-      default:
-        return <FaBell className="text-gray-500" />;
-    }
-  };
-
-  // Filter notifications
-  const filteredNotifications = notifications.filter(notification => {
-    // Filter by read/unread status
-    let passesStatusFilter = true;
-    if (filter === 'unread') passesStatusFilter = !notification.read;
-    if (filter === 'read') passesStatusFilter = notification.read;
-    
-    // Filter by category
-    let passesCategoryFilter = true;
-    if (categoryFilter !== 'all') {
-      passesCategoryFilter = notification.category === categoryFilter;
-    }
-    
-    return passesStatusFilter && passesCategoryFilter;
-  });
-
-  const unreadCount = notifications.filter(n => !n.read).length;
-
-  if (loading) {
-    return (
-      <div className="p-6 bg-gray-50 min-h-screen">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-            <span className="ml-3 text-gray-600">Loading notifications...</span>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-6 bg-gray-50 min-h-screen">
-        <div className="max-w-4xl mx-auto">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-            <div className="flex">
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-red-800">Error Loading Notifications</h3>
-                <div className="mt-2 text-sm text-red-700">
-                  <p>{error}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="p-6 bg-gray-50 min-h-screen">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-800">Notifications</h1>
-              <p className="text-gray-600">
-                {unreadCount > 0 
-                  ? `You have ${unreadCount} unread notification${unreadCount > 1 ? 's' : ''}`
-                  : 'All notifications are read'
-                }
-              </p>
-            </div>
-            {unreadCount > 0 && (
-              <button
-                onClick={markAllAsRead}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                Mark All as Read
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Filter Tabs */}
-        <div className="bg-white rounded-lg shadow-sm mb-6">
-          <div className="border-b border-gray-200">
-            <nav className="flex space-x-8 px-6">
-              {[
-                { key: 'all', label: 'All', count: notifications.length },
-                { key: 'unread', label: 'Unread', count: unreadCount },
-                { key: 'read', label: 'Read', count: notifications.length - unreadCount }
-              ].map(tab => (
-                <button
-                  key={tab.key}
-                  onClick={() => setFilter(tab.key)}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                    filter === tab.key
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  {tab.label} ({tab.count})
-                </button>
-              ))}
-            </nav>
-          </div>
-        </div>
-
-        {/* Category Filter */}
-        <div className="bg-white rounded-lg shadow-sm mb-6">
-          <div className="p-4">
-            <h3 className="text-sm font-medium text-gray-700 mb-3">Filter by Category</h3>
-            <div className="flex flex-wrap gap-2">
-              {[
-                { key: 'all', label: 'All Categories', icon: FaBell },
-                { key: 'inspection', label: 'Inspections', icon: FaExclamationTriangle },
-                { key: 'scheduling', label: 'Scheduling', icon: FaCalendarAlt },
-                { key: 'condition_reports', label: 'Bus Condition Reports', icon: FaFileAlt },
-                { key: 'emergency_reports', label: 'Emergency Reports', icon: FaExclamation }
-              ].map(category => {
-                const categoryCount = category.key === 'all' 
-                  ? notifications.length 
-                  : notifications.filter(n => n.category === category.key).length;
-                
-                return (
-                  <button
-                    key={category.key}
-                    onClick={() => setCategoryFilter(category.key)}
-                    className={`inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      categoryFilter === category.key
-                        ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    <category.icon className="mr-2 h-4 w-4" />
-                    {category.label} ({categoryCount})
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        {/* Notifications List */}
-        <div className="space-y-4">
-          {filteredNotifications.length > 0 ? (
-            filteredNotifications.map((notification) => (
-              <div
-                key={notification.id}
-                className={`bg-white rounded-lg shadow-sm border-l-4 p-6 ${
-                  notification.read 
-                    ? 'border-gray-300' 
-                    : notification.type === 'critical_overdue' 
-                      ? 'border-red-600 bg-red-50'
-                      : notification.type === 'urgent' 
-                        ? 'border-red-500 bg-red-50'
-                        : notification.type === 'emergency'
-                          ? 'border-red-600 bg-red-50'
-                          : notification.type === 'overdue'
-                            ? 'border-orange-500 bg-orange-50'
-                            : notification.type === 'due_today'
-                              ? 'border-yellow-600 bg-yellow-50'
-                              : notification.type === 'warning'
-                                ? 'border-yellow-500 bg-yellow-50'
-                                : notification.type === 'success'
-                                  ? 'border-green-500 bg-green-50'
-                                  : notification.type === 'schedule'
-                                    ? 'border-blue-500 bg-blue-50'
-                                    : notification.type === 'condition_report'
-                                      ? 'border-purple-500 bg-purple-50'
-                                      : 'border-blue-500 bg-blue-50'
-                }`}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start space-x-4">
-                    <div className="flex-shrink-0 mt-1">
-                      {getNotificationIcon(notification.type)}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2 mb-1">
-                        <h3 className={`font-medium ${notification.read ? 'text-gray-900' : 'text-blue-900'}`}>
-                          {notification.title}
-                        </h3>
-                        {!notification.read && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            New
-                          </span>
-                        )}
-                        {(notification.type === 'critical_overdue' || notification.type === 'overdue' || notification.type === 'due_today') && (
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                            notification.type === 'critical_overdue' 
-                              ? 'bg-red-100 text-red-800'
-                              : notification.type === 'overdue'
-                                ? 'bg-orange-100 text-orange-800'
-                                : 'bg-yellow-100 text-yellow-800'
-                          }`}>
-                            {notification.type === 'critical_overdue' ? 'URGENT' : 
-                             notification.type === 'overdue' ? 'HIGH PRIORITY' : 
-                             'DUE TODAY'}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-gray-700 mb-2">{notification.message}</p>
-                      <div className="flex items-center space-x-4 text-sm text-gray-500">
-                        <span className="flex items-center">
-                          <FaClock className="mr-1" />
-                          {new Date(notification.created_at).toLocaleDateString('en-US', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </span>
-                        {notification.assigned_by && (
-                          <span>Assigned by: {notification.assigned_by}</span>
-                        )}
-                        {notification.bus_registration && (
-                          <span>Bus: {notification.bus_registration}</span>
-                        )}
-                        {notification.category && (
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                            notification.category === 'scheduling' 
-                              ? 'bg-blue-100 text-blue-800'
-                              : notification.category === 'inspection'
-                                ? 'bg-yellow-100 text-yellow-800'
-                                : notification.category === 'condition_reports'
-                                  ? 'bg-purple-100 text-purple-800'
-                                  : notification.category === 'emergency_reports'
-                                    ? 'bg-red-100 text-red-800'
-                                    : 'bg-gray-100 text-gray-800'
-                          }`}>
-                            {notification.category.charAt(0).toUpperCase() + notification.category.slice(1)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2 ml-4">
-                    {!notification.read && (
-                      <button
-                        onClick={() => markAsRead(notification.id)}
-                        className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                      >
-                        Mark as Read
-                      </button>
-                    )}
-                    <button
-                      onClick={() => deleteNotification(notification.id)}
-                      className="text-red-600 hover:text-red-800 p-1"
-                      title="Delete notification"
-                    >
-                      <FaTimes />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-              <FaBell className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No notifications</h3>
-              <p className="text-gray-500">
-                {filter === 'unread' 
-                  ? "You don't have any unread notifications."
-                  : filter === 'read'
-                  ? "You don't have any read notifications."
-                  : "You don't have any notifications yet."
-                }
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+				{state === 'success' && filteredNotifications.length > 0 && (
+					<div className="space-y-4">
+						{filteredNotifications.map((notification) => (
+							<article
+								key={`${notification.source_type}-${notification.source_id}`}
+								className={`bg-white rounded-lg border ${
+									notification.is_read ? 'border-gray-200' : 'border-blue-200'
+								} shadow-sm p-5 transition-all`}
+							>
+								<div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+									<div className="space-y-2">
+										<div className="flex items-center gap-2">
+											<span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+												PRIORITY_BADGE[notification.priority] || PRIORITY_BADGE.medium
+											}`}
+											>
+												{notification.priority.toUpperCase()}
+											</span>
+											<span className="px-2 py-1 rounded-full bg-gray-100 text-gray-600 text-xs font-medium">
+												{SOURCE_LABEL[notification.source_type] || notification.source_type}
+											</span>
+											{!notification.is_read && (
+												<span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">New</span>
+											)}
+										</div>
+										<h2 className="text-lg font-semibold text-gray-900">{notification.title}</h2>
+										<p className="text-sm text-gray-700 whitespace-pre-line">{notification.message}</p>
+										<div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
+											<span>Received: {formatDate(notification.created_at)}</span>
+											{notification.registration_number && <span>Bus: {notification.registration_number}</span>}
+											{notification.status && <span>Status: {notification.status}</span>}
+										</div>
+									</div>
+									<div className="flex items-center gap-2 md:flex-col md:items-end">
+										<button
+											onClick={() => markAsRead(notification)}
+											disabled={notification.is_read}
+											className={`px-4 py-2 rounded-md text-sm font-medium ${
+												notification.is_read
+													? 'bg-gray-100 text-gray-500 cursor-not-allowed'
+													: 'bg-blue-600 text-white hover:bg-blue-700'
+											}`}
+										>
+											{notification.is_read ? 'Read' : 'Mark as Read'}
+										</button>
+									</div>
+								</div>
+							</article>
+						))}
+					</div>
+				)}
+			</div>
+		</div>
+	);
 };
 
 export default Notifications;

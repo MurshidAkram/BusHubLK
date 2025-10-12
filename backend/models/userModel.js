@@ -13,65 +13,70 @@ class User {
     return result.rows[0];
   }
 
-static async findByEmail(email) {
-  const result = await db.query(
-    `SELECT u.*, r.role_name, r.role_description 
+  static async findByEmail(email) {
+    const result = await db.query(
+      `SELECT u.*, r.role_name, r.role_description 
      FROM users u 
      JOIN roles r ON u.role_id = r.role_id 
      WHERE u.email = $1`,
-    [email]
-  );
-  return result.rows[0];
-}
+      [email]
+    );
+    return result.rows[0];
+  }
 
 
-/**
- * Finds role-specific details for a user, such as depot or region ID.
- * @param {number} user_id The user's ID.
- * @param {string} role_name The user's role name.
- * @returns {Promise<object|null>} An object with role-specific data or null.
- */
+  /**
+   * Finds role-specific details for a user, such as depot or region ID.
+   * @param {number} user_id The user's ID.
+   * @param {string} role_name The user's role name.
+   * @returns {Promise<object|null>} An object with role-specific data or null.
+   */
 
-static async getRoleSpecificDetails(user_id, role_name) {
-  const roleToTableMap = {
-    depot_manager: {
-      tableName: 'depot_managers',
-      idColumn: 'depot_manager_id',
-      fields: ['depot_id', 'region_id']
-    },
-    depot_operations: {
-      tableName: 'depot_operation_managers',
-      idColumn: 'depot_op_manager_id',
-      fields: ['depot_id', 'region_id']
-    },
-    depot_engineer: {
-      tableName: 'depot_engineers',
-      idColumn: 'depot_engineer_id',
-      fields: ['depot_id', 'region_id']
-    },
-    driver: {
-      tableName: 'drivers',
-      idColumn: 'driver_id',
-      fields: ['depot_id', 'region_id']
-    },
-    conductor: {
+  static async getRoleSpecificDetails(user_id, role_name) {
+    const roleToTableMap = {
+      depot_manager: {
+        tableName: 'depot_managers',
+        idColumn: 'depot_manager_id',
+        fields: ['depot_id', 'region_id']
+      },
+      depot_operations: {
+        tableName: 'depot_operation_managers',
+        idColumn: 'depot_op_manager_id',
+        fields: ['depot_id', 'region_id']
+      },
+      depot_engineer: {
+        tableName: 'depot_engineers',
+        idColumn: 'depot_engineer_id',
+        fields: ['depot_id', 'region_id']
+      },
+      regional_tech: {
+        tableName: 'regional_technical_officers',
+        idColumn: 'rto_id',
+        fields: ['region_id']
+      },
+      driver: {
+        tableName: 'drivers',
+        idColumn: 'driver_id',
+        fields: ['depot_id', 'region_id']
+      },
+      conductor: {
         tableName: 'conductors',
         idColumn: 'conductor_id',
         fields: ['depot_id', 'region_id']
+      }
+      // Add other roles that have specific tables, e.g., regional officers
+    };
+
+    const mapping = roleToTableMap[role_name];
+    if (!mapping) {
+      return null; // Not a role with specific data we need at login
     }
-    // Add other roles that have specific tables, e.g., regional officers
-  };
 
-  const mapping = roleToTableMap[role_name];
-  if (!mapping) {
-    return null; // Not a role with specific data we need at login
+    const query = `SELECT ${mapping.fields.join(', ')} FROM ${mapping.tableName} WHERE ${mapping.idColumn} = $1`;
+    const result = await db.query(query, [user_id]);
+
+    return result.rows[0] || null;
   }
-
-  const query = `SELECT ${mapping.fields.join(', ')} FROM ${mapping.tableName} WHERE ${mapping.idColumn} = $1`;
-  const result = await db.query(query, [user_id]);
-  
-  return result.rows[0] || null;
-}
 
 
   static async findByUsername(username) {
@@ -248,21 +253,21 @@ static async getAll() {
   static async updatePassword(userId, hashedPassword) {
     try {
       console.log('Updating password for user ID:', userId);
-      
+
       const query = `
         UPDATE users 
         SET password_hash = $2, updated_at = NOW() 
         WHERE user_id = $1
         RETURNING user_id, email, updated_at
       `;
-      
+
       const result = await db.query(query, [userId, hashedPassword]);
       console.log('Password update result:', result);
-      
+
       if (result.rowCount === 0) {
         throw new Error('User not found or password not updated');
       }
-      
+
       return {
         affectedRows: result.rowCount,
         updatedUser: result.rows[0]
@@ -353,7 +358,7 @@ static async getAll() {
   static async updateProfile(userId, updateData) {
     try {
       const { first_name, last_name, phone } = updateData;
-      
+
       const result = await db.query(
         `UPDATE users 
          SET first_name = COALESCE($2, first_name),
@@ -412,52 +417,52 @@ static async getAll() {
     switch (role_name) {
       case 'ceo':
       case 'dgm_technical':
-        
+
       case 'dgm_operations':
         insertQuery = `INSERT INTO ${tableName} (${role_name}_id, appointment_date) VALUES ($1, $2)`;
         values = [user_id, additional_data.appointment_date || new Date()];
         break;
-      
+
       case 'regional_tech':
         insertQuery = `INSERT INTO regional_technical_officers (rto_id, region_id, appointment_date) VALUES ($1, $2, $3)`;
         values = [user_id, additional_data.region_id, additional_data.appointment_date || new Date()];
         break;
-      
+
       case 'regional_operations':
         insertQuery = `INSERT INTO regional_operations_officers (roo_id, region_id, appointment_date) VALUES ($1, $2, $3)`;
         values = [user_id, additional_data.region_id, additional_data.appointment_date || new Date()];
         break;
-      
+
       case 'depot_manager':
         insertQuery = `INSERT INTO depot_managers (depot_manager_id, depot_id, region_id, appointment_date) VALUES ($1, $2, $3, $4)`;
         values = [user_id, additional_data.depot_id, additional_data.region_id, additional_data.appointment_date || new Date()];
         break;
-      
+
       case 'depot_operations':
         insertQuery = `INSERT INTO depot_operation_managers (depot_op_manager_id, depot_id, region_id, appointment_date) VALUES ($1, $2, $3, $4)`;
         values = [user_id, additional_data.depot_id, additional_data.region_id, additional_data.appointment_date || new Date()];
         break;
-      
+
       case 'depot_engineer':
         insertQuery = `INSERT INTO depot_engineers (depot_engineer_id, depot_id, region_id, appointment_date) VALUES ($1, $2, $3, $4)`;
         values = [user_id, additional_data.depot_id, additional_data.region_id, additional_data.appointment_date || new Date()];
         break;
-      
+
       case 'driver':
         insertQuery = `INSERT INTO drivers (driver_id, depot_id, region_id) VALUES ($1, $2, $3)`;
         values = [user_id, additional_data.depot_id, additional_data.region_id];
         break;
-      
+
       case 'conductor':
         insertQuery = `INSERT INTO conductors (conductor_id, depot_id, region_id) VALUES ($1, $2, $3)`;
         values = [user_id, additional_data.depot_id, additional_data.region_id];
         break;
-      
+
       case 'passenger':
         insertQuery = `INSERT INTO passengers (passenger_id) VALUES ($1)`;
         values = [user_id];
         break;
-      
+
       case 'admin':
         insertQuery = `INSERT INTO admins (admin_id) VALUES ($1)`;
         values = [user_id];
@@ -470,110 +475,110 @@ static async getAll() {
 
   // In userModel.js, add these methods:
 
-// Delete role-specific entry
-static async deleteRoleSpecificEntry(user_id, role_name) {
-  const roleTableMap = {
-    'ceo': 'ceo',
-    'dgm_technical': 'dgm_technical',
-    'dgm_operations': 'dgm_operations',
-    'regional_tech': 'regional_technical_officers',
-    'regional_operations': 'regional_operations_officers',
-    'depot_manager': 'depot_managers',
-    'depot_operations': 'depot_operation_managers',
-    'depot_engineer': 'depot_engineers',
-    'driver': 'drivers',
-    'conductor': 'conductors',
-    'passenger': 'passengers',
-    'admin': 'admins'
-  };
+  // Delete role-specific entry
+  static async deleteRoleSpecificEntry(user_id, role_name) {
+    const roleTableMap = {
+      'ceo': 'ceo',
+      'dgm_technical': 'dgm_technical',
+      'dgm_operations': 'dgm_operations',
+      'regional_tech': 'regional_technical_officers',
+      'regional_operations': 'regional_operations_officers',
+      'depot_manager': 'depot_managers',
+      'depot_operations': 'depot_operation_managers',
+      'depot_engineer': 'depot_engineers',
+      'driver': 'drivers',
+      'conductor': 'conductors',
+      'passenger': 'passengers',
+      'admin': 'admins'
+    };
 
-  const tableName = roleTableMap[role_name];
-  if (!tableName) {
-    throw new Error(`Invalid role: ${role_name}`);
-  }
-
-  const query = `DELETE FROM ${tableName} WHERE ${role_name}_id = $1`;
-  await db.query(query, [user_id]);
-}
-
-// Update role-specific entry
-static async updateRoleSpecificEntry(user_id, role_name, updateData) {
-  const roleTableMap = {
-    'ceo': 'ceo',
-    'dgm_technical': 'dgm_technical',
-    'dgm_operations': 'dgm_operations',
-    'regional_tech': 'regional_technical_officers',
-    'regional_operations': 'regional_operations_officers',
-    'depot_manager': 'depot_managers',
-    'depot_operations': 'depot_operation_managers',
-    'depot_engineer': 'depot_engineers',
-    'driver': 'drivers',
-    'conductor': 'conductors'
-  };
-
-  const tableName = roleTableMap[role_name];
-  if (!tableName) {
-    throw new Error(`Invalid role: ${role_name}`);
-  }
-
-  const allowedFields = ['region_id', 'depot_id', 'appointment_date'];
-  const updateFields = [];
-  const values = [];
-  let paramCount = 1;
-
-  for (const [key, value] of Object.entries(updateData)) {
-    if (allowedFields.includes(key) && value !== undefined) {
-      updateFields.push(`${key} = $${paramCount}`);
-      values.push(value);
-      paramCount++;
+    const tableName = roleTableMap[role_name];
+    if (!tableName) {
+      throw new Error(`Invalid role: ${role_name}`);
     }
+
+    const query = `DELETE FROM ${tableName} WHERE ${role_name}_id = $1`;
+    await db.query(query, [user_id]);
   }
 
-  if (updateFields.length === 0) {
-    return; // No valid fields to update
+  // Update role-specific entry
+  static async updateRoleSpecificEntry(user_id, role_name, updateData) {
+    const roleTableMap = {
+      'ceo': 'ceo',
+      'dgm_technical': 'dgm_technical',
+      'dgm_operations': 'dgm_operations',
+      'regional_tech': 'regional_technical_officers',
+      'regional_operations': 'regional_operations_officers',
+      'depot_manager': 'depot_managers',
+      'depot_operations': 'depot_operation_managers',
+      'depot_engineer': 'depot_engineers',
+      'driver': 'drivers',
+      'conductor': 'conductors'
+    };
+
+    const tableName = roleTableMap[role_name];
+    if (!tableName) {
+      throw new Error(`Invalid role: ${role_name}`);
+    }
+
+    const allowedFields = ['region_id', 'depot_id', 'appointment_date'];
+    const updateFields = [];
+    const values = [];
+    let paramCount = 1;
+
+    for (const [key, value] of Object.entries(updateData)) {
+      if (allowedFields.includes(key) && value !== undefined) {
+        updateFields.push(`${key} = $${paramCount}`);
+        values.push(value);
+        paramCount++;
+      }
+    }
+
+    if (updateFields.length === 0) {
+      return; // No valid fields to update
+    }
+
+    values.push(user_id);
+
+    const query = `UPDATE ${tableName} SET ${updateFields.join(', ')} WHERE ${role_name}_id = $${paramCount}`;
+    await db.query(query, values);
   }
 
-  values.push(user_id);
-
-  const query = `UPDATE ${tableName} SET ${updateFields.join(', ')} WHERE ${role_name}_id = $${paramCount}`;
-  await db.query(query, values);
-}
-
-// Get depot engineers by depot ID
-static async getDepotEngineersByDepot(depotId) {
-  const query = `
+  // Get depot engineers by depot ID
+  static async getDepotEngineersByDepot(depotId) {
+    const query = `
     SELECT u.user_id, u.username, u.email, u.first_name, u.last_name
     FROM users u
     JOIN depot_engineers de ON u.user_id = de.depot_engineer_id
     WHERE de.depot_id = $1 AND u.is_active = true
   `;
-  
-  try {
-    const result = await db.query(query, [depotId]);
-    return result.rows;
-  } catch (error) {
-    console.error('Error getting depot engineers by depot:', error);
-    throw error;
-  }
-}
 
-// Get depot managers by depot ID
-static async getDepotManagersByDepot(depotId) {
-  const query = `
+    try {
+      const result = await db.query(query, [depotId]);
+      return result.rows;
+    } catch (error) {
+      console.error('Error getting depot engineers by depot:', error);
+      throw error;
+    }
+  }
+
+  // Get depot managers by depot ID
+  static async getDepotManagersByDepot(depotId) {
+    const query = `
     SELECT u.user_id, u.username, u.email, u.first_name, u.last_name
     FROM users u
     JOIN depot_managers dm ON u.user_id = dm.depot_manager_id
     WHERE dm.depot_id = $1 AND u.is_active = true
   `;
-  
-  try {
-    const result = await db.query(query, [depotId]);
-    return result.rows;
-  } catch (error) {
-    console.error('Error getting depot managers by depot:', error);
-    throw error;
+
+    try {
+      const result = await db.query(query, [depotId]);
+      return result.rows;
+    } catch (error) {
+      console.error('Error getting depot managers by depot:', error);
+      throw error;
+    }
   }
-}
 }
 
 module.exports = User;
