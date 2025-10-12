@@ -113,9 +113,7 @@ const Busmanagement: React.FC = () => {
       return schedules.map((schedule: any) => ({
         date: formatDate(schedule.completed_date || schedule.scheduled_date),
         type: schedule.service_type || 'Service',
-        description: schedule.status
-          ? `${schedule.status}${schedule.depot_name ? ` • ${schedule.depot_name}` : ''}`
-          : schedule.depot_name || 'Scheduled service',
+        description: schedule.status || 'Scheduled service',
       }));
     } catch (err) {
       const axiosError = err as AxiosError;

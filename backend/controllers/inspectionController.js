@@ -1,6 +1,5 @@
 const Inspection = require('../models/inspectionModel');
 const User = require('../models/userModel');
-const Notification = require('../models/notificationModel');
 const { validationResult } = require('express-validator');
 
 // Create a new inspection
@@ -24,34 +23,8 @@ const createInspection = async (req, res) => {
 
     const inspection = await Inspection.createInspection(inspection_type, date, time, user_id, depot_id);
 
-    // Create notifications for both depot engineers and depot managers in the assigned depot
-    try {
-      // Get depot engineers for this depot
-      const depotEngineers = await User.getDepotEngineersByDepot(depot_id);
-
-      // Get depot managers for this depot  
-      const depotManagers = await User.getDepotManagersByDepot(depot_id);
-
-      // Combine both lists
-      const recipients = [...depotEngineers, ...depotManagers];
-
-      // Create notifications for each recipient
-      for (const recipient of recipients) {
-        await Notification.create({
-          user_id: recipient.user_id,
-          title: 'New Inspection Assigned',
-          message: `A new ${inspection_type} inspection has been scheduled for ${new Date(date).toLocaleDateString()} at ${time}. Please ensure all necessary preparations are completed.`,
-          type: 'inspection',
-          inspection_id: inspection.id,
-          assigned_by: `${req.user.first_name} ${req.user.last_name}` || 'Regional Technical Officer'
-        });
-      }
-
-      console.log(`✅ Sent inspection notifications to ${recipients.length} recipients (${depotEngineers.length} engineers, ${depotManagers.length} managers) for inspection ${inspection.id}`);
-    } catch (notificationError) {
-      console.error('Error creating notifications:', notificationError);
-      // Don't fail the inspection creation if notification fails
-    }
+    // Depot engineer notification aggregation reads directly from inspections table,
+    // so we do not need to push separate notification records here.
 
     res.status(201).json({
       message: 'Inspection scheduled successfully',
@@ -159,34 +132,7 @@ const updateInspection = async (req, res) => {
       return res.status(404).json({ error: 'Inspection not found or access denied' });
     }
 
-    // Send notifications to depot engineers and depot managers
-    try {
-      // Get depot engineers for this depot
-      const depotEngineers = await User.getDepotEngineersByDepot(depot_id);
-
-      // Get depot managers for this depot  
-      const depotManagers = await User.getDepotManagersByDepot(depot_id);
-
-      // Combine both lists
-      const recipients = [...depotEngineers, ...depotManagers];
-
-      // Create notifications for each recipient
-      for (const recipient of recipients) {
-        await Notification.create({
-          user_id: recipient.user_id,
-          title: 'Inspection Updated',
-          message: `The ${inspection_type} inspection scheduled for ${new Date(date).toLocaleDateString()} has been updated by Regional Technical Officer.`,
-          type: 'info',
-          inspection_id: inspection.id,
-          assigned_by: `${req.user.first_name} ${req.user.last_name}` || 'Regional Technical Officer'
-        });
-      }
-
-      console.log(`✅ Sent update notifications to ${recipients.length} recipients for inspection ${id}`);
-    } catch (notificationError) {
-      console.error('Error creating update notifications:', notificationError);
-      // Don't fail the inspection update if notification fails
-    }
+    // Aggregated depot engineer notifications pull inspection changes automatically.
 
     res.json({
       message: 'Inspection updated successfully',
@@ -217,36 +163,7 @@ const deleteInspection = async (req, res) => {
       return res.status(404).json({ error: 'Inspection not found or access denied' });
     }
 
-    // Send notifications to depot engineers and depot managers
-    try {
-      const depot_id = inspectionDetails.depot_id;
-
-      // Get depot engineers for this depot
-      const depotEngineers = await User.getDepotEngineersByDepot(depot_id);
-
-      // Get depot managers for this depot  
-      const depotManagers = await User.getDepotManagersByDepot(depot_id);
-
-      // Combine both lists
-      const recipients = [...depotEngineers, ...depotManagers];
-
-      // Create notifications for each recipient
-      for (const recipient of recipients) {
-        await Notification.create({
-          user_id: recipient.user_id,
-          title: 'Inspection Cancelled',
-          message: `The ${inspectionDetails.inspection_type} inspection scheduled for ${new Date(inspectionDetails.date).toLocaleDateString()} has been cancelled by Regional Technical Officer.`,
-          type: 'warning',
-          inspection_id: null, // No longer linked since inspection is deleted
-          assigned_by: `${req.user.first_name} ${req.user.last_name}` || 'Regional Technical Officer'
-        });
-      }
-
-      console.log(`✅ Sent cancellation notifications to ${recipients.length} recipients for deleted inspection ${id}`);
-    } catch (notificationError) {
-      console.error('Error creating cancellation notifications:', notificationError);
-      // Don't fail the inspection deletion if notification fails
-    }
+    // Aggregated depot engineer notifications reflect cancelled inspections automatically.
 
     res.json({
       message: 'Inspection deleted successfully',

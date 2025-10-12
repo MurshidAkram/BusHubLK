@@ -69,6 +69,7 @@ interface DailyChecklist {
   first_name?: string;
   last_name?: string;
   registration_number?: string;
+  missed_parts?: string[];
 }
 
 interface Stats {
@@ -754,15 +755,14 @@ const ServiceScheduleApp: React.FC = () => {
   }, [services]);
 
   const maintenanceChecklistIssues = React.useMemo(() => {
-    if (!dailyChecklists.length || !maintenanceBuses.length) {
+    if (!dailyChecklists.length) {
       return [] as Array<{ checklist: DailyChecklist; missedParts: string[] }>;
     }
 
-    const maintenanceBusIds = new Set(maintenanceBuses.map(bus => bus.bus_id));
     const latestChecklistByBus = new Map<number, DailyChecklist>();
 
     dailyChecklists.forEach((checklist) => {
-      if (!maintenanceBusIds.has(checklist.bus_id)) {
+      if (!checklist.bus_id) {
         return;
       }
 
@@ -776,9 +776,11 @@ const ServiceScheduleApp: React.FC = () => {
     });
 
     const issues = Array.from(latestChecklistByBus.values()).map((checklist) => {
-      const missedParts = CHECKLIST_PARTS
-        .filter(({ key }) => !isChecklistPartPassed(checklist[key]))
-        .map(({ label }) => label);
+      const missedParts = Array.isArray(checklist.missed_parts) && checklist.missed_parts.length > 0
+        ? checklist.missed_parts
+        : CHECKLIST_PARTS
+          .filter(({ key }) => !isChecklistPartPassed(checklist[key]))
+          .map(({ label }) => label);
 
       return {
         checklist,
@@ -787,11 +789,11 @@ const ServiceScheduleApp: React.FC = () => {
     }).filter(({ missedParts }) => missedParts.length > 0);
 
     return issues.sort((a, b) => {
-      const busA = a.checklist.registration_number || maintenanceBuses.find(bus => bus.bus_id === a.checklist.bus_id)?.registration_number || String(a.checklist.bus_id);
-      const busB = b.checklist.registration_number || maintenanceBuses.find(bus => bus.bus_id === b.checklist.bus_id)?.registration_number || String(b.checklist.bus_id);
+      const busA = a.checklist.registration_number || busLookup.get(a.checklist.bus_id)?.registration_number || String(a.checklist.bus_id);
+      const busB = b.checklist.registration_number || busLookup.get(b.checklist.bus_id)?.registration_number || String(b.checklist.bus_id);
       return busA.localeCompare(busB);
     });
-  }, [dailyChecklists, maintenanceBuses]);
+  }, [dailyChecklists, busLookup]);
 
   // Helper function to get bus details by ID
   const getBusDetails = (busId: string | number) => {
@@ -903,64 +905,72 @@ const ServiceScheduleApp: React.FC = () => {
         {maintenanceAlertBuses.length > 0 && (
           <div className="mb-6 space-y-3">
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-              <div className="flex items-start gap-3">
-                <div className="mt-1">
-                  <FaExclamationTriangle className="text-yellow-500" />
-                </div>
-                <div>
-                  <h2 className="text-sm font-semibold text-yellow-700">
-                    Maintenance buses awaiting schedules
-                  </h2>
-                  <p className="text-sm text-yellow-600 mt-1">
-                    {maintenanceAlertBuses.length} {maintenanceAlertBuses.length === 1 ? 'bus is' : 'buses are'} currently in maintenance without an upcoming service. Review and schedule them to keep work on track.
-                  </p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {maintenanceAlertBuses.map((bus) => (
-                      <button
-                        key={bus.bus_id}
-                        onClick={() => openNewScheduleForBus(bus)}
-                        className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-md text-sm font-medium hover:bg-yellow-200 transition-colors"
-                      >
-                        {bus.registration_number}
-                      </button>
-                    ))}
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div className="flex items-start gap-3">
+                  <div className="mt-1">
+                    <FaExclamationTriangle className="text-yellow-500" />
                   </div>
-                  {maintenanceChecklistIssues.length > 0 && (
-                    <div className="mt-4">
-                      <button
-                        onClick={() => setShowMaintenanceChecklist(prev => !prev)}
-                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-yellow-600 text-white text-xs font-semibold rounded-md hover:bg-yellow-700 transition-colors"
-                      >
-                        {showMaintenanceChecklist ? 'Hide' : 'Show'} maintenance checklist ({maintenanceChecklistIssues.length})
-                      </button>
+                  <div>
+                    <h2 className="text-sm font-semibold text-yellow-700">
+                      Maintenance buses awaiting schedules
+                    </h2>
+                    <p className="text-sm text-yellow-600 mt-1">
+                      {maintenanceAlertBuses.length} {maintenanceAlertBuses.length === 1 ? 'bus is' : 'buses are'} currently in maintenance without an upcoming service. Review and schedule them to keep work on track.
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {maintenanceAlertBuses.map((bus) => (
+                        <button
+                          key={bus.bus_id}
+                          onClick={() => openNewScheduleForBus(bus)}
+                          className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-md text-sm font-medium hover:bg-yellow-200 transition-colors"
+                        >
+                          {bus.registration_number}
+                        </button>
+                      ))}
                     </div>
-                  )}
+                  </div>
                 </div>
+                <button
+                  onClick={() => setShowMaintenanceChecklist((prev) => !prev)}
+                  className="self-start inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-yellow-700 border border-yellow-300 rounded-md hover:bg-yellow-100 transition-colors"
+                >
+                  {showMaintenanceChecklist ? 'Hide maintenance checklist' : `Show maintenance checklist (${maintenanceChecklistIssues.length})`}
+                </button>
               </div>
             </div>
           </div>
         )}
 
-        {maintenanceChecklistIssues.length > 0 && showMaintenanceChecklist && (
+        {maintenanceChecklistIssues.length > 0 && (
           <div className="mb-6">
-              <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-                <div className="px-6 py-4 border-b border-gray-100">
+            <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+              <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                <div>
                   <h2 className="text-lg font-semibold text-gray-800">Maintenance Part Checklist</h2>
-                  <p className="text-sm text-gray-500">Parts needing repair for buses currently under maintenance.</p>
                 </div>
+                {maintenanceAlertBuses.length === 0 && (
+                  <button
+                    onClick={() => setShowMaintenanceChecklist((prev) => !prev)}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700"
+                  >
+                    {showMaintenanceChecklist ? 'Hide checklist' : `Show checklist (${maintenanceChecklistIssues.length})`}
+                  </button>
+                )}
+              </div>
+              {showMaintenanceChecklist && (
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Bus</th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Last Checked</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Needs Repair</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Needs Attention</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-100">
                       {maintenanceChecklistIssues.map(({ checklist, missedParts }) => {
                         const busName = checklist.registration_number
-                          || maintenanceBuses.find(bus => bus.bus_id === checklist.bus_id)?.registration_number
+                          || busLookup.get(checklist.bus_id)?.registration_number
                           || getBusDetails(checklist.bus_id);
 
                         return (
@@ -985,7 +995,8 @@ const ServiceScheduleApp: React.FC = () => {
                     </tbody>
                   </table>
                 </div>
-              </div>
+              )}
+            </div>
           </div>
         )}
 

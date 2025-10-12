@@ -16,6 +16,9 @@ const Navbar = () => {
   // For now, using local state - replace with context values
   const { user, token, logout } = useContext(AppContext);
 
+  const normalizeRole = (role?: string) => role ? role.toLowerCase().replace(/\s+/g, '').replace(/-/g, '_') : '';
+  const roleKey = normalizeRole(user?.role);
+
   // Check if we're in a dashboard route
   const isDashboard = location.pathname.startsWith('/admin') || 
                      location.pathname.startsWith('/depot-manager') ||
@@ -33,107 +36,47 @@ const Navbar = () => {
   const fetchNotificationCount = async () => {
     if (token && isDashboard) {
       try {
-        const requests = [
-          fetch('http://localhost:5000/api/notifications/unread-count', {
+        if (roleKey === 'depot_engineer') {
+          const response = await fetch('http://localhost:5000/api/depot-engineer/notifications/unread-count', {
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
             }
-          })
-        ];
+          });
 
-        // Add scheduling stats request only for depot engineers
-        if (user?.role === 'depot_engineer' || user?.role === 'depot-engineer') {
-          requests.push(
-            fetch('http://localhost:5000/api/depot-engineer/service-schedules/stats', {
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-              }
-            })
-          );
-          
-          // Add bus condition reports count
-          requests.push(
-            fetch('http://localhost:5000/api/bus-condition-reports', {
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-              }
-            })
-          );
-          
-          // Add emergency reports count
-          requests.push(
-            fetch('http://localhost:5000/api/depot/emergency', {
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-              }
-            })
-          );
+          if (response.ok) {
+            const data = await response.json();
+            setNotificationCount(data.unreadCount || 0);
+            return;
+          }
         }
 
-        const responses = await Promise.all(requests);
-        let totalUnreadCount = 0;
-        
-        // Add general notification count
-        if (responses[0] && responses[0].ok) {
-          const generalData = await responses[0].json();
-          const generalCount = generalData.unreadCount || 0;
-          totalUnreadCount += generalCount;
-          console.log('General notifications count:', generalCount);
-        }
-        
-        // Add scheduling notification count (only for depot engineers)
-        if (responses[1] && responses[1].ok && (user?.role === 'depot_engineer' || user?.role === 'depot-engineer')) {
-          const schedulingData = await responses[1].json();
-          if (schedulingData.success && schedulingData.stats) {
-            const stats = schedulingData.stats;
-            console.log('Scheduling stats:', stats);
-            
-            let schedulingCount = 0;
-            // Count scheduling notifications that would be created
-            if (stats.critical_overdue_count > 0) schedulingCount += 1;
-            if (stats.overdue_count > 0) schedulingCount += 1;
-            if (stats.due_today_count > 0) schedulingCount += 1;
-            if (stats.upcoming_count > 0) schedulingCount += 1;
-            
-            totalUnreadCount += schedulingCount;
-            console.log('Scheduling notifications count:', schedulingCount);
+        if (roleKey === 'regional_tech' || roleKey === 'regional_technical_officer') {
+          const response = await fetch('http://localhost:5000/api/rto/notifications/unread-count', {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            setNotificationCount(data.unreadCount || 0);
+            return;
           }
         }
-        
-        // Add bus condition reports count (only for depot engineers)
-        if (responses[2] && responses[2].ok && (user?.role === 'depot_engineer' || user?.role === 'depot-engineer')) {
-          const conditionData = await responses[2].json();
-          if (conditionData.success && conditionData.data) {
-            // Count unreviewed condition reports only
-            const conditionCount = conditionData.data.filter((report: any) => {
-              return report.review_status === 'pending' || !report.review_status;
-            }).length;
-            
-            totalUnreadCount += conditionCount;
-            console.log('Condition reports notifications count:', conditionCount);
+
+        const response = await fetch('http://localhost:5000/api/notifications/unread-count', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
           }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setNotificationCount(data.unreadCount || 0);
         }
-        
-        // Add emergency reports count (only for depot engineers)
-        if (responses[3] && responses[3].ok && (user?.role === 'depot_engineer' || user?.role === 'depot-engineer')) {
-          const emergencyData = await responses[3].json();
-          if (emergencyData.success && emergencyData.data) {
-            // Count emergency reports with exactly "Pending" status
-            const emergencyCount = emergencyData.data.filter((report: any) => {
-              return report.status === 'Pending';
-            }).length;
-            
-            totalUnreadCount += emergencyCount;
-            console.log('Emergency reports notifications count:', emergencyCount);
-          }
-        }
-        
-        console.log('Total notification count:', totalUnreadCount);
-        setNotificationCount(totalUnreadCount);
       } catch (error) {
         console.error('Error fetching notification count:', error);
         // Fallback to just general notifications
@@ -148,9 +91,12 @@ const Navbar = () => {
           if (response.ok) {
             const data = await response.json();
             setNotificationCount(data.unreadCount || 0);
+          } else {
+            setNotificationCount(0);
           }
         } catch (fallbackError) {
           console.error('Error fetching fallback notification count:', fallbackError);
+          setNotificationCount(0);
         }
       }
     }
@@ -164,18 +110,18 @@ const Navbar = () => {
     const interval = setInterval(fetchNotificationCount, 30000);
     
     return () => clearInterval(interval);
-  }, [token, isDashboard, user?.role]);
+  }, [token, isDashboard, roleKey]);
 
   // Handle notification click
   const handleNotificationClick = () => {
     console.log('User role:', user?.role); // Debug log
     
     // Check for different possible role values
-    if (user?.role === 'depot-engineer' || user?.role === 'depot_engineer') {
+    if (roleKey === 'depot_engineer') {
       navigate('/depot-engineer/notifications');
-    } else if (user?.role === 'depot_manager' || user?.role === 'depot-manager') {
+    } else if (roleKey === 'depot_manager') {
       navigate('/depot-manager/notifications');
-    } else if (user?.role === 'regional_tech' || user?.role === 'regional-technical-officer') {
+    } else if (roleKey === 'regional_tech' || roleKey === 'regional_technical_officer') {
       navigate('/regional-technical-officer/notifications');
     } else {
       // Fallback for any role - navigate to their dashboard and show alert
@@ -197,7 +143,7 @@ const Navbar = () => {
     return () => {
       delete (window as any).refreshNotificationCount;
     };
-  }, [token, isDashboard, user?.role]);
+  }, [token, isDashboard, roleKey]);
 
 
   // Function to get dashboard route based on user role
@@ -211,7 +157,11 @@ const Navbar = () => {
         return '/depot-operations-manager'
       case 'depot-engineer':
         return '/depot-engineer'
+      case 'regional_tech':
+        return '/regional-technical-officer'
       case 'regional-technical-officer':
+        return '/regional-technical-officer'
+      case 'regional_technical_officer':
         return '/regional-technical-officer'
       case 'regional-operations-officer':
         return '/regional-operations-officer'
@@ -324,7 +274,7 @@ const Navbar = () => {
                 <HiBell className="h-6 w-6" />
                 {notificationCount > 0 && (
                   <span className="absolute top-0 right-0 h-4 w-4 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold">
-                    {notificationCount > 9 ? '9+' : notificationCount}
+                    {notificationCount}
                   </span>
                 )}
               </button>
