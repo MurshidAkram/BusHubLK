@@ -236,7 +236,7 @@ const App = () => {
           <Route path="Regionservicemonitor" element={<Regionservicemonitor />} />
           <Route path="Rtoissuetracker" element={<Rtoissuetracker />} />
           <Route path="Regioncommunityhub" element={<Regioncommunityhub />} />
-          <Route path="RTONotifications" element={<RTONotifications />} />
+          <Route path="notifications" element={<RTONotifications />} />
           {/* Add individual pages later */}
         </Route>
         </Route>

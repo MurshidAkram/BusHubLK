@@ -905,29 +905,37 @@ const ServiceScheduleApp: React.FC = () => {
         {maintenanceAlertBuses.length > 0 && (
           <div className="mb-6 space-y-3">
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-              <div className="flex items-start gap-3">
-                <div className="mt-1">
-                  <FaExclamationTriangle className="text-yellow-500" />
-                </div>
-                <div>
-                  <h2 className="text-sm font-semibold text-yellow-700">
-                    Maintenance buses awaiting schedules
-                  </h2>
-                  <p className="text-sm text-yellow-600 mt-1">
-                    {maintenanceAlertBuses.length} {maintenanceAlertBuses.length === 1 ? 'bus is' : 'buses are'} currently in maintenance without an upcoming service. Review and schedule them to keep work on track.
-                  </p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {maintenanceAlertBuses.map((bus) => (
-                      <button
-                        key={bus.bus_id}
-                        onClick={() => openNewScheduleForBus(bus)}
-                        className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-md text-sm font-medium hover:bg-yellow-200 transition-colors"
-                      >
-                        {bus.registration_number}
-                      </button>
-                    ))}
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div className="flex items-start gap-3">
+                  <div className="mt-1">
+                    <FaExclamationTriangle className="text-yellow-500" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-semibold text-yellow-700">
+                      Maintenance buses awaiting schedules
+                    </h2>
+                    <p className="text-sm text-yellow-600 mt-1">
+                      {maintenanceAlertBuses.length} {maintenanceAlertBuses.length === 1 ? 'bus is' : 'buses are'} currently in maintenance without an upcoming service. Review and schedule them to keep work on track.
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {maintenanceAlertBuses.map((bus) => (
+                        <button
+                          key={bus.bus_id}
+                          onClick={() => openNewScheduleForBus(bus)}
+                          className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-md text-sm font-medium hover:bg-yellow-200 transition-colors"
+                        >
+                          {bus.registration_number}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
+                <button
+                  onClick={() => setShowMaintenanceChecklist((prev) => !prev)}
+                  className="self-start inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-yellow-700 border border-yellow-300 rounded-md hover:bg-yellow-100 transition-colors"
+                >
+                  {showMaintenanceChecklist ? 'Hide maintenance checklist' : `Show maintenance checklist (${maintenanceChecklistIssues.length})`}
+                </button>
               </div>
             </div>
           </div>
@@ -939,14 +947,15 @@ const ServiceScheduleApp: React.FC = () => {
               <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-semibold text-gray-800">Maintenance Part Checklist</h2>
-                  
                 </div>
-                <button
-                  onClick={() => setShowMaintenanceChecklist(prev => !prev)}
-                  className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700"
-                >
-                  {showMaintenanceChecklist ? 'Hide checklist' : `Show checklist (${maintenanceChecklistIssues.length})`}
-                </button>
+                {maintenanceAlertBuses.length === 0 && (
+                  <button
+                    onClick={() => setShowMaintenanceChecklist((prev) => !prev)}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700"
+                  >
+                    {showMaintenanceChecklist ? 'Hide checklist' : `Show checklist (${maintenanceChecklistIssues.length})`}
+                  </button>
+                )}
               </div>
               {showMaintenanceChecklist && (
                 <div className="overflow-x-auto">

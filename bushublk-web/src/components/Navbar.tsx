@@ -16,6 +16,9 @@ const Navbar = () => {
   // For now, using local state - replace with context values
   const { user, token, logout } = useContext(AppContext);
 
+  const normalizeRole = (role?: string) => role ? role.toLowerCase().replace(/\s+/g, '').replace(/-/g, '_') : '';
+  const roleKey = normalizeRole(user?.role);
+
   // Check if we're in a dashboard route
   const isDashboard = location.pathname.startsWith('/admin') || 
                      location.pathname.startsWith('/depot-manager') ||
@@ -33,8 +36,23 @@ const Navbar = () => {
   const fetchNotificationCount = async () => {
     if (token && isDashboard) {
       try {
-        if (user?.role === 'depot_engineer' || user?.role === 'depot-engineer') {
+        if (roleKey === 'depot_engineer') {
           const response = await fetch('http://localhost:5000/api/depot-engineer/notifications/unread-count', {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            setNotificationCount(data.unreadCount || 0);
+            return;
+          }
+        }
+
+        if (roleKey === 'regional_tech' || roleKey === 'regional_technical_officer') {
+          const response = await fetch('http://localhost:5000/api/rto/notifications/unread-count', {
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
@@ -92,18 +110,18 @@ const Navbar = () => {
     const interval = setInterval(fetchNotificationCount, 30000);
     
     return () => clearInterval(interval);
-  }, [token, isDashboard, user?.role]);
+  }, [token, isDashboard, roleKey]);
 
   // Handle notification click
   const handleNotificationClick = () => {
     console.log('User role:', user?.role); // Debug log
     
     // Check for different possible role values
-    if (user?.role === 'depot-engineer' || user?.role === 'depot_engineer') {
+    if (roleKey === 'depot_engineer') {
       navigate('/depot-engineer/notifications');
-    } else if (user?.role === 'depot_manager' || user?.role === 'depot-manager') {
+    } else if (roleKey === 'depot_manager') {
       navigate('/depot-manager/notifications');
-    } else if (user?.role === 'regional_tech' || user?.role === 'regional-technical-officer') {
+    } else if (roleKey === 'regional_tech' || roleKey === 'regional_technical_officer') {
       navigate('/regional-technical-officer/notifications');
     } else {
       // Fallback for any role - navigate to their dashboard and show alert
@@ -125,7 +143,7 @@ const Navbar = () => {
     return () => {
       delete (window as any).refreshNotificationCount;
     };
-  }, [token, isDashboard, user?.role]);
+  }, [token, isDashboard, roleKey]);
 
 
   // Function to get dashboard route based on user role
@@ -139,7 +157,11 @@ const Navbar = () => {
         return '/depot-operations-manager'
       case 'depot-engineer':
         return '/depot-engineer'
+      case 'regional_tech':
+        return '/regional-technical-officer'
       case 'regional-technical-officer':
+        return '/regional-technical-officer'
+      case 'regional_technical_officer':
         return '/regional-technical-officer'
       case 'regional-operations-officer':
         return '/regional-operations-officer'
