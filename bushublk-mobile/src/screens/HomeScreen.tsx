@@ -624,7 +624,7 @@ export default function HomeScreen() {
                 style={styles.quickActionCard}
                 onPress={() => {
                   if (action.title === "Live Tracking") {
-                    navigation.navigate("BusTracker");
+                    navigation.navigate("BusTracking");
                   } else if (action.title === "Bus Occupancy") {
                     navigation.navigate("BusOccupancy");
                   } else if (action.title === "Emergency Alert") {

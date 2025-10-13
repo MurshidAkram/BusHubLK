@@ -13,9 +13,12 @@ import {
   Linking,
   Platform,
   Modal,
+  Dimensions,
+  FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Dropdown } from 'react-native-element-dropdown';
 import * as ImagePicker from 'expo-image-picker';
 import { storageAPI } from '../services/api';
@@ -37,6 +40,9 @@ const AppColors = {
   shadow: 'rgba(0, 0, 0, 0.1)',
   accent: '#F0F8FF',
   success: '#28a745',
+  warning: '#ffc107',
+  danger: '#dc3545',
+  info: '#17a2b8',
 };
 
 // Data for the dropdown
@@ -73,9 +79,11 @@ interface Report {
   item_photo_url?: string;
   reward_offered?: number;
   approximate_location?: string;
-  is_verified?: boolean;
   resolved_date?: string;
   passenger_id?: number;
+  driver_id?: number;
+  created_at?: string;
+  updated_at?: string;
   // New depot handover fields
   handed_to_depot_id?: number;
   handover_date?: string;
@@ -345,24 +353,67 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
         return;
       }
 
-      console.log('📱 Loading my reports for user:', user.id);
+      console.log('📱 Loading my reports for user:', user.id, 'type:', user.userType);
       setLoading(true);
       
-      const response = await fetch(`${API_BASE_URL}/api/lost-found/users/${user.id}/reports`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
+      let allMyReports: Report[] = [];
+      
+      // Load passenger reports (if user is a passenger or if userType is not specified)
+      if (!user.userType || user.userType === 'passenger' || user.userType === 'user') {
+        try {
+          const passengerResponse = await fetch(`${API_BASE_URL}/api/lost-found/users/${user.id}/reports`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Accept': 'application/json',
+            }
+          });
+          
+          const passengerData = await passengerResponse.json();
+          if (passengerData.success) {
+            allMyReports = [...allMyReports, ...passengerData.data];
+            console.log('✅ Passenger reports loaded:', passengerData.data.length);
+          }
+        } catch (error) {
+          console.error('Error loading passenger reports:', error);
         }
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        setMyReports(data.data);
-        console.log('✅ My reports loaded:', data.data.length);
-      } else {
-        console.error('Failed to load my reports:', data.message);
       }
+      
+      // Load driver reports (if user is a driver)
+      if (user.userType === 'driver' || user.driver_id) {
+        try {
+          const driverResponse = await fetch(`${API_BASE_URL}/api/driver/found-items?driver_id=${user.driver_id || user.id}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Accept': 'application/json',
+            }
+          });
+          
+          const driverData = await driverResponse.json();
+          if (driverData.success) {
+            // Transform driver reports to match passenger report format
+            const transformedDriverReports = driverData.data.map((report: any) => ({
+              ...report,
+              report_type: 'found', // Driver reports are always 'found' items
+              first_name: report.driver_name?.split(' ')[0] || 'Driver',
+              last_name: report.driver_name?.split(' ').slice(1).join(' ') || '',
+              passenger_id: null,
+              driver_id: user.driver_id || user.id,
+            }));
+            
+            allMyReports = [...allMyReports, ...transformedDriverReports];
+            console.log('✅ Driver reports loaded:', transformedDriverReports.length);
+          }
+        } catch (error) {
+          console.error('Error loading driver reports:', error);
+        }
+      }
+      
+      // Sort all reports by creation date (newest first)
+      allMyReports.sort((a, b) => new Date(b.created_at || b.incident_date).getTime() - new Date(a.created_at || a.incident_date).getTime());
+      
+      setMyReports(allMyReports);
+      console.log('✅ All my reports loaded:', allMyReports.length);
+      
     } catch (error) {
       console.error('Error loading my reports:', error);
     } finally {
@@ -1004,67 +1055,52 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
 
   const renderListView = () => (
     <>
-      <View style={styles.topNav}>
-        <TouchableOpacity 
-          style={[styles.topNavButton, activeView === 'list' && styles.activeTopNavButton]}
-          onPress={() => setActiveView('list')}
-        >
-          <Text style={[styles.topNavButtonText, activeView === 'list' && styles.activeTopNavButtonText]}>Search Items</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.topNavButton, activeView === 'myreports' && styles.activeTopNavButton]}
-          onPress={async () => { 
-            setActiveView('myreports'); 
-            await loadMyReports();
-          }}
-        >
-          <Text style={[styles.topNavButtonText, activeView === 'myreports' && styles.activeTopNavButtonText]}>My Reports</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.topNavButton} onPress={() => { setActiveView('report'); setReportStep(1); setErrors({}); }}>
-          <Text style={styles.topNavButtonText}>Report Item</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.headerRightAction} 
-          onPress={async () => {
-            console.log('🔄 Manual refresh requested');
-            if (activeView === 'list') {
-              await loadReports();
-            } else if (activeView === 'myreports') {
-              await loadMyReports();
-            }
-          }}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="refresh-outline" size={20} color={AppColors.primary} />
-        </TouchableOpacity>
-      </View>
-      
-      <View style={styles.searchSection}>
-        <StyledTextInput
-          icon="search-outline"
-          placeholder="Search for lost or found items"
-          value={searchQuery}
-          onChangeText={handleSearchChange}
-          autoCapitalize="none"
-        />
-         <Dropdown
-            style={styles.dropdown}
-            placeholderStyle={styles.placeholderStyle}
-            selectedTextStyle={styles.selectedTextStyle}
-            inputSearchStyle={styles.inputSearchStyle}
-            iconStyle={styles.iconStyle}
-            data={itemCategories}
-            maxHeight={300}
-            labelField="label"
-            valueField="value"
-            placeholder="All Items"
-            value={selectedCategory}
-            onChange={item => {
-              console.log('Category changed to:', item.value); // Debug log
-              setSelectedCategory(item.value);
-            }}
+      {/* Enhanced Search Section with Gradient */}
+      <LinearGradient
+        colors={['#BBDEFB', '#E3F2FD', '#FFFFFF']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={styles.searchGradient}
+      >
+        <View style={styles.searchSection}>
+          <View style={styles.searchContainer}>
+            <Ionicons name="search-outline" size={20} color={AppColors.textSecondary} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search for lost or found items..."
+              value={searchQuery}
+              onChangeText={handleSearchChange}
+              autoCapitalize="none"
             />
-      </View>
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <Ionicons name="close-circle" size={20} color={AppColors.textSecondary} />
+              </TouchableOpacity>
+            )}
+          </View>
+          
+          <View style={styles.filterContainer}>
+            <Text style={styles.filterTitle}>Category:</Text>
+            <Dropdown
+              style={styles.modernDropdown}
+              placeholderStyle={styles.placeholderStyle}
+              selectedTextStyle={styles.selectedTextStyle}
+              inputSearchStyle={styles.inputSearchStyle}
+              iconStyle={styles.iconStyle}
+              data={itemCategories}
+              maxHeight={300}
+              labelField="label"
+              valueField="value"
+              placeholder="All Items"
+              value={selectedCategory}
+              onChange={item => {
+                console.log('Category changed to:', item.value);
+                setSelectedCategory(item.value);
+              }}
+            />
+          </View>
+        </View>
+      </LinearGradient>
 
       {loading ? (
         <View style={styles.loadingContainer}>
@@ -1073,13 +1109,25 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
         </View>
       ) : reports.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Ionicons name="search-outline" size={60} color={AppColors.textSecondary} />
-          <Text style={styles.emptyTitle}>No items found</Text>
-          <Text style={styles.emptyMessage}>
-            {searchQuery || selectedCategory !== 'all' 
-              ? 'Try adjusting your search filters' 
-              : 'Be the first to report a lost or found item'}
-          </Text>
+          <LinearGradient
+            colors={['#F8FAFF', '#E3F2FD']}
+            style={styles.emptyGradient}
+          >
+            <Ionicons name="search-outline" size={60} color={AppColors.textSecondary} />
+            <Text style={styles.emptyTitle}>No items found</Text>
+            <Text style={styles.emptyMessage}>
+              {searchQuery || selectedCategory !== 'all' 
+                ? 'Try adjusting your search filters' 
+                : 'Be the first to report a lost or found item'}
+            </Text>
+            <TouchableOpacity 
+              style={styles.emptyActionButton}
+              onPress={() => { setActiveView('report'); setReportStep(1); setErrors({}); }}
+            >
+              <Ionicons name="add-circle-outline" size={20} color="white" />
+              <Text style={styles.emptyActionText}>Report an Item</Text>
+            </TouchableOpacity>
+          </LinearGradient>
         </View>
       ) : (
         reports.map((report) => (
@@ -1098,7 +1146,11 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
               {report.item_description && report.item_description.length > 50 ? '...' : ''}
             </Text>
             <Text style={styles.itemDescription}>
-              {report.item_description}
+              {/* Clean up driver report descriptions by removing the driver info suffix */}
+              {report.driver_id 
+                ? report.item_description.split('\n\n[Driver Report')[0] 
+                : report.item_description
+              }
             </Text>
             
             <View style={styles.itemDetails}>
@@ -1139,16 +1191,16 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
             <View style={styles.contactSection}>
               <View style={styles.contactInfo}>
                 <Text style={styles.contactName}>
-                  Contact: {report.first_name ? `${report.first_name} ${report.last_name?.charAt(0) || ''}.` : 'Anonymous'}
+                  Contact: {report.driver_id 
+                    ? `Driver ${report.first_name || 'Unknown'}${report.last_name ? ` ${report.last_name.charAt(0)}.` : ''}` 
+                    : (report.first_name ? `${report.first_name} ${report.last_name?.charAt(0) || ''}.` : 'Anonymous')
+                  }
                 </Text>
                 {report.contact_email && (
                   <Text style={styles.contactEmail}>
                     📧 {report.contact_email}
                   </Text>
                 )}
-                <Text style={styles.contactNote}>
-                  {report.is_verified ? '✅ Verified user' : '⚠️ Unverified'}
-                </Text>
                 
                 {/* Display depot handover information if available */}
                 {report.handed_to_depot_id && (
@@ -1162,7 +1214,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
               </View>
               
               {/* Only show contact buttons if this is not the current user's report */}
-              {report.passenger_id !== (userData as any)?.id && (
+              {(report.passenger_id !== (userData as any)?.id && report.driver_id !== (userData as any)?.driver_id && report.driver_id !== (userData as any)?.id) && (
                 <View style={styles.contactButtons}>
                   {report.contact_phone && (
                     <TouchableOpacity 
@@ -1190,7 +1242,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
               )}
               
               {/* Show "Your Report" indicator for current user's reports */}
-              {report.passenger_id === (userData as any)?.id && (
+              {(report.passenger_id === (userData as any)?.id || report.driver_id === (userData as any)?.driver_id || report.driver_id === (userData as any)?.id) && (
                 <View style={styles.ownReportIndicator}>
                   <Ionicons name="person-circle" size={20} color={AppColors.primary} />
                   <Text style={styles.ownReportText}>Your Report</Text>
@@ -1206,12 +1258,19 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
   const renderMyReportsView = () => (
     <>
       {activeView === 'myreports' && (
-        <View style={styles.searchSection}>
-          <Text style={styles.sectionTitle}>My Lost & Found Reports</Text>
-          <Text style={styles.sectionSubtitle}>
-            Manage your submitted reports and mark them as resolved when found.
-          </Text>
-        </View>
+        <LinearGradient
+          colors={['#BBDEFB', '#E3F2FD', '#FFFFFF']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={styles.searchGradient}
+        >
+          <View style={styles.searchSection}>
+            <Text style={styles.sectionTitle}>My Lost & Found Reports</Text>
+            <Text style={styles.sectionSubtitle}>
+              Manage your submitted reports and mark them as resolved when found.
+            </Text>
+          </View>
+        </LinearGradient>
       )}
       
       {loading ? (
@@ -1221,11 +1280,23 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
         </View>
       ) : myReports.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Ionicons name="document-outline" size={60} color={AppColors.textSecondary} />
-          <Text style={styles.emptyTitle}>No reports yet</Text>
-          <Text style={styles.emptyMessage}>
-            You haven't submitted any lost or found reports yet.
-          </Text>
+          <LinearGradient
+            colors={['#F8FAFF', '#E3F2FD']}
+            style={styles.emptyGradient}
+          >
+            <Ionicons name="document-outline" size={60} color={AppColors.textSecondary} />
+            <Text style={styles.emptyTitle}>No reports yet</Text>
+            <Text style={styles.emptyMessage}>
+              You haven't submitted any lost or found reports yet.
+            </Text>
+            <TouchableOpacity 
+              style={styles.emptyActionButton}
+              onPress={() => { setActiveView('report'); setReportStep(1); setErrors({}); }}
+            >
+              <Ionicons name="add-circle-outline" size={20} color="white" />
+              <Text style={styles.emptyActionText}>Create First Report</Text>
+            </TouchableOpacity>
+          </LinearGradient>
         </View>
       ) : (
         myReports.map((report) => (
@@ -1251,7 +1322,11 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
               {report.item_description && report.item_description.length > 50 ? '...' : ''}
             </Text>
             <Text style={styles.itemDescription}>
-              {report.item_description}
+              {/* Clean up driver report descriptions by removing the driver info suffix */}
+              {report.driver_id 
+                ? report.item_description.split('\n\n[Driver Report')[0] 
+                : report.item_description
+              }
             </Text>
             
             <View style={styles.itemDetails}>
@@ -1383,7 +1458,10 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
     
     switch (reportStep) {
       case 1: return (
-        <View style={styles.stepContainer}>
+        <LinearGradient
+          colors={['#F8FAFF', '#E3F2FD', '#FFFFFF']}
+          style={styles.stepContainer}
+        >
           {/* Modern Progress Indicator */}
           <View style={styles.modernProgressContainer}>
             <View style={styles.progressIndicator}>
@@ -1484,11 +1562,14 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
             <Text style={styles.modernButtonText}>Continue</Text>
             <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
           </TouchableOpacity>
-        </View>
+        </LinearGradient>
       );
       
       case 2: return (
-        <View style={styles.stepContainer}>
+        <LinearGradient
+          colors={['#F8FAFF', '#E3F2FD', '#FFFFFF']}
+          style={styles.stepContainer}
+        >
           {/* Modern Progress Indicator */}
           <View style={styles.modernProgressContainer}>
             <View style={styles.progressIndicator}>
@@ -1651,11 +1732,14 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
               <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
-        </View>
+        </LinearGradient>
       );
       
       case 3: return (
-        <View style={styles.stepContainer}>
+        <LinearGradient
+          colors={['#F8FAFF', '#E3F2FD', '#FFFFFF']}
+          style={styles.stepContainer}
+        >
           {/* Modern Progress Indicator */}
           <View style={styles.modernProgressContainer}>
             <View style={styles.progressIndicator}>
@@ -1872,7 +1956,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
               <Ionicons name="checkmark" size={20} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
-        </View>
+        </LinearGradient>
       );
       
       case 4: return (
@@ -1930,38 +2014,92 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={AppColors.headerGradient} />
-      
-      {/* Enhanced Header */}
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton} activeOpacity={0.7}>
-            <Ionicons name="arrow-back" size={24} color={AppColors.text} />
-          </TouchableOpacity>
-          
-          <View style={styles.headerTitleContainer}>
-            <Text style={styles.headerTitle}>Lost & Found</Text>
-            
+    <LinearGradient
+      colors={['#F8FAFF', '#E3F2FD', '#BBDEFB']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.gradientContainer}
+    >
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor={AppColors.background} />
+        
+        {/* Enhanced Header with Gradient */}
+        <LinearGradient
+          colors={['#0056b3', '#1976d2', '#42a5f5']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.headerGradient}
+        >
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+              <Ionicons name="arrow-back-outline" size={24} color="white" />
+            </TouchableOpacity>
+            <Text style={styles.titleWhite}>Lost & Found</Text>
+            <TouchableOpacity 
+              style={styles.headerRightAction} 
+              onPress={async () => {
+                console.log('🔄 Manual refresh requested');
+                if (activeView === 'list') {
+                  await loadReports();
+                } else if (activeView === 'myreports') {
+                  await loadMyReports();
+                }
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="refresh-outline" size={24} color="white" />
+            </TouchableOpacity>
           </View>
-          
-          
-        </View>
-      </View>
-      
-      <ScrollView
-        contentContainerStyle={styles.contentContainer}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="none"
-        showsVerticalScrollIndicator={false}
-      >
-        {activeView === 'list' ? renderListView() : 
-         activeView === 'myreports' ? renderMyReportsView() : (
-          <View style={styles.reportContainer}>
-            {renderReportFlow()}
-          </View>
+        </LinearGradient>
+
+        {/* Navigation Tabs with Gradient */}
+        {activeView !== 'report' && (
+          <LinearGradient
+            colors={['#E3F2FD', '#FFFFFF', '#F8FAFF']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.navGradient}
+          >
+            <View style={styles.topNav}>
+              <TouchableOpacity 
+                style={[styles.topNavButton, activeView === 'list' && styles.activeTopNavButton]}
+                onPress={() => setActiveView('list')}
+              >
+                <Text style={[styles.topNavButtonText, activeView === 'list' && styles.activeTopNavButtonText]}>Search Items</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.topNavButton, activeView === 'myreports' && styles.activeTopNavButton]}
+                onPress={async () => { 
+                  setActiveView('myreports'); 
+                  await loadMyReports();
+                }}
+              >
+                <Text style={[styles.topNavButtonText, activeView === 'myreports' && styles.activeTopNavButtonText]}>My Reports</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.topNavButton} 
+                onPress={() => { setActiveView('report'); setReportStep(1); setErrors({}); }}
+              >
+                <Ionicons name="add-circle-outline" size={20} color={AppColors.primary} />
+                <Text style={[styles.topNavButtonText, { marginLeft: 4 }]}>Report</Text>
+              </TouchableOpacity>
+            </View>
+          </LinearGradient>
         )}
-      </ScrollView>
+        
+        <ScrollView
+          contentContainerStyle={styles.contentContainer}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="none"
+          showsVerticalScrollIndicator={false}
+        >
+          {activeView === 'list' ? renderListView() : 
+           activeView === 'myreports' ? renderMyReportsView() : (
+            <View style={styles.reportContainer}>
+              {renderReportFlow()}
+            </View>
+          )}
+        </ScrollView>
       
       {/* Date and Time Pickers */}
       <DateTimePicker
@@ -2058,108 +2196,62 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
-// Your styles remain the same
 const styles = StyleSheet.create({
+  gradientContainer: {
+    flex: 1,
+  },
   container: { 
     flex: 1, 
-    backgroundColor: AppColors.background 
+    backgroundColor: 'transparent',
   },
   
-  // Enhanced Header Styles
-  header: {
-    backgroundColor: AppColors.headerGradient,
-    paddingTop: 30,
-    paddingBottom: 15,
+  // Enhanced Header Styles with Gradient
+  headerGradient: {
     borderBottomWidth: 1,
     borderBottomColor: AppColors.border,
-    elevation: 8,
-    shadowColor: AppColors.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    zIndex: 1000,
   },
-  
-  headerContent: {
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-  },
-  
-  backButton: { 
-    padding: 12,
-    width: 48,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 24,
-    backgroundColor: AppColors.card,
-    elevation: 2,
-    shadowColor: AppColors.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  
-  headerLeftAction: {
-    padding: 12,
-    width: 48,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 24,
+    paddingHorizontal: 10,
+    paddingVertical: 12,
     backgroundColor: 'transparent',
   },
-  
-  headerTitleContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+  backButton: {
+    padding: 8,
   },
-  
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: AppColors.text,
-    letterSpacing: -0.5,
-    textAlign: 'center',
+  titleWhite: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: 'white',
   },
-  
-  headerSubtitle: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: AppColors.textSecondary,
-    textAlign: 'center',
-    marginTop: 2,
-  },
-  
   headerRightAction: {
-    padding: 12,
-    width: 48,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 24,
-    backgroundColor: 'transparent',
+    padding: 8,
   },
 
   contentContainer: { 
-    padding: 20, 
+    padding: 16, 
     paddingBottom: 40 
   },
   
-  // Enhanced Navigation
+  // Enhanced Navigation with Gradient
+  navGradient: {
+    marginHorizontal: 16,
+    marginVertical: 8,
+    borderRadius: 12,
+  },
   topNav: { 
     flexDirection: 'row', 
-    backgroundColor: AppColors.card, 
+    backgroundColor: 'rgba(255, 255, 255, 0.9)', 
     borderRadius: 12, 
     padding: 6, 
-    marginBottom: 24,
+    marginHorizontal: 16,
+    marginVertical: 8,
     elevation: 3,
     shadowColor: AppColors.shadow,
     shadowOffset: { width: 0, height: 2 },
@@ -2173,6 +2265,8 @@ const styles = StyleSheet.create({
     alignItems: 'center', 
     borderRadius: 8,
     marginHorizontal: 2,
+    flexDirection: 'row',
+    justifyContent: 'center',
   },
   
   activeTopNavButton: { 
@@ -2189,9 +2283,51 @@ const styles = StyleSheet.create({
     color: AppColors.card,
   },
   
-  // Enhanced Search Section
+  // Enhanced Search Section with Gradient
+  searchGradient: {
+    marginHorizontal: 16,
+    marginVertical: 8,
+    borderRadius: 12,
+  },
   searchSection: {
-    marginBottom: 20,
+    padding: 16,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: AppColors.border,
+    marginBottom: 12,
+  },
+  searchInput: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    fontSize: 16,
+    color: AppColors.text,
+  },
+  filterContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  filterTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: AppColors.text,
+    marginRight: 12,
+    minWidth: 70,
+  },
+  modernDropdown: {
+    flex: 1,
+    height: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: AppColors.border,
+    paddingHorizontal: 12,
   },
 
   // Dropdown container
@@ -2236,19 +2372,20 @@ const styles = StyleSheet.create({
     paddingTop: 16,
   },
   
-  // Enhanced Item Card
+  // Enhanced Item Card with Modern Design
   itemCard: { 
     backgroundColor: AppColors.card, 
-    borderRadius: 16, 
-    padding: 20, 
+    borderRadius: 12, 
+    padding: 16, 
+    marginHorizontal: 16,
+    marginVertical: 6,
     borderWidth: 1, 
     borderColor: AppColors.border, 
-    marginBottom: 16,
-    elevation: 3,
+    elevation: 2,
     shadowColor: AppColors.shadow,
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 6,
+    shadowRadius: 3,
   },
   
   cardHeader: { 
@@ -2709,9 +2846,15 @@ const styles = StyleSheet.create({
   },
   
   emptyContainer: {
+    margin: 16,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  emptyGradient: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 60,
+    paddingHorizontal: 20,
   },
   
   emptyTitle: {
@@ -2726,8 +2869,30 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: AppColors.textSecondary,
     textAlign: 'center',
-    paddingHorizontal: 40,
+    paddingHorizontal: 20,
     lineHeight: 20,
+    marginBottom: 20,
+  },
+  
+  emptyActionButton: {
+    backgroundColor: AppColors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    elevation: 2,
+    shadowColor: AppColors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  
+  emptyActionText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 8,
   },
   
   // Item Image
