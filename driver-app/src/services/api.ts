@@ -134,7 +134,7 @@ export const driverAPI = {
   // Get driver's daily assignment
   getDailyAssignment: async (driverId: string) => {
     const token = await storageAPI.getAuthToken();
-    const response = await fetch(`${API_BASE_URL}/dailyassignment/driver/${driverId}`, {
+    const response = await fetch(`${API_BASE_URL}/assignments/driver/${driverId}`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -167,7 +167,7 @@ export const driverAPI = {
   // Get driver's upcoming assignments for schedule view
   getUpcomingAssignments: async (driverId: string, days: number = 7) => {
     const token = await storageAPI.getAuthToken();
-    const response = await fetch(`${API_BASE_URL}/dailyassignment/driver/${driverId}/upcoming?days=${days}`, {
+    const response = await fetch(`${API_BASE_URL}/assignments/driver/${driverId}/upcoming?days=${days}`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
