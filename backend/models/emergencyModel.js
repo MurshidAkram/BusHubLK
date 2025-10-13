@@ -7,6 +7,7 @@ const Emergency = {
    * @returns {Promise<object>} The newly created report.
    */
 createReport: async (reportData, client = pool) => { // <-- Add client parameter
+
   const {
     driver_id,
     incidentType,
@@ -16,6 +17,7 @@ createReport: async (reportData, client = pool) => { // <-- Add client parameter
     bus_id = null,
     assignment_id = null,
   } = reportData;
+
   const query = {
     text: `INSERT INTO emergency_reports(driver_id, bus_id, assignment_id, incident_type, description, latitude, longitude)
            VALUES($1, $2, $3, $4, $5, $6, $7) RETURNING *`,

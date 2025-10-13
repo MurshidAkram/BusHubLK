@@ -18,8 +18,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
+import { API_BASE_URL } from '../config/api';
 
-const API_BASE_URL = 'http://192.168.43.114:5000/api'; // Make sure this IP is correct
+
 
 const AppColors = {
   background: '#F8F9FA',
@@ -239,21 +240,6 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
             <Ionicons name="call" size={23} color={AppColors.card} />
         </TouchableOpacity>
       </View>
-
-      <LinearGradient colors={[AppColors.card, AppColors.activeBlue]} style={styles.reportCard}>
-        <View style={styles.reportRow}>
-          <View style={styles.reportIconWrapper}>
-            <Ionicons name="chatbubbles" size={22} color={AppColors.primary} />
-          </View>
-          <View style={styles.reportDetails}>
-            <Text style={styles.reportTitle}>{reportMeta.incidentTitle}</Text>
-            <Text style={styles.reportSubtitle}>{reportMeta.created}</Text>
-          </View>
-          <View style={[styles.statusBadge, { backgroundColor: statusStyle.background }]}>
-            <Text style={[styles.statusBadgeText, { color: statusStyle.color }]}>{reportMeta.status}</Text>
-          </View>
-        </View>
-      </LinearGradient>
 
       <KeyboardAvoidingView 
         style={{ flex: 1 }} 

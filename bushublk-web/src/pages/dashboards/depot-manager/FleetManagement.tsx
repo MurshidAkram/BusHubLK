@@ -1,16 +1,64 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
+import { AppContext } from '../../../context/AppContext';
+import axios, { AxiosError } from 'axios';
+import { 
+  HiTruck, 
+  HiCog, 
+  HiCheckCircle, 
+  HiExclamationCircle,
+  HiSearch,
+  HiFilter,
+  HiX,
+  HiLocationMarker,
+  HiMap
+} from 'react-icons/hi';
+
+// Matches the backend model properties
+type BusFromAPI = {
+  bus_id: string;
+  registration_number: string;
+  model: string;
+  year: number;
+
+  status: string;
+  depot_name: string;
+  class: string;
+  manufacturer: string;
+  purchase_date: string;
+  updated_at?: string;
+};
+
+// Extended type with dummy data
+type Bus = BusFromAPI & {
+  currentRoute?: string;
+  nextService?: string;
+  lastService?: string;
+  fuelEfficiency?: number;
+  driver?: string;
+  conductor?: string;
+  location?: string;
+  serviceHistory: ServiceHistory[];
+  partChanges: PartChange[];
+  alerts: Alert[];
+  statusDuration?: string;
+};
 
 type ServiceHistory = {
+  id: number;
   date: string;
   type: string;
   cost: number;
-  description: string;
+  status: string;
+  scheduled_date: string;
+  completed_date?: string;
+  cancelled_date?: string;
 };
 
 type PartChange = {
   date: string;
   part: string;
   quantity: number;
+  unit: string;
   cost: number;
 };
 
@@ -19,191 +67,247 @@ type Alert = {
   message: string;
 };
 
-type Bus = {
-  id: string;
-  registrationNumber: string;
-  model: string;
-  year: number;
-  capacity: number;
-  status: string;
-  lastService: string;
-  nextService: string;
-  mileage: number;
-  location: string;
-  serviceHistory: ServiceHistory[];
-  partChanges: PartChange[];
-  alerts: Alert[];
-};
+interface BusResponse {
+  message: string;
+  buses: BusFromAPI[];
+}
 
-const mockBuses: Bus[] = [
-  {
-    id: 'BUS-001',
-    registrationNumber: 'NC-1234',
-    model: 'Ashok Leyland Viking',
-    year: 2020,
-    capacity: 45,
-    status: 'Active',
-    lastService: '2024-06-15',
-    nextService: '2024-07-15',
-    mileage: 125000,
-    location: 'Pettah Depot',
-    serviceHistory: [
-      { date: '2024-06-15', type: 'Regular Service', cost: 15000, description: 'Oil change, brake inspection' },
-      { date: '2024-05-20', type: 'Repair', cost: 8500, description: 'Engine cooling system repair' },
-      { date: '2024-04-10', type: 'Regular Service', cost: 12000, description: 'Tire rotation, air filter change' }
-    ],
-    partChanges: [
-      { date: '2024-06-15', part: 'Engine Oil', quantity: 1, cost: 3500 },
-      { date: '2024-05-20', part: 'Radiator', quantity: 1, cost: 6500 },
-      { date: '2024-04-10', part: 'Air Filter', quantity: 2, cost: 2000 }
-    ],
-    alerts: [
-      { type: 'warning', message: 'Service due in 5 days' }
-    ]
-  },
-  {
-    id: 'BUS-002',
-    registrationNumber: 'NC-5678',
-    model: 'Tata Marcopolo',
-    year: 2019,
-    capacity: 52,
-    status: 'In Service',
-    lastService: '2024-06-20',
-    nextService: '2024-07-20',
-    mileage: 98000,
-    location: 'En Route',
-    serviceHistory: [
-      { date: '2024-06-20', type: 'Regular Service', cost: 14000, description: 'Complete inspection, brake pad replacement' },
-      { date: '2024-05-15', type: 'Repair', cost: 5500, description: 'Transmission fluid change' }
-    ],
-    partChanges: [
-      { date: '2024-06-20', part: 'Brake Pads', quantity: 4, cost: 8000 },
-      { date: '2024-05-15', part: 'Transmission Fluid', quantity: 1, cost: 2500 }
-    ],
-    alerts: []
-  },
-  {
-    id: 'BUS-003',
-    registrationNumber: 'NC-9012',
-    model: 'Eicher Skyline',
-    year: 2021,
-    capacity: 38,
-    status: 'Maintenance',
-    lastService: '2024-06-25',
-    nextService: '2024-07-25',
-    mileage: 67000,
-    location: 'Maintenance Bay',
-    serviceHistory: [
-      { date: '2024-06-25', type: 'Major Service', cost: 25000, description: 'Engine overhaul, suspension check' }
-    ],
-    partChanges: [
-      { date: '2024-06-25', part: 'Engine Gaskets', quantity: 1, cost: 12000 },
-      { date: '2024-06-25', part: 'Shock Absorbers', quantity: 4, cost: 8000 }
-    ],
-    alerts: [
-      { type: 'error', message: 'Under maintenance - ETA 2 days' }
-    ]
-  },
-  // New buses added below
-  {
-    id: 'BUS-004',
-    registrationNumber: 'NP-3456',
-    model: 'Leyland Titan',
-    year: 2018,
-    capacity: 50,
-    status: 'Active',
-    lastService: '2024-06-28',
-    nextService: '2024-07-28',
-    mileage: 145000,
-    location: 'Colombo Fort Depot',
-    serviceHistory: [
-      { date: '2024-06-28', type: 'Regular Service', cost: 18000, description: 'Complete engine check, fluid replacements' },
-      { date: '2024-05-10', type: 'Repair', cost: 12000, description: 'Gearbox servicing and clutch replacement' },
-      { date: '2024-03-15', type: 'Regular Service', cost: 15000, description: 'Brake system overhaul' }
-    ],
-    partChanges: [
-      { date: '2024-06-28', part: 'Engine Oil', quantity: 1, cost: 4000 },
-      { date: '2024-05-10', part: 'Clutch Kit', quantity: 1, cost: 8500 },
-      { date: '2024-03-15', part: 'Brake Shoes', quantity: 4, cost: 7500 }
-    ],
-    alerts: []
-  },
-  {
-    id: 'BUS-005',
-    registrationNumber: 'NC-7890',
-    model: 'Tata Starbus',
-    year: 2022,
-    capacity: 42,
-    status: 'In Service',
-    lastService: '2024-06-22',
-    nextService: '2024-07-22',
-    mileage: 58000,
-    location: 'En Route',
-    serviceHistory: [
-      { date: '2024-06-22', type: 'Regular Service', cost: 16000, description: 'Electrical system check, AC servicing' },
-      { date: '2024-04-18', type: 'Repair', cost: 9500, description: 'Suspension alignment and shock absorber check' }
-    ],
-    partChanges: [
-      { date: '2024-06-22', part: 'AC Filter', quantity: 2, cost: 3000 },
-      { date: '2024-04-18', part: 'Shock Absorber', quantity: 2, cost: 6500 }
-    ],
-    alerts: [
-      { type: 'warning', message: 'AC system needs attention in next service' }
-    ]
-  },
-  {
-    id: 'BUS-006',
-    registrationNumber: 'NB-4567',
-    model: 'Ashok Leyland Cheetah',
-    year: 2017,
-    capacity: 40,
-    status: 'Out of Service',
-    lastService: '2024-05-30',
-    nextService: '2024-07-30',
-    mileage: 195000,
-    location: 'Colombo Central Workshop',
-    serviceHistory: [
-      { date: '2024-05-30', type: 'Major Repair', cost: 45000, description: 'Engine transmission replacement' },
-      { date: '2024-03-05', type: 'Regular Service', cost: 14000, description: 'Complete vehicle inspection' }
-    ],
-    partChanges: [
-      { date: '2024-05-30', part: 'Transmission Assembly', quantity: 1, cost: 35000 },
-      { date: '2024-03-05', part: 'Fuel Filter', quantity: 1, cost: 2500 }
-    ],
-    alerts: [
-      { type: 'error', message: 'Major engine failure - awaiting parts' }
-    ]
+interface AppContextType {
+  user: { role: string; userId: string; depot_id?: string; region_id?: string; } | undefined;
+  token: string | null;
+}
+
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: string | null }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
   }
-];
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error: error.message };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-64 bg-red-50 rounded-lg border border-red-200 p-6">
+          <HiExclamationCircle className="w-12 h-12 text-red-500 mb-4" />
+          <h3 className="text-lg font-semibold text-red-800 mb-2">Something went wrong</h3>
+          <p className="text-red-600 text-center">Error: {this.state.error}</p>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 const FleetManagement: React.FC = () => {
+  const context = useContext(AppContext) as AppContextType | undefined;
+  const [buses, setBuses] = useState<Bus[]>([]);
   const [selectedBus, setSelectedBus] = useState<Bus | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [showDetails, setShowDetails] = useState(false);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const filteredBuses = mockBuses.filter((bus) => {
+  const token = context?.token;
+
+  const calculateStatusDuration = (updatedAt: string | undefined, status: string): string => {
+    if (!updatedAt || (status !== 'Maintenance' && status !== 'Out of Service')) {
+      return '';
+    }
+
+    try {
+      const updatedDate = new Date(updatedAt);
+      const now = new Date();
+      const diffInMs = now.getTime() - updatedDate.getTime();
+      
+      const days = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diffInMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      
+      if (days > 0) {
+        return `${days} day${days > 1 ? 's' : ''} ${hours > 0 ? `${hours} hr${hours > 1 ? 's' : ''}` : ''}`;
+      } else if (hours > 0) {
+        return `${hours} hour${hours > 1 ? 's' : ''}`;
+      } else {
+        const minutes = Math.floor((diffInMs % (1000 * 60 * 60)) / (1000 * 60));
+        return `${minutes} minute${minutes > 1 ? 's' : ''}`;
+      }
+    } catch (error) {
+      console.error('Error calculating status duration:', error);
+      return '';
+    }
+  };
+
+  const fetchCurrentRouteForBus = async (busId: string): Promise<string> => {
+    try {
+      if (!token) return 'N/A';
+      const today = new Date().toISOString().slice(0, 10);
+      const response = await axios.get(
+        `http://localhost:5000/api/buses/bus/${busId}/current-route`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      if (response.data.success && response.data.route) {
+        const { route_number, route_name } = response.data.route;
+        return `Route ${route_number} - ${route_name}`;
+      } else {
+        return 'No route assigned';
+      }
+    } catch {
+      return 'No route assigned';
+    }
+  };
+
+  const fetchBuses = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      if (!token) {
+        setError('Authentication token is missing. Please log in.');
+        setLoading(false);
+        return;
+      }
+
+      let apiUrl = 'http://localhost:5000/api/depot-engineer/buses';
+      if (context?.user?.role === 'depot_manager' || context?.user?.role === 'depot_operations') {
+        if (!context?.user?.depot_id) {
+          setError('Depot ID is required for this user role.');
+          setLoading(false);
+          return;
+        }
+        apiUrl = `http://localhost:5000/api/buses/depot/${context.user.depot_id}`;
+      }
+      
+      console.log('Fetching from:', apiUrl);
+
+      const response = await axios.get<BusResponse>(apiUrl, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.data.buses) {
+        const fetchedBuses: Bus[] = await Promise.all(
+          response.data.buses.map(async (bus: any) => {
+            const currentRoute = await fetchCurrentRouteForBus(bus.bus_id.toString());
+            const statusDuration = calculateStatusDuration(bus.updated_at, bus.status);
+            
+            return {
+              bus_id: bus.bus_id,
+              registration_number: bus.registration_number,
+              model: bus.model,
+              year: bus.year,
+            
+              status: bus.status,
+              depot_name: bus.depot_name,
+              class: bus.class,
+              manufacturer: bus.manufacturer,
+              purchase_date: bus.purchase_date,
+              updated_at: bus.updated_at,
+              
+              currentRoute: currentRoute,
+              lastService: '2024-06-15',
+              nextService: '2024-08-15',
+              fuelEfficiency: 4.5,
+              driver: 'John Doe',
+              conductor: 'Jane Smith',
+              location: bus.depot_name,
+              serviceHistory: [],
+              partChanges: [],
+              statusDuration: statusDuration,
+              alerts: bus.status === 'Maintenance' 
+                ? [{ 
+                    type: 'error', 
+                    message: statusDuration 
+                      ? `Under maintenance for ${statusDuration} - ETA 2 days` 
+                      : 'Under maintenance - ETA 2 days' 
+                  }] 
+                : bus.status === 'Out of Service'
+                  ? [{
+                      type: 'error',
+                      message: statusDuration
+                        ? `Out of service for ${statusDuration}`
+                        : 'Out of service'
+                    }]
+                  : [],
+            };
+          })
+        );
+        setBuses(fetchedBuses);
+      } else {
+        setError(`Failed to fetch buses: ${response.data.message}`);
+      }
+    } catch (err) {
+      const axiosError = err as AxiosError;
+      console.error('API Error:', axiosError);
+      if (axiosError.response) {
+        if (axiosError.response.status === 403) {
+            setError(`Permission Denied: You do not have access to view this information. Please check your user role with an administrator.`);
+        } else {
+            setError(`Failed to fetch buses: ${axiosError.response.status} - ${(axiosError.response.data as any)?.message || axiosError.response.statusText}. Please verify the API endpoint with the backend team.`);
+        }
+      } else if (axiosError.request) {
+        setError('Failed to fetch buses. The API endpoint might be down or unreachable.');
+      } else {
+        setError(`Error setting up request: ${axiosError.message}`);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (token && context?.user?.role) {
+      fetchBuses();
+    } else if (!token) {
+      setError('Please log in to view this page.');
+      setLoading(false);
+    } else {
+      setError('User role not identified. Please log in again.');
+      setLoading(false);
+    }
+  }, [token, context?.user?.role, context?.user?.depot_id]);
+
+  const filteredBuses = buses.filter((bus) => {
     const matchesSearch =
-      bus.registrationNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      bus.registration_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
       bus.model.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'All' || bus.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
-  function getStatusColor(status: string): string {
+  const getStatusColor = (status: string): string => {
     switch (status) {
       case 'Active':
-        return 'bg-green-100 text-green-800';
+        return 'bg-green-100 text-green-800 border-green-200';
       case 'In Service':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'Maintenance':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case 'Out of Service':
-        return 'bg-red-100 text-red-800';
+        return 'bg-red-100 text-red-800 border-red-200';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-100 text-gray-800 border-gray-200';
     }
-  }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'Active':
+        return <HiCheckCircle className="w-4 h-4" />;
+      case 'In Service':
+        return <HiTruck className="w-4 h-4" />;
+      case 'Maintenance':
+        return <HiCog className="w-4 h-4" />;
+      case 'Out of Service':
+        return <HiExclamationCircle className="w-4 h-4" />;
+      default:
+        return <HiTruck className="w-4 h-4" />;
+    }
+  };
 
   const handleViewDetails = (bus: Bus) => {
     setSelectedBus(bus);
@@ -216,274 +320,294 @@ const FleetManagement: React.FC = () => {
   };
 
   const fleetStats = {
-    total: mockBuses.length,
-    active: mockBuses.filter((b) => b.status === 'Active').length,
-    inService: mockBuses.filter((b) => b.status === 'In Service').length,
-    maintenance: mockBuses.filter((b) => b.status === 'Maintenance').length,
+    total: buses.length,
+    active: buses.filter((b) => b.status === 'Active').length,
+    inService: buses.filter((b) => b.status === 'In Service').length,
+    maintenance: buses.filter((b) => b.status === 'Maintenance').length,
+    avgFuelEfficiency: (
+      buses.reduce((sum, b) => sum + (b.fuelEfficiency || 0), 0) / (buses.length || 1)
+    ).toFixed(1),
   };
 
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Fleet Management</h1>
-        <p className="text-gray-600">Manage your bus fleet, track vehicle status, and monitor performance.</p>
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-96">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+        <p className="text-gray-600">Loading fleet information...</p>
       </div>
+    );
+  }
 
-     {/* Fleet Summary */}
-<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-  {/* Total Buses */}
-  <div className="bg-white shadow-md rounded-lg p-6">
-    <p className="text-sm text-gray-500 mb-1">Total Buses</p>
-    <h2 className="text-2xl font-bold text-blue-600">{fleetStats.total}</h2>
-  </div>
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-64 bg-red-50 rounded-lg border border-red-200 p-6">
+        <HiExclamationCircle className="w-12 h-12 text-red-500 mb-4" />
+        <h3 className="text-lg font-semibold text-red-800 mb-2">Unable to load fleet data</h3>
+        <p className="text-red-600 text-center">{error}</p>
+        <button 
+          onClick={fetchBuses}
+          className="mt-4 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
-  {/* Active / In Service */}
-  <div className="bg-white shadow-md rounded-lg p-6">
-    <p className="text-sm text-gray-500 mb-1">Active / In Service</p>
-    <h2 className="text-2xl font-bold text-green-600">{fleetStats.active + fleetStats.inService}</h2>
-  </div>
-
-  {/* In Maintenance */}
-  <div className="bg-white shadow-md rounded-lg p-6">
-    <p className="text-sm text-gray-500 mb-1">In Maintenance</p>
-    <h2 className="text-2xl font-bold text-yellow-600">{fleetStats.maintenance}</h2>
-  </div>
-</div>
-
-      {/* Search and Filter */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <div className="flex flex-col md:flex-row gap-4 mb-6">
-          <input
-            type="text"
-            placeholder="Search by model"
-            className="w-full pl-4 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-          <div className="flex items-center gap-2">
-            <span className="text-gray-600">Filter:</span>
-            <select
-              className="px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="All">All Status</option>
-              <option value="Active">Active</option>
-              <option value="In Service">In Service</option>
-              <option value="Maintenance">Maintenance</option>
-              <option value="Out of Service">Out of Service</option>
-            </select>
+  return (
+    <ErrorBoundary>
+      <div className="space-y-6">
+        {/* Header Section */}
+        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Fleet Management</h1>
+              <p className="text-gray-600 mt-1">Manage and monitor your bus fleet operations</p>
+            </div>
+            <div className="mt-4 lg:mt-0 flex items-center space-x-2 text-sm text-gray-500">
+              <HiTruck className="w-4 h-4" />
+              <span>{fleetStats.total} total vehicles</span>
+            </div>
           </div>
         </div>
 
-        {/* Bus Cards */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-          {filteredBuses.map((bus) => (
-            <div key={bus.id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">{bus.registrationNumber}</h3>
-                  <p className="text-sm text-gray-600">
-                    {bus.model} ({bus.year})
-                  </p>
-                </div>
-                <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(bus.status)}`}>
-                  {bus.status}
-                </span>
-              </div>
-
-              {bus.alerts.length > 0 && (
-                <div className="mb-4">
-                  {bus.alerts.map((alert, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center text-sm text-yellow-700 bg-yellow-50 p-2 rounded"
-                    >
-                      <span className="mr-2"></span>
-                      <span>{alert.message}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div className="space-y-2 mb-4 text-sm text-gray-600">
-                <div className="flex items-center">
-                  <span className="mr-2"></span>
-                  {bus.location}
-                </div>
-                <div className="flex items-center">
-                  <span className="mr-2"></span>
-                  Next Service: {bus.nextService}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
-                <InfoPair label="Mileage" value={`${bus.mileage.toLocaleString()} km`} />
-                <InfoPair label="Capacity" value={`${bus.capacity} seats`} />
-              </div>
-
-              <button
-                onClick={() => handleViewDetails(bus)}
-                className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-              >
-                View Details
-              </button>
-            </div>
-          ))}
+        {/* Statistics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <StatCard 
+            label="Total Buses" 
+            value={fleetStats.total} 
+            icon={<HiTruck className="w-5 h-5" />}
+            color="text-blue-600"
+            bgColor="bg-blue-50"
+          />
+          <StatCard 
+            label="Active" 
+            value={fleetStats.active} 
+            icon={<HiCheckCircle className="w-5 h-5" />}
+            color="text-green-600"
+            bgColor="bg-green-50"
+          />
+          <StatCard 
+            label="In Service" 
+            value={fleetStats.inService} 
+            icon={<HiTruck className="w-5 h-5" />}
+            color="text-blue-600"
+            bgColor="bg-blue-50"
+          />
+          <StatCard 
+            label="Maintenance" 
+            value={fleetStats.maintenance} 
+            icon={<HiCog className="w-5 h-5" />}
+            color="text-yellow-600"
+            bgColor="bg-yellow-50"
+          />
         </div>
 
-        {filteredBuses.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-gray-500">No buses found matching your criteria.</p>
+        {/* Search and Filter Section */}
+        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+          <div className="flex flex-col lg:flex-row gap-4 mb-6">
+            <div className="flex-1 relative">
+              <HiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <input
+                type="text"
+                placeholder="Search by registration number or model..."
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              <HiFilter className="w-5 h-5 text-gray-400" />
+              <select
+                className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all min-w-40"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <option value="All">All Status</option>
+                <option value="Active">Active</option>
+                <option value="In Service">In Service</option>
+                <option value="Maintenance">Maintenance</option>
+                <option value="Out of Service">Out of Service</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Bus Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            {filteredBuses.map((bus) => (
+              <div key={bus.bus_id} className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-all duration-300 hover:border-blue-200 group">
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+                      {bus.registration_number}
+                    </h3>
+                    <p className="text-sm text-gray-600">
+                      {bus.model} • {bus.year} • {bus.class || 'N/A'}
+                    </p>
+                  </div>
+                  <div className="flex flex-col items-end">
+                    <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(bus.status)}`}>
+                      {getStatusIcon(bus.status)}
+                      {bus.status}
+                    </span>
+                    {bus.statusDuration && (
+                      <div className="text-xs text-gray-500 mt-1 font-normal">
+                        {bus.statusDuration}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {bus.alerts.length > 0 && (
+                  <div className="mb-4">
+                    {bus.alerts.map((alert, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center text-sm text-amber-700 bg-amber-50 border border-amber-200 p-3 rounded-lg"
+                      >
+                        <HiExclamationCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+                        <span>{alert.message}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="space-y-3 mb-6 text-sm text-gray-600">
+                  <div className="flex items-center">
+                    <HiLocationMarker className="w-4 h-4 mr-3 text-gray-400" />
+                    <span className="font-medium">Location:</span>
+                    <span className="ml-2">{bus.location || 'N/A'}</span>
+                  </div>
+                  <div className="flex items-start">
+                    <HiMap className="w-4 h-4 mr-3 text-gray-400 mt-0.5" />
+                    <div>
+                      <span className="font-medium">Current Route:</span>
+                      <p className="text-gray-700 mt-1">{bus.currentRoute || 'No route assigned'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => handleViewDetails(bus)}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium group"
+                >
+                  View Details
+                        </button>
+              </div>
+            ))}
+          </div>
+
+          {filteredBuses.length === 0 && (
+            <div className="text-center py-12">
+              <HiTruck className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500 text-lg">No buses found matching your criteria.</p>
+              <p className="text-gray-400 text-sm mt-2">Try adjusting your search or filter terms</p>
+            </div>
+          )}
+        </div>
+
+        {/* Bus Details Modal */}
+        {showDetails && selectedBus && (
+          <div className="fixed inset-0 backdrop-blur-sm bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+              <div className="sticky top-0 bg-white border-b border-gray-200 rounded-t-2xl p-6">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900">{selectedBus.registration_number}</h2>
+                    <p className="text-gray-600 mt-1">
+                      {selectedBus.model} • {selectedBus.year} • {selectedBus.manufacturer}
+                    </p>
+                  </div>
+                  <button 
+                    onClick={closeDetails}
+                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    <HiX className="w-6 h-6 text-gray-400 hover:text-gray-600" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  <DetailsSection 
+                    title="Basic Information" 
+                    icon={<HiTruck className="w-5 h-5" />}
+                    data={[
+                      ['Registration Number', selectedBus.registration_number],
+                      ['Model', selectedBus.model],
+                      ['Manufacturer', selectedBus.manufacturer],
+                      ['Year', selectedBus.year],
+                      ['Class', selectedBus.class || 'N/A'],
+                      ['Depot', selectedBus.depot_name],
+                    ]} 
+                  />
+
+                  <DetailsSection 
+                    title="Performance & Status" 
+                    icon={<HiCog className="w-5 h-5" />}
+                    data={[
+                      ['Current Status', 
+                        <span key="status" className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(selectedBus.status)}`}>
+                          {getStatusIcon(selectedBus.status)}
+                          {selectedBus.status}
+                        </span>
+                      ],
+                      ['Last Service', selectedBus.lastService || 'N/A'],
+                      ['Next Service', selectedBus.nextService || 'N/A'],
+                      ...(selectedBus.statusDuration && (selectedBus.status === 'Maintenance' || selectedBus.status === 'Out of Service') 
+                        ? [['Status Duration', selectedBus.statusDuration] as [string, React.ReactNode]]
+                        : []),
+                    ]} 
+                  />
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>
-
-      {/* Modal */}
-      {showDetails && selectedBus && (
-        <div className="fixed inset-0 backdrop-blur-sm bg-white/10 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              {/* Modal Header */}
-              <div className="flex justify-between items-start mb-6">
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900">{selectedBus.registrationNumber}</h2>
-                  <p className="text-gray-600">
-                    {selectedBus.model} ({selectedBus.year})
-                  </p>
-                </div>
-                <button onClick={closeDetails} className="text-gray-400 hover:text-gray-600 text-2xl">
-                  ×
-                </button>
-              </div>
-
-              {/* Basic and Performance Info */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                <DetailsSection
-                  title="Basic Information"
-                  data={[
-                    ['Registration', selectedBus.registrationNumber],
-                    ['Model', selectedBus.model],
-                    ['Year', selectedBus.year],
-                    ['Capacity', `${selectedBus.capacity} seats`],
-                  ]}
-                />
-
-                <DetailsSection
-                  title="Performance"
-                  data={[
-                    ['Total Mileage', `${selectedBus.mileage.toLocaleString()} km`],
-                    ['Last Service', selectedBus.lastService],
-                    ['Next Service', selectedBus.nextService],
-                    [
-                      'Status',
-                      (
-                        <span
-                          className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(
-                            selectedBus.status
-                          )}`}
-                        >
-                          {selectedBus.status}
-                        </span>
-                      ),
-                    ],
-                  ]}
-                />
-              </div>
-
-              {/* Tables */}
-              <TableSection
-                title="🔧 Service History"
-                columns={['Date', 'Type', 'Description', 'Cost (LKR)']}
-                rows={selectedBus.serviceHistory.map((item) => [
-                  item.date,
-                  item.type,
-                  item.description,
-                  item.cost.toLocaleString(),
-                ])}
-              />
-
-              <TableSection
-                title="⚙️ Recent Part Changes"
-                columns={['Date', 'Part', 'Quantity', 'Cost (LKR)']}
-                rows={selectedBus.partChanges.map((item) => [
-                  item.date,
-                  item.part,
-                  item.quantity,
-                  item.cost.toLocaleString(),
-                ])}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+    </ErrorBoundary>
   );
 };
 
-// Reusable Components
-const StatCard = ({ label, value, color }: { label: string; value: string | number; color: string }) => (
-  <div className="bg-white rounded-lg shadow-sm p-6">
-    <div className="flex items-center">
-      <div className={`${color} text-2xl mr-3`}>📊</div>
+const StatCard = ({ label, value, icon, color, bgColor }: { 
+  label: string; 
+  value: string | number; 
+  icon: React.ReactNode;
+  color: string;
+  bgColor: string;
+}) => (
+  <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-all">
+    <div className="flex items-center justify-between">
       <div>
-        <p className="text-sm text-gray-600">{label}</p>
+        <p className="text-sm font-medium text-gray-600 mb-1">{label}</p>
         <p className="text-2xl font-bold text-gray-900">{value}</p>
+      </div>
+      <div className={`p-3 rounded-lg ${bgColor}`}>
+        <div className={color}>{icon}</div>
       </div>
     </div>
   </div>
 );
 
-const InfoPair = ({ label, value }: { label: string; value: string }) => (
-  <div>
-    <p className="text-gray-500">{label}</p>
-    <p className="font-semibold">{value}</p>
-  </div>
-);
-
-const DetailsSection = ({ title, data }: { title: string; data: [string, React.ReactNode][] }) => (
-  <div>
-    <h3 className="text-lg font-semibold mb-4">{title}</h3>
-    <div className="space-y-3">
+const DetailsSection = ({ title, icon, data }: { 
+  title: string; 
+  icon: React.ReactNode;
+  data: [string, React.ReactNode][];
+}) => (
+  <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+    <div className="flex items-center gap-3 mb-4">
+      <div className="p-2 bg-white rounded-lg shadow-sm border border-gray-200">
+        {icon}
+      </div>
+      <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+    </div>
+    <div className="space-y-4">
       {data.map(([label, value], idx) => (
-        <div key={idx} className="flex justify-between">
-          <span className="text-gray-600">{label}:</span>
-          <span className="font-medium">{value}</span>
+        <div key={idx} className="flex justify-between items-center py-2 border-b border-gray-200 last:border-b-0">
+          <span className="text-gray-600 font-medium">{label}:</span>
+          <span className="font-medium text-gray-900 text-right">{value}</span>
         </div>
       ))}
-    </div>
-  </div>
-);
-
-const TableSection = ({
-  title,
-  columns,
-  rows,
-}: {
-  title: string;
-  columns: string[];
-  rows: (string | number)[][];
-}) => (
-  <div className="mb-8">
-    <h3 className="text-lg font-semibold mb-4 flex items-center">{title}</h3>
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead className="bg-gray-50">
-          <tr>{columns.map((col, i) => <th key={i} className="px-4 py-2 text-left">{col}</th>)}</tr>
-        </thead>
-        <tbody>
-          {rows.map((row, i) => (
-            <tr key={i} className="border-b">
-              {row.map((cell, j) => (
-                <td key={j} className={`px-4 py-2 ${j === row.length - 1 ? 'text-right' : ''}`}>
-                  {cell}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
     </div>
   </div>
 );

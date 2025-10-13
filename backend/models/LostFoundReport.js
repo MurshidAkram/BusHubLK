@@ -91,6 +91,7 @@ class LostFoundReport {
         p.last_name,
         rt.route_name,
         reg.region_name,
+        d.depot_name,
         CASE
           WHEN r.created_at > NOW() - INTERVAL '1 hour' THEN 'An hour before'
           WHEN r.created_at > NOW() - INTERVAL '1 day' THEN EXTRACT(HOUR FROM NOW() - r.created_at) || ' hours ago'
@@ -101,6 +102,7 @@ class LostFoundReport {
       LEFT JOIN users p ON pas.passenger_id = p.user_id
       LEFT JOIN routes rt ON r.route_number = rt.route_number       
       LEFT JOIN regions reg ON r.region_id = reg.region_id
+      LEFT JOIN depots d ON r.handed_to_depot_id = d.depot_id
       WHERE r.status = $1
     `;
     

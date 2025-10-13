@@ -19,6 +19,7 @@ import ManageRoles from './pages/dashboards/admin/DepotAndRegions'
 import Employees from './pages/dashboards/admin/Employees'
 import BusManaging from './pages/dashboards/admin/BusManaging'
 import RoutesMngmnt from './pages/dashboards/admin/RoutesMngmnt'
+import CommunicationHub from './pages/dashboards/depot-manager/communicationHub'
 
 
 
@@ -26,12 +27,10 @@ import RoutesMngmnt from './pages/dashboards/admin/RoutesMngmnt'
 import DepotManagerSidebarContent from './components/depot-manager/DepotManagerSidebarContent'
 import DepotManagerDashboard from './pages/dashboards/depot-manager'
 import FleetManagement from './pages/dashboards/depot-manager/FleetManagement'
-import ChecklistVerification from './pages/dashboards/depot-manager/ChecklistVerification'
 import DriverManagement from './pages/dashboards/depot-manager/DriverManagement'
 import Assignments from './pages/dashboards/depot-manager/Assignments'
 import Maintenance from './pages/dashboards/depot-manager/Maintenance'
-import Announcements from './pages/dashboards/depot-manager/Announcements'
-import Reports from './pages/dashboards/depot-manager/Reports'
+import Announcements from './pages/dashboards/depot-manager/communicationHub'
 import Settings from './pages/dashboards/depot-manager/Settings'
 import DepotManagerNotifications from './pages/dashboards/depot-manager/Notifications'
 import DepotManagerInspections from './pages/dashboards/depot-manager/Inspections'
@@ -43,9 +42,10 @@ import DailyOperations from './pages/dashboards/depot-ops/DailyOperations'
 import ScheduleMonitoring from './pages/dashboards/depot-ops/ScheduleMonitoring'
 import CrewManagement from './pages/dashboards/depot-ops/CrewManagement'
 import IncidentManagement from './pages/dashboards/depot-ops/IncidentManagement'  
-import AnnouncementCenter from './pages/dashboards/depot-ops/AnnouncementCenter'
-import OperationsReports from './pages/dashboards/depot-ops/OperationsReports'
+import AnnouncementCenter from './pages/dashboards/depot-ops/communicationHub'
+import NotificationsCenter from './pages/dashboards/depot-ops/NotificationsCenter'
 import Complaints from './pages/dashboards/depot-ops/Complaints'
+
 
 // Depot Engineer Components  
 import DepotEngineerSidebarContent from './components/depot-engineer/DepotEngineerSidebarContent'
@@ -56,7 +56,7 @@ import Scheduling from './pages/dashboards/depot-engineer/Scheduling'
 import Spareparts from './pages/dashboards/depot-engineer/Spareparts'
 import Autoforwardbusstatus from './pages/dashboards/depot-engineer/Autoforwardbusstatus'
 import DepotEscalateissues from './pages/dashboards/depot-engineer/DepotEscalateissues'
-import Depotcommunityhub from './pages/dashboards/depot-engineer/Depotcommunityhub'
+import Depotcommunityhub from './pages/dashboards/depot-engineer/communicationHub'
 import Depotinspection from './pages/dashboards/depot-engineer/DepotInspection'
 import DepotEngineerNotifications from './pages/dashboards/depot-engineer/Notifications'
 
@@ -68,7 +68,8 @@ import RegionalTechnicalOfficerDashboard from './pages/dashboards/regional-tech/
 import Regionservicemonitor from './pages/dashboards/regional-tech/Regionservicemonitor'
 import Inspectionschedular from './pages/dashboards/regional-tech/Inspectionschedular'
 import Rtoissuetracker from './pages/dashboards/regional-tech/Rtoissuetracker'
-import Regioncommunityhub from './pages/dashboards/regional-tech/Regioncommunityhub'
+import Regioncommunityhub from './pages/dashboards/regional-tech/communicationHub'  
+import RTONotifications from './pages/dashboards/regional-tech/RTONotifications'
 
 
 // Regional Operations Officer Components
@@ -79,14 +80,14 @@ import FleetCoordination from './pages/dashboards/regional-ops/FleetCoordination
 import ScheduleOversight from './pages/dashboards/regional-ops/ScheduleOversight'
 import CrewOverview from './pages/dashboards/regional-ops/CrewOverview'
 import IncidentTracking from './pages/dashboards/regional-ops/IncidentTracking'
-import CommCenter from './pages/dashboards/regional-ops/CommCenter'
+import CommCenter from './pages/dashboards/regional-ops/communicationHub'
 import OpsReports from './pages/dashboards/regional-ops/OpsReports'
 
 // DGM Operations Components
 import DGMOperationsSidebarContent from './components/dgm-ops/DGMOperationsSidebarContent'
 import DGMOperationsDashboard from './pages/dashboards/dgm-ops/index'
 import NationalOverview from './pages/dashboards/dgm-ops/NationalOverview'
-import CommunicationCenter from './pages/dashboards/dgm-ops/CommunicationCenter'
+import CommunicationCenter from './pages/dashboards/dgm-ops/CommunicationHub'
 import Feedback from './pages/dashboards/dgm-ops/Feedback'
 import ExecutiveSettings from './pages/dashboards/dgm-ops/ExecutiveSettings'
 import CrewOversight from './pages/dashboards/dgm-ops/CrewOversight'
@@ -98,7 +99,8 @@ import Fleetmonitor from './pages/dashboards/dgm-tech/Fleetmonitor'
 import Servicehistoryexplorer from './pages/dashboards/dgm-tech/Servicehistoryexplorer'
 import GenerateReports from './pages/dashboards/dgm-tech/GenerateReports'
 //import Dgmtechnicalissue from './pages/dashboards/dgm-tech/Dgmtechnicalissue'
-import Dgmcommunityhub from './pages/dashboards/dgm-tech/Dgmcommunityhub'
+import Dgmcommunityhub from './pages/dashboards/dgm-tech/communicationHub'
+import Dgmtech_notification from './pages/dashboards/dgm-tech/Dgmtech_notification'
 
 
 // CEO Components
@@ -111,7 +113,7 @@ import WorkforceAnalyticsPage from './pages/dashboards/ceo/Workforce';
 import DepotOverviewPage from './pages/dashboards/ceo/DepotOverview';
 import RoutePerformancePage from './pages/dashboards/ceo/RoutePerformance';
 import OperationalOverviewPage from './pages/dashboards/ceo/OperationalOverview';
-import AnnouncementCenterPage from './pages/dashboards/ceo/AnnouncementCenter';
+import AnnouncementCenterPage from './pages/dashboards/ceo/CommunicationHub';
 import AccidentBreakdownPage from './pages/dashboards/ceo/AccidentBreakdowns'
 //import Dgmcommunityhub from './pages/dashboards/dgm-tech/Dgmcommunityhub'
 //import Dgmtechnicalissue from './pages/dashboards/dgm-tech/Dgmtechnicalissue'
@@ -172,6 +174,7 @@ const App = () => {
     <Route path="employees" element={<Employees />} />
     <Route path="buses" element={<BusManaging />} />
     <Route path="routes" element={<RoutesMngmnt />} />
+      <Route path="communication-hub" element={<CommunicationHub />} />
     {/* Add more admin routes as needed */}
   </Route>
 </Route>
@@ -181,14 +184,12 @@ const App = () => {
         <Route path="/depot-manager" element={<DashboardLayout role="Depot Manager" sidebarContent={<DepotManagerSidebarContent />} />}>
           <Route index element={<DepotManagerDashboard />} />
           <Route path="fleet-management" element={<FleetManagement />} />
-          <Route path="checklist-verification" element={<ChecklistVerification />} />
           <Route path="driver-management" element={<DriverManagement />} /> 
           <Route path="assignments" element={<Assignments />} />
           <Route path="notifications" element={<DepotManagerNotifications />} />
           <Route path="inspections" element={<DepotManagerInspections />} />
           <Route path="maintenance" element={<Maintenance />} />
           <Route path="announcements" element={<Announcements />} />
-          <Route path="reports" element={<Reports />} />
           <Route path="settings" element={<Settings />} />
         </Route>
       </Route>
@@ -202,9 +203,10 @@ const App = () => {
           <Route path="schedule-monitoring" element={<ScheduleMonitoring />} />
           <Route path="crew-management" element={<CrewManagement />} />
           <Route path="incident-management" element={<IncidentManagement />} />
+          <Route path="notificationscenter" element={<NotificationsCenter />} />
           <Route path="announcement-center" element={<AnnouncementCenter />} />
-          <Route path="operations-reports" element={<OperationsReports />} />
           <Route path="passenger-complaints" element={<Complaints />} />
+          
           </Route>
         </Route>
 
@@ -234,6 +236,7 @@ const App = () => {
           <Route path="Regionservicemonitor" element={<Regionservicemonitor />} />
           <Route path="Rtoissuetracker" element={<Rtoissuetracker />} />
           <Route path="Regioncommunityhub" element={<Regioncommunityhub />} />
+          <Route path="notifications" element={<RTONotifications />} />
           {/* Add individual pages later */}
         </Route>
         </Route>
@@ -247,7 +250,7 @@ const App = () => {
     <Route path="schedule-oversight" element={<ScheduleOversight />} />
     <Route path="crew-overview" element={<CrewOverview />} />
     <Route path="incident-tracking" element={<IncidentTracking />} />
-    <Route path="comm-center" element={<CommCenter />} />
+    <Route path="communication-hub" element={<CommCenter />} />
     <Route path="ops-reports" element={<OpsReports />} />
     
             {/* Add individual pages later */}
@@ -277,6 +280,7 @@ const App = () => {
     <Route path="GenerateReports" element={<GenerateReports />} />
     {/* <Route path="Dgmtechnicalissue" element={<Dgmtechnicalissue />} /> */}
     <Route path="Dgmcommunityhub" element={<Dgmcommunityhub />} />
+    <Route path="Dgmtech_notification" element={<Dgmtech_notification />} />
   </Route>
 </Route>
 

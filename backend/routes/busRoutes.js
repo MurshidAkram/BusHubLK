@@ -16,6 +16,7 @@ const {
 const { authenticateJWT, authorizeAdmin, authorizeDepotStaff} = require('../middlewares/authMiddleware');
 
 const { body, param, query } = require('express-validator');
+const db = require('../config/db'); // Add this line
 
 // GET /api/buses - Get all buses (Admin only)
 router.get('/', authenticateJWT, authorizeAdmin, getAllBuses);
@@ -87,5 +88,28 @@ router.put('/:id', authenticateJWT, authorizeAdmin, [
 router.delete('/:id', authenticateJWT, authorizeAdmin, [
   param('id').isInt().withMessage('Bus ID must be an integer')
 ], deleteBus);
+
+// GET /api/buses/bus/:bus_id/current-route - Get current route of a bus
+router.get('/bus/:bus_id/current-route', authenticateJWT, async (req, res) => {
+  const { bus_id } = req.params;
+  const today = new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD'
+  try {
+    const result = await db.query(
+      `SELECT r.route_number, r.route_name
+       FROM dailyassignment da
+       JOIN routes r ON da.route_id = r.route_id
+       WHERE da.bus_id = $1 AND da.assignment_date = $2 AND da.is_active = true
+       LIMIT 1`,
+      [bus_id, today]
+    );
+    if (result.rows.length > 0) {
+      res.json({ success: true, route: result.rows[0] });
+    } else {
+      res.json({ success: false, route: null });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch current route', details: err.message });
+  }
+});
 
 module.exports = router;

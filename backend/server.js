@@ -1,11 +1,35 @@
+
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
 const morgan = require('morgan');
 require('dotenv').config(); // Load environment variables at the very beginning
+const http = require('http');
+const { Server } = require('socket.io');
+const setupSocketIO = require('./utils/socketHandler');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+const server = http.createServer(app);
+
+// Setup Socket.IO with CORS
+const io = new Server(server, {
+  cors: {
+    origin: true, // Allow all origins in development
+    methods: ['GET', 'POST'],
+    credentials: true
+  }
+});
+
+setupSocketIO(io);
+
+// Middleware to attach io to requests (for use in controllers)
+app.use((req, res, next) => {
+  req.io = io;
+  next();
+});
+
 
 // Basic CORS configuration
 app.use(cors({
@@ -42,6 +66,7 @@ app.options('/api/lost-found/reports', (req, res) => {
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, Origin', 'X-Requested-With');
   res.sendStatus(200);
 });
+
 
 // Health check endpoint for API discovery
 app.get('/api/health', (req, res) => {
@@ -84,7 +109,9 @@ try {
 } catch (error) {
   console.log('❌ BusTrackingRoutes error:', error.message);
 }
-
+const depotmanagerDashboardRoutes = require('./routes/depotmanagerDashboardRoutes');
+app.use('/api/depot-dashboard', depotmanagerDashboardRoutes);
+console.log('✅ depotmanagerDashboardRoutes loaded');
 
 try {
   const busLiveTrackingRoutes = require('./routes/busLiveTrackingRoutes');
@@ -92,6 +119,14 @@ try {
   console.log('✅ busLiveTrackingRoutes loaded');
 } catch (error) {
   console.log('❌ busLiveTrackingRoutes error:', error.message);
+}
+
+try {
+  const busLiveTrackingSummaryRoutes = require('./routes/busLiveTrackingSummaryRoutes');
+  app.use('/api/live-summary', busLiveTrackingSummaryRoutes);
+  console.log('✅ busLiveTrackingSummaryRoutes loaded');
+} catch (error) {
+  console.log('❌ busLiveTrackingSummaryRoutes error:', error.message);
 }
 
 // Load routes with error handling
@@ -151,13 +186,12 @@ try {
   console.log('❌ passengerRoutes error:', error.message);
 }
 
-const assignmentRoutes = require('./routes/assignmentRoutes');
-const dailyAssignmentRoutes = require('./routes/dailyAssignmentRoutes');
 
-// Add this with your other app.use() routes
-app.use('/api/assignments', assignmentRoutes);
-app.use('/api/dailyassignment', dailyAssignmentRoutes);
+
+const dailyAssignmentRoutes = require('./routes/dailyAssignmentRoutes');
+app.use('/api/assignments', dailyAssignmentRoutes);
 console.log('✅ dailyAssignmentRoutes loaded');
+
 
 
 try {
@@ -177,7 +211,13 @@ try {
 }
 
 
-
+try {
+const depotManagerRoutes = require('./routes/depotManagerRoutes');
+app.use('/api/depot-manager', depotManagerRoutes);
+console.log('✅ depotManagerRoutes loaded');
+} catch (error) {
+console.log('❌ depotManagerRoutes error: ', error.message);
+}
 
 
 const regionDepotRoutes = require('./routes/regionDepotRoutes');
@@ -200,6 +240,11 @@ const lostFoundRoutes = require('./routes/lostFoundRoutes');
 app.use('/api/lost-found', lostFoundRoutes);
 console.log('✅ lostFoundRoutes loaded');
 
+const depotOperationsManagerNotificationsRoutes = require('./routes/depotOperationsManagerNotificationsRoutes');
+app.use('/api', depotOperationsManagerNotificationsRoutes);
+
+const depotManagerNotificationsRoutes = require('./routes/depotManagerNotificationsRoutes');
+app.use('/api', depotManagerNotificationsRoutes);
 // Add complaint routes
 try {
   const complaintRoutes = require('./routes/complaintRoutes');
@@ -243,6 +288,14 @@ try {
 }
 
 try {
+  const depotEngineerNotificationRoutes = require('./routes/depotEngineerNotificationRoutes');
+  app.use('/api/depot-engineer', depotEngineerNotificationRoutes);
+  console.log('✅ depotEngineerNotificationRoutes loaded');
+} catch (error) {
+  console.log('❌ depotEngineerNotificationRoutes error:', error.message);
+}
+
+try {
   const sparePartsRoutes = require('./routes/sparePartsRoutes');
   app.use('/api/depot-engineer/spare-parts', sparePartsRoutes);
   console.log('✅ sparePartsRoutes loaded');
@@ -250,13 +303,6 @@ try {
   console.log('❌ sparePartsRoutes error:', error.message);
 }
 
-try {
-  const emergencyRoutes = require('./routes/emergencyRoutes');
-  app.use('/api/emergency', emergencyRoutes);
-  console.log('✅ emergencyRoutes loaded');
-} catch (error) {
-  console.log('❌ emergencyRoutes error:', error.message);
-}
 
 try {
   const depotEmergencyRoutes = require('./routes/depotEmergencyRoutes');
@@ -341,6 +387,23 @@ try {
   console.log('❌ complaintRoutes error:', error.message);
 }
 
+// --- THIS IS THE IMPORTANT LINE FOR CREW ROUTES ---
+const crewRoutes = require('./routes/crewRoutes');
+app.use('/api/crew', crewRoutes);
+console.log('✅ crewRoutes loaded');
+// ---------------------------------------------------
+const depotRoutes = require('./routes/depotRoutes');
+app.use('/api/depots', depotRoutes);
+console.log('✅ depotRoutes loaded');
+
+const busTripSummaryRoutes = require('./routes/busTripSummaryRoutes');
+app.use('/api/trip-summary', busTripSummaryRoutes);
+console.log('✅ busTripSummaryRoutes loaded');
+
+const busStatsRoutes = require('./routes/busStatsRoutes');
+app.use('/api/bus-stats', busStatsRoutes);
+// Other routes...
+
 app.get('/resetPassword.js', (req, res) => {
   res.setHeader('Content-Type', 'application/javascript');
   res.sendFile(path.join(__dirname, 'public/resetPassword.js'));
@@ -351,7 +414,26 @@ app.get('/reset-password.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public/reset-password.html'));
 });
 
-// Error handling middleware (should be last app.use before 404 handler)
+// Favicon and robots.txt
+app.get('/favicon.ico', (req, res) => {
+  res.status(204).end();
+});
+
+app.get('/robots.txt', (req, res) => {
+  res.type('text/plain');
+  res.send('User-agent: *\nDisallow: /');
+});
+
+// Add communication routes (add this with your other route declarations)
+try {
+  const communicationRoutes = require('./routes/communicationRoutes');
+  app.use('/api/communication', communicationRoutes);
+  console.log('✅ communicationRoutes loaded');
+} catch (error) {
+  console.log('❌ communicationRoutes error:', error.message);  
+}
+
+// Error handling middleware (should be added after all routes are registered)
 app.use((error, req, res, next) => {
   console.error('Server error:', error);
   // Check if headers have already been sent to prevent "Cannot set headers after they are sent to the client" error
@@ -372,24 +454,15 @@ app.use((req, res) => {
   });
 });
 
-// Favicon and robots.txt
-app.get('/favicon.ico', (req, res) => {
-  res.status(204).end();
-});
-
-app.get('/robots.txt', (req, res) => {
-  res.type('text/plain');
-  res.send('User-agent: *\nDisallow: /');
-});
-
 // Start server
-app.listen(PORT, '0.0.0.0', () => {
+server.listen(PORT, '0.0.0.0', () => {
   try {
     const { getDynamicBaseURL } = require('./utils/networkUtils');
     const baseURL = getDynamicBaseURL();
 
     console.log(`🚀 Server is running on ${baseURL}`);
-    console.log(`📧 Email service configured: ${process.env.EMAIL_SERVICE || 'smtp'}`); // Default to smtp
+    console.log(`🔌 Socket.IO is running`);
+    console.log(`📧 Email service configured: ${process.env.EMAIL_SERVICE || 'smtp'}`);
     console.log(`🌐 Base URL for deep links/web access: ${baseURL}`);
     console.log(`🔐 Password reset endpoint: ${baseURL}/api/password-reset`);
   } catch (error) {

@@ -11,7 +11,8 @@ const {
   getUserDepots,
   getInspectionById,
   getInspectionsForDepotEngineer,
-  getInspectionsForDepotManager
+  getInspectionsForDepotManager,
+  getInspectionCountByStatus
 } = require('../controllers/inspectionController');
 
 const { authenticateJWT, authorizeRole, authorizeDepotStaff } = require('../middlewares/authMiddleware');
@@ -37,6 +38,9 @@ router.get('/upcoming', authenticateJWT, authorizeRegionalTech, getUpcomingInspe
 
 // Get past inspections (last month)
 router.get('/past', authenticateJWT, authorizeRegionalTech, getPastInspections);
+
+// Get inspection count by status
+router.get('/status/:status/count', authenticateJWT, authorizeRegionalTech, getInspectionCountByStatus);
 
 // Get inspection by ID
 router.get('/:id',

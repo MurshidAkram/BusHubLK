@@ -128,6 +128,30 @@ const driverLogin = async (req, res) => {
       }
     }
 
+    // Get current daily assignment for today
+    let currentAssignment = null;
+    try {
+      console.log('Fetching current assignment for driver:', driver.driver_id);
+      const assignments = await DailyAssignment.getByDriverId(driver.driver_id);
+      if (assignments && assignments.length > 0) {
+        // Find today's assignment or the most recent one
+        const todayAssignment = assignments.find(a => {
+          const assignmentDate = new Date(a.assignment_date);
+          const today = new Date();
+          return assignmentDate.toDateString() === today.toDateString();
+        });
+        currentAssignment = todayAssignment || assignments[0]; // Use today's or most recent
+        console.log('Current assignment found:', currentAssignment ? {
+          assignment_id: currentAssignment.assignment_id,
+          bus_id: currentAssignment.bus_id,
+          route_id: currentAssignment.route_id,
+          registration_number: currentAssignment.registration_number
+        } : 'none');
+      }
+    } catch (assignmentError) {
+      console.warn('Could not fetch current assignment during login:', assignmentError);
+    }
+
     // Generate JWT token - IMPORTANT: Use 'userId' to match your auth middleware
     const payload = {
       userId: user.user_id,  // Changed from 'user.id' to 'userId' to match your middleware
@@ -173,6 +197,11 @@ const driverLogin = async (req, res) => {
               `${depotManagerInfo.first_name} ${depotManagerInfo.last_name}` : null,
             depot_manager_phone: depotManagerInfo?.phone || null,
             depot_manager_email: depotManagerInfo?.email || null,
+            // Assignment information for tracking and welcome banner
+            busId: currentAssignment?.bus_id?.toString() || null,
+            routeId: currentAssignment?.route_id?.toString() || null,
+            assignmentId: currentAssignment?.assignment_id?.toString() || null,
+            busRegistration: currentAssignment?.registration_number || null,
           }
         });
       }
@@ -244,6 +273,30 @@ const getDriverProfile = async (req, res) => {
       // Continue without this information - don't fail the entire request
     }
 
+    // Get current daily assignment for today
+    let currentAssignment = null;
+    try {
+      console.log('Fetching current assignment for driver profile:', driver.driver_id);
+      const assignments = await DailyAssignment.getByDriverId(driver.driver_id);
+      if (assignments && assignments.length > 0) {
+        // Find today's assignment or the most recent one
+        const todayAssignment = assignments.find(a => {
+          const assignmentDate = new Date(a.assignment_date);
+          const today = new Date();
+          return assignmentDate.toDateString() === today.toDateString();
+        });
+        currentAssignment = todayAssignment || assignments[0]; // Use today's or most recent
+        console.log('Current assignment found for profile:', currentAssignment ? {
+          assignment_id: currentAssignment.assignment_id,
+          bus_id: currentAssignment.bus_id,
+          route_id: currentAssignment.route_id,
+          registration_number: currentAssignment.registration_number
+        } : 'none');
+      }
+    } catch (assignmentError) {
+      console.warn('Could not fetch current assignment for profile:', assignmentError);
+    }
+
     res.json({
       success: true,
       user: {
@@ -268,6 +321,11 @@ const getDriverProfile = async (req, res) => {
           `${depotManagerInfo.first_name} ${depotManagerInfo.last_name}` : null,
         depot_manager_phone: depotManagerInfo?.phone || null,
         depot_manager_email: depotManagerInfo?.email || null,
+        // Assignment information for tracking and welcome banner
+        busId: currentAssignment?.bus_id?.toString() || null,
+        routeId: currentAssignment?.route_id?.toString() || null,
+        assignmentId: currentAssignment?.assignment_id?.toString() || null,
+        busRegistration: currentAssignment?.registration_number || null,
       }
     });
   } catch (err) {
