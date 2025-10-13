@@ -1017,6 +1017,7 @@ export default function BusOccupancyScreen() {
               <Text style={styles.sectionTitle}>🚌 Bus Detection Status</Text>
               <Text style={styles.sectionSubtitle}>Current bus occupancy reporting</Text>
             </View>
+
           </View>
         {currentBus ? (
           <View style={styles.detectedBusContent}>

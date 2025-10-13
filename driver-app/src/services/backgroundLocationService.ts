@@ -279,12 +279,12 @@ export class BackgroundLocationService {
       console.log('🔍 Checking existing permissions...');
       const foregroundStatus = await withTimeout(
         Location.getForegroundPermissionsAsync(),
-        5000,
+        2000,
         'Foreground permission check'
       );
       const backgroundStatus = await withTimeout(
         Location.getBackgroundPermissionsAsync(),
-        5000,
+        2000,
         'Background permission check'
       );
       
@@ -310,12 +310,12 @@ export class BackgroundLocationService {
       };
       await withTimeout(
         AsyncStorage.setItem(ACTIVE_ASSIGNMENT_KEY, JSON.stringify(assignment)),
-        3000,
+        1500,
         'AsyncStorage save assignment'
       );
       await withTimeout(
         AsyncStorage.setItem(TRACKING_STATUS_KEY, 'active'),
-        3000,
+        1500,
         'AsyncStorage save status'
       );
       console.log('✅ Assignment stored successfully');
@@ -324,7 +324,7 @@ export class BackgroundLocationService {
       console.log('🔍 Checking if task already registered...');
       const isRegistered = await withTimeout(
         TaskManager.isTaskRegisteredAsync(BACKGROUND_LOCATION_TASK),
-        3000,
+        1500,
         'Task registration check'
       );
       console.log(`📋 Task registered: ${isRegistered}`);
@@ -334,13 +334,13 @@ export class BackgroundLocationService {
         try {
           await withTimeout(
             Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK),
-            5000,
+            3000,
             'Stopping previous task'
           );
           console.log('✅ Previous task stopped');
-          // Wait longer for cleanup - Android needs more time
-          console.log('⏳ Waiting for full cleanup (3 seconds)...');
-          await new Promise(resolve => setTimeout(resolve, 3000));
+          // Minimal wait for cleanup - just enough for Android to release resources
+          console.log('⏳ Waiting for cleanup (500ms)...');
+          await new Promise(resolve => setTimeout(resolve, 500));
         } catch (stopError) {
           console.log('⚠️ Could not stop previous task (may not be running):', stopError);
           // Continue anyway - the new registration will override
@@ -388,7 +388,7 @@ export class BackgroundLocationService {
       
       await withTimeout(
         Location.startLocationUpdatesAsync(BACKGROUND_LOCATION_TASK, locationConfig),
-        10000,
+        8000,
         'Starting location updates'
       );
       console.log('✅ Location updates started with TaskManager');
@@ -397,7 +397,7 @@ export class BackgroundLocationService {
       console.log('💾 Final confirmation - marking tracking as active...');
       await withTimeout(
         AsyncStorage.setItem(TRACKING_STATUS_KEY, 'active'),
-        3000,
+        1500,
         'Final status update'
       );
       console.log('✅ Tracking status marked as active');
@@ -459,19 +459,18 @@ export class BackgroundLocationService {
         await Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
         console.log('✅ Location updates stopped');
         
-        // Wait longer for task to fully stop - critical for Android
-        console.log('⏳ Waiting for full task cleanup (2 seconds)...');
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // Minimal wait for task cleanup - just enough for proper cleanup
+        console.log('⏳ Waiting for task cleanup (500ms)...');
+        await new Promise(resolve => setTimeout(resolve, 500));
       } else {
         console.log('ℹ️ Task was not registered, no need to stop');
       }
 
-      // Try to sync any remaining offline locations before stopping
-      console.log('🔄 Syncing offline queue before stopping...');
-      await syncOfflineQueue();
-      console.log('✅ Offline queue synced');
+      // Try to sync offline queue in background (don't wait for it)
+      console.log('🔄 Starting background sync of offline queue...');
+      syncOfflineQueue().catch(err => console.log('⚠️ Background sync error:', err));
 
-      // Clear active assignment and status
+      // Clear active assignment and status immediately
       console.log('🧹 Clearing assignment data...');
       await AsyncStorage.removeItem(ACTIVE_ASSIGNMENT_KEY);
       await AsyncStorage.setItem(TRACKING_STATUS_KEY, 'inactive');

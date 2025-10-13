@@ -137,7 +137,15 @@ const SparePartsInventory: React.FC = () => {
 
       if (response.data.success && response.data.buses) {
         console.log('✅ Buses fetched:', response.data.buses);
-        setBuses(response.data.buses);
+
+        const depotId = context?.user?.depot_id;
+        const maintenanceBuses = response.data.buses.filter((bus: Bus) => {
+          const isMaintenance = (bus.status || '').toLowerCase() === 'maintenance';
+          const isSameDepot = depotId ? String(bus.depot_id) === String(depotId) : true;
+          return isMaintenance && isSameDepot;
+        });
+
+        setBuses(maintenanceBuses);
       } else {
         console.error('❌ Failed to fetch buses:', response.data.message);
       }
@@ -798,7 +806,7 @@ const SparePartsInventory: React.FC = () => {
                     value={newPart.unit}
                     onChange={(e) => setNewPart({...newPart, unit: e.target.value})}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="e.g., pieces, kg"
+                    placeholder="e.g., pieces,dozen"
                   />
                 </div>
               </div>

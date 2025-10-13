@@ -135,6 +135,8 @@ const ScheduleCard = ({ schedule, index, isTodayAssignment, navigation }: {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const [isTracking, setIsTracking] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
+  const [cooldownRemaining, setCooldownRemaining] = useState(0);
+  const cooldownTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     Animated.parallel([
@@ -156,6 +158,15 @@ const ScheduleCard = ({ schedule, index, isTodayAssignment, navigation }: {
     checkTrackingStatus();
   }, []);
 
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (cooldownTimerRef.current) {
+        clearInterval(cooldownTimerRef.current);
+      }
+    };
+  }, []);
+
   const checkTrackingStatus = async () => {
     try {
       // Check location service status using the async method
@@ -174,6 +185,16 @@ const ScheduleCard = ({ schedule, index, isTodayAssignment, navigation }: {
 
   const handleStartRoute = async () => {
     try {
+      // Check if cooldown is active
+      if (cooldownRemaining > 0) {
+        Alert.alert(
+          "⏳ Please Wait",
+          `The tracking system needs a moment to reset after stopping.\n\nPlease wait ${cooldownRemaining} more second${cooldownRemaining !== 1 ? 's' : ''} before starting again.\n\nThis ensures a clean restart and prevents conflicts.`,
+          [{ text: "OK" }]
+        );
+        return;
+      }
+
       setIsStarting(true);
 
       // Validate that required fields are present
@@ -265,6 +286,29 @@ const ScheduleCard = ({ schedule, index, isTodayAssignment, navigation }: {
               
               setIsTracking(false);
               console.log("✅ Main location service stopped successfully");
+
+              // Start cooldown timer (3 seconds)
+              const cooldownSeconds = 3;
+              setCooldownRemaining(cooldownSeconds);
+              
+              // Clear any existing timer
+              if (cooldownTimerRef.current) {
+                clearInterval(cooldownTimerRef.current);
+              }
+              
+              // Countdown timer
+              let remaining = cooldownSeconds;
+              cooldownTimerRef.current = setInterval(() => {
+                remaining -= 1;
+                setCooldownRemaining(remaining);
+                
+                if (remaining <= 0) {
+                  if (cooldownTimerRef.current) {
+                    clearInterval(cooldownTimerRef.current);
+                    cooldownTimerRef.current = null;
+                  }
+                }
+              }, 1000);
 
               Alert.alert(
                 "✅ Schedule Ended",
@@ -460,16 +504,30 @@ const ScheduleCard = ({ schedule, index, isTodayAssignment, navigation }: {
           <View style={styles.actionButtonsContainer}>
             {!isTracking ? (
               <TouchableOpacity 
-                style={styles.actionButton} 
+                style={[
+                  styles.actionButton,
+                  cooldownRemaining > 0 && styles.actionButtonDisabled
+                ]} 
                 onPress={handleStartRoute}
-                disabled={isStarting}
+                disabled={isStarting || cooldownRemaining > 0}
               >
                 <LinearGradient
-                  colors={["rgba(255, 255, 255, 0.2)", "rgba(255, 255, 255, 0.1)"]}
+                  colors={
+                    cooldownRemaining > 0
+                      ? ["rgba(156, 163, 175, 0.5)", "rgba(107, 114, 128, 0.5)"]
+                      : ["rgba(255, 255, 255, 0.2)", "rgba(255, 255, 255, 0.1)"]
+                  }
                   style={styles.actionButtonGradient}
                 >
                   {isStarting ? (
                     <ActivityIndicator color="#FFFFFF" size="small" />
+                  ) : cooldownRemaining > 0 ? (
+                    <>
+                      <Ionicons name="time-outline" size={18} color="#FFFFFF" />
+                      <Text style={styles.actionButtonText}>
+                        Wait {cooldownRemaining}s...
+                      </Text>
+                    </>
                   ) : (
                     <>
                       <Ionicons name="play-outline" size={18} color="#FFFFFF" />
@@ -1032,6 +1090,9 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: "hidden",
     marginTop: 4,
+  },
+  actionButtonDisabled: {
+    opacity: 0.7,
   },
   actionButtonsContainer: {
     marginTop: 4,

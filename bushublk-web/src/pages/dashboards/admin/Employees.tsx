@@ -6,12 +6,14 @@ import {
   HiOutlineRefresh, 
   HiOutlinePencilAlt, 
   HiOutlineTrash, 
-  HiOutlineEye, 
-  HiOutlineUserAdd, 
   HiOutlineFilter, 
   HiOutlineX,
   HiOutlineCheck,
-  HiOutlineXCircle
+  HiOutlineXCircle,
+  HiOutlineOfficeBuilding,
+  HiOutlineLocationMarker,
+  HiOutlineUserGroup,
+  HiOutlineAdjustments
 } from 'react-icons/hi';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -27,6 +29,8 @@ interface User {
   is_active: boolean;
   last_login?: string;
   created_at?: string;
+  region_id?: number;
+  depot_id?: number;
 }
 
 interface EditUserData {
@@ -45,6 +49,17 @@ interface EditUserData {
   };
 }
 
+interface Region {
+  region_id: number;
+  region_name: string;
+}
+
+interface Depot {
+  depot_id: number;
+  depot_name: string;
+  region_id: number;
+}
+
 const Employees = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
@@ -52,9 +67,6 @@ const Employees = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [usersPerPage] = useState(10);
-  const [roleFilter, setRoleFilter] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<boolean | null>(null);
-  const [showFilters, setShowFilters] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [editFormData, setEditFormData] = useState<EditUserData>({
@@ -69,22 +81,69 @@ const Employees = () => {
     role_data: {}
   });
   const [editFormErrors, setEditFormErrors] = useState<Record<string, string>>({});
+  const [regions, setRegions] = useState<Region[]>([]);
+  const [depots, setDepots] = useState<Depot[]>([]);
+  
+  // Enhanced filter states
+  const [filters, setFilters] = useState({
+    roleFilter: [] as string[],
+    statusFilter: null as boolean | null,
+    regionFilter: null as string | null,
+    depotFilter: null as string | null
+  });
+
   const context = useContext(AppContext);
 
-  // Available roles for filter
-  const availableRoles = [
-    'admin',
-    'ceo',
-    'dgm_technical',
-    'dgm_operations',
-    'regional_tech',
-    'regional_operations',
-    'depot_manager',
-    'depot_operations',
-    'depot_engineer',
-    'driver',
-    'conductor'
-  ];
+  // Available roles organized by category
+  const roleCategories = {
+    'Executive Management': ['ceo', 'dgm_technical', 'dgm_operations'],
+    'Regional Officers': ['regional_tech', 'regional_operations'],
+    'Depot Management': ['depot_manager', 'depot_operations', 'depot_engineer'],
+    'Operations Staff': ['driver', 'conductor'],
+    'System': ['admin']
+  };
+
+  // Fetch regions
+  const fetchRegions = async () => {
+    if (!context?.token) return;
+    try {
+      const response = await fetch('http://localhost:5000/api/regions', {
+        headers: {
+          'Authorization': `Bearer ${context.token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setRegions(data.regions || []);
+      } else {
+        console.error('Failed to fetch regions:', response.status);
+      }
+    } catch (error) {
+      console.error('Error fetching regions:', error);
+    }
+  };
+
+  // Fetch depots
+  const fetchDepots = async () => {
+    if (!context?.token) return;
+    try {
+      const response = await fetch('http://localhost:5000/api/depots', {
+        headers: {
+          'Authorization': `Bearer ${context.token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setDepots(data.depots || []);
+      } else {
+        console.error('Failed to fetch depots:', response.status);
+      }
+    } catch (error) {
+      console.error('Error fetching depots:', error);
+    }
+  };
 
   // Fetch all users
   const fetchUsers = async () => {
@@ -112,11 +171,18 @@ const Employees = () => {
 
   useEffect(() => {
     fetchUsers();
+    fetchRegions();
+    fetchDepots();
   }, []);
 
-  // Apply filters and search
+  // Apply all filters and search
   useEffect(() => {
     let result = [...users];
+
+    // Debug logging
+    console.log('Filtering - Region Filter:', filters.regionFilter, typeof filters.regionFilter);
+    console.log('Filtering - Depot Filter:', filters.depotFilter, typeof filters.depotFilter);
+    console.log('Sample user with depot:', users.find(u => u.depot_id));
 
     // Apply search
     if (searchTerm) {
@@ -130,19 +196,83 @@ const Employees = () => {
       );
     }
 
-    // Apply role filter
-    if (roleFilter) {
-      result = result.filter(user => user.role === roleFilter);
+    // Apply role filter (multiple selection)
+    if (filters.roleFilter.length > 0) {
+      result = result.filter(user => filters.roleFilter.includes(user.role));
     }
 
     // Apply status filter
-    if (statusFilter !== null) {
-      result = result.filter(user => user.is_active === statusFilter);
+    if (filters.statusFilter !== null) {
+      result = result.filter(user => user.is_active === filters.statusFilter);
     }
 
+    // Apply region filter
+    if (filters.regionFilter) {
+      const regionId = parseInt(filters.regionFilter!);
+      console.log('Filtering by region_id:', regionId);
+      result = result.filter(user => {
+        console.log(`User ${user.username}: region_id = ${user.region_id} (${typeof user.region_id})`);
+        return user.region_id === regionId;
+      });
+    }
+
+    // Apply depot filter
+    if (filters.depotFilter) {
+      const depotId = parseInt(filters.depotFilter!);
+      console.log('Filtering by depot_id:', depotId);
+      result = result.filter(user => {
+        console.log(`User ${user.username}: depot_id = ${user.depot_id} (${typeof user.depot_id})`);
+        return user.depot_id === depotId;
+      });
+    }
+
+    console.log('Filtered results:', result.length);
     setFilteredUsers(result);
-    setCurrentPage(1); // Reset to first page when filters change
-  }, [searchTerm, roleFilter, statusFilter, users]);
+    setCurrentPage(1);
+  }, [searchTerm, filters, users]);
+
+  // Handle role filter toggle
+  const toggleRoleFilter = (role: string) => {
+    setFilters(prev => {
+      const newRoleFilter = prev.roleFilter.includes(role)
+        ? prev.roleFilter.filter(r => r !== role)
+        : [...prev.roleFilter, role];
+      return { ...prev, roleFilter: newRoleFilter };
+    });
+  };
+
+  // Handle filter changes
+  const handleFilterChange = (filterName: string, value: any) => {
+    setFilters(prev => ({ ...prev, [filterName]: value }));
+  };
+
+  // Clear all filters
+  const clearAllFilters = () => {
+    setFilters({
+      roleFilter: [],
+      statusFilter: null,
+      regionFilter: null,
+      depotFilter: null
+    });
+    setSearchTerm('');
+  };
+
+  // Get active filter count
+  const getActiveFilterCount = () => {
+    let count = 0;
+    if (filters.roleFilter.length > 0) count++;
+    if (filters.statusFilter !== null) count++;
+    if (filters.regionFilter) count++;
+    if (filters.depotFilter) count++;
+    if (searchTerm) count++;
+    return count;
+  };
+
+  // Get filtered depots based on selected region
+  const getFilteredDepots = () => {
+    if (!filters.regionFilter) return depots;
+    return depots.filter(depot => depot.region_id === parseInt(filters.regionFilter!));
+  };
 
   // Pagination logic
   const indexOfLastUser = currentPage * usersPerPage;
@@ -168,7 +298,6 @@ const Employees = () => {
         throw new Error(`Failed to ${currentStatus ? 'deactivate' : 'activate'} user`);
       }
 
-      // Update local state
       setUsers(users.map(user => 
         user.id === userId ? { ...user, is_active: !currentStatus } : user
       ));
@@ -196,7 +325,6 @@ const Employees = () => {
         throw new Error('Failed to delete user');
       }
 
-      // Update local state
       setUsers(users.filter(user => user.id !== userId));
       toast.success('User deleted successfully');
     } catch (error: any) {
@@ -223,7 +351,7 @@ const Employees = () => {
       phone: user.phone || '',
       role_name: user.role,
       is_active: user.is_active,
-      role_data: {} // We'll fetch this separately if needed
+      role_data: {}
     });
     setShowEditModal(true);
   };
@@ -233,7 +361,6 @@ const Employees = () => {
     const { name, value } = e.target;
     setEditFormData(prev => ({ ...prev, [name]: value }));
     
-    // Clear error when user starts typing
     if (editFormErrors[name]) {
       setEditFormErrors(prev => {
         const newErrors = { ...prev };
@@ -283,7 +410,6 @@ const Employees = () => {
       const data = await response.json();
       toast.success('User updated successfully');
       
-      // Update local state
       setUsers(users.map(u => u.id === editFormData.id ? { ...u, ...data.user } : u));
       setShowEditModal(false);
     } catch (error: any) {
@@ -296,88 +422,179 @@ const Employees = () => {
       <div className="flex flex-col space-y-6">
         {/* Header and actions */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <h1 className="text-2xl font-bold text-gray-800">Employee Management</h1>
-          <div className="flex flex-col sm:flex-row gap-2">
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center justify-center px-4 py-2 bg-white border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              <HiOutlineFilter className="mr-2" />
-              Filters
-            </button>
-            <button
-              onClick={fetchUsers}
-              className="flex items-center justify-center px-4 py-2 bg-white border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              <HiOutlineRefresh className="mr-2" />
-              Refresh
-            </button>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800">Employee Management</h1>
+            <p className="text-gray-600 text-sm mt-1">Manage and filter employees across regions and depots</p>
+          </div>
+          <button
+            onClick={fetchUsers}
+            className="flex items-center justify-center px-4 py-2 bg-white border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            <HiOutlineRefresh className="mr-2" />
+            Refresh
+          </button>
+        </div>
+
+        {/* Search */}
+        <div className="bg-white p-4 rounded-lg shadow">
+          <div className="relative rounded-md shadow-sm">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <HiOutlineSearch className="h-5 w-5 text-gray-400" />
+            </div>
+            <input
+              type="text"
+              className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 pr-12 py-2 border border-gray-300 rounded-md"
+              placeholder="Search employees..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
         </div>
 
-        {/* Search and filters */}
-        <div className="bg-white p-4 rounded-lg shadow">
-          <div className="flex flex-col space-y-4">
-            <div className="relative rounded-md shadow-sm">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <HiOutlineSearch className="h-5 w-5 text-gray-400" />
+        {/* Advanced Filters */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-2">
+              <HiOutlineAdjustments className="h-5 w-5 text-gray-600" />
+              <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
+              {getActiveFilterCount() > 0 && (
+                <span className="px-2.5 py-0.5 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
+                  {getActiveFilterCount()} active
+                </span>
+              )}
+            </div>
+            {getActiveFilterCount() > 0 && (
+              <button
+                onClick={clearAllFilters}
+                className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center"
+              >
+                <HiOutlineX className="h-4 w-4 mr-1" />
+                Clear all
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {/* Status Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleFilterChange('statusFilter', filters.statusFilter === true ? null : true)}
+                  className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg transition-all ${
+                    filters.statusFilter === true
+                      ? 'bg-green-100 text-green-800 border-2 border-green-500'
+                      : 'bg-gray-50 text-gray-700 border border-gray-300 hover:bg-gray-100'
+                  }`}
+                >
+                  Active
+                </button>
+                <button
+                  onClick={() => handleFilterChange('statusFilter', filters.statusFilter === false ? null : false)}
+                  className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg transition-all ${
+                    filters.statusFilter === false
+                      ? 'bg-red-100 text-red-800 border-2 border-red-500'
+                      : 'bg-gray-50 text-gray-700 border border-gray-300 hover:bg-gray-100'
+                  }`}
+                >
+                  Inactive
+                </button>
               </div>
-              <input
-                type="text"
-                className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 pr-12 py-2 border border-gray-300 rounded-md"
-                placeholder="Search employees..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
             </div>
 
-            {showFilters && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-md">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
-                  <select
-                    className="w-full border border-gray-300 rounded-md p-2"
-                    value={roleFilter || ''}
-                    onChange={(e) => setRoleFilter(e.target.value || null)}
-                  >
-                    <option value="">All Roles</option>
-                    {availableRoles.map((role) => (
-                      <option key={role} value={role}>
-                        {role.replace(/_/g, ' ')}
-                      </option>
-                    ))}
-                  </select>
+            {/* Region Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <div className="flex items-center space-x-1">
+                  <HiOutlineLocationMarker className="h-4 w-4" />
+                  <span>Region</span>
                 </div>
+              </label>
+              <select
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                value={filters.regionFilter || ''}
+                onChange={(e) => {
+                  handleFilterChange('regionFilter', e.target.value || null);
+                  handleFilterChange('depotFilter', null);
+                }}
+              >
+                <option value="">All Regions</option>
+                {regions.map((region) => (
+                  <option key={region.region_id} value={region.region_id}>
+                    {region.region_name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                  <select
-                    className="w-full border border-gray-300 rounded-md p-2"
-                    value={statusFilter === null ? '' : statusFilter ? 'active' : 'inactive'}
-                    onChange={(e) => 
-                      setStatusFilter(e.target.value === '' ? null : e.target.value === 'active')
-                    }
-                  >
-                    <option value="">All Statuses</option>
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                  </select>
+            {/* Depot Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <div className="flex items-center space-x-1">
+                  <HiOutlineOfficeBuilding className="h-4 w-4" />
+                  <span>Depot</span>
                 </div>
+              </label>
+              <select
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white disabled:bg-gray-100"
+                value={filters.depotFilter || ''}
+                onChange={(e) => handleFilterChange('depotFilter', e.target.value || null)}
+                disabled={!filters.regionFilter}
+              >
+                <option value="">All Depots</option>
+                {getFilteredDepots().map((depot) => (
+                  <option key={depot.depot_id} value={depot.depot_id}>
+                    {depot.depot_name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-                <div className="flex items-end">
-                  <button
-                    onClick={() => {
-                      setRoleFilter(null);
-                      setStatusFilter(null);
-                    }}
-                    className="flex items-center justify-center px-4 py-2 bg-white border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50"
-                  >
-                    <HiOutlineX className="mr-2" />
-                    Clear Filters
-                  </button>
+            {/* Results Summary */}
+            <div className="flex items-end">
+              <div className="w-full p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="text-sm font-medium text-blue-900">
+                  {filteredUsers.length} {filteredUsers.length === 1 ? 'employee' : 'employees'}
+                </div>
+                <div className="text-xs text-blue-700 mt-0.5">
+                  of {users.length} total
                 </div>
               </div>
-            )}
+            </div>
+          </div>
+
+          {/* Role Filters - Organized by Category */}
+          <div className="pt-6 border-t border-gray-200">
+            <label className="block text-sm font-medium text-gray-700 mb-3">
+              <div className="flex items-center space-x-1">
+                <HiOutlineUserGroup className="h-4 w-4" />
+                <span>Roles</span>
+              </div>
+            </label>
+            <div className="space-y-4">
+              {Object.entries(roleCategories).map(([category, roles]) => (
+                <div key={category}>
+                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                    {category}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {roles.map((role) => (
+                      <button
+                        key={role}
+                        onClick={() => toggleRoleFilter(role)}
+                        className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-all ${
+                          filters.roleFilter.includes(role)
+                            ? 'bg-blue-600 text-white shadow-sm'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        {role.replace(/_/g, ' ')}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -620,10 +837,14 @@ const Employees = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   required
                 >
-                  {availableRoles.map((role) => (
-                    <option key={role} value={role}>
-                      {role.replace(/_/g, ' ')}
-                    </option>
+                  {Object.entries(roleCategories).map(([category, roles]) => (
+                    <optgroup key={category} label={category}>
+                      {roles.map((role) => (
+                        <option key={role} value={role}>
+                          {role.replace(/_/g, ' ')}
+                        </option>
+                      ))}
+                    </optgroup>
                   ))}
                 </select>
               </div>
@@ -703,4 +924,4 @@ const Employees = () => {
   );
 };
 
-export default Employees
+export default Employees;

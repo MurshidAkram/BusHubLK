@@ -1,8 +1,8 @@
 const Bus = require('../models/busModel');
 const User = require('../models/userModel');
 const RegionDepot = require('../models/regionDepotModel');
-const BusConditionReport = require('../models/BusConditionReport');
 const ServiceSchedule = require('../models/serviceScheduleModel');
+const BusConditionReport = require('../models/BusConditionReport');
 const BusDailyChecklist = require('../models/busDailyChecklistModel');
 
 // Get buses for depot engineer (filtered by their depot)
@@ -30,16 +30,6 @@ const getBusesForDepotEngineer = async (req, res) => {
 
         const buses = await Bus.getByDepot(depotEngineerDetails.depot_id);
 
-        // Debug logging for comparison with service schedule controller
-        console.log(`[DEPOT ENGINEER] Fetching buses for depot_id: ${depotEngineerDetails.depot_id}`);
-        console.log(`[DEPOT ENGINEER] Total buses found: ${buses.length}`);
-        console.log(`[DEPOT ENGINEER] Bus details:`, buses.map(bus => ({
-            bus_id: bus.bus_id,
-            registration_number: bus.registration_number,
-            status: bus.status,
-            depot_id: bus.depot_id
-        })));
-
         res.json({
             success: true,
             message: 'Buses retrieved successfully',
@@ -64,7 +54,7 @@ const getBusesForDepotEngineer = async (req, res) => {
 // Update bus status (only status can be updated by depot engineer)
 const updateBusStatus = async (req, res) => {
     const { bus_id } = req.params;
-    const { status, part_checking_data } = req.body;
+    const { status } = req.body;
 
     try {
         // Use getRoleSpecificDetails here as well
@@ -92,41 +82,7 @@ const updateBusStatus = async (req, res) => {
             });
         }
 
-        // Update bus status first
         const updatedBus = await Bus.update(bus_id, { status });
-
-        // If part checking data is provided, save the daily checklist
-        if (part_checking_data) {
-            const checklistData = {
-                bus_id: parseInt(bus_id),
-                checker_id: req.user.userId,
-                engine: part_checking_data.engine || false,
-                brakes: part_checking_data.brakes || false,
-                tires: part_checking_data.tires || false,
-                windows: part_checking_data.windows || false,
-                doors: part_checking_data.doors || false,
-                lights: part_checking_data.lights || false,
-                turn_signals: part_checking_data.turn_signals || false,
-                fire_extinguisher: part_checking_data.fire_extinguisher || false,
-                status_after_check: status
-            };
-
-            try {
-                // Try to create new checklist
-                const checklist = await BusDailyChecklist.create(checklistData);
-                console.log('Daily checklist created:', checklist.checklist_id);
-            } catch (checklistError) {
-                if (checklistError.message.includes('already exists')) {
-                    // Update existing checklist for today
-                    const today = new Date().toISOString().split('T')[0];
-                    const updatedChecklist = await BusDailyChecklist.update(bus_id, today, checklistData);
-                    console.log('Daily checklist updated:', updatedChecklist.checklist_id);
-                } else {
-                    console.error('Error saving daily checklist:', checklistError);
-                    // Don't fail the entire operation if checklist fails
-                }
-            }
-        }
 
         res.json({
             success: true,
@@ -141,163 +97,13 @@ const updateBusStatus = async (req, res) => {
             error: err.message
         });
     }
-};// Get condition reports for depot engineer's depot
-const getConditionReportsForDepot = async (req, res) => {
-    try {
-        const depotEngineerDetails = await User.getRoleSpecificDetails(req.user.userId, req.user.role);
-
-        if (!depotEngineerDetails || !depotEngineerDetails.depot_id) {
-            return res.status(404).json({
-                success: false,
-                message: 'Depot engineer details or depot ID not found for this user'
-            });
-        }
-
-        const { status } = req.query; // Optional filter by review status
-        const reports = await BusConditionReport.findByDepot(depotEngineerDetails.depot_id, status);
-
-        res.json({
-            success: true,
-            message: 'Condition reports retrieved successfully',
-            reports,
-            depot_id: depotEngineerDetails.depot_id
-        });
-    } catch (err) {
-        console.error('Get condition reports for depot error:', err);
-        res.status(500).json({
-            success: false,
-            message: 'Server error',
-            error: err.message
-        });
-    }
 };
 
-// Review a condition report
-const reviewConditionReport = async (req, res) => {
-    const { reportId } = req.params;
-
-    try {
-        const depotEngineerDetails = await User.getRoleSpecificDetails(req.user.userId, req.user.role);
-
-        if (!depotEngineerDetails || !depotEngineerDetails.depot_id) {
-            return res.status(403).json({
-                success: false,
-                message: 'Depot engineer details or depot ID not found for this user'
-            });
-        }
-
-        // Get the report to verify it belongs to this depot
-        const report = await BusConditionReport.findById(reportId);
-        if (!report) {
-            return res.status(404).json({
-                success: false,
-                message: 'Condition report not found'
-            });
-        }
-
-        // Get the bus to check depot ownership
-        const bus = await Bus.findById(report.bus_id);
-        if (!bus || bus.depot_id !== depotEngineerDetails.depot_id) {
-            return res.status(403).json({
-                success: false,
-                message: 'Not authorized to review this report'
-            });
-        }
-
-        // Check if already reviewed
-        if (report.review_status === 'reviewed') {
-            return res.status(400).json({
-                success: false,
-                message: 'Report has already been reviewed'
-            });
-        }
-
-        const reviewedReport = await BusConditionReport.reviewReport(reportId, {
-            reviewedBy: req.user.userId,
-            reviewStatus: 'reviewed'
-        });
-
-        res.json({
-            success: true,
-            message: 'Report reviewed successfully',
-            report: reviewedReport
-        });
-    } catch (err) {
-        console.error('Review condition report error:', err);
-        res.status(500).json({
-            success: false,
-            message: 'Server error',
-            error: err.message
-        });
-    }
-};
-
-// Get pending reports for depot engineer
-const getPendingReports = async (req, res) => {
-    try {
-        const depotEngineerDetails = await User.getRoleSpecificDetails(req.user.userId, req.user.role);
-
-        if (!depotEngineerDetails || !depotEngineerDetails.depot_id) {
-            return res.status(404).json({
-                success: false,
-                message: 'Depot engineer details or depot ID not found for this user'
-            });
-        }
-
-        const reports = await BusConditionReport.getPendingReportsForDepot(depotEngineerDetails.depot_id);
-
-        res.json({
-            success: true,
-            message: 'Pending reports retrieved successfully',
-            reports,
-            depot_id: depotEngineerDetails.depot_id
-        });
-    } catch (err) {
-        console.error('Get pending reports error:', err);
-        res.status(500).json({
-            success: false,
-            message: 'Server error',
-            error: err.message
-        });
-    }
-};
-
-// Get report statistics for depot
-const getReportStatistics = async (req, res) => {
-    try {
-        const depotEngineerDetails = await User.getRoleSpecificDetails(req.user.userId, req.user.role);
-
-        if (!depotEngineerDetails || !depotEngineerDetails.depot_id) {
-            return res.status(404).json({
-                success: false,
-                message: 'Depot engineer details or depot ID not found for this user'
-            });
-        }
-
-        const stats = await BusConditionReport.getReviewStatsForDepot(depotEngineerDetails.depot_id);
-
-        res.json({
-            success: true,
-            message: 'Report statistics retrieved successfully',
-            stats,
-            depot_id: depotEngineerDetails.depot_id
-        });
-    } catch (err) {
-        console.error('Get report statistics error:', err);
-        res.status(500).json({
-            success: false,
-            message: 'Server error',
-            error: err.message
-        });
-    }
-};
-
-// Get service history for a specific bus
+// Get service history for a specific bus limited to completed schedules
 const getServiceHistoryForBus = async (req, res) => {
     try {
         const { bus_id } = req.params;
 
-        // Get depot engineer details
         const depotEngineerDetails = await User.getRoleSpecificDetails(req.user.userId, req.user.role);
 
         if (!depotEngineerDetails || !depotEngineerDetails.depot_id) {
@@ -307,8 +113,8 @@ const getServiceHistoryForBus = async (req, res) => {
             });
         }
 
-        // Verify the bus belongs to the depot engineer's depot
         const bus = await Bus.findById(bus_id);
+
         if (!bus) {
             return res.status(404).json({
                 success: false,
@@ -323,15 +129,16 @@ const getServiceHistoryForBus = async (req, res) => {
             });
         }
 
-        // Get service schedules for this bus
         const schedules = await ServiceSchedule.getByBusId(bus_id);
-
-        console.log(`[SERVICE HISTORY] Found ${schedules.length} service records for bus ${bus_id}`);
+        const completedSchedules = Array.isArray(schedules)
+            ? schedules.filter((schedule) => (schedule.status || '').toLowerCase() === 'completed')
+            : [];
 
         res.json({
             success: true,
             message: 'Service history retrieved successfully',
-            schedules: schedules || [],
+            schedules: completedSchedules,
+            count: completedSchedules.length,
             bus: {
                 bus_id: bus.bus_id,
                 registration_number: bus.registration_number,
@@ -348,8 +155,7 @@ const getServiceHistoryForBus = async (req, res) => {
     }
 };
 
-// Get daily checklists for depot engineer's depot
-const getDailyChecklistsForDepot = async (req, res) => {
+const getConditionReports = async (req, res) => {
     try {
         const depotEngineerDetails = await User.getRoleSpecificDetails(req.user.userId, req.user.role);
 
@@ -360,20 +166,16 @@ const getDailyChecklistsForDepot = async (req, res) => {
             });
         }
 
-        const { startDate, endDate } = req.query;
-        const checklists = await BusDailyChecklist.getByDepotId(
-            depotEngineerDetails.depot_id,
-            startDate,
-            endDate
-        );
+        const reports = await BusConditionReport.findByDepot(depotEngineerDetails.depot_id);
 
         res.json({
             success: true,
-            message: 'Daily checklists retrieved successfully',
-            checklists
+            message: 'Bus condition reports retrieved successfully',
+            reports,
+            depot_id: depotEngineerDetails.depot_id
         });
     } catch (err) {
-        console.error('Get daily checklists error:', err);
+        console.error('Get condition reports for depot engineer error:', err);
         res.status(500).json({
             success: false,
             message: 'Server error',
@@ -382,8 +184,7 @@ const getDailyChecklistsForDepot = async (req, res) => {
     }
 };
 
-// Get today's incomplete checklists for depot
-const getTodayIncompleteChecklists = async (req, res) => {
+const getConditionReportStats = async (req, res) => {
     try {
         const depotEngineerDetails = await User.getRoleSpecificDetails(req.user.userId, req.user.role);
 
@@ -394,15 +195,16 @@ const getTodayIncompleteChecklists = async (req, res) => {
             });
         }
 
-        const incompleteBuses = await BusDailyChecklist.getTodayIncompleteByDepot(depotEngineerDetails.depot_id);
+        const stats = await BusConditionReport.getReviewStatsForDepot(depotEngineerDetails.depot_id);
 
         res.json({
             success: true,
-            message: 'Today\'s incomplete checklists retrieved successfully',
-            incompleteBuses
+            message: 'Bus condition report statistics retrieved successfully',
+            stats,
+            depot_id: depotEngineerDetails.depot_id
         });
     } catch (err) {
-        console.error('Get incomplete checklists error:', err);
+        console.error('Get condition report stats error:', err);
         res.status(500).json({
             success: false,
             message: 'Server error',
@@ -411,11 +213,10 @@ const getTodayIncompleteChecklists = async (req, res) => {
     }
 };
 
-// Get checklist history for a specific bus
-const getChecklistHistoryForBus = async (req, res) => {
-    const { bus_id } = req.params;
-
+const reviewConditionReport = async (req, res) => {
     try {
+        const { report_id } = req.params;
+
         const depotEngineerDetails = await User.getRoleSpecificDetails(req.user.userId, req.user.role);
 
         if (!depotEngineerDetails || !depotEngineerDetails.depot_id) {
@@ -425,32 +226,119 @@ const getChecklistHistoryForBus = async (req, res) => {
             });
         }
 
-        // Verify the bus belongs to the depot engineer's depot
-        const bus = await Bus.findById(bus_id);
-        if (!bus) {
+        const report = await BusConditionReport.findById(report_id);
+
+        if (!report) {
             return res.status(404).json({
                 success: false,
-                message: 'Bus not found'
+                message: 'Report not found'
             });
         }
 
-        if (bus.depot_id !== depotEngineerDetails.depot_id) {
+        const bus = await Bus.findById(report.bus_id);
+
+        if (!bus || bus.depot_id !== depotEngineerDetails.depot_id) {
             return res.status(403).json({
                 success: false,
-                message: 'Not authorized to access checklist history for this bus'
+                message: 'Not authorized to review this report'
             });
         }
 
-        const checklistHistory = await BusDailyChecklist.getByBusId(bus_id);
+        const updatedReport = await BusConditionReport.reviewReport(report_id, {
+            reviewedBy: req.user.userId,
+            reviewStatus: 'reviewed'
+        });
 
         res.json({
             success: true,
-            message: 'Checklist history retrieved successfully',
-            checklistHistory
+            message: 'Report marked as reviewed',
+            report: updatedReport
         });
     } catch (err) {
-        console.error('Get checklist history error:', err);
+        console.error('Review condition report error:', err);
         res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: err.message
+        });
+    }
+};
+
+const CHECKLIST_PART_KEYS = [
+    'engine',
+    'brakes',
+    'tires',
+    'windows',
+    'doors',
+    'lights',
+    'turn_signals',
+    'fire_extinguisher'
+];
+
+const isChecklistPartPassed = (value) => {
+    if (typeof value === 'boolean') {
+        return value;
+    }
+    if (typeof value === 'number') {
+        return value === 1;
+    }
+    if (typeof value === 'string') {
+        const normalized = value.trim().toLowerCase();
+        return normalized === 'true' || normalized === '1' || normalized === 'yes';
+    }
+    return false;
+};
+
+const getDailyChecklistsWithIssues = async (req, res) => {
+    try {
+        const depotEngineerDetails = await User.getRoleSpecificDetails(req.user.userId, req.user.role);
+
+        if (!depotEngineerDetails || !depotEngineerDetails.depot_id) {
+            return res.status(404).json({
+                success: false,
+                message: 'Depot engineer details or depot ID not found for this user'
+            });
+        }
+
+        const checklists = await BusDailyChecklist.getByDepotId(depotEngineerDetails.depot_id);
+
+        const latestChecklistByBus = new Map();
+        for (const checklist of checklists) {
+            const existing = latestChecklistByBus.get(checklist.bus_id);
+            const checklistTime = checklist.check_date ? new Date(checklist.check_date).getTime() : 0;
+            const existingTime = existing?.check_date ? new Date(existing.check_date).getTime() : 0;
+
+            if (!existing || checklistTime >= existingTime) {
+                latestChecklistByBus.set(checklist.bus_id, checklist);
+            }
+        }
+
+        const issues = [];
+        for (const checklist of latestChecklistByBus.values()) {
+            const missedParts = CHECKLIST_PART_KEYS.filter((key) => !isChecklistPartPassed(checklist[key]));
+            if (missedParts.length > 0) {
+                issues.push({
+                    ...checklist,
+                    missed_parts: missedParts
+                });
+            }
+        }
+
+        issues.sort((a, b) => {
+            const busA = a.registration_number || String(a.bus_id);
+            const busB = b.registration_number || String(b.bus_id);
+            return busA.localeCompare(busB);
+        });
+
+        return res.json({
+            success: true,
+            message: 'Daily checklist issues retrieved successfully',
+            checklists: issues,
+            count: issues.length
+        });
+    } catch (err) {
+        console.error('Get daily checklist issues error:', err);
+        return res.status(500).json({
             success: false,
             message: 'Server error',
             error: err.message
@@ -461,12 +349,9 @@ const getChecklistHistoryForBus = async (req, res) => {
 module.exports = {
     getBusesForDepotEngineer,
     updateBusStatus,
-    getConditionReportsForDepot,
-    reviewConditionReport,
-    getPendingReports,
-    getReportStatistics,
     getServiceHistoryForBus,
-    getDailyChecklistsForDepot,
-    getTodayIncompleteChecklists,
-    getChecklistHistoryForBus
+    getConditionReports,
+    getConditionReportStats,
+    reviewConditionReport,
+    getDailyChecklistsWithIssues
 };

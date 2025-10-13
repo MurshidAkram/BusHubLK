@@ -50,6 +50,28 @@ interface NewService {
   scheduled_date: string;
 }
 
+interface DailyChecklist {
+  checklist_id: number;
+  bus_id: number;
+  checker_id: number;
+  check_date: string;
+  engine: boolean | null;
+  brakes: boolean | null;
+  tires: boolean | null;
+  windows: boolean | null;
+  doors: boolean | null;
+  lights: boolean | null;
+  turn_signals: boolean | null;
+  fire_extinguisher: boolean | null;
+  status_after_check: string | null;
+  created_at?: string;
+  updated_at?: string;
+  first_name?: string;
+  last_name?: string;
+  registration_number?: string;
+  missed_parts?: string[];
+}
+
 interface Stats {
   total_services: number;
   pending_count: number;
@@ -66,24 +88,53 @@ interface AppContextType {
   token: string | null;
 }
 
+const STATUS_PRIORITY: Record<string, number> = {
+  'Critical Overdue': 0,
+  'Overdue': 1,
+  'Due Today': 2,
+  'In Progress': 3,
+  'Pending': 4,
+  'Scheduled': 4,
+  'Cancelled': 5,
+  'Completed': 6
+};
+
+type ChecklistPartKey = 'engine' | 'brakes' | 'tires' | 'windows' | 'doors' | 'lights' | 'turn_signals' | 'fire_extinguisher';
+
+const CHECKLIST_PARTS: Array<{ key: ChecklistPartKey; label: string }> = [
+  { key: 'engine', label: 'Engine' },
+  { key: 'brakes', label: 'Brakes' },
+  { key: 'tires', label: 'Tires' },
+  { key: 'windows', label: 'Windows' },
+  { key: 'doors', label: 'Doors' },
+  { key: 'lights', label: 'Lights' },
+  { key: 'turn_signals', label: 'Turn Signals' },
+  { key: 'fire_extinguisher', label: 'Fire Extinguisher' }
+];
+
+const isChecklistPartPassed = (value: unknown): boolean => {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  if (typeof value === 'string') {
+    return value.toLowerCase() === 'true' || value === '1';
+  }
+  if (typeof value === 'number') {
+    return value === 1;
+  }
+  return false;
+};
+
 const ServiceScheduleApp: React.FC = () => {
   const context = useContext(AppContext) as AppContextType | null;
-  
-  // Utility function to get current Sri Lankan time
-  const getSriLankanDate = (date?: Date): Date => {
-    const baseDate = date || new Date();
-    return new Date(baseDate.getTime() + (5.5 * 60 * 60 * 1000));
-  };
-  
-  // Utility function to get Sri Lankan date string (YYYY-MM-DD)
-  const getSriLankanDateString = (date?: Date): string => {
-    return getSriLankanDate(date).toISOString().split('T')[0];
-  };
 
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [services, setServices] = useState<Service[]>([]);
-  const [availableBuses, setAvailableBuses] = useState<Bus[]>([]);
+  const [allBuses, setAllBuses] = useState<Bus[]>([]);
+  const [maintenanceBuses, setMaintenanceBuses] = useState<Bus[]>([]);
+  const [dailyChecklists, setDailyChecklists] = useState<DailyChecklist[]>([]);
+  const [showMaintenanceChecklist, setShowMaintenanceChecklist] = useState<boolean>(false);
   const [stats, setStats] = useState<Stats>({
     total_services: 0,
     pending_count: 0,
@@ -109,6 +160,29 @@ const ServiceScheduleApp: React.FC = () => {
 
   const token = context?.token;
   const user = context?.user;
+
+  const maintenanceAlertBuses = React.useMemo(() => {
+    if (!maintenanceBuses.length) {
+      return [];
+    }
+
+    return maintenanceBuses.filter((bus) => {
+      const hasActiveSchedule = services.some((service) => {
+        if (service.is_deleted) {
+          return false;
+        }
+
+        if (service.bus_id !== bus.bus_id) {
+          return false;
+        }
+
+        const status = service.calculated_status || service.status;
+        return status !== 'Completed' && status !== 'Cancelled';
+      });
+
+      return !hasActiveSchedule;
+    });
+  }, [maintenanceBuses, services]);
 
   // Debug: Log user context
   useEffect(() => {
@@ -252,10 +326,11 @@ const ServiceScheduleApp: React.FC = () => {
         console.log('All buses from API:', buses);
         console.log('Total buses received:', buses.length);
 
-        const maintenanceBuses = buses.filter(bus => bus.status?.toLowerCase() === 'maintenance');
-        console.log('Filtered maintenance buses:', maintenanceBuses);
+        const maintenanceOnly = buses.filter(bus => bus.status?.toLowerCase() === 'maintenance');
+        console.log('Filtered maintenance buses:', maintenanceOnly);
 
-        setAvailableBuses(maintenanceBuses);
+        setAllBuses(buses);
+        setMaintenanceBuses(maintenanceOnly);
       } else {
         console.error('API returned success: false', response.data);
       }
@@ -269,10 +344,35 @@ const ServiceScheduleApp: React.FC = () => {
     }
   };
 
+  const fetchDailyChecklists = async () => {
+    try {
+      if (!token) return;
+
+      const response = await axios.get(
+        'http://localhost:5000/api/depot-engineer/daily-checklists',
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.data.success) {
+        setDailyChecklists(response.data.checklists || []);
+      } else {
+        console.error('Daily checklists API returned success: false', response.data);
+      }
+    } catch (err) {
+      const axiosError = err as AxiosError;
+      console.error('Daily checklists API error:', axiosError);
+    }
+  };
+
   useEffect(() => {
     fetchServices();
     fetchStats();
     fetchAvailableBuses();
+    fetchDailyChecklists();
   }, [token]);
 
   // Force calendar re-render when services change
@@ -476,6 +576,15 @@ const ServiceScheduleApp: React.FC = () => {
     setShowViewModal(true);
   };
 
+
+  const openNewScheduleForBus = (bus: Bus): void => {
+    setNewService({
+      service_type: '',
+      bus_id: bus.bus_id.toString(),
+      scheduled_date: ''
+    });
+    setShowNewScheduleModal(true);
+  };
   const handleUpdateService = async (): Promise<void> => {
     if (!editingService) return;
 
@@ -618,10 +727,85 @@ const ServiceScheduleApp: React.FC = () => {
   console.log('📅 Today full:', today);
   console.log('📅 Calendar month/year:', currentDate.getMonth() + 1, currentDate.getFullYear());
 
+  const busLookup = React.useMemo(() => {
+    const lookup = new Map<number, Bus>();
+    allBuses.forEach((bus) => {
+      lookup.set(bus.bus_id, bus);
+    });
+    return lookup;
+  }, [allBuses]);
+
+  const sortedServices = React.useMemo(() => {
+    return [...services]
+      .filter(service => !service.is_deleted)
+      .sort((a, b) => {
+        const statusA = (a.calculated_status || a.status || '').trim();
+        const statusB = (b.calculated_status || b.status || '').trim();
+        const priorityA = STATUS_PRIORITY[statusA] ?? 99;
+        const priorityB = STATUS_PRIORITY[statusB] ?? 99;
+
+        if (priorityA !== priorityB) {
+          return priorityA - priorityB;
+        }
+
+        const dateA = new Date(a.scheduled_date).getTime();
+        const dateB = new Date(b.scheduled_date).getTime();
+        return dateA - dateB;
+      });
+  }, [services]);
+
+  const maintenanceChecklistIssues = React.useMemo(() => {
+    if (!dailyChecklists.length) {
+      return [] as Array<{ checklist: DailyChecklist; missedParts: string[] }>;
+    }
+
+    const latestChecklistByBus = new Map<number, DailyChecklist>();
+
+    dailyChecklists.forEach((checklist) => {
+      if (!checklist.bus_id) {
+        return;
+      }
+
+      const existing = latestChecklistByBus.get(checklist.bus_id);
+      const checklistTimestamp = checklist.check_date ? new Date(checklist.check_date).getTime() : 0;
+      const existingTimestamp = existing?.check_date ? new Date(existing.check_date).getTime() : 0;
+
+      if (!existing || checklistTimestamp >= existingTimestamp) {
+        latestChecklistByBus.set(checklist.bus_id, checklist);
+      }
+    });
+
+    const issues = Array.from(latestChecklistByBus.values()).map((checklist) => {
+      const missedParts = Array.isArray(checklist.missed_parts) && checklist.missed_parts.length > 0
+        ? checklist.missed_parts
+        : CHECKLIST_PARTS
+          .filter(({ key }) => !isChecklistPartPassed(checklist[key]))
+          .map(({ label }) => label);
+
+      return {
+        checklist,
+        missedParts,
+      };
+    }).filter(({ missedParts }) => missedParts.length > 0);
+
+    return issues.sort((a, b) => {
+      const busA = a.checklist.registration_number || busLookup.get(a.checklist.bus_id)?.registration_number || String(a.checklist.bus_id);
+      const busB = b.checklist.registration_number || busLookup.get(b.checklist.bus_id)?.registration_number || String(b.checklist.bus_id);
+      return busA.localeCompare(busB);
+    });
+  }, [dailyChecklists, busLookup]);
+
   // Helper function to get bus details by ID
   const getBusDetails = (busId: string | number) => {
-    const bus = availableBuses.find(b => b.bus_id.toString() === busId.toString());
-    return bus ? `${bus.registration_number}` : busId;
+    const numericId = Number(busId);
+    const bus = Number.isNaN(numericId) ? undefined : busLookup.get(numericId);
+    if (bus?.registration_number) {
+      return bus.registration_number;
+    }
+    if (typeof busId === 'string') {
+      return busId;
+    }
+    return `Bus ${busId}`;
   };
 
   // Helper function to format date for display (handles timezone issues)
@@ -696,48 +880,146 @@ const ServiceScheduleApp: React.FC = () => {
           </div>
         </div>
 
-        {/* Overdue Services Alert */}
-        {(stats.overdue_count > 0 || stats.critical_overdue_count > 0) && (
+        {stats.critical_overdue_count > 0 && (
+          <div className="mb-6">
+            <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-lg">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <FaExclamationCircle className="h-5 w-5 text-red-400" />
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-red-800">
+                    Critical Overdue Services
+                  </h3>
+                  <div className="mt-2 text-sm text-red-700">
+                    <p>
+                      You have <strong>{stats.critical_overdue_count}</strong> critical overdue service{stats.critical_overdue_count > 1 ? 's' : ''} that require immediate attention.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {maintenanceAlertBuses.length > 0 && (
           <div className="mb-6 space-y-3">
-            {stats.critical_overdue_count > 0 && (
-              <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-lg">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <FaExclamationCircle className="h-5 w-5 text-red-400" />
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div className="flex items-start gap-3">
+                  <div className="mt-1">
+                    <FaExclamationTriangle className="text-yellow-500" />
                   </div>
-                  <div className="ml-3">
-                    <h3 className="text-sm font-medium text-red-800">
-                      Critical Overdue Services
-                    </h3>
-                    <div className="mt-2 text-sm text-red-700">
-                      <p>
-                        You have <strong>{stats.critical_overdue_count}</strong> critical overdue service{stats.critical_overdue_count > 1 ? 's' : ''} that require immediate attention.
-                      </p>
+                  <div>
+                    <h2 className="text-sm font-semibold text-yellow-700">
+                      Maintenance buses awaiting schedules
+                    </h2>
+                    <p className="text-sm text-yellow-600 mt-1">
+                      {maintenanceAlertBuses.length} {maintenanceAlertBuses.length === 1 ? 'bus is' : 'buses are'} currently in maintenance without an upcoming service. Review and schedule them to keep work on track.
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {maintenanceAlertBuses.map((bus) => (
+                        <button
+                          key={bus.bus_id}
+                          onClick={() => openNewScheduleForBus(bus)}
+                          className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-md text-sm font-medium hover:bg-yellow-200 transition-colors"
+                        >
+                          {bus.registration_number}
+                        </button>
+                      ))}
                     </div>
                   </div>
                 </div>
+                <button
+                  onClick={() => setShowMaintenanceChecklist((prev) => !prev)}
+                  className="self-start inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-yellow-700 border border-yellow-300 rounded-md hover:bg-yellow-100 transition-colors"
+                >
+                  {showMaintenanceChecklist ? 'Hide maintenance checklist' : `Show maintenance checklist (${maintenanceChecklistIssues.length})`}
+                </button>
               </div>
-            )}
-            
-            {stats.overdue_count > 0 && (
-              <div className="bg-orange-50 border-l-4 border-orange-400 p-4 rounded-lg">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <FaExclamationTriangle className="h-5 w-5 text-orange-400" />
-                  </div>
-                  <div className="ml-3">
-                    <h3 className="text-sm font-medium text-orange-800">
-                      Overdue Services
-                    </h3>
-                    <div className="mt-2 text-sm text-orange-700">
-                      <p>
-                        You have <strong>{stats.overdue_count}</strong> overdue service{stats.overdue_count > 1 ? 's' : ''} that need to be addressed.
-                      </p>
-                    </div>
+            </div>
+          </div>
+        )}
+
+        {maintenanceChecklistIssues.length > 0 && (
+          <div className="mb-6">
+            <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+              <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-800">Maintenance Part Checklist</h2>
+                </div>
+                {maintenanceAlertBuses.length === 0 && (
+                  <button
+                    onClick={() => setShowMaintenanceChecklist((prev) => !prev)}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700"
+                  >
+                    {showMaintenanceChecklist ? 'Hide checklist' : `Show checklist (${maintenanceChecklistIssues.length})`}
+                  </button>
+                )}
+              </div>
+              {showMaintenanceChecklist && (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Bus</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Last Checked</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Needs Attention</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-100">
+                      {maintenanceChecklistIssues.map(({ checklist, missedParts }) => {
+                        const busName = checklist.registration_number
+                          || busLookup.get(checklist.bus_id)?.registration_number
+                          || getBusDetails(checklist.bus_id);
+
+                        return (
+                          <tr key={checklist.checklist_id}>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{busName}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDateForDisplay(checklist.check_date)}</td>
+                            <td className="px-6 py-4">
+                              <div className="flex flex-wrap gap-2">
+                                {missedParts.map(part => (
+                                  <span
+                                    key={part}
+                                    className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700"
+                                  >
+                                    {part}
+                                  </span>
+                                ))}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Overdue Services Alert */}
+        {stats.overdue_count > 0 && (
+          <div className="mb-6">
+            <div className="bg-orange-50 border-l-4 border-orange-400 p-4 rounded-lg">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <FaExclamationTriangle className="h-5 w-5 text-orange-400" />
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-orange-800">
+                    Overdue Services
+                  </h3>
+                  <div className="mt-2 text-sm text-orange-700">
+                    <p>
+                      You have <strong>{stats.overdue_count}</strong> overdue service{stats.overdue_count > 1 ? 's' : ''} that need to be addressed.
+                    </p>
                   </div>
                 </div>
               </div>
-            )}
+            </div>
           </div>
         )}
 
@@ -805,7 +1087,7 @@ const ServiceScheduleApp: React.FC = () => {
         </div>
 
         {/* Calendar Section */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex-grow mb-8">
+  <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
           <div className="p-6">
             <h2 className="text-xl font-semibold text-gray-700 mb-6">Calendar View</h2>
             
@@ -848,7 +1130,7 @@ const ServiceScheduleApp: React.FC = () => {
                 return (
                   <div
                     key={index}
-                    className={`p-1 border border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors min-h-[100px] ${
+                    className={`p-1 border border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors min-h-[70px] ${
                       isToday ? 'bg-blue-50 border-blue-200' : ''
                     } ${isSelected ? 'bg-blue-100 border-blue-300' : ''} ${
                       hasServices ? 'border-l-4 border-l-blue-500' : ''
@@ -969,7 +1251,7 @@ const ServiceScheduleApp: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {services.filter(service => !service.is_deleted).map((service) => {
+                  {sortedServices.map((service) => {
                     // Debug each service in the table
                     console.log('🏓 Table row for service:', {
                       id: service.id,
@@ -982,7 +1264,7 @@ const ServiceScheduleApp: React.FC = () => {
                     return (
                     <tr key={service.id} className="border-b border-gray-100 hover:bg-gray-50">
                       <td className="py-4 px-4 text-gray-900">{service.service_type}</td>
-                      <td className="py-4 px-4 text-gray-900">{getBusDetails(service.bus_id)}</td>
+                      <td className="py-4 px-4 text-gray-900">{service.registration_number || getBusDetails(service.bus_id)}</td>
                       <td className="py-4 px-4 text-gray-900">{formatDateForDisplay(service.scheduled_date)}</td>
                       <td className="py-4 px-4">
                         <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(service.calculated_status || service.status)}`}>
@@ -1092,9 +1374,9 @@ const ServiceScheduleApp: React.FC = () => {
                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
                     <option value="">Select a bus</option>
-                    {availableBuses.map((bus) => (
-                      <option key={bus.bus_id} value={bus.bus_id}>
-                        {bus.registration_number} - {bus.model} (ID: {bus.bus_id})
+                    {maintenanceBuses.map((bus) => (
+                      <option key={bus.bus_id} value={bus.bus_id.toString()}>
+                        {bus.registration_number}
                       </option>
                     ))}
                   </select>
@@ -1160,7 +1442,7 @@ const ServiceScheduleApp: React.FC = () => {
                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
                     <option value="">Select a bus</option>
-                    {availableBuses.map((bus) => (
+                    {maintenanceBuses.map((bus) => (
                       <option key={bus.bus_id} value={bus.bus_id}>
                         {bus.registration_number} - {bus.model} (ID: {bus.bus_id})
                       </option>
@@ -1199,7 +1481,6 @@ const ServiceScheduleApp: React.FC = () => {
             </div>
           </div>
         )}
-
         {/* View Service Details Modal - Read Only */}
         {showViewModal && viewingService && (
           <div className="fixed inset-0 backdrop-blur-sm bg-white/10 flex items-center justify-center z-50 p-4">
