@@ -263,6 +263,14 @@ try {
 }
 
 try {
+  const passengerNotificationRoutes = require('./routes/passengerNotificationRoutes');
+  app.use('/api/passenger-notifications', passengerNotificationRoutes);
+  console.log('✅ passengerNotificationRoutes loaded');
+} catch (error) {
+  console.log('❌ passengerNotificationRoutes error:', error.message);
+}
+
+try {
   const driverFoundItemRoutes = require('./routes/driverFoundItemRoutes');
   app.use('/api/driver', driverFoundItemRoutes);
   console.log('✅ driverFoundItemRoutes loaded');

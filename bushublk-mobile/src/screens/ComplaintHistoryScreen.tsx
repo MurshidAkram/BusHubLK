@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 
 import {
   StyleSheet,
@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   Modal,
   Dimensions,
+  FlatList,
 } from "react-native";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
@@ -36,16 +37,87 @@ const AppColors = {
 
 };
 
+type Complaint = {
+  id: number;
+  complaint_type: string;
+  status: string;
+  route_number: string;
+  bus_number?: string | null;
+  incident_date: string;
+  created_at: string;
+  updated_at?: string | null;
+  last_updated_at?: string | null;
+  location: string;
+  priority?: string | null;
+  description?: string | null;
+  contact_info?: string | null;
+  incident_time?: string | null;
+  image_url?: string | null;
+};
+
+const PAGE_SIZE = 20;
+
+const normalizeStatusLabel = (status: string | null | undefined): string => {
+  const safeStatus = (status ?? '').toString().trim();
+  if (!safeStatus) {
+    return 'Pending';
+  }
+
+  const normalized = safeStatus
+    .replace(/_/g, ' ')
+    .replace(/-/g, ' ')
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
+
+  switch (normalized) {
+    case 'pending':
+      return 'Pending';
+    case 'in progress':
+    case 'inprogress':
+    case 'in progress ': // stray space safety
+      return 'In Progress';
+    case 'resolved':
+      return 'Resolved';
+    case 'rejected':
+      return 'Rejected';
+    case 'closed':
+      return 'Closed';
+    case 'escalated':
+      return 'Escalated';
+    default:
+      return safeStatus;
+  }
+};
+
 export default function ComplaintHistoryScreen() {
   const navigation = useNavigation();
 
-  const [complaints, setComplaints] = useState([]);
-  const [loading, setLoading] = useState(true); // Initial loading state
+  const [complaints, setComplaints] = useState<Complaint[]>([]);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedComplaint, setSelectedComplaint] = useState<any>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
 
-  const fetchUserComplaints = async () => {
+  const pageRef = useRef(0);
+  const totalCountRef = useRef<number | null>(null);
+
+  const fetchUserComplaints = useCallback(async ({ reset = false } = {}) => {
+    if (reset) {
+      pageRef.current = 0;
+      totalCountRef.current = null;
+      setHasMore(true);
+    }
+
+    const isInitialLoad = reset || pageRef.current === 0;
+
+    if (isInitialLoad) {
+      setLoading(true);
+    } else {
+      setLoadingMore(true);
+    }
+
     try {
       const token = await storageAPI.getAuthToken();
       if (!token) {
@@ -53,19 +125,32 @@ export default function ComplaintHistoryScreen() {
         return;
       }
 
-      console.log('🔍 Fetching complaints from:', `${API_BASE_URL}/api/complaints/my-complaints`);
+      const offset = pageRef.current * PAGE_SIZE;
+      const params = new URLSearchParams({
+        limit: PAGE_SIZE.toString(),
+        offset: offset.toString(),
+      });
+
+      const requestUrl = `${API_BASE_URL}/api/complaints/my-complaints?${params.toString()}`;
+
+      if (__DEV__) {
+        console.log('🔍 Fetching complaints from:', requestUrl);
+      }
       
       // Create a timeout promise
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('timeout')), 15000)
       );
       
-      const fetchPromise = fetch(`${API_BASE_URL}/api/complaints/my-complaints`, {
+      const fetchPromise = fetch(requestUrl, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
+          "Authorization": `Bearer ${token}`,
+          "Cache-Control": "no-cache",
+          Pragma: "no-cache"
         },
+        cache: "no-store"
       });
       
       // Race between fetch and timeout
@@ -76,8 +161,74 @@ export default function ComplaintHistoryScreen() {
       const result = await response.json();
 
       if (response.ok) {
-        console.log('📋 Complaints loaded successfully:', result.complaints?.length || 0, 'complaints');
-        setComplaints(result.complaints);
+        const recordsRaw = Array.isArray(result?.complaints)
+          ? result.complaints
+          : Array.isArray(result?.data)
+            ? result.data
+            : [];
+
+        const records: Complaint[] = recordsRaw.map((entry: any) => {
+          const lastUpdated = entry.last_updated_at || entry.updated_at || entry.created_at || null;
+          return {
+            ...entry,
+            last_updated_at: lastUpdated,
+            updated_at: entry.updated_at ?? null,
+          };
+        });
+
+        if (typeof result?.count === 'number' && !Number.isNaN(result.count)) {
+          totalCountRef.current = result.count;
+        }
+
+        let nextComplaints: Complaint[] = [];
+        setComplaints(prev => {
+          if (isInitialLoad) {
+            nextComplaints = records;
+            return records;
+          }
+
+          if (!records.length) {
+            nextComplaints = prev;
+            return prev;
+          }
+
+          const existingIds = new Set(prev.map(item => item.id));
+          const deduped = records.filter(item => !existingIds.has(item.id));
+
+          if (!deduped.length) {
+            nextComplaints = prev;
+            return prev;
+          }
+
+          nextComplaints = [...prev, ...deduped];
+          return nextComplaints;
+        });
+
+        const totalSoFar = isInitialLoad ? records.length : nextComplaints.length;
+        const availableCount = totalCountRef.current;
+        const receivedCount = records.length;
+        const moreAvailable = availableCount != null
+          ? totalSoFar < availableCount
+          : receivedCount === PAGE_SIZE;
+
+        setHasMore(moreAvailable);
+
+        if (receivedCount > 0) {
+          pageRef.current += 1;
+        }
+
+        if (__DEV__) {
+          console.log('📋 Complaints loaded successfully:', {
+            receivedCount,
+            totalSoFar,
+            availableCount,
+            nextPage: pageRef.current,
+            moreAvailable,
+          });
+          if (records.length) {
+            console.log('🧾 Complaint payload sample:', records.slice(0, 3));
+          }
+        }
       } else {
         console.error('❌ Server error:', response.status, result);
         Alert.alert("Error", result.message || "Failed to fetch complaints");
@@ -94,25 +245,26 @@ export default function ComplaintHistoryScreen() {
       // Only show errors for actual server failures
       Alert.alert("Error", "Unable to load complaints. Please try again later.");
     } finally {
-
-      setLoading(false);
-      setRefreshing(false);
+      if (isInitialLoad) {
+        setLoading(false);
+      } else {
+        setLoadingMore(false);
+      }
     }
-  };
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
-      setLoading(true); // Show loader when screen is focused
-
-      fetchUserComplaints();
-    }, [])
+      fetchUserComplaints({ reset: true });
+    }, [fetchUserComplaints])
   );
 
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    fetchUserComplaints();
-  }, []);
+    fetchUserComplaints({ reset: true })
+      .finally(() => setRefreshing(false));
+  }, [fetchUserComplaints]);
 
   const formatDate = (dateString: string) => {
     if (!dateString) return 'N/A';
@@ -120,111 +272,128 @@ export default function ComplaintHistoryScreen() {
     return new Date(dateString).toLocaleDateString(undefined, options);
   };
 
+  const formatDateTime = (dateString?: string | null) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) {
+      return 'N/A';
+    }
+
+    return date.toLocaleString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  };
+
   const getStatusStyle = (status: string) => {
-    switch (status) {
+    const label = normalizeStatusLabel(status);
+    switch (label) {
       case "Pending":
-        return { backgroundColor: AppColors.warning, icon: "hourglass-outline" };
+        return { backgroundColor: AppColors.warning, icon: "hourglass-outline", label };
       case "In Progress":
-        return { backgroundColor: AppColors.primary, icon: "sync-outline" };
+        return { backgroundColor: AppColors.primary, icon: "sync-outline", label };
       case "Resolved":
-        return { backgroundColor: AppColors.success, icon: "checkmark-circle-outline" };
+        return { backgroundColor: AppColors.success, icon: "checkmark-circle-outline", label };
       case "Rejected":
-        return { backgroundColor: AppColors.danger, icon: "close-circle-outline" };
+        return { backgroundColor: AppColors.danger, icon: "close-circle-outline", label };
+      case "Closed":
+        return { backgroundColor: AppColors.textSecondary, icon: "lock-closed-outline", label };
+      case "Escalated":
+        return { backgroundColor: AppColors.primaryDark, icon: "alert-circle-outline", label };
       default:
-        return { backgroundColor: AppColors.textSecondary, icon: "help-circle-outline" };
+        return { backgroundColor: AppColors.textSecondary, icon: "help-circle-outline", label };
     }
   };
 
-  const handleComplaintPress = (complaint: any) => {
+  const handleComplaintPress = useCallback((complaint: Complaint) => {
     setSelectedComplaint(complaint);
     setModalVisible(true);
-  };
+  }, []);
 
-  const closeModal = () => {
+  const closeModal = useCallback(() => {
     setModalVisible(false);
     setSelectedComplaint(null);
-  };
-  
-  const renderContent = () => {
-    if (loading) {
-      return (
-        <View style={styles.emptyContainer}>
-          <ActivityIndicator size="large" color={AppColors.primary} />
-          <Text style={styles.emptyText}>Loading complaints...</Text>
-        </View>
-      );
-    }
+  }, []);
 
-    if (complaints.length === 0) {
-      return (
-        <View style={styles.emptyContainer}>
-          <Ionicons name="file-tray-stacked-outline" size={60} color={AppColors.textSecondary} />
-          <Text style={styles.emptyTitle}>No Complaints Found</Text>
-          <Text style={styles.emptyText}>When you submit a complaint, it will appear here.</Text>
-          <TouchableOpacity style={styles.submitButton} onPress={() => navigation.navigate("Complaints" as never)}>
-            <Text style={styles.submitButtonText}>File a New Complaint</Text>
-          </TouchableOpacity>
+  const detailStatusStyle = selectedComplaint ? getStatusStyle(selectedComplaint.status) : null;
+  
+  const renderComplaintItem = useCallback(({ item }: { item: Complaint }) => {
+    const statusStyle = getStatusStyle(item.status);
+    return (
+      <TouchableOpacity
+        style={styles.card}
+        onPress={() => handleComplaintPress(item)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.cardHeader}>
+          <View style={[styles.statusIcon, { backgroundColor: statusStyle.backgroundColor }]}>
+            <Ionicons name={statusStyle.icon as any} size={22} color="#FFFFFF" />
+          </View>
+          <View style={styles.headerTextContainer}>
+            <Text style={styles.complaintType}>{item.complaint_type.replace(/_/g, " ")}</Text>
+            <Text style={styles.complaintDate}>Last updated {formatDateTime(item.last_updated_at || item.updated_at || item.created_at)}</Text>
+            <Text style={styles.complaintFiledDate}>Filed on {formatDate(item.created_at)}</Text>
+          </View>
+          <View style={[styles.statusBadge, { backgroundColor: statusStyle.backgroundColor }]}>
+            <Text style={styles.statusText}>{statusStyle.label}</Text>
+          </View>
         </View>
-      );
+
+        <View style={styles.cardBody}>
+          <View style={styles.infoRow}>
+            <Ionicons name="bus-outline" size={18} color={AppColors.textSecondary} />
+            <Text style={styles.infoText}>Route <Text style={styles.infoBold}>{item.route_number}</Text></Text>
+          </View>
+          {item.bus_number && (
+            <View style={styles.infoRow}>
+              <Ionicons name="information-circle-outline" size={18} color={AppColors.textSecondary} />
+              <Text style={styles.infoText}>Bus No. <Text style={styles.infoBold}>{item.bus_number}</Text></Text>
+            </View>
+          )}
+          <View style={styles.infoRow}>
+            <Ionicons name="location-outline" size={18} color={AppColors.textSecondary} />
+            <Text style={styles.infoText}>{item.location}</Text>
+          </View>
+          <View style={styles.infoRow}>
+            <Ionicons name="calendar-outline" size={18} color={AppColors.textSecondary} />
+            <Text style={styles.infoText}>Incident on {formatDate(item.incident_date)}</Text>
+          </View>
+        </View>
+
+        <View style={styles.viewMoreContainer}>
+          <Text style={styles.viewMoreText}>Tap to view details</Text>
+          <Ionicons name="chevron-forward-outline" size={16} color={AppColors.primary} />
+        </View>
+      </TouchableOpacity>
+    );
+  }, [handleComplaintPress]);
+
+  const renderEmptyComponent = useCallback(() => {
+    if (loading) {
+      return null;
     }
 
     return (
-      <View>
-        {complaints.map((complaint: any) => {
-          const statusStyle = getStatusStyle(complaint.status);
-          return (
-            <TouchableOpacity 
-              key={complaint.id} 
-              style={styles.card}
-              onPress={() => handleComplaintPress(complaint)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.cardHeader}>
-                <View style={[styles.statusIcon, { backgroundColor: statusStyle.backgroundColor }]}>
-                  <Ionicons name={statusStyle.icon as any} size={22} color="#FFFFFF" />
-                </View>
-                <View style={styles.headerTextContainer}>
-                  <Text style={styles.complaintType}>{complaint.complaint_type.replace(/_/g, " ")}</Text>
-                  <Text style={styles.complaintDate}>Filed on {formatDate(complaint.created_at)}</Text>
-                </View>
-                <View style={[styles.statusBadge, { backgroundColor: statusStyle.backgroundColor }]}>
-                  <Text style={styles.statusText}>{complaint.status}</Text>
-                </View>
-              </View>
-
-              <View style={styles.cardBody}>
-                <View style={styles.infoRow}>
-
-                  <Ionicons name="bus-outline" size={18} color={AppColors.textSecondary} />
-                  <Text style={styles.infoText}>Route <Text style={styles.infoBold}>{complaint.route_number}</Text></Text>
-                </View>
-                {complaint.bus_number && (
-                  <View style={styles.infoRow}>
-                    <Ionicons name="information-circle-outline" size={18} color={AppColors.textSecondary} />
-                    <Text style={styles.infoText}>Bus No. <Text style={styles.infoBold}>{complaint.bus_number}</Text></Text>
-                  </View>
-                )}
-                <View style={styles.infoRow}>
-                  <Ionicons name="location-outline" size={18} color={AppColors.textSecondary} />
-                  <Text style={styles.infoText}>{complaint.location}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Ionicons name="calendar-outline" size={18} color={AppColors.textSecondary} />
-                  <Text style={styles.infoText}>Incident on {formatDate(complaint.incident_date)}</Text>
-                </View>
-              </View>
-              
-              {/* Click to view details indicator */}
-              <View style={styles.viewMoreContainer}>
-                <Text style={styles.viewMoreText}>Tap to view details</Text>
-                <Ionicons name="chevron-forward-outline" size={16} color={AppColors.primary} />
-              </View>
-            </TouchableOpacity>
-          );
-        })}
+      <View style={styles.emptyContainer}>
+        <Ionicons name="file-tray-stacked-outline" size={60} color={AppColors.textSecondary} />
+        <Text style={styles.emptyTitle}>No Complaints Found</Text>
+        <Text style={styles.emptyText}>When you submit a complaint, it will appear here.</Text>
+        <TouchableOpacity style={styles.submitButton} onPress={() => navigation.navigate("Complaints" as never)}>
+          <Text style={styles.submitButtonText}>File a New Complaint</Text>
+        </TouchableOpacity>
       </View>
     );
-  };
+  }, [loading, navigation]);
+
+  const handleLoadMore = useCallback(() => {
+    if (!hasMore || loadingMore || loading) {
+      return;
+    }
+    fetchUserComplaints();
+  }, [fetchUserComplaints, hasMore, loadingMore, loading]);
 
 
   return (
@@ -242,14 +411,44 @@ export default function ComplaintHistoryScreen() {
         </View>
       </LinearGradient>
 
-      <ScrollView
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[AppColors.primary]} tintColor={AppColors.primary} />}
-      >
-        {renderContent()}
-
-      </ScrollView>
+      {loading && complaints.length === 0 ? (
+        <View style={styles.loaderWrapper}>
+          <ActivityIndicator size="large" color={AppColors.primary} />
+          <Text style={styles.emptyText}>Loading complaints...</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={complaints}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={renderComplaintItem}
+          contentContainerStyle={
+            complaints.length === 0
+              ? styles.emptyListContainer
+              : styles.listContentContainer
+          }
+          ListEmptyComponent={renderEmptyComponent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[AppColors.primary]}
+              tintColor={AppColors.primary}
+            />
+          }
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.2}
+          ListFooterComponent={
+            loadingMore ? (
+              <View style={styles.footerLoader}>
+                <ActivityIndicator size="small" color={AppColors.primary} />
+              </View>
+            ) : hasMore ? (
+              <View style={styles.footerSpacer} />
+            ) : null
+          }
+        />
+      )}
 
       {/* Detailed Complaint Modal */}
       <Modal
@@ -276,9 +475,11 @@ export default function ComplaintHistoryScreen() {
 
                 <View style={styles.detailSection}>
                   <Text style={styles.detailLabel}>Status</Text>
-                  <View style={[styles.statusBadge, { backgroundColor: getStatusStyle(selectedComplaint.status).backgroundColor }]}>
-                    <Text style={styles.statusText}>{selectedComplaint.status}</Text>
-                  </View>
+                  {detailStatusStyle && (
+                    <View style={[styles.statusBadge, { backgroundColor: detailStatusStyle.backgroundColor }]}>
+                      <Text style={styles.statusText}>{detailStatusStyle.label}</Text>
+                    </View>
+                  )}
                 </View>
 
                 <View style={styles.detailSection}>
@@ -302,6 +503,13 @@ export default function ComplaintHistoryScreen() {
                 <View style={styles.detailSection}>
                   <Text style={styles.detailLabel}>Filed Date</Text>
                   <Text style={styles.detailValue}>{formatDate(selectedComplaint.created_at)}</Text>
+                </View>
+
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailLabel}>Last Updated</Text>
+                  <Text style={styles.detailValue}>
+                    {formatDateTime(selectedComplaint.last_updated_at || selectedComplaint.updated_at || selectedComplaint.created_at)}
+                  </Text>
                 </View>
 
                 <View style={styles.detailSection}>
@@ -335,6 +543,14 @@ const styles = StyleSheet.create({
   contentContainer: {
     padding: 20,
     flexGrow: 1,
+  },
+
+  loaderWrapper: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 40,
   },
 
   headerGradient: {
@@ -398,6 +614,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
+  listContentContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 32,
+  },
+  emptyListContainer: {
+    flexGrow: 1,
+    paddingHorizontal: 20,
+    paddingTop: 40,
+    paddingBottom: 60,
+    justifyContent: 'center',
+  },
   card: {
     backgroundColor: AppColors.card,
     borderRadius: 16,
@@ -439,6 +667,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: AppColors.textSecondary,
 
+  },
+  complaintFiledDate: {
+    fontSize: 12,
+    color: AppColors.textSecondary,
+    opacity: 0.8,
+    marginTop: 2,
   },
   statusBadge: {
     paddingHorizontal: 10,
@@ -483,6 +717,12 @@ const styles = StyleSheet.create({
     color: AppColors.primary,
     marginRight: 5,
     fontWeight: '500',
+  },
+  footerLoader: {
+    paddingVertical: 18,
+  },
+  footerSpacer: {
+    height: 24,
   },
   // Modal Styles
   modalOverlay: {
