@@ -138,12 +138,12 @@ const Notifications = () => {
                       )}
                       {notification.type === 'manager_chat' && (
                         <span>
-                          <strong>Depot Message:</strong> {notification.text}
+                          <strong>Depot Engineer has sent a message:</strong> {notification.text}
                         </span>
                       )}
                       {notification.type === 'rto_manager_chat' && (
                         <span>
-                          <strong>RTO Message:</strong> {notification.text}
+                          <strong>RTO Officer has sent a message:</strong> {notification.text}
                         </span>
                       )}
                     </div>

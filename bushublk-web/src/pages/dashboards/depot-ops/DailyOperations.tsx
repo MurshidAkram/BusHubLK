@@ -19,7 +19,10 @@ const DailyOperations: React.FC = () => {
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [assignmentDate, setAssignmentDate] = useState<string>(() => {
     const today = new Date();
-    return today.toISOString().slice(0, 10);
+    const localDateString = today.getFullYear() + '-' +
+      String(today.getMonth() + 1).padStart(2, '0') + '-' +
+      String(today.getDate()).padStart(2, '0');
+    return localDateString;
   });
 
   // Modal state

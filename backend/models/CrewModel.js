@@ -4,7 +4,10 @@ class CrewModel {
   // Get all crew (drivers + conductors) for a depot & region, with status
   static async getCrewByDepotRegion(depot_id, region_id) {
     // Today's date
-    const today = new Date().toISOString().slice(0, 10);
+    const today = new Date();
+    const localDateString = today.getFullYear() + '-' +
+      String(today.getMonth() + 1).padStart(2, '0') + '-' +
+      String(today.getDate()).padStart(2, '0');
 
     // Drivers
     const drivers = await db.query(
@@ -22,7 +25,7 @@ class CrewModel {
        JOIN users u ON d.driver_id = u.user_id
        LEFT JOIN crew_status cs ON cs.person_id = d.driver_id AND cs.role = 'Driver'
        WHERE d.depot_id = $1 AND d.region_id = $2`,
-      [depot_id, region_id, today]
+      [depot_id, region_id, localDateString]
     );
     // Conductors
     const conductors = await db.query(
@@ -40,7 +43,7 @@ class CrewModel {
        JOIN users u ON c.conductor_id = u.user_id
        LEFT JOIN crew_status cs ON cs.person_id = c.conductor_id AND cs.role = 'Conductor'
        WHERE c.depot_id = $1 AND c.region_id = $2`,
-      [depot_id, region_id, today]
+      [depot_id, region_id, localDateString]
     );
     const normalize = row => ({
       ...row,
