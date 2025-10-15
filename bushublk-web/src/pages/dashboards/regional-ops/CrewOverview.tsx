@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
+import { AppContext } from '../../../context/AppContext'; // adjust path as needed
 import { Search } from 'lucide-react';
 
 type CrewStatus = 'Off Duty' | 'On Duty' | 'On Break';
@@ -13,24 +14,82 @@ interface CrewMember {
 }
 
 const CrewOverview = () => {
+  const appContext = useContext(AppContext); // <-- get context safely
+  const token = appContext?.token;
+  const user = appContext?.user;
+  const regionId = user?.region_id ?? 1; // fallback to 1 if not available
+
   const [filterRole, setFilterRole] = useState<'All' | 'Driver' | 'Conductor'>('All');
-  const [filterDepot, setFilterDepot] = useState<'All' | string>('All');
+  const [filterDepot, setFilterDepot] = useState<'All' | number>('All');
   const [searchTerm, setSearchTerm] = useState('');
+  const [depots, setDepots] = useState<{ depot_id: number, depot_name: string }[]>([]);
+  const [crewList, setCrewList] = useState<CrewMember[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Mock data
-  const mockCrewList: CrewMember[] = [
-    { id: 1, name: 'John Smith', contact: '+1-555-0101', role: 'Driver', status: 'On Duty', depot: 'Main Depot' },
-    { id: 2, name: 'Sarah Johnson', contact: '+1-555-0102', role: 'Conductor', status: 'On Duty', depot: 'Main Depot' },
-    { id: 3, name: 'Mike Chen', contact: '+1-555-0103', role: 'Driver', status: 'Off Duty', depot: 'North Depot' },
-    { id: 4, name: 'Emily Davis', contact: '+1-555-0104', role: 'Conductor', status: 'On Break', depot: 'South Depot' },
-    { id: 5, name: 'Robert Wilson', contact: '+1-555-0105', role: 'Driver', status: 'On Duty', depot: 'West Depot' },
-    { id: 6, name: 'Lisa Brown', contact: '+1-555-0106', role: 'Conductor', status: 'Off Duty', depot: 'Main Depot' },
-    { id: 7, name: 'David Miller', contact: '+1-555-0107', role: 'Driver', status: 'On Duty', depot: 'East Depot' },
-    { id: 8, name: 'Maria Garcia', contact: '+1-555-0108', role: 'Conductor', status: 'On Break', depot: 'North Depot' },
-  ];
+  useEffect(() => {
+    if (!token || !regionId) return;
 
-  // Get unique depots for filter dropdown
-  const uniqueDepots = ['All', ...new Set(mockCrewList.map(member => member.depot))];
+    const fetchDepotsAndCrew = async () => {
+      setIsLoading(true);
+      // Fetch depots
+      const depotsRes = await fetch(`http://localhost:5000/api/depots?region_id=${regionId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const depotsData = await depotsRes.json();
+      const filteredDepots = (depotsData.depots || []).filter(d => d.region_id === regionId);
+      setDepots(filteredDepots);
+
+      // Fetch all crews in parallel
+      const crewPromises = filteredDepots.map((depot: { depot_id: any; depot_name: any; }) =>
+        fetch(`http://localhost:5000/api/crew?depot_id=${depot.depot_id}&region_id=${regionId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+          .then(res => res.json())
+          .then(data => (Array.isArray(data) ? data : []).map((member: any) => ({
+            id: member.person_id,
+            name: member.name,
+            contact: member.contact,
+            role: member.role,
+            status: member.status,
+            depot: depot.depot_name
+          })))
+      );
+      const allCrewArrays = await Promise.all(crewPromises);
+      const allCrew = allCrewArrays.flat();
+      setCrewList(allCrew);
+      setIsLoading(false);
+    };
+
+    fetchDepotsAndCrew();
+  }, [regionId, token]);
+
+  useEffect(() => {
+    if (!token || !regionId || depots.length === 0) return;
+    if (filterDepot === 'All') return; // Already loaded all crew
+
+    const fetchCrewForDepot = async () => {
+      setIsLoading(true);
+      const res = await fetch(`http://localhost:5000/api/crew?depot_id=${filterDepot}&region_id=${regionId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      const crew = (Array.isArray(data) ? data : []).map((member: any) => ({
+        id: member.person_id,
+        name: member.name,
+        contact: member.contact,
+        role: member.role,
+        status: member.status,
+        depot: depots.find(d => d.depot_id === filterDepot)?.depot_name || ''
+      }));
+      setCrewList(crew);
+      setIsLoading(false);
+    };
+
+    if (String(filterDepot) !== 'All') {
+      fetchCrewForDepot();
+    }
+    // eslint-disable-next-line
+  }, [filterDepot, depots, regionId, token]);
 
   const getStatusColor = (status: CrewStatus) => {
     switch (status) {
@@ -51,9 +110,9 @@ const CrewOverview = () => {
       : 'bg-purple-100 text-purple-800';
   };
 
-  const filteredCrew = mockCrewList.filter(member => {
+  const filteredCrew = crewList.filter(member => {
     const matchesRole = filterRole === 'All' || member.role === filterRole;
-    const matchesDepot = filterDepot === 'All' || member.depot === filterDepot;
+    const matchesDepot = filterDepot === 'All' || member.depot === depots.find(d => d.depot_id === filterDepot)?.depot_name;
     const matchesSearch =
       member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       member.contact.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -61,6 +120,9 @@ const CrewOverview = () => {
     
     return matchesRole && matchesDepot && matchesSearch;
   });
+
+  // Get unique depots for filter dropdown
+  const uniqueDepots = ['All', ...new Set(crewList.map(member => member.depot))];
 
   return (
     <div className="space-y-6 relative">
@@ -85,12 +147,13 @@ const CrewOverview = () => {
             {/* Depot Filter */}
             <select
               value={filterDepot}
-              onChange={(e) => setFilterDepot(e.target.value)}
+              onChange={(e) => setFilterDepot(e.target.value === 'All' ? 'All' : Number(e.target.value))}
               className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
-              {uniqueDepots.map(depot => (
-                <option key={depot} value={depot}>
-                  {depot === 'All' ? 'All Depots' : depot}
+              <option value="All">All Depots</option>
+              {depots.map(depot => (
+                <option key={depot.depot_id} value={depot.depot_id}>
+                  {depot.depot_name}
                 </option>
               ))}
             </select>
@@ -165,7 +228,7 @@ const CrewOverview = () => {
 
       {filteredCrew.length > 0 && (
         <div className="text-sm text-gray-500 px-4">
-          Showing {filteredCrew.length} of {mockCrewList.length} crew members
+          Showing {filteredCrew.length} of {crewList.length} crew members
         </div>
       )}
     </div>
