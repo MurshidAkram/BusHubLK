@@ -35,13 +35,14 @@ interface BusResponse {
   bus?: Bus;
 }
 
-interface PartCondition {
-  part_name: string;
-  checked: boolean;
-}
+type SeverityLevel = 'low' | 'medium' | 'high';
 
-interface PartCheckingData {
-  main_parts: PartCondition[];
+interface PartCondition {
+  part_key: string;
+  part_name: string;
+  hasIssue: boolean;
+  notes: string;
+  severity: SeverityLevel;
 }
 
 const Busavailability = () => {
@@ -58,21 +59,27 @@ const Busavailability = () => {
   const [buses, setBuses] = useState<Bus[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState<boolean>(false);
   const [selectedBus, setSelectedBus] = useState<Bus | null>(null);
   const [editedStatus, setEditedStatus] = useState<Bus['status']>('Active');
-  const [partCheckingData, setPartCheckingData] = useState<PartCheckingData>({
-    main_parts: [
-      { part_name: 'Engine', checked: false },
-      { part_name: 'Brakes', checked: false },
-      { part_name: 'Tires', checked: false },
-      { part_name: 'Windows', checked: false },
-      { part_name: 'Doors', checked: false },
-      { part_name: 'Lights', checked: false },
-      { part_name: 'Turn Signals', checked: false },
-      { part_name: 'Fire Extinguisher', checked: false }
-    ]
-  });
+  const PART_DEFINITIONS: PartCondition[] = [
+    { part_key: 'engine', part_name: 'Engine', hasIssue: false, notes: '', severity: 'medium' },
+    { part_key: 'brakes', part_name: 'Brakes', hasIssue: false, notes: '', severity: 'medium' },
+    { part_key: 'tires', part_name: 'Tires', hasIssue: false, notes: '', severity: 'medium' },
+    { part_key: 'windows', part_name: 'Windows', hasIssue: false, notes: '', severity: 'medium' },
+    { part_key: 'doors', part_name: 'Doors', hasIssue: false, notes: '', severity: 'medium' },
+    { part_key: 'headlights', part_name: 'Head Lights', hasIssue: false, notes: '', severity: 'medium' },
+    { part_key: 'signallights', part_name: 'Signal Lights', hasIssue: false, notes: '', severity: 'medium' }
+  ];
+
+  const severityOptions: Array<{ value: SeverityLevel; label: string }> = [
+    { value: 'low', label: 'Low' },
+    { value: 'medium', label: 'Medium' },
+    { value: 'high', label: 'High' }
+  ];
+
+  const [partConditions, setPartConditions] = useState<PartCondition[]>(PART_DEFINITIONS);
 
   const itemsPerPage = 10;
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -182,12 +189,15 @@ const Busavailability = () => {
   const handleEditClick = (bus: Bus) => {
     setSelectedBus(bus);
     setEditedStatus(bus.status);
+    setPartConditions(PART_DEFINITIONS.map((part) => ({ ...part })));
+    setSuccessMessage(null);
     setShowEditModal(true);
   };
 
   const handleCancelEdit = () => {
     setShowEditModal(false);
     setSelectedBus(null);
+    setPartConditions(PART_DEFINITIONS.map((part) => ({ ...part })));
   };
 
   const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -195,13 +205,39 @@ const Busavailability = () => {
     setEditedStatus(newStatus);
   };
 
-  const updatePartCondition = (partIndex: number, checked: boolean) => {
-    setPartCheckingData(prev => ({
-      ...prev,
-      main_parts: prev.main_parts.map((part, index) => 
-        index === partIndex ? { ...part, checked } : part
+  const updatePartIssue = (partIndex: number, hasIssue: boolean) => {
+    setPartConditions((prev) =>
+      prev.map((part, index) =>
+        index === partIndex
+          ? {
+              ...part,
+              hasIssue,
+              notes: hasIssue ? part.notes : '',
+              severity: hasIssue ? part.severity : 'medium'
+            }
+          : part
       )
-    }));
+    );
+  };
+
+  const updatePartNotes = (partIndex: number, value: string) => {
+    setPartConditions((prev) =>
+      prev.map((part, index) =>
+        index === partIndex
+          ? { ...part, notes: value }
+          : part
+      )
+    );
+  };
+
+  const updatePartSeverity = (partIndex: number, value: SeverityLevel) => {
+    setPartConditions((prev) =>
+      prev.map((part, index) =>
+        index === partIndex
+          ? { ...part, severity: value }
+          : part
+      )
+    );
   };
 
   const handleSaveChanges = async () => {
@@ -210,60 +246,84 @@ const Busavailability = () => {
     try {
       setLoading(true);
       setError(null);
+      setSuccessMessage(null);
       
-      // Prepare part checking flags for database
-      const partCheckingFlags = {
-        // Main parts flags
-        engine: partCheckingData.main_parts[0]?.checked || false,
-        brakes: partCheckingData.main_parts[1]?.checked || false,
-        tires: partCheckingData.main_parts[2]?.checked || false,
-        windows: partCheckingData.main_parts[3]?.checked || false,
-        doors: partCheckingData.main_parts[4]?.checked || false,
-        lights: partCheckingData.main_parts[5]?.checked || false,
-        turn_signals: partCheckingData.main_parts[6]?.checked || false,
-        fire_extinguisher: partCheckingData.main_parts[7]?.checked || false,
-        
-        // Part checking metadata
-        checking_date: new Date().toISOString(),
-        checker_id: context?.user?.userId
-      };
+      const trimmedConditions = partConditions.map((part) => ({
+        ...part,
+        notes: part.notes.trim()
+      }));
+
+      const missingDescriptions = trimmedConditions.filter(
+        (part) => part.hasIssue && part.notes.length === 0
+      );
+
+      if (missingDescriptions.length > 0) {
+        setError(
+          `Please provide a description for: ${missingDescriptions
+            .map((part) => part.part_name)
+            .join(', ')}`
+        );
+        return;
+      }
+
+      const partPayload = trimmedConditions.map((part) => ({
+        key: part.part_key,
+        hasIssue: part.hasIssue,
+        notes: part.hasIssue ? part.notes : null,
+        severity: part.hasIssue && part.severity ? part.severity.trim().toLowerCase() as SeverityLevel : null
+      }));
+      console.log('Submitting part payload:', partPayload);
 
       const response = await axios.put<BusResponse>(
         `http://localhost:5000/api/depot-engineer/buses/${selectedBus.bus_id}/status`,
-        { 
+        {
           status: editedStatus,
-          part_checking_data: partCheckingFlags
+          part_checking_data: {
+            statusAfterCheck: editedStatus,
+            parts: partPayload
+          }
         },
         {
           headers: {
-            Authorization: `Bearer ${token}`,
-          },
+            Authorization: `Bearer ${token}`
+          }
         }
       );
-      
+
       if (response.data.success && response.data.bus) {
-          setBuses(prevBuses =>
-              prevBuses.map(bus =>
-                  bus.bus_id === selectedBus.bus_id ? { ...bus, status: editedStatus } : bus
-              )
+        setBuses((prevBuses) =>
+          prevBuses.map((bus) =>
+            bus.bus_id === selectedBus.bus_id ? { ...bus, status: editedStatus } : bus
+          )
+        );
+        setShowEditModal(false);
+        setSelectedBus(null);
+        // Reset part checking data for next check
+        setPartConditions(PART_DEFINITIONS.map((part) => ({ ...part })));
+
+        const autoSchedule = (response.data as any)?.automatic_service_schedule;
+        if (autoSchedule?.error) {
+          setSuccessMessage(response.data.message || 'Bus status updated, but automatic follow-up scheduling failed.');
+        } else if (autoSchedule?.updated) {
+          const scheduledDate = autoSchedule.scheduled_date ? ` (scheduled for ${autoSchedule.scheduled_date})` : '';
+          setSuccessMessage(
+            response.data.message || `Bus status updated and the existing follow-up service was refreshed${scheduledDate}.`
           );
-          setShowEditModal(false);
-          setSelectedBus(null);
-          // Reset part checking data for next check
-          setPartCheckingData({
-            main_parts: [
-              { part_name: 'Engine', checked: false },
-              { part_name: 'Brakes', checked: false },
-              { part_name: 'Tires', checked: false },
-              { part_name: 'Windows', checked: false },
-              { part_name: 'Doors', checked: false },
-              { part_name: 'Lights', checked: false },
-              { part_name: 'Turn Signals', checked: false },
-              { part_name: 'Fire Extinguisher', checked: false }
-            ]
-          });
+        } else if (autoSchedule?.created) {
+          const scheduledDate = autoSchedule.scheduled_date ? ` (scheduled for ${autoSchedule.scheduled_date})` : '';
+          setSuccessMessage(
+            response.data.message || `Bus status updated and follow-up service created${scheduledDate}.`
+          );
+        } else if (autoSchedule) {
+          const scheduledDate = autoSchedule.scheduled_date ? ` on ${autoSchedule.scheduled_date}` : '';
+          setSuccessMessage(
+            response.data.message || `Bus status updated. Existing follow-up service detected${scheduledDate}.`
+          );
+        } else {
+          setSuccessMessage(response.data.message || 'Bus status updated successfully.');
+        }
       } else {
-          setError('Failed to update bus status: ' + (response.data.message || 'Unknown error.'));
+        setError('Failed to update bus status: ' + (response.data.message || 'Unknown error.'));
       }
     } catch (err) {
       const axiosError = err as AxiosError;
@@ -290,6 +350,12 @@ const Busavailability = () => {
   return (
     <div className="container mx-auto p-6 bg-white rounded-lg shadow-md">
       <h2 className="text-3xl font-bold text-gray-800 mb-6">Bus Availability </h2>
+
+      {/* {successMessage && (
+        <div className="mb-4 rounded-md bg-green-50 border border-green-200 p-4 text-green-700 text-sm">
+          {successMessage}
+        </div>
+      )} */}
 
       <div className="flex flex-col md:flex-row justify-between items-center mb-6 space-y-4 md:space-y-0 md:space-x-4">
         <div className="relative w-full md:w-1/3">
@@ -511,10 +577,10 @@ const Busavailability = () => {
               {/* Part Checking Checklist - Always visible for depot engineers */}
               <div className="bg-blue-50 p-4 rounded-lg">
                 <h4 className="font-semibold text-lg mb-3 flex items-center">
-                  🔧 Daily Part Checking 
+                  🔧 Daily Part Findings 
                   <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                    {partCheckingData.main_parts.filter(part => part.checked).length}/
-                    {partCheckingData.main_parts.length} Checked
+                    {partConditions.filter(part => part.hasIssue).length}/
+                    {partConditions.length} Issues Logged
                   </span>
                 </h4>
                 
@@ -524,18 +590,49 @@ const Busavailability = () => {
                   <div className="bg-white p-3 rounded border">
                     <h5 className="font-medium text-blue-600 mb-3"> Main Bus Components</h5>
                     <div className="grid grid-cols-2 gap-2">
-                      {partCheckingData.main_parts.map((part, index) => (
-                        <div key={index} className="flex items-center space-x-2 mb-2 p-2 rounded">
-                          <input
-                            type="checkbox"
-                            checked={part.checked}
-                            onChange={(e) => updatePartCondition(index, e.target.checked)}
-                            className="rounded"
-                          />
-                          <span className="text-sm">
-                            {part.part_name}
-                            {part.checked ? ' ✓' : ''}
-                          </span>
+                      {partConditions.map((part, index) => (
+                        <div key={part.part_key} className="space-y-2 border rounded-md p-3 bg-gray-50">
+                          <label className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              checked={part.hasIssue}
+                              onChange={(e) => updatePartIssue(index, e.target.checked)}
+                              className="rounded"
+                            />
+                            <span className="text-sm font-medium text-gray-700">
+                              {part.part_name}
+                            </span>
+                          </label>
+                          {part.hasIssue && (
+                            <>
+                              <label className="block text-xs font-medium text-blue-700">
+                                Severity
+                              </label>
+                              <select
+                                value={part.severity}
+                                onChange={(e) => updatePartSeverity(index, e.target.value as SeverityLevel)}
+                                className="w-full text-sm border border-blue-200 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2"
+                              >
+                                {severityOptions.map((option) => (
+                                  <option key={option.value} value={option.value}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                              <textarea
+                                value={part.notes}
+                                onChange={(e) => updatePartNotes(index, e.target.value)}
+                                placeholder="Describe the issue found for this part"
+                                className="w-full text-sm border border-blue-200 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                rows={3}
+                              />
+                            </>
+                          )}
+                          {!part.hasIssue && (
+                            <p className="text-xs text-gray-500">
+                              No issues logged.
+                            </p>
+                          )}
                         </div>
                       ))}
                     </div>

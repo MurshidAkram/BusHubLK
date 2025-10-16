@@ -124,6 +124,25 @@ class ServiceSchedule {
         return result.rows;
     }
 
+    static async findActiveByBusAndDate(bus_id, date) {
+        const result = await db.query(
+            `SELECT ss.id, ss.service_type, ss.bus_id, ss.depot_id, ss.status,
+                    TO_CHAR(ss.scheduled_date, 'YYYY-MM-DD') as scheduled_date,
+                    TO_CHAR(ss.completed_date, 'YYYY-MM-DD') as completed_date,
+                    TO_CHAR(ss.cancelled_date, 'YYYY-MM-DD') as cancelled_date,
+                    ss.created_at, ss.updated_at,
+                    COALESCE(ss.is_deleted, false) as is_deleted
+       FROM service_schedules ss
+       WHERE ss.bus_id = $1
+         AND ss.scheduled_date = $2
+         AND (ss.is_deleted = false OR ss.is_deleted IS NULL)
+       ORDER BY ss.created_at DESC
+       LIMIT 1`,
+            [bus_id, date]
+        );
+        return result.rows[0];
+    }
+
     // Update service schedule
     static async update(id, updates) {
         const fields = [];
