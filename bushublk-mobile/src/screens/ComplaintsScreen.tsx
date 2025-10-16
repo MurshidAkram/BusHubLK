@@ -97,10 +97,8 @@ export default function ComplaintsScreen() {
   const [busNumber, setBusNumber] = useState("");
   const [date, setDate] = useState(new Date());
   const [time, setTime] = useState(new Date());
-  const [location, setLocation] = useState("");
   const [priority, setPriority] = useState("Medium");
   const [description, setDescription] = useState("");
-  const [contactInfo, setContactInfo] = useState("");
   const [image, setImage] = useState<string | null>(null);
   const [routeSuggestions, setRouteSuggestions] = useState<BusRouteSuggestion[]>([]);
   const [busSuggestions, setBusSuggestions] = useState<BusRouteSuggestion[]>([]);
@@ -108,44 +106,6 @@ export default function ComplaintsScreen() {
   const [isBusLoading, setIsBusLoading] = useState(false);
   const routeSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const busSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  React.useEffect(() => {
-    let isMounted = true;
-
-    const prefillContactInfo = async () => {
-      try {
-        if (contactInfo) {
-          return;
-        }
-
-        const storedUser = await storageAPI.getUserData();
-        if (isMounted && storedUser && (storedUser.email || storedUser.phone)) {
-          setContactInfo(storedUser.email ?? storedUser.phone ?? "");
-          return;
-        }
-
-        const response = await complaintAPI.getMyContactInfo();
-        if (!isMounted) {
-          return;
-        }
-
-        if (response?.success && response.data) {
-          const preferred = response.data.email || response.data.phone;
-          if (preferred) {
-            setContactInfo(preferred);
-          }
-        }
-      } catch (error) {
-        console.error("Error pre-filling complaint contact info:", error);
-      }
-    };
-
-    prefillContactInfo();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [contactInfo]);
 
   React.useEffect(() => {
     return () => {
@@ -306,7 +266,7 @@ export default function ComplaintsScreen() {
   }, []);
 
   const handleSubmit = async () => {
-    if (!complaintTypeValue || !routeNumber || !location || !description || !contactInfo) {
+    if (!complaintTypeValue || !routeNumber || !description) {
       Alert.alert("Missing Information", "Please fill all required fields before submitting.");
       return;
     }
@@ -329,10 +289,8 @@ export default function ComplaintsScreen() {
       if (busNumber) formData.append('busNumber', busNumber);
       formData.append('date', date.toISOString().split('T')[0]);
       formData.append('time', time.toTimeString().split(' ')[0]);
-      formData.append('location', location);
       formData.append('priority', priority);
       formData.append('description', description);
-      formData.append('contactInfo', contactInfo);
 
       if (image) {
         const uriParts = image.split('.');
@@ -352,7 +310,6 @@ export default function ComplaintsScreen() {
         complaintType: complaintTypeValue,
         routeNumber,
         busNumber,
-        location,
         priority,
         hasImage: !!image
       });
@@ -606,8 +563,6 @@ export default function ComplaintsScreen() {
               </View>
 
             </View>
-            <Text style={styles.label}>Location / Bus Stop</Text>
-            <View style={styles.enhancedInputContainer}><Ionicons name="location-outline" size={20} color={AppColors.indigo} style={styles.inputIcon} /><TextInput style={styles.inputText} placeholder="e.g., Kottawa" value={location} onChangeText={setLocation} /></View>
           </View>
 
 
@@ -628,14 +583,6 @@ export default function ComplaintsScreen() {
             <TouchableOpacity style={styles.uploadBox} onPress={pickImage}>
               {image ? (<Image source={{ uri: image }} style={styles.previewImage} />) : (<View style={styles.uploadContent}><Ionicons name="camera-outline" size={32} color={AppColors.secondary} /><Text style={styles.uploadText}>Tap to upload an image</Text></View>)}
             </TouchableOpacity>
-          </View>
-
-          {/* --- CARD 4: CONTACT INFO --- */}
-          <View style={styles.card}>
-            <View style={styles.cardHeaderContainer}><View style={styles.cardIconContainer}><Ionicons name="person-circle" size={24} color={AppColors.accent} /></View><View><Text style={styles.cardHeader}>Your Contact Information</Text><Text style={styles.cardSubheader}>How can we reach you?</Text></View></View>
-            <Text style={styles.label}>Email or Phone Number</Text>
-            <View style={styles.enhancedInputContainer}><Ionicons name="mail-outline" size={20} color={AppColors.accent} style={styles.inputIcon} /><TextInput style={styles.inputText} placeholder="your.email@example.com" value={contactInfo} onChangeText={setContactInfo} keyboardType="email-address" /></View>
-            <Text style={styles.helperText}>We'll use this to send you updates about your complaint status.</Text>
           </View>
 
           {/* --- SUBMIT BUTTON --- */}
@@ -708,7 +655,6 @@ const styles = StyleSheet.create({
     uploadContent:{alignItems: "center"},
     uploadText:{marginTop:8,color:AppColors.textSecondary,fontSize:14},
     previewImage:{width:"100%",height:"100%",borderRadius:14},
-    helperText:{fontSize:14,color:AppColors.textSecondary,marginTop:8,marginLeft:5, fontStyle: 'italic'},
     submitButton:{backgroundColor:AppColors.primary,paddingVertical:18,borderRadius:16,alignItems:"center",marginTop:10,elevation:4,shadowColor:AppColors.primary,shadowOffset:{width:0,height:4},shadowOpacity:0.3,shadowRadius:8},
     submitButtonDisabled:{backgroundColor:AppColors.textSecondary},
   submitButtonText:{color:"#FFFFFF",fontSize:18,fontWeight:"700"},
