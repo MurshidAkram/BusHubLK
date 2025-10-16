@@ -107,7 +107,7 @@ const Complaints: React.FC = () => {
         // Transform the snake_case data from the API to camelCase for the component
         const transformedComplaints = response.data.complaints.map((c: ApiComplaint): Complaint => {
           // Clean and format the image URL
-          const imageUrl = c.image_url ? c.image_url.replace(/^.*[\\\/]/, '') : undefined;
+          const imageUrl = c.image_url ? c.image_url : undefined;
           console.log('Processing image URL:', c.image_url, 'to:', imageUrl); // Debug log
           
           return {
@@ -278,8 +278,10 @@ const Complaints: React.FC = () => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Route Number</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bus Number</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type of Complaint</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -288,8 +290,10 @@ const Complaints: React.FC = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {currentItems.map((complaint) => (
                 <tr key={complaint.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{complaint.date}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{complaint.routeNumber}</td>
+                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{complaint.busNumber || 'N/A'}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{complaint.type}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-xs truncate">{complaint.description}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${priorityColors[complaint.priority]}`}>
                       {complaint.priority}
@@ -355,12 +359,12 @@ const Complaints: React.FC = () => {
 
       {/* Complaint Detail Modal */}
       {selectedComplaint && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col border border-gray-100">
+       <div className="fixed inset-0 backdrop-blur-sm bg-white/10 flex items-center justify-center z-50 p-4">
+  <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col border border-gray-100">
             <div className="px-6 py-4 border-b border-gray-200">
               <div className="flex justify-between items-center">
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900">Complaint #{selectedComplaint.id}</h2>
+                  <h2 className="text-xl font-bold text-gray-900">Complaint details </h2>
                   <p className="text-gray-500 text-sm mt-1">Submitted on {selectedComplaint.submittedDate}</p>
                 </div>
                 <button
@@ -422,10 +426,7 @@ const Complaints: React.FC = () => {
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Location/Stop</label>
-                    <p className="mt-1 p-2 bg-gray-50 rounded-md">{selectedComplaint.location}</p>
-                  </div>
+      
                 </div>
 
                 <div className="space-y-4">
@@ -475,53 +476,26 @@ const Complaints: React.FC = () => {
                   <div className="flex items-center justify-between mb-3">
                     <label className="block text-sm font-medium text-gray-700">Attached Evidence</label>
                     <a
-                      href={`http://localhost:5000/uploads/${selectedComplaint.attachment}`}
+                      href={`http://localhost:5000${selectedComplaint.attachment}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors duration-200"
                     >
-                      <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                      </svg>
                       View Full Size
                     </a>
                   </div>
                   <div className="relative bg-white rounded-lg overflow-hidden shadow-lg border border-gray-200">
-                    <div className="relative" style={{ paddingBottom: '56.25%' }}>
-                      <img
-                        src={`http://localhost:5000/uploads/${selectedComplaint.attachment}`}
-                        alt="Complaint evidence"
-                        className="absolute inset-0 w-full h-full object-contain"
-                        onError={(e) => {
-                          console.error('Image load error:', e);
-                          const target = e.target as HTMLImageElement;
-                          target.onerror = null;
-                          target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0yNCAxMmMwIDYuNjI3LTUuMzczIDEyLTEyIDEycy0xMi01LjM3My0xMi0xMiA1LjM3My0xMiAxMi0xMiAxMiA1LjM3MyAxMiAxMnptLTEgMGMwLTYuMDc1LTQuOTI1LTExLTExLTExcy0xMSA0LjkyNS0xMSAxMSA0LjkyNSAxMSAxMSAxMSAxMS00LjkyNSAxMS0xMXptLTExLjUtNS4xNzdjMC0uMjA5LjIwMS0uMzc4LjQ1LS4zNzguMjQ4IDAgLjQ1LjE2OS40NS4zNzh2NS4wNDVjMCAuMjA4LS4yMDIuMzc3LS40NS4zNzctLjI0OSAwLS40NS0uMTY5LS40NS0uMzc3di01LjA0NXptLjQ1IDcuNzIyYy0uMzMxIDAtLjYtLjI2OS0uNi0uNiAwLS4zMzEuMjY5LS42LjYtLjYuMzMxIDAgLjYuMjY5LjYuNiAwIC4zMzEtLjI2OS42LS42LjZ6Ii8+PC9zdmc+';
-                          target.className = 'w-12 h-12 mx-auto opacity-50';
-                        }}
-                      />
-                    </div>
-                    <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
-                      <div className="text-white text-center">
-                        <svg className="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
-                        </svg>
-                        <span className="text-sm font-medium">Click to view full size</span>
-                      </div>
-                    </div>
-                    <div className="absolute top-2 right-2">
-                      <a
-                        href={`http://localhost:5000/uploads/${selectedComplaint.attachment}`}
-                        download
-                        className="p-2 bg-white rounded-full shadow-lg hover:bg-gray-100 transition-colors duration-200"
-                        title="Download Image"
-                      >
-                        <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                        </svg>
-                      </a>
-                    </div>
+                    <img
+                      src={`http://localhost:5000${selectedComplaint.attachment}`}
+                      alt="Complaint evidence"
+                      className="w-full h-auto object-contain"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.onerror = null;
+                        target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0yNCAxMmMwIDYuNjI3LTUuMzczIDEyLTEyIDEycy0xMi01LjM3My0xMi0xMiA1LjM3My0xMiAxMi0xMiAxMiA1LjM3MyAxMiAxMnptLTEgMGMwLTYuMDc1LTQuOTI1LTExLTExLTExcy0xMSA0LjkyNS0xMSAxMSA0LjkyNSAxMSAxMSAxMSAxMS00LjkyNSAxMS0xMXptLTExLjUtNS4xNzdjMC0uMjA5LjIwMS0uMzc4LjQ1LS4zNzguMjQ4IDAgLjQ1LjE2OS40NS4zNzh2NS4wNDVjMCAuMjA4LS4yMDIuMzc3LS40NS4zNzctLjI0OSAwLS40NS0uMTY5LS40NS0uMzc3di01LjA0NXptLjQ1IDcuNzIyYy0uMzMxIDAtLjYtLjI2OS0uNi0uNiAwLS4zMzEuMjY5LS42LjYtLjYuMzMxIDAgLjYuMjY5LjYuNiAwIC4zMzEtLjI2OS42LS42LjZ6Ii8+PC9zdmc+';
+                        target.className = 'w-12 h-12 mx-auto opacity-50';
+                      }}
+                    />
                   </div>
                 </div>
               )}
