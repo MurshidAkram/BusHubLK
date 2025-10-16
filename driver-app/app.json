@@ -36,7 +36,6 @@
         "NSLocationWhenInUseUsageDescription": "This app needs access to location to track bus position for passengers.",
         "NSLocationAlwaysUsageDescription": "This app needs access to location when in the background to continuously track bus position for passengers.",
         "UIBackgroundModes": [
-          "location",
           "location"
         ],
         "ITSAppUsesNonExemptEncryption": false
