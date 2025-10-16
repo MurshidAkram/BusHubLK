@@ -33,6 +33,7 @@ const CrewOversight = () => {
   const [selectedRegionId, setSelectedRegionId] = useState<number | null>(null);
   const [selectedDepotId, setSelectedDepotId] = useState<number | null>(null);
   const [filterRole, setFilterRole] = useState<'All' | 'Driver' | 'Conductor'>('All');
+  const [allDepots, setAllDepots] = useState<Depot[]>([]);
 
   // Fetch regions on mount
   useEffect(() => {
@@ -44,7 +45,17 @@ const CrewOversight = () => {
       .then(data => setRegions(Array.isArray(data.regions) ? data.regions : []));
   }, [token]);
 
-  // Fetch all depots on mount (for initial load and when region changes)
+  // Fetch all depots on mount (for mapping)
+  useEffect(() => {
+    if (!token) return;
+    fetch('http://localhost:5000/api/depots', {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(res => res.json())
+      .then(data => setAllDepots(data.depots || []));
+  }, [token]);
+
+  // Fetch depots for dropdown (filtered by region)
   useEffect(() => {
     if (!token) return;
     let url = 'http://localhost:5000/api/depots';
@@ -96,14 +107,30 @@ const CrewOversight = () => {
     new Map(filteredCrew.map(member => [member.person_id, member])).values()
   );
 
-  // Map depot_id to depot_name for each crew member
+  // Map depot_id to depot_name for each crew member using allDepots
   const crewWithDepotName = uniqueCrew.map(member => {
-    const depotObj = depots.find(d => Number(d.depot_id) === Number(member.depot_id));
+    // Ensure depot_id is a number
+    const depotId = Number(member.depot_id);
+    const depotObj = allDepots.find(d => Number(d.depot_id) === depotId);
     return {
       ...member,
-      depot: depotObj ? depotObj.depot_name : '',
+      depot: depotObj ? depotObj.depot_name : '-',
     };
   });
+
+  // Add this helper function above your return statement
+  const getStatusColor = (status: CrewStatus) => {
+    switch (status) {
+      case 'On Duty':
+        return 'text-green-600 bg-green-100';
+      case 'On Break':
+        return 'text-yellow-600 bg-yellow-100';
+      case 'Off Duty':
+        return 'text-gray-600 bg-gray-100';
+      default:
+        return 'text-gray-600 bg-gray-100';
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -164,7 +191,7 @@ const CrewOversight = () => {
           </div>
         </div>
 
-        {filteredCrew.length > 0 ? (
+        {crewWithDepotName.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200 text-sm">
               <thead className="bg-gray-50">
@@ -184,7 +211,7 @@ const CrewOversight = () => {
                     <td className="px-6 py-4 whitespace-nowrap">{member.role}</td>
                     <td className="px-6 py-4 whitespace-nowrap">{member.depot}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium`}>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(member.status)}`}>
                         {member.status}
                       </span>
                     </td>
