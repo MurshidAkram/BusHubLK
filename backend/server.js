@@ -1,6 +1,5 @@
 
 const express = require('express');
-const http = require('http'); // Import http module
 const path = require('path');
 const cors = require('cors');
 const morgan = require('morgan');
@@ -9,14 +8,8 @@ const http = require('http');
 const { Server } = require('socket.io');
 const setupSocketIO = require('./utils/socketHandler');
 
-const setupWebSocket = require('./websocket'); // Import WebSocket setup
-
-
 const app = express();
-const server = http.createServer(app); // Create HTTP server from Express app
 const PORT = process.env.PORT || 5000;
-const io = setupWebSocket(server);
-
 
 const server = http.createServer(app);
 
