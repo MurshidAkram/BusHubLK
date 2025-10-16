@@ -9,14 +9,23 @@ const {
   updateInspection,
   deleteInspection,
   getUserDepots,
-  getInspectionById
+  getInspectionById,
+  getInspectionsForDepotEngineer,
+  getInspectionsForDepotManager,
+  getInspectionCountByStatus
 } = require('../controllers/inspectionController');
 
-const { authenticateJWT, authorizeRole } = require('../middlewares/authMiddleware');
+const { authenticateJWT, authorizeRole, authorizeDepotStaff } = require('../middlewares/authMiddleware');
 const { body, param } = require('express-validator');
 
 // Middleware to ensure only regional technical officers can access these routes
 const authorizeRegionalTech = authorizeRole(['regional_tech']);
+
+// Route for depot engineers to get inspections assigned to their depot
+router.get('/depot-engineer', authenticateJWT, authorizeDepotStaff, getInspectionsForDepotEngineer);
+
+// Route for depot managers to get inspections assigned to their depot
+router.get('/depot-manager', authenticateJWT, authorizeDepotStaff, getInspectionsForDepotManager);
 
 // Get depots for the logged-in regional technical officer
 router.get('/depots', authenticateJWT, authorizeRegionalTech, getUserDepots);
@@ -29,6 +38,9 @@ router.get('/upcoming', authenticateJWT, authorizeRegionalTech, getUpcomingInspe
 
 // Get past inspections (last month)
 router.get('/past', authenticateJWT, authorizeRegionalTech, getPastInspections);
+
+// Get inspection count by status
+router.get('/status/:status/count', authenticateJWT, authorizeRegionalTech, getInspectionCountByStatus);
 
 // Get inspection by ID
 router.get('/:id',

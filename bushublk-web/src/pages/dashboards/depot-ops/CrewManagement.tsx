@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CheckCircle, AlertCircle, Clock, RotateCw, Search, X } from 'lucide-react';
 
-type CrewStatus = 'Off Duty' | 'On Duty' | 'On Break';
+type CrewStatus = 'On Duty' | 'On Break';
 
 interface CrewMember {
   id: number;
@@ -9,6 +9,7 @@ interface CrewMember {
   contact: string;
   role: 'Driver' | 'Conductor';
   status: CrewStatus;
+  assigned_today?: boolean;
 }
 
 const CrewManagement = () => {
@@ -16,73 +17,53 @@ const CrewManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMember, setSelectedMember] = useState<CrewMember | null>(null);
   const [showStatusModal, setShowStatusModal] = useState(false);
-  const [newStatus, setNewStatus] = useState<CrewStatus>('Off Duty');
+  const [newStatus, setNewStatus] = useState<CrewStatus>('On Duty');
 
-  const [crewList, setCrewList] = useState<CrewMember[]>([
-    {
-      id: 1,
-      name: 'Nimal Perera',
-      contact: '+94771234567',
-      role: 'Driver',
-      status: 'On Duty',
-    },
-    {
-      id: 2,
-      name: 'Sunil Silva',
-      contact: '+94769876543',
-      role: 'Conductor',
-      status: 'On Break',
-    },
-    {
-      id: 3,
-      name: 'Kamal Fernando',
-      contact: '+94712345678',
-      role: 'Driver',
-      status: 'Off Duty',
-    },
-    {
-      id: 4,
-      name: 'Mohamed Rizwan',
-      contact: '+94751234567',
-      role: 'Conductor',
-      status: 'On Duty',
-    },
-    {
-      id: 5,
-      name: 'Nawas Ameer',
-      contact: '+94784561230',
-      role: 'Driver',
-      status: 'On Break',
-    },
-    {
-      id: 6,
-      name: 'Thilina Jayasooriya',
-      contact: '+94711122233',
-      role: 'Driver',
-      status: 'On Duty',
-    },
-    {
-      id: 7,
-      name: 'Sahan Bandara',
-      contact: '+94779988776',
-      role: 'Conductor',
-      status: 'Off Duty',
-    },
-    {
-      id: 8,
-      name: 'Siththi Lebbe Faiz',
-      contact: '+94761122445',
-      role: 'Driver',
-      status: 'On Duty',
-    },
-    {
-      id: 9,
-      name: 'Ramesh Sivalingam',
-      contact: '+94723344556',
-      role: 'Conductor',
-      status: 'On Break',
-    },
-  ]);
+  const [crewList, setCrewList] = useState<CrewMember[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  // TODO: Replace with actual user depot/region (from context/auth)
+  const depotId = 1;
+  const regionId = 1;
+
+  useEffect(() => {
+    const fetchCrew = async () => {
+      setLoading(true);
+      try {
+        const token = localStorage.getItem('token'); // Or get it from your auth context
+
+        const res = await fetch(
+          `http://localhost:5000/api/crew?depot_id=${depotId}&region_id=${regionId}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+        if (!res.ok) throw new Error('Failed to fetch crew');
+        const data = await res.json();
+        // Map backend fields to CrewMember interface
+        setCrewList(
+          data.map((member: any) => ({
+            id: member.person_id,
+            name: member.name,
+            contact: member.contact,
+            role: member.role,
+            status: member.status,
+            assigned_today: member.assigned_today, // <-- Add this line!
+          }))
+        );
+      } catch (err) {
+        setCrewList([]);
+        setError('Failed to fetch crew');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCrew();
+  }, [depotId, regionId]);
 
   const openStatusModal = (member: CrewMember) => {
     setSelectedMember(member);
@@ -95,16 +76,35 @@ const CrewManagement = () => {
     setSelectedMember(null);
   };
 
-  const handleStatusChange = () => {
+  const handleStatusChange = async () => {
     if (selectedMember) {
-      setCrewList(prev =>
-        prev.map(member =>
-          member.id === selectedMember.id
-            ? { ...member, status: newStatus }
-            : member
-        )
-      );
-      closeStatusModal();
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch('http://localhost:5000/api/crew/status', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            person_id: selectedMember.id,
+            role: selectedMember.role,
+            status: newStatus,
+          }),
+        });
+        if (!res.ok) throw new Error('Failed to update status');
+        // Update UI
+        setCrewList(prev =>
+          prev.map(member =>
+            member.id === selectedMember.id
+              ? { ...member, status: newStatus }
+              : member
+          )
+        );
+        closeStatusModal();
+      } catch (err) {
+        alert('Failed to update status');
+      }
     }
   };
 
@@ -114,8 +114,6 @@ const CrewManagement = () => {
         return <CheckCircle className="h-4 w-4 mr-1" />;
       case 'On Break':
         return <Clock className="h-4 w-4 mr-1" />;
-      case 'Off Duty':
-        return <AlertCircle className="h-4 w-4 mr-1" />;
     }
   };
 
@@ -125,8 +123,6 @@ const CrewManagement = () => {
         return 'text-green-600';
       case 'On Break':
         return 'text-yellow-600';
-      case 'Off Duty':
-        return 'text-red-600';
     }
   };
 
@@ -142,7 +138,7 @@ const CrewManagement = () => {
     <div className="space-y-6 relative">
       {/* Status Change Modal */}
       {showStatusModal && selectedMember && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 backdrop-blur-sm bg-white/10 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
             <div className="flex justify-between items-center border-b p-4">
               <h3 className="text-lg font-medium text-gray-900">Change Status</h3>
@@ -175,7 +171,6 @@ const CrewManagement = () => {
                   value={newStatus}
                   onChange={(e) => setNewStatus(e.target.value as CrewStatus)}
                 >
-                  <option value="Off Duty">Off Duty</option>
                   <option value="On Duty">On Duty</option>
                   <option value="On Break">On Break</option>
                 </select>
@@ -298,7 +293,8 @@ const CrewManagement = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button
                         onClick={() => openStatusModal(member)}
-                        className="inline-flex items-center text-blue-600 hover:text-blue-900"
+                        className={`inline-flex items-center text-blue-600 hover:text-blue-900 ${member.assigned_today ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        disabled={member.assigned_today}
                       >
                         <RotateCw className="h-4 w-4 mr-1" />
                         Change Status
@@ -317,6 +313,8 @@ const CrewManagement = () => {
           Showing {filteredCrew.length} of {crewList.length} crew members
         </div>
       )}
+
+      {error && <div className="text-red-500">{error}</div>}
     </div>
   );
 };

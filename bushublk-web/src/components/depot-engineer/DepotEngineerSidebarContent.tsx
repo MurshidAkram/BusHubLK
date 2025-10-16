@@ -11,7 +11,8 @@ import {
   HiArrowCircleRight,
   HiClipboardCheck,
   HiUsers,
-  HiRefresh
+  HiRefresh,
+  HiBell
 } from 'react-icons/hi';
 
 const DepotEngineerSidebarContent = () => {
@@ -28,6 +29,18 @@ const DepotEngineerSidebarContent = () => {
       >
         <HiHome className="mr-3 flex-shrink-0 h-5 w-5" />
         Overview
+      </NavLink>
+
+      <NavLink
+        to="/depot-engineer/notifications"
+        className={({ isActive }) =>
+          `flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActive 
+            ? 'bg-green-700 text-white' 
+            : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`
+        }
+      >
+        <HiBell className="mr-3 flex-shrink-0 h-5 w-5" />
+        Notifications
       </NavLink>
 
       <NavLink
@@ -112,7 +125,7 @@ const DepotEngineerSidebarContent = () => {
         }
       >
          <HiUsers className="mr-3 flex-shrink-0 h-5 w-5" />
-      Contact
+      Communication Hub
       </NavLink>
       <NavLink
         to="/depot-engineer/Depotinspection"

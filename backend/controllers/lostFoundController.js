@@ -1,6 +1,7 @@
 const db = require('../config/db');
 const { executeTransaction } = require('../utils/dbUtils');
 const LostFoundReport = require('../models/LostFoundReport');
+const passengerNotificationService = require('../services/passengerNotificationService');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs').promises;
@@ -205,6 +206,36 @@ const submitReport = async (req, res) => {
       console.log('📊 Found', matches.length, 'potential matches');
     } catch (matchError) {
       console.log('⚠️  Match finding skipped:', matchError.message);
+    }
+
+    // Broadcast notification to passengers
+    try {
+      const trimmedDescription = (item_description || '').trim();
+      const snippet = trimmedDescription.length > 80
+        ? `${trimmedDescription.slice(0, 77)}...`
+        : trimmedDescription;
+
+      const titlePrefix = report_type === 'lost' ? 'Lost item reported' : 'Found item reported';
+      const routeContext = route_number ? ` on route ${route_number}` : '';
+
+      await passengerNotificationService.createBroadcastNotification({
+        title: `${titlePrefix}${routeContext}`,
+        body: snippet || 'Tap to view details about the report.',
+        category: 'lost_found',
+        related_entity_type: 'lost_found_report',
+        related_entity_id: newReport.report_id,
+        metadata: {
+          reportId: newReport.report_id,
+          reportType: report_type,
+          routeNumber: route_number || null,
+          regionId: reportData.region_id || null
+        },
+        excludePassengerIds: [Number(passenger_id)]
+      });
+
+      console.log('📢 Passenger notification broadcast for lost/found report');
+    } catch (notifyError) {
+      console.error('⚠️  Failed to broadcast passenger notification:', notifyError.message);
     }
 
     // POST-TRANSACTION VERIFICATION - Use a fresh connection to avoid caching
@@ -518,6 +549,30 @@ const getRegions = async (req, res) => {
   }
 };
 
+// Get depots for dropdown (public endpoint for lost & found)
+const getDepots = async (req, res) => {
+  try {
+    console.log('🏢 Getting depots for Lost & Found dropdown');
+    
+    const query = 'SELECT depot_id, depot_name, address AS location FROM depots ORDER BY depot_name';
+    const result = await db.query(query);
+    
+    console.log('✅ Found depots:', result.rows.length);
+    
+    res.json({
+      success: true,
+      data: result.rows
+    });
+  } catch (error) {
+    console.error('❌ Error getting depots:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get depots',
+      error: error.message
+    });
+  }
+};
+
 // Get buses for a specific route
 const getBusesForRoute = async (req, res) => {
   try {
@@ -737,6 +792,82 @@ const searchRoutes = async (req, res) => {
   }
 };
 
+// Update depot handover information for a report
+const updateDepotHandover = async (req, res) => {
+  try {
+    const { reportId } = req.params;
+    const { depot_id, handover_date, notes } = req.body;
+    const userId = req.user.user_id;
+
+    console.log('📦 Updating depot handover for report:', reportId);
+
+    // Validate required fields
+    if (!depot_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Depot ID is required'
+      });
+    }
+
+    // Verify the report belongs to the user
+    const reportCheck = await db.query(
+      'SELECT passenger_id, report_type FROM lost_found_reports WHERE report_id = $1',
+      [reportId]
+    );
+
+    if (reportCheck.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Report not found'
+      });
+    }
+
+    if (reportCheck.rows[0].passenger_id !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to update this report'
+      });
+    }
+
+    // Update the report with depot handover information
+    const updateQuery = `
+      UPDATE lost_found_reports 
+      SET 
+        handed_to_depot_id = $1,
+        handover_date = $2,
+        handover_notes = $3,
+        handover_updated_by = $4,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE report_id = $5
+      RETURNING *
+    `;
+
+    const result = await db.query(updateQuery, [
+      depot_id,
+      handover_date || new Date().toISOString().split('T')[0],
+      notes || null,
+      userId,
+      reportId
+    ]);
+
+    console.log('✅ Depot handover updated successfully');
+
+    res.json({
+      success: true,
+      message: 'Depot handover information updated successfully',
+      data: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error('❌ Error updating depot handover:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update depot handover information',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   uploadMiddleware: upload.single('photo'),
   submitReport,
@@ -748,8 +879,10 @@ module.exports = {
   searchRoutes,
   getRoutes,
   getRegions,
+  getDepots,
   getBusesForRoute,
   getStatistics,
   testInsert,
-  testImageUpload
+  testImageUpload,
+  updateDepotHandover
 };

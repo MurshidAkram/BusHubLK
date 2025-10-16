@@ -119,13 +119,21 @@ export const submitEmergencyReport = async (reportData: any) => {
 };
 
 export const submitComplaintReport = async (reportData: any) => {
-  const response = await fetch(`${API_BASE_URL}/api/complaint-report`, {
+  // Create a timeout promise
+  const timeoutPromise = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('timeout')), 15000)
+  );
+  
+  const fetchPromise = fetch(`${API_BASE_URL}/api/complaint-report`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(reportData),
   });
+  
+  // Race between fetch and timeout
+  const response = await Promise.race([fetchPromise, timeoutPromise]) as Response;
   return response.json();
 };
 
@@ -174,7 +182,8 @@ export const storageAPI = {
     try {
       const userData = await AsyncStorage.getItem('userData');
       const parsed = userData ? JSON.parse(userData) : null;
-      console.log('[storageAPI.getUserData] userData raw:', userData, 'parsed:', parsed);
+      // Only log when there's actual data or when debugging is needed
+      // console.log('[storageAPI.getUserData] userData raw:', userData, 'parsed:', parsed);
       return parsed;
     } catch (error) {
       console.error('Error getting user data:', error);
@@ -196,5 +205,57 @@ export const storageAPI = {
 };
 
 export { busLiveTrackingAPI, API_BASE_URL };
+
+export const complaintAPI = {
+  searchBusRoutes: async (query: string) => {
+    const response = await api.get('/api/complaints/bus-routes', {
+      params: { query },
+    });
+    return response.data;
+  },
+  getMyContactInfo: async () => {
+    const response = await api.get('/api/complaints/my-contact');
+    return response.data;
+  },
+};
+
+export const notificationAPI = {
+  getNotifications: async (params?: {
+    page?: number;
+    limit?: number;
+    includeRead?: boolean;
+    category?: string;
+  }) => {
+    const queryParams: Record<string, any> = {};
+    if (params?.page !== undefined) queryParams.page = params.page;
+    if (params?.limit !== undefined) queryParams.limit = params.limit;
+    if (params?.includeRead !== undefined) {
+      queryParams.includeRead = params.includeRead ? 'true' : 'false';
+    }
+    if (params?.category) queryParams.category = params.category;
+
+    const response = await api.get('/api/passenger-notifications', {
+      params: queryParams,
+    });
+    return response.data;
+  },
+
+  getUnreadCount: async () => {
+    const response = await api.get('/api/passenger-notifications/unread-count');
+    return response.data;
+  },
+
+  markAsRead: async (notificationId: number) => {
+    await api.post(`/api/passenger-notifications/${notificationId}/read`);
+  },
+
+  markAllAsRead: async () => {
+    await api.post('/api/passenger-notifications/mark-all-read');
+  },
+
+  deleteNotification: async (notificationId: number) => {
+    await api.delete(`/api/passenger-notifications/${notificationId}`);
+  },
+};
 
 export default api;

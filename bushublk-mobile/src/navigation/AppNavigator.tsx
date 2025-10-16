@@ -11,9 +11,11 @@ import BusTracker from "../screens/BusTrackingScreen";
 import BusRouteResultsScreen from "../screens/BusRouteResultsScreen";
 import BusOccupancyScreen from "../screens/BusOccupancyScreen";
 import ComplaintsScreen from "../screens/ComplaintsScreen";
+import ComplaintHistoryScreen from "../screens/ComplaintHistoryScreen";
 import EmergencyScreen from "../screens/EmergencyAlertScreen";
+import EditProfileScreen from "../screens/EditProfileScreen";
 
-const Stack = createStackNavigator();
+const Stack = createStackNavigator<any>();
 
 export default function AppNavigator() {
   return (
@@ -27,10 +29,15 @@ export default function AppNavigator() {
       {/* Other screens that will be pushed on top of the tabs */}
       <Stack.Screen name="LostAndFound" component={LostAndFoundScreen} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
-      <Stack.Screen name="BusTracker" component={BusTracker} />
+  <Stack.Screen name="BusTracking" component={BusTracker} />
       <Stack.Screen
         name="Complaints"
         component={ComplaintsScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="ComplaintHistory"
+        component={ComplaintHistoryScreen}
         options={{ headerShown: false }}
       />
       <Stack.Screen name="BusRouteResults" component={BusRouteResultsScreen} />
@@ -38,6 +45,11 @@ export default function AppNavigator() {
       <Stack.Screen
         name="Emergency"
         component={EmergencyScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="EditProfile"
+        component={EditProfileScreen}
         options={{ headerShown: false }}
       />
     </Stack.Navigator>

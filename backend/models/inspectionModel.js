@@ -125,6 +125,33 @@ class Inspection {
     );
     return result.rows;
   }
+
+  // Get inspections assigned to a specific depot for depot engineers
+  static async getInspectionsByDepot(depot_id) {
+    const result = await db.query(
+      `SELECT i.*, d.depot_name, r.region_name,
+              u.first_name || ' ' || u.last_name AS assigned_by
+       FROM inspections i
+       JOIN depots d ON i.depot_id = d.depot_id
+       JOIN regions r ON d.region_id = r.region_id
+       JOIN users u ON i.user_id = u.user_id
+       WHERE i.depot_id = $1
+       ORDER BY i.date DESC, i.time DESC`,
+      [depot_id]
+    );
+    return result.rows;
+  }
+
+  // Get inspection count by status for a regional technical officer
+  static async getInspectionCountByStatus(user_id, status) {
+    const result = await db.query(
+      `SELECT COUNT(*)::int AS count
+       FROM inspections
+       WHERE user_id = $1 AND status = $2`,
+      [user_id, status]
+    );
+    return result.rows[0] ? result.rows[0].count : 0;
+  }
 }
 
 module.exports = Inspection;

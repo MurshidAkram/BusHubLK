@@ -1,181 +1,176 @@
-import React from 'react';
-import { assets } from '../assets/assets';
+import React from "react";
+import { motion } from "framer-motion";
+import { assets } from "../assets/assets";
+import { Link } from "react-router-dom";
+
 
 const Header = () => {
   return (
-    <div>
-      {/* ======= Hero Section ======= */}
-      <section className="relative w-full h-screen overflow-hidden">
-        {/* Background Image */}
+    <div className="w-full overflow-hidden bg-gray-950 text-white">
+      {/* ===== HERO SECTION ===== */}
+      <section className="relative flex flex-col items-center justify-center text-center h-[90vh] sm:h-screen">
+        {/* Background Image + Softer Overlay */}
         <img
           src={assets.header_img}
-          alt="Inside view of a bus at night"
-          className="absolute inset-0 w-full h-full object-cover"
-          loading="lazy"
+          alt="Bus interior at night"
+          className="absolute inset-0 w-full h-full object-cover brightness-75"
         />
-        {/* Softer Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-br from-black/50 via-black/50 to-black/30"></div>
-
-        {/* Animated Blobs (hidden on small screens) */}
-        <div className="absolute inset-0 overflow-hidden hidden md:block">
-          <div className="absolute top-20 left-10 w-72 h-72 bg-blue-500/10 rounded-full blur-3xl animate-pulse"></div>
-          <div className="absolute bottom-20 right-10 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
-        </div>
+        <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/30 to-transparent" />
 
         {/* Hero Content */}
-        <div className="relative z-10 flex flex-col justify-center items-center h-full text-center px-6 sm:px-8 lg:px-12 pt-25 sm:pt-28 md:pt-32">
-          {/* Small “Welcome to” */}
-          <h1
-            className="mb-2 text-5xl sm:text-6xl md:text-7xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-white via-blue-100 to-white"
-            style={{ textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}
-          >
-            Welcome to
+        <motion.div
+          initial={{ opacity: 0, y: 40 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 1 }}
+          className="relative z-10 px-6 sm:px-10 max-w-4xl"
+        >
+          <h1 className="text-5xl sm:text-6xl md:text-7xl font-extrabold leading-tight mb-4">
+            Smarter Public Transport with{" "}
+            <span className="bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">
+              BusHubLK
+            </span>
           </h1>
 
-          {/* Big Brand Name */}
-          <h2
-            className="mb-4 text-7xl sm:text-8xl md:text-9xl font-extrabold text-blue-500 drop-shadow-lg"
-            style={{ textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}
-          >
-            BusHubLK
-          </h2>
+          <p className="text-lg sm:text-xl text-gray-200 max-w-2xl mx-auto mb-8">
+            A unified platform built for the Sri Lanka Transport Board.
+          </p>
 
-          {/* Subtitle */}
-         <div className="mt-8 mb-6 text-center font-bold bg-gradient-to-r from-white via-blue-100 to-white bg-clip-text text-transparent leading-relaxed">
-            <p className="text-2xl sm:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white via-blue-100 to-white" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>
-              Seamless Fleet &amp; Operations Management for the Sri Lanka Transport Board
-            </p>
-         </div>
-         
-         <div className="mt-4 mb-6 flex flex-wrap justify-center gap-6">
-            {[
-              { icon: '⚡', title: 'Fast & Reliable',  desc: 'Get instant updates & notifications' },
-              { icon: '🗺️', title: 'Manage routes',   desc: 'Live map view & route management' },
-              { icon: '⏰', title: 'Optimize schedules', desc: 'Balance conflict free timetables' },
-              { icon: '👥', title: 'Coordinate staff',  desc: 'Role‑based job assignments' },
-            ].map((item, i) => (
-              <div
-                key={i}
-                style={{ willChange: 'transform, padding' }}
-                className="
-                  bg-white/20
-                  backdrop-blur-sm
-                  px-16 py-4
-                  flex-shrink-0
-                  rounded-lg
-                  text-white
-                  text-lg sm:text-xl
-                  font-medium
-                  transition-transform
-                  transition-padding
-                  duration-300
-                  ease-in-out
-                  hover:px-17
-                  hover:py-4
-                  hover:scale-110
-                  text-center
-                "
-              >
-                <div className="text-3xl mb-2">{item.icon}</div>
-                <div className="font-semibold">{item.title}</div>
-                <div className="mt-1 text-sm sm:text-base text-white/80 italic">{item.desc}</div>
-              </div>
-            ))}
+          <div className="flex justify-center gap-4 flex-wrap">
+            <a
+              href="#features"
+              className="px-8 py-3 rounded-full bg-blue-600 hover:bg-blue-700 transition-all duration-300 shadow-md text-lg font-semibold"
+            >
+              Explore Features
+            </a>
+            <Link
+  to="/contact"
+  className="px-8 py-3 rounded-full border border-white/70 hover:bg-white/10 transition-all duration-300 text-lg font-semibold"
+>
+  Contact Us
+</Link>
+
           </div>
+        </motion.div>
 
-
-          {/* Primary CTA */}
-          <a
-            href="#features"
-            className="mt-12 inline-block px-8 py-4 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-full transition-shadow shadow-md hover:shadow-lg text-lg sm:text-xl"
-          >
-            Get Started
-          </a>
-
-          {/* Scroll‐down Cue */}
-          <div className="absolute bottom-8 animate-bounce">
+        {/* Scroll Down Indicator */}
+        <div className="absolute bottom-8 flex flex-col items-center text-gray-300">
+          <span className="text-sm mb-1">Scroll Down</span>
+          <div className="animate-bounce">
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              className="w-6 h-6 text-white"
+              className="w-6 h-6"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
               strokeWidth={2}
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M19 9l-7 7-7-7"
+              />
             </svg>
           </div>
         </div>
       </section>
 
-      {/* ======= Why Choose Us ======= */}
-      <section id="features" className="py-16 bg-gray-50">
-        <div className="container mx-auto px-4">
-          <h2 className="mb-12 text-3xl font-bold text-center">Why Choose Us?</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[
-              { icon: '⚡', title: 'Fast & Reliable', desc: 'Lightning-fast performance with 99.9% uptime.' },
-              { icon: '🔒', title: 'Secure', desc: 'End-to-end encryption for your data.' },
-              { icon: '🔄', title: 'Easy to Use', desc: 'Intuitive interface for seamless experience.' },
-            ].map((feature, i) => (
-              <div key={i} className="bg-white p-6 rounded-lg shadow-md text-center">
-                <span className="mb-4 block text-4xl">{feature.icon}</span>
-                <h3 className="mb-2 text-xl font-semibold">{feature.title}</h3>
-                <p className="text-gray-600">{feature.desc}</p>
-              </div>
-            ))}
-          </div>
+      {/* ===== FEATURES SECTION ===== */}
+      <section
+        id="features"
+        className="relative bg-white text-gray-800 py-20 px-6 sm:px-10"
+      >
+        <div className="max-w-6xl mx-auto text-center mb-12">
+          <h2 className="text-4xl font-bold mb-4 text-gray-900">
+            Why Choose BusHubLK?
+          </h2>
+          <p className="text-lg text-gray-600">
+            Empowering transport management with technology — efficient,
+            scalable, and simple to use.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 max-w-6xl mx-auto">
+          {[
+            {
+              icon: "🛰️",
+              title: "Live Bus Tracking",
+              desc: "Monitor every bus in real time with GPS-integrated insights.",
+            },
+            {
+              icon: "⚙️",
+              title: "Fleet Management",
+              desc: "Manage maintenance, breakdowns, and fuel usage efficiently.",
+            },
+            {
+              icon: "💳",
+              title: "Smart Ticketing",
+              desc: "Enable QR-based payments and reservation tracking.",
+            },
+            {
+              icon: "📊",
+              title: "Operational Analytics",
+              desc: "Get reports that help optimize routes and reduce downtime.",
+            },
+          ].map((feature, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.1, duration: 0.6 }}
+              viewport={{ once: true }}
+              className="p-8 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 shadow-md hover:shadow-xl hover:-translate-y-2 transition-all duration-300 text-center"
+            >
+              <div className="text-4xl mb-4">{feature.icon}</div>
+              <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
+              <p className="text-gray-600">{feature.desc}</p>
+            </motion.div>
+          ))}
         </div>
       </section>
 
-      {/* ======= Testimonials ======= */}
-      <section className="py-16 bg-blue-700 text-white">
-        <div className="container mx-auto px-4">
-          <h2 className="mb-12 text-3xl font-bold text-center">What Our Users Say</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[
-              { name: 'Kasuntha P.', role: 'Depot Manager, Kandy', quote: 'Real‑time alerts have cut my incident response time by 40%.' },
-              { name: 'Nishantha D', role: 'Head of Operations, Colombo', quote: 'Route‑efficiency reports helped us save 15% on fuel last quarter.' },
-              { name: 'Arjun M', role: 'Mechanic Supervisor, Jaffna', quote: 'Maintenance schedules and parts tracking are a game‑changer.' },
-            ].map((t, i) => (
-              <div key={i} className="bg-blue-800 p-6 rounded-lg">
-                <p className="mb-4 italic">"{t.quote}"</p>
-                <p className="font-semibold">{t.name}</p>
-                <p className="text-blue-200">{t.role}</p>
-              </div>
-            ))}
-          </div>
+      {/* ===== TESTIMONIALS SECTION ===== */}
+      <section className="bg-gradient-to-b from-blue-700 to-blue-900 text-white py-20 px-6 sm:px-10">
+        <div className="max-w-6xl mx-auto text-center mb-12">
+          <h2 className="text-4xl font-bold mb-4">What Our Users Say</h2>
+          <p className="text-lg text-blue-100">
+            Real feedback from the teams managing Sri Lanka’s transport network
+          </p>
         </div>
-      </section>
 
-      {/* ======= FAQ ======= */}
-      <section className="py-16 bg-gray-50">
-        <div className="container mx-auto px-4 max-w-4xl">
-          <h2 className="mb-12 text-3xl font-bold text-center">Frequently Asked Questions</h2>
-          <div className="space-y-4">
-            {[
-              {
-                question: 'Can I manage multiple depots or regions from a single account?',
-                answer:
-                  'Yes, BusHubLK supports multi-site management. Create separate hubs for each depot, assign vehicles & staff, and view consolidated or depot-specific dashboards.',
-              },
-              {
-                question: 'What level of user permission controls are available?',
-                answer:
-                  'Define role-based access for Admins, Dispatchers, Mechanics, and Drivers. Each role can be restricted to specific modules.',
-              },
-              {
-                question: 'Does BusHubLK offer real-time bus tracking?',
-                answer:
-                  'Absolutely—track your entire fleet live on a map, with ETA predictions and route-optimization suggestions.',
-              },
-            ].map((faq, i) => (
-              <div key={i} className="border-b pb-4">
-                <h3 className="text-lg font-semibold">{faq.question}</h3>
-                <p className="mt-1 text-gray-600">{faq.answer}</p>
-              </div>
-            ))}
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+          {[
+            {
+              name: "Kasuntha P.",
+              role: "Depot Manager, Kandy",
+              quote:
+                "“BusHubLK helped us streamline fleet operations and reduce delays across routes.”",
+            },
+            {
+              name: "Nishantha D.",
+              role: "Head of Operations, Colombo",
+              quote:
+                "“The live tracking dashboard has improved coordination between our drivers and dispatchers.”",
+            },
+            {
+              name: "Arjun M.",
+              role: "Maintenance Supervisor, Jaffna",
+              quote:
+                "“Automated maintenance schedules are a lifesaver — fewer breakdowns, smoother operations.”",
+            },
+          ].map((t, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 40 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.2, duration: 0.6 }}
+              viewport={{ once: true }}
+              className="bg-blue-800/40 border border-blue-600 rounded-xl p-8 backdrop-blur-sm hover:scale-105 transition-all duration-300"
+            >
+              <p className="mb-4 text-lg italic text-blue-100">{t.quote}</p>
+              <h4 className="font-semibold text-white">{t.name}</h4>
+              <p className="text-blue-300 text-sm">{t.role}</p>
+            </motion.div>
+          ))}
         </div>
       </section>
     </div>

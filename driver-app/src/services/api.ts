@@ -5,14 +5,35 @@ import { API_BASE_URL } from "../config/api";
 export const driverAPI = {
   // Driver login
   loginDriver: async (credentials: { email: string; password: string }) => {
-    const response = await fetch(`${API_BASE_URL}/driver/login`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(credentials),
-    });
-    return response.json();
+    console.log("🔍 API_BASE_URL:", API_BASE_URL);
+    console.log("🔍 Full login URL:", `${API_BASE_URL}/driver/login`);
+    console.log("🔍 Login credentials:", { email: credentials.email, password: "***" });
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/driver/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+        },
+        body: JSON.stringify(credentials),
+      });
+      
+      console.log("✅ Response status:", response.status);
+      console.log("✅ Response OK:", response.ok);
+      
+      const data = await response.json();
+      console.log("✅ Response data:", data);
+      
+      return data;
+    } catch (error) {
+      console.error("❌ Fetch error:", error);
+      if (error instanceof Error) {
+        console.error("❌ Error message:", error.message);
+        console.error("❌ Error stack:", error.stack);
+      }
+      throw error;
+    }
   },
 
   // Get driver profile
@@ -113,7 +134,7 @@ export const driverAPI = {
   // Get driver's daily assignment
   getDailyAssignment: async (driverId: string) => {
     const token = await storageAPI.getAuthToken();
-    const response = await fetch(`${API_BASE_URL}/dailyassignment/driver/${driverId}`, {
+    const response = await fetch(`${API_BASE_URL}/assignments/driver/${driverId}`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -123,10 +144,30 @@ export const driverAPI = {
     return response.json();
   },
 
+  // Get route details by ID
+  getRouteById: async (routeId: string) => {
+    const token = await storageAPI.getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/routes`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch routes: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    const route = data.routes?.find((r: any) => r.route_id.toString() === routeId.toString());
+    return route || null;
+  },
+
   // Get driver's upcoming assignments for schedule view
   getUpcomingAssignments: async (driverId: string, days: number = 7) => {
     const token = await storageAPI.getAuthToken();
-    const response = await fetch(`${API_BASE_URL}/dailyassignment/driver/${driverId}/upcoming?days=${days}`, {
+    const response = await fetch(`${API_BASE_URL}/assignments/driver/${driverId}/upcoming?days=${days}`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",

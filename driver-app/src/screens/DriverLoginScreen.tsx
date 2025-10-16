@@ -19,11 +19,13 @@ import { useNavigation } from '@react-navigation/native';
 import { CommonActions } from '@react-navigation/native';
 import { driverAPI, storageAPI } from "../services/api";
 import { locationService } from "../services/locationService";
+import { useDriver } from "../context/DriverContext";
 
 const { width, height } = Dimensions.get("window");
 
 export default function DriverLoginScreen() {
   const navigation = useNavigation();
+  const { setDriverData } = useDriver();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -48,6 +50,7 @@ export default function DriverLoginScreen() {
       console.log("Login response:", response);
 
       if (response.success) {
+        
         // Store the token and user data using storageAPI
         await storageAPI.storeAuthToken(response.token);
 
@@ -59,27 +62,59 @@ export default function DriverLoginScreen() {
           const assignmentResponse = await driverAPI.getDailyAssignment(userData.driver_id.toString());
           
           if (assignmentResponse && assignmentResponse.bus_id && assignmentResponse.route_id) {
-            console.log("Daily assignment found:", {
-              bus_id: assignmentResponse.bus_id,
-              route_id: assignmentResponse.route_id,
-              assignment_id: assignmentResponse.assignment_id
+            // Check if assignment is for today - improve date comparison
+            const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+            const assignmentDate = new Date(assignmentResponse.assignment_date).toISOString().split('T')[0];
+            
+            console.log("Date comparison:", { 
+              assignmentDate, 
+              today, 
+              rawDate: assignmentResponse.assignment_date,
+              matches: assignmentDate === today 
             });
             
-            userData = { 
-              ...userData, 
-              busId: assignmentResponse.bus_id.toString(), 
-              routeId: assignmentResponse.route_id.toString(),
-              assignmentId: assignmentResponse.assignment_id,
-              busRegistration: assignmentResponse.bus_registration
-            };
-            
-            // Also set assignment data in location service
-            locationService.setCurrentAssignment({
-              bus_id: assignmentResponse.bus_id,
-              route_id: assignmentResponse.route_id,
-              driver_id: userData.driver_id,
-              assignment_id: assignmentResponse.assignment_id
-            });
+            if (assignmentDate === today) {
+              console.log("Today's daily assignment found:", {
+                bus_id: assignmentResponse.bus_id,
+                route_id: assignmentResponse.route_id,
+                assignment_id: assignmentResponse.assignment_id,
+                registration_number: assignmentResponse.registration_number
+              });
+              
+              userData = { 
+                ...userData, 
+                busId: assignmentResponse.bus_id.toString(), 
+                routeId: assignmentResponse.route_id.toString(),
+                assignmentId: assignmentResponse.assignment_id,
+                busRegistration: assignmentResponse.registration_number
+              };
+              
+              // Set assignment data in location service (but don't auto-start tracking)
+              locationService.setCurrentAssignment({
+                bus_id: assignmentResponse.bus_id,
+                route_id: assignmentResponse.route_id,
+                driver_id: userData.driver_id,
+                assignment_id: assignmentResponse.assignment_id
+              });
+            } else {
+              console.warn("Assignment found but not for today:", assignmentDate, "vs today:", today);
+              // Even if not today, still use the most recent assignment
+              console.log("Using most recent assignment anyway");
+              userData = { 
+                ...userData, 
+                busId: assignmentResponse.bus_id.toString(), 
+                routeId: assignmentResponse.route_id.toString(),
+                assignmentId: assignmentResponse.assignment_id,
+                busRegistration: assignmentResponse.registration_number
+              };
+              
+              locationService.setCurrentAssignment({
+                bus_id: assignmentResponse.bus_id,
+                route_id: assignmentResponse.route_id,
+                driver_id: userData.driver_id,
+                assignment_id: assignmentResponse.assignment_id
+              });
+            }
           } else {
             console.warn("No active daily assignment found for driver:", userData.driver_id);
           }
@@ -89,18 +124,11 @@ export default function DriverLoginScreen() {
 
         await storageAPI.storeUserData(userData);
 
-        // Start location tracking after storing user data
-        if (userData.busId && userData.routeId) {
-          console.log("Starting location tracking with assignment data");
-          locationService.startSmartLocationTracking(userData.busId, userData.routeId, userData.busRegistration);
-        } else {
-          console.warn("Bus ID or Route ID missing - no active daily assignment found");
-          Alert.alert(
-            "No Assignment Found", 
-            "You don't have an active daily assignment. Please contact your depot manager to assign you to a bus and route.",
-            [{ text: "OK" }]
-          );
-        }
+        // Update driver context
+        setDriverData(userData);
+
+        // Note: Location tracking will be managed by RootNavigator, not auto-started here
+        console.log("Login successful, user data stored:", userData.driver_id);
 
         setIsLoading(false);
         
@@ -115,10 +143,14 @@ export default function DriverLoginScreen() {
     } catch (error) {
       setIsLoading(false);
       console.error("Login error:", error);
-      Alert.alert(
-        "Error",
-        "Network error. Please check your connection and try again."
-      );
+      
+      let errorMessage = "Network error. Please check your connection and try again.";
+      
+      if (error instanceof Error && error.message) {
+        errorMessage = `Error: ${error.message}\n\nPlease ensure:\n1. You're on the same WiFi\n2. Backend is running\n3. Firewall allows connections`;
+      }
+      
+      Alert.alert("Connection Error", errorMessage);
     }
   };
 

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -15,11 +15,20 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { driverAPI } from "../services/api";
+import { useDriver } from "../context/DriverContext";
 
 export default function ForgotPasswordScreen() {
   const navigation = useNavigation();
+  const { driverData } = useDriver();
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  // Auto-fill email if user is logged in
+  useEffect(() => {
+    if (driverData?.email) {
+      setEmail(driverData.email);
+    }
+  }, [driverData]);
 
   const handleResetRequest = async () => {
     if (!email.trim()) {
@@ -109,25 +118,44 @@ export default function ForgotPasswordScreen() {
 
                 {/* Email Input */}
                 <View style={styles.inputContainer}>
-                  <View style={styles.inputWrapper}>
+                  <View style={[
+                    styles.inputWrapper,
+                    driverData && styles.inputWrapperReadonly
+                  ]}>
                     <Ionicons
                       name="mail-outline"
                       size={20}
-                      color="#6b7280"
+                      color={driverData ? "#9ca3af" : "#6b7280"}
                       style={styles.inputIcon}
                     />
                     <TextInput
-                      placeholder="Enter your email address"
+                      placeholder={driverData ? "Your registered email address" : "Enter your email address"}
                       placeholderTextColor="#9ca3af"
                       value={email}
                       onChangeText={setEmail}
-                      style={styles.input}
+                      style={[
+                        styles.input,
+                        driverData && styles.inputReadonly
+                      ]}
                       autoCapitalize="none"
                       autoCorrect={false}
                       keyboardType="email-address"
-                      editable={!isLoading}
+                      editable={!isLoading && !driverData}
                     />
+                    {driverData && (
+                      <Ionicons
+                        name="lock-closed-outline"
+                        size={16}
+                        color="#9ca3af"
+                        style={styles.lockIcon}
+                      />
+                    )}
                   </View>
+                  {driverData && (
+                    <Text style={styles.readonlyText}>
+                      Email cannot be changed while logged in
+                    </Text>
+                  )}
                 </View>
 
                 {/* Send Reset Link Button */}
@@ -319,5 +347,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: "center",
     lineHeight: 20,
+  },
+  inputWrapperReadonly: {
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderColor: "rgba(255, 255, 255, 0.3)",
+  },
+  inputReadonly: {
+    color: "#000000",
+  },
+  lockIcon: {
+    marginLeft: 8,
+  },
+  readonlyText: {
+    color: "#000000",
+    fontSize: 12,
+    marginTop: 8,
+    textAlign: "center",
+    fontStyle: "italic",
+    fontWeight: "500",
   },
 });

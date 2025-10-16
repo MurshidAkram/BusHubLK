@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from "react";
-import { useNavigation } from "@react-navigation/native";
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import {
   StyleSheet,
   View,
@@ -16,16 +16,24 @@ import {
   Animated,
   findNodeHandle,
   UIManager,
+  LayoutChangeEvent,
 } from "react-native";
-import Icon from "react-native-vector-icons/Ionicons";
+import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 import axios from "axios";
-import { storageAPI } from "../services/api";
+import { storageAPI, notificationAPI } from "../services/api";
+import { API_BASE_URL } from "../config/api";
 
 // Type definitions
 interface GooglePlacePrediction {
   place_id: string;
+  description: string;
+}
+
+interface RouteStopSuggestion {
+  place_id: string;
+  name: string;
   description: string;
 }
 
@@ -78,65 +86,7 @@ const services = [
   { title: "Complaints & Feedback", icon: "chatbox-ellipses-outline" },
 ];
 
-// Dummy bus data for Sri Lankan context
-const busData = [
-  {
-    id: "1",
-    number: "101",
-    from: "Colombo",
-    to: "Kandy",
-    time: "08:00 AM",
-    frequency: "Every 15 min",
-  },
-  {
-    id: "2",
-    number: "112",
-    from: "Colombo",
-    to: "Negombo",
-    time: "09:00 AM",
-    frequency: "Every 20 min",
-  },
-  {
-    id: "3",
-    number: "154",
-    from: "Angulana",
-    to: "Kiribathgoda",
-    time: "07:30 AM",
-    frequency: "Every 10 min",
-  },
-  {
-    id: "4",
-    number: "98",
-    from: "Kandy",
-    to: "Badulla",
-    time: "10:00 AM",
-    frequency: "Every 30 min",
-  },
-  {
-    id: "5",
-    number: "17",
-    from: "Colombo",
-    to: "Jaffna",
-    time: "06:00 AM",
-    frequency: "Every 1 hour",
-  },
-  {
-    id: "6",
-    number: "120",
-    from: "Horana",
-    to: "Pettah",
-    time: "08:30 AM",
-    frequency: "Every 12 min",
-  },
-  {
-    id: "7",
-    number: "138",
-    from: "Homagama",
-    to: "Pettah",
-    time: "09:15 AM",
-    frequency: "Every 8 min",
-  },
-];
+
 
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
@@ -148,18 +98,20 @@ export default function HomeScreen() {
 
   // User state
   const [userData, setUserData] = useState<UserData | null>(null);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const isFetchingUnreadRef = useRef(false);
 
   // Plan Your Journey state
   const [from, setFrom] = useState<string>("");
   const [to, setTo] = useState<string>("");
-  const [fromPlace, setFromPlace] = useState<GooglePlacePrediction | null>(
+  const [fromPlace, setFromPlace] = useState<RouteStopSuggestion | null>(
     null
   );
-  const [toPlace, setToPlace] = useState<GooglePlacePrediction | null>(null);
+  const [toPlace, setToPlace] = useState<RouteStopSuggestion | null>(null);
   const [fromSuggestions, setFromSuggestions] = useState<
-    GooglePlacePrediction[]
+    RouteStopSuggestion[]
   >([]);
-  const [toSuggestions, setToSuggestions] = useState<GooglePlacePrediction[]>(
+  const [toSuggestions, setToSuggestions] = useState<RouteStopSuggestion[]>(
     []
   );
   const [showFromSuggestions, setShowFromSuggestions] =
@@ -167,8 +119,7 @@ export default function HomeScreen() {
   const [showToSuggestions, setShowToSuggestions] = useState<boolean>(false);
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
 
-  // For local bus search (not Google)
-  const [filteredBuses, setFilteredBuses] = useState<BusData[]>([]);
+
 
   // For dynamic suggestion list positioning
   const fromInputRef = useRef<TextInput>(null);
@@ -182,6 +133,56 @@ export default function HomeScreen() {
     loadUserData();
     startAnimations();
   }, []);
+
+  const fetchUnreadCount = useCallback(async () => {
+    if (isFetchingUnreadRef.current) {
+      return;
+    }
+
+    isFetchingUnreadRef.current = true;
+    try {
+      const response = await notificationAPI.getUnreadCount();
+      const rawCount =
+        response?.data?.unreadCount ?? response?.unreadCount ?? null;
+
+      if (typeof rawCount === "number" && Number.isFinite(rawCount)) {
+        setUnreadCount(rawCount);
+      } else {
+        setUnreadCount(0);
+      }
+    } catch (error: any) {
+      const status = error?.response?.status;
+      if (status === 401 || status === 403) {
+        console.warn('Unread notification count access denied');
+        setUnreadCount(0);
+        return;
+      }
+      if (status === 404) {
+        console.warn('Unread notification endpoint not found');
+        setUnreadCount(0);
+        return;
+      }
+      console.error("Failed to load unread notifications count", error);
+    } finally {
+      isFetchingUnreadRef.current = false;
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+      fetchUnreadCount();
+      const interval = setInterval(() => {
+        if (isActive) {
+          fetchUnreadCount();
+        }
+      }, 60000);
+      return () => {
+        isActive = false;
+        clearInterval(interval);
+      };
+    }, [fetchUnreadCount])
+  );
 
   const startAnimations = () => {
     Animated.parallel([
@@ -243,11 +244,11 @@ export default function HomeScreen() {
     ]);
   };
 
-  // Google Places Autocomplete logic
-  const fetchPlaceSuggestions = async (
+  // Route stops autocomplete logic - Using Backend Database
+  const fetchRouteStopsSuggestions = async (
     input: string,
     setSuggestions: React.Dispatch<
-      React.SetStateAction<GooglePlacePrediction[]>
+      React.SetStateAction<RouteStopSuggestion[]>
     >
   ) => {
     if (input.length < 1) {
@@ -255,18 +256,32 @@ export default function HomeScreen() {
       return;
     }
     try {
+      console.log(`Fetching route stops suggestions for: "${input}"`);
+      
       const response = await axios.get(
-        `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(
-          input
-        )}&components=country:LK&language=en&key=${Maps_API_KEY}`
+        `${API_BASE_URL}/api/routes/stops/autocomplete`,
+        {
+          params: {
+            input: input
+          },
+          timeout: 5000
+        }
       );
+      
+      console.log("Route stops API Response:", response.data);
       if (response.data.status === "OK") {
-        setSuggestions(response.data.predictions);
+        setSuggestions(response.data.suggestions);
+        console.log(`Found ${response.data.suggestions.length} route stop suggestions`);
       } else {
+        console.warn(`Route stops API returned status: ${response.data.status}`);
         setSuggestions([]);
       }
     } catch (err) {
-      console.error("Error fetching place suggestions:", err);
+      console.error("Error fetching route stops suggestions:", err);
+      if (axios.isAxiosError(err)) {
+        console.error("Response data:", err.response?.data);
+        console.error("Response status:", err.response?.status);
+      }
       setSuggestions([]);
     }
   };
@@ -274,14 +289,14 @@ export default function HomeScreen() {
   const debounceFetchSuggestions = (
     input: string,
     setSuggestions: React.Dispatch<
-      React.SetStateAction<GooglePlacePrediction[]>
+      React.SetStateAction<RouteStopSuggestion[]>
     >
   ) => {
     if (debounceTimeout.current) {
       clearTimeout(debounceTimeout.current);
     }
     debounceTimeout.current = setTimeout(() => {
-      fetchPlaceSuggestions(input, setSuggestions);
+      fetchRouteStopsSuggestions(input, setSuggestions);
     }, 300);
   };
 
@@ -299,39 +314,65 @@ export default function HomeScreen() {
     debounceFetchSuggestions(text, setToSuggestions);
   };
 
-  const selectFromSuggestion = (item: GooglePlacePrediction) => {
+  const selectFromSuggestion = (item: RouteStopSuggestion) => {
     setFrom(item.description);
     setFromPlace(item);
     setShowFromSuggestions(false);
     Keyboard.dismiss();
   };
 
-  const selectToSuggestion = (item: GooglePlacePrediction) => {
+  const selectToSuggestion = (item: RouteStopSuggestion) => {
     setTo(item.description);
     setToPlace(item);
     setShowToSuggestions(false);
     Keyboard.dismiss();
   };
 
-  // For local bus search (not Google)
-  const handleJourneySearch = () => {
-    const fromLower = from.trim().toLowerCase();
-    const toLower = to.trim().toLowerCase();
-    const results = busData.filter(
-      (bus) =>
-        bus.from.toLowerCase().includes(fromLower) &&
-        bus.to.toLowerCase().includes(toLower)
-    );
-    setFilteredBuses(results);
+  // Search for routes between selected stops
+  const handleJourneySearch = async () => {
+    if (!fromPlace || !toPlace) {
+      Alert.alert("Error", "Please select both from and to locations");
+      return;
+    }
+
+    try {
+      console.log('Searching routes between:', fromPlace.name, 'and', toPlace.name);
+      
+      const response = await axios.post(
+        `${API_BASE_URL}/api/routes/find`,
+        {
+          from: fromPlace.name,
+          to: toPlace.name
+        }
+      );
+
+      if (response.data.success) {
+        // Navigate to results screen with route data
+        navigation.navigate("BusRouteResults", {
+          from: fromPlace,
+          to: toPlace,
+          routes: response.data.routes,
+          routeCount: response.data.count
+        });
+      } else {
+        Alert.alert("No Routes Found", "No bus routes found between selected locations");
+      }
+    } catch (error) {
+      console.error('Error searching routes:', error);
+      Alert.alert("Error", "Failed to search for routes. Please try again.");
+    }
   };
 
   // --- Dynamic suggestion list positioning ---
-  const onInputLayout = (event, type: 'from' | 'to') => {
+
+  const onInputLayout = (event: LayoutChangeEvent, type: 'from' | 'to') => {
+
     const { y, height } = event.nativeEvent.layout;
+    const statusBarOffset = StatusBar.currentHeight ?? 0;
     if (type === 'from') {
-      setFromInputLayout({ y, height });
+      setFromInputLayout({ y: y - statusBarOffset, height });
     } else {
-      setToInputLayout({ y, height });
+      setToInputLayout({ y: y - statusBarOffset, height });
     }
   };
 
@@ -382,7 +423,7 @@ export default function HomeScreen() {
               style={styles.suggestionItemEnhanced}
               activeOpacity={0.7}
             >
-              <Icon
+              <Ionicons
                 name="location-outline"
                 size={16}
                 color={AppColors.primary}
@@ -432,7 +473,14 @@ export default function HomeScreen() {
               onPress={() => navigation.navigate("Notifications")}
             >
               <View style={styles.iconBackgroundEnhanced}>
-                <Icon name="notifications-outline" size={24} color="#FFFFFF" />
+                <Ionicons name="notifications-outline" size={24} color="#FFFFFF" />
+                {unreadCount > 0 && (
+                  <View style={styles.notificationBadge}>
+                    <Text style={styles.notificationBadgeText}>
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </Text>
+                  </View>
+                )}
               </View>
             </TouchableOpacity>
             <TouchableOpacity
@@ -440,7 +488,7 @@ export default function HomeScreen() {
               onPress={handleLogout}
             >
               <View style={styles.iconBackgroundEnhanced}>
-                <Icon name="log-out-outline" size={24} color="#FFFFFF" />
+                <Ionicons name="log-out-outline" size={24} color="#FFFFFF" />
               </View>
             </TouchableOpacity>
           </View>
@@ -469,7 +517,7 @@ export default function HomeScreen() {
             style={styles.welcomeBanner}
           >
             <View style={styles.welcomeIconContainer}>
-              <Icon name="bus-outline" size={32} color="#fff" />
+              <Ionicons name="bus-outline" size={32} color="#fff" />
             </View>
             <View style={styles.welcomeTextContainer}>
               <Text style={styles.welcomeTitle}>
@@ -496,7 +544,7 @@ export default function HomeScreen() {
             style={styles.journeyCard}
           >
             <View style={styles.journeyHeader}>
-              <Icon name="map-outline" size={24} color={AppColors.primary} />
+              <Ionicons name="map-outline" size={24} color={AppColors.primary} />
               <Text style={styles.journeyTitle}>Plan Your Journey</Text>
             </View>
 
@@ -508,7 +556,7 @@ export default function HomeScreen() {
                 colors={[AppColors.primaryMuted, "rgba(0, 86, 179, 0.05)"]}
                 style={styles.inputGradient}
               >
-                <Icon
+                <Ionicons
                   name="navigate-circle-outline"
                   size={20}
                   style={styles.inputIcon}
@@ -524,8 +572,11 @@ export default function HomeScreen() {
                     onFocus={() => {
                         setShowFromSuggestions(true);
                         // Measure layout on focus, ensuring it's recent
-                        fromInputRef.current?.measureInWindow((x, y, width, height) => {
-                            setFromInputLayout({ y: y - StatusBar.currentHeight, height: height }); // Adjust for StatusBar if translucent is false
+
+            fromInputRef.current?.measureInWindow((x, y, width, height) => {
+              const statusBarOffset = StatusBar.currentHeight ?? 0;
+              setFromInputLayout({ y: y - statusBarOffset, height: height }); // Adjust for StatusBar if translucent is false
+
                         });
                     }}
                     onBlur={() => {
@@ -543,7 +594,7 @@ export default function HomeScreen() {
                       }}
                       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
-                      <Icon name="close-circle" size={20} color="#154dadff" />
+                      <Ionicons name="close-circle" size={20} color="#154dadff" />
                     </TouchableOpacity>
                   )}
                 </View>
@@ -558,7 +609,7 @@ export default function HomeScreen() {
                 colors={[AppColors.primaryMuted, "rgba(0, 86, 179, 0.05)"]}
                 style={styles.inputGradient}
               >
-                <Icon
+                <Ionicons
                   name="location-outline"
                   size={20}
                   style={styles.inputIcon}
@@ -574,8 +625,11 @@ export default function HomeScreen() {
                     onFocus={() => {
                         setShowToSuggestions(true);
                         // Measure layout on focus, ensuring it's recent
-                        toInputRef.current?.measureInWindow((x, y, width, height) => {
-                            setToInputLayout({ y: y - StatusBar.currentHeight, height: height }); // Adjust for StatusBar if translucent is false
+
+            toInputRef.current?.measureInWindow((x, y, width, height) => {
+              const statusBarOffset = StatusBar.currentHeight ?? 0;
+              setToInputLayout({ y: y - statusBarOffset, height: height }); // Adjust for StatusBar if translucent is false
+
                         });
                     }}
                     onBlur={() => {
@@ -593,7 +647,7 @@ export default function HomeScreen() {
                       }}
                       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
-                      <Icon name="close-circle" size={20} color="#154dadff" />
+                      <Ionicons name="close-circle" size={20} color="#154dadff" />
                     </TouchableOpacity>
                   )}
                 </View>
@@ -605,14 +659,7 @@ export default function HomeScreen() {
                 styles.searchButton,
                 (!fromPlace || !toPlace) && { opacity: 0.5 },
               ]}
-              onPress={() => {
-                handleJourneySearch(); // Trigger local bus search
-                navigation.navigate("BusRouteResults", {
-                  from: fromPlace,
-                  to: toPlace,
-                  filteredBuses: filteredBuses, // Pass filtered buses to the results screen
-                });
-              }}
+              onPress={handleJourneySearch}
               disabled={!fromPlace || !toPlace}
               activeOpacity={0.8}
             >
@@ -622,7 +669,7 @@ export default function HomeScreen() {
                 end={{ x: 1, y: 0 }}
                 style={styles.searchButtonGradient}
               >
-                <Icon
+                <Ionicons
                   name="search-outline"
                   size={20}
                   color="#FFFFFF"
@@ -634,46 +681,7 @@ export default function HomeScreen() {
           </LinearGradient>
         </Animated.View>
 
-        {/* Show filtered buses below the card */}
-        {filteredBuses.length > 0 ? (
-          <View style={{ marginBottom: 20 }}>
-            <Text style={styles.sectionTitle}>Available Buses</Text>
-            {filteredBuses.map((bus) => (
-              <Animated.View
-                key={bus.id}
-                style={[
-                  styles.busCard,
-                  { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
-                ]}
-              >
-                <View style={styles.busInfo}>
-                  <LinearGradient
-                    colors={[AppColors.primaryMuted, "rgba(0, 86, 179, 0.05)"]}
-                    style={styles.busNumberContainer}
-                  >
-                    <Text style={styles.busNumber}>{bus.number}</Text>
-                  </LinearGradient>
-                  <View style={styles.busDetails}>
-                    <Text style={styles.busDestination}>
-                      {bus.from} → {bus.to}
-                    </Text>
-                    <View style={styles.arrivalContainer}>
-                      <Icon
-                        name="time-outline"
-                        size={16}
-                        color={AppColors.textSecondary}
-                      />
-                      <Text style={styles.arrivalTime}>{bus.time}</Text>
-                    </View>
-                    <Text style={styles.busArrival}>{bus.frequency}</Text>
-                  </View>
-                </View>
-              </Animated.View>
-            ))}
-          </View>
-        ) : from || to ? (
-          <Text style={styles.noBusesText}>No buses found for this route.</Text>
-        ) : null}
+
 
         {/* --- Quick Actions Section (UNCHANGED) --- */}
         <View style={styles.section}>
@@ -685,7 +693,7 @@ export default function HomeScreen() {
                 style={styles.quickActionCard}
                 onPress={() => {
                   if (action.title === "Live Tracking") {
-                    navigation.navigate("BusTracker");
+                    navigation.navigate("BusTracking");
                   } else if (action.title === "Bus Occupancy") {
                     navigation.navigate("BusOccupancy");
                   } else if (action.title === "Emergency Alert") {
@@ -695,7 +703,7 @@ export default function HomeScreen() {
                 activeOpacity={0.8}
               >
                 <View style={styles.quickActionIconContainer}>
-                  <Icon
+                  <Ionicons
                     name={action.icon}
                     size={26}
                     color={AppColors.primary}
@@ -724,7 +732,7 @@ export default function HomeScreen() {
                 }}
                 activeOpacity={0.8}
               >
-                <Icon name={service.icon} size={28} color={AppColors.primary} />
+                <Ionicons name={service.icon} size={28} color={AppColors.primary} />
                 <Text style={styles.serviceCardText}>{service.title}</Text>
               </TouchableOpacity>
             ))}
@@ -820,6 +828,25 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.3)",
+  },
+  notificationBadge: {
+    position: "absolute",
+    top: -2,
+    right: -2,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: "#F97316",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 4,
+    borderWidth: 1,
+    borderColor: "#ffffff",
+  },
+  notificationBadgeText: {
+    color: "#ffffff",
+    fontSize: 10,
+    fontWeight: "700",
   },
   welcomeBanner: {
     flexDirection: "row",

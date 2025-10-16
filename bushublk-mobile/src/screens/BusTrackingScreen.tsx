@@ -5,20 +5,29 @@ import {
   Text,
   TouchableOpacity,
   StatusBar,
-  SafeAreaView,
   TextInput,
   FlatList,
   ActivityIndicator,
   Dimensions,
   Modal,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/Ionicons';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, PROVIDER_GOOGLE, Circle } from 'react-native-maps';
+import { LinearGradient } from 'expo-linear-gradient';
 import { StackScreenProps } from '@react-navigation/stack';
 import * as Location from 'expo-location';
 import { HomeStackParamList } from '../navigation/navigationTypes';
 import { busLiveTrackingAPI } from '../services/busLiveTrackingAPI';
+import { busOccupancyAPI, AverageOccupancyData } from '../services/busOccupancyAPI';
 import { API_BASE_URL } from '../config/api';
+import { 
+  convertToSriLankaTime, 
+  getMinutesSince, 
+  formatTimeSince, 
+  isTimestampStale,
+  getCurrentSriLankaTime 
+} from '../utils/timeUtils';
 
 type Props = StackScreenProps<HomeStackParamList, 'BusTracking'>;
 
@@ -47,6 +56,21 @@ interface BusLocation {
   occupancyLevel: string;
   confidence: number;
   distanceKm: number;
+  // Enhanced dynamic occupancy data from passenger reports
+  dynamicOccupancy?: {
+    level: string;
+    reportCount: number;
+    avgConfidence: number;
+    dataFreshness: string;
+    lastReportTime: Date | null;
+    minutesSinceLastReport: number | null;
+    // Simplified fields
+    overallCondition: string;
+    trendDirection: string;
+    reliabilityScore: number;
+    timeWeightedLevel: string;
+    passengerFeedbackSummary: string;
+  };
 }
 
 interface BusRoute {
@@ -58,7 +82,7 @@ interface BusRoute {
   totalBuses: number;
 }
 
-export default function BusTrackingScreen({ navigation }: Props) {
+export default function BusTrackingScreen({ navigation, route }: Props) {
   const [selectedRoute, setSelectedRoute] = useState<string | null>(null);
   const [busLocations, setBusLocations] = useState<BusLocation[]>([]);
   const [routes, setRoutes] = useState<BusRoute[]>([]);
@@ -74,9 +98,13 @@ export default function BusTrackingScreen({ navigation }: Props) {
     latitudeDelta: 0.05,
     longitudeDelta: 0.05,
   });
+  const [occupancyData, setOccupancyData] = useState<{ [busId: string]: AverageOccupancyData }>({});
+  const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null);
+  const [isFullScreenMap, setIsFullScreenMap] = useState(false);
 
   const mapRef = useRef<MapView>(null);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const occupancyPollingRef = useRef<NodeJS.Timeout | null>(null);
 
   // Request location permission
   const requestLocationPermission = async () => {
@@ -156,8 +184,16 @@ const fetchRoutes = async () => {
       if (busLocations.length === 0) {
         setLoading(true);
       }
+      
+      console.log(`🔄 Fetching bus locations at ${new Date().toLocaleTimeString('en-LK')} (Sri Lanka time)`);
       const data = await busLiveTrackingAPI.getNearbyBuses(userLocation.latitude, userLocation.longitude, 5);
-      console.log('Fetched nearby buses:', data);
+      console.log(`✅ Fetched ${data.length} nearby buses:`, data.map((bus: any) => ({
+        id: bus.bus_id,
+        route: bus.route_number,
+        status: bus.tracking_status,
+        lastUpdate: bus.updated_at
+      })));
+      
       setBusLocations(data.map((item: any) => ({
         busId: item.bus_id,
         registrationNumber: item.registration_number,
@@ -171,15 +207,78 @@ const fetchRoutes = async () => {
         confidence: item.confidence || 0.0,
         distanceKm: parseFloat(item.distance), // Fixed: use distance instead of distance_km
       })));
+      
+      // Update last refresh time
+      setLastRefreshTime(getCurrentSriLankaTime());
     } catch (err: any) {
       console.error('Error fetching nearby buses:', err.message, err.response?.data);
-      setError(`Failed to fetch bus locations: ${err.message}`);
+      
+      // Don't show timeout errors to users - they're usually due to network issues
+      // and the app should continue working without showing error messages
+      if (err.message && err.message.includes('timeout')) {
+        console.log('🕐 API timeout - continuing silently without showing error to user');
+        return; // Don't set error state for timeouts
+      }
+      
+      // Only show errors for actual failures (4xx, 5xx responses)
+      if (err.response?.status >= 400) {
+        setError(`Unable to fetch bus locations. Please try again.`);
+      } else {
+        console.log('🌐 Network connectivity issue - continuing silently');
+      }
     } finally {
       if (busLocations.length === 0) {
         setLoading(false);
       }
     }
   };
+
+  // Fetch dynamic occupancy data from passenger reports
+  const fetchOccupancyData = async () => {
+    if (busLocations.length === 0) return;
+    
+    try {
+      const busIds = busLocations.map(bus => parseInt(bus.busId));
+      console.log('🔄 Fetching dynamic occupancy data for buses:', busIds);
+      
+      const response = await busOccupancyAPI.getAverageOccupancyLevels(busIds, 30); // 30-minute window
+      setOccupancyData(response.data);
+      
+      console.log('✅ Updated occupancy data for buses:', Object.keys(response.data).length);
+    } catch (err: any) {
+      console.error('❌ Error fetching occupancy data:', err.message);
+      // Don't show error to user as this is supplementary data
+    }
+  };
+
+
+
+  // Merge dynamic occupancy data
+  const enhanceBusesWithOccupancyData = useCallback((buses: BusLocation[]) => {
+    return buses.map(bus => {
+      const dynamicData = occupancyData[bus.busId];
+      if (dynamicData && dynamicData.calculated_occupancy_level !== 'unknown') {
+        return {
+          ...bus,
+          dynamicOccupancy: {
+            level: dynamicData.calculated_occupancy_level,
+            reportCount: dynamicData.report_count,
+            avgConfidence: dynamicData.avg_confidence,
+            dataFreshness: dynamicData.data_freshness,
+            lastReportTime: dynamicData.last_report_time ? new Date(dynamicData.last_report_time) : null,
+            minutesSinceLastReport: dynamicData.minutes_since_last_report,
+            // Simple fields for basic occupancy tracking
+            overallCondition: dynamicData.calculated_occupancy_level,
+            trendDirection: 'stable',
+            reliabilityScore: Math.min(dynamicData.report_count * 20 + dynamicData.avg_confidence, 100),
+            timeWeightedLevel: dynamicData.calculated_occupancy_level,
+            passengerFeedbackSummary: `${dynamicData.report_count} passenger report${dynamicData.report_count !== 1 ? 's' : ''} (${dynamicData.avg_confidence}% confidence)`
+          }
+        };
+      }
+      return bus;
+    });
+  }, [occupancyData]);
 
   // Initialize and set up polling
   useEffect(() => {
@@ -195,6 +294,9 @@ const fetchRoutes = async () => {
     return () => {
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
+      }
+      if (occupancyPollingRef.current) {
+        clearInterval(occupancyPollingRef.current);
       }
     };
   }, []); // Remove userLocation dependency to prevent multiple initializations
@@ -213,7 +315,7 @@ const fetchRoutes = async () => {
     
     pollingIntervalRef.current = setInterval(() => {
       fetchBusLocations();
-    }, 30000); // Poll every 30 seconds
+    }, 50000); // Poll every 50 seconds
 
     return () => {
       if (pollingIntervalRef.current) {
@@ -222,21 +324,67 @@ const fetchRoutes = async () => {
     };
   }, [userLocation]);
 
+  // Separate effect for occupancy data polling
+  useEffect(() => {
+    if (busLocations.length === 0) return;
+
+    // Initial fetch when buses are available
+    fetchOccupancyData();
+
+    // Start polling for occupancy data every 5 minutes
+    if (occupancyPollingRef.current) {
+      clearInterval(occupancyPollingRef.current);
+    }
+    
+    occupancyPollingRef.current = setInterval(() => {
+      fetchOccupancyData();
+    }, 100000); // Poll every 5 minutes (300,000 ms)
+
+    return () => {
+      if (occupancyPollingRef.current) {
+        clearInterval(occupancyPollingRef.current);
+      }
+    };
+  }, [busLocations.length]); // Re-run when number of buses changes
+
   // Filter buses using useMemo to prevent unnecessary re-renders
   const filteredBuses = useMemo(() => {
-    let filtered = busLocations.filter(bus => {
-      if (selectedRoute && bus.routeNumber !== selectedRoute) {
+    const enhancedBuses = enhanceBusesWithOccupancyData(busLocations);
+    console.log(`🔍 Filtering ${enhancedBuses.length} buses with occupancy data...`);
+    
+    let filtered = enhancedBuses.filter(bus => {
+      // Filter out buses with old data (older than 3 minutes) using Sri Lanka time
+      const minutesOld = getMinutesSince(bus.lastUpdated);
+      if (isTimestampStale(bus.lastUpdated, 3)) {
+        console.log(`⏰ Filtering out bus ${bus.busId} (Route ${bus.routeNumber}) - data is stale (${minutesOld} minutes old)`);
         return false;
       }
-      if (searchQuery) {
-        return bus.routeNumber && bus.routeNumber.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      if (selectedRoute && bus.routeNumber !== selectedRoute) {
+        console.log(`🛣️ Filtering out bus ${bus.busId} - route ${bus.routeNumber} doesn't match selected route ${selectedRoute}`);
+        return false;
       }
-      return bus.status === 'active';
+      
+      if (searchQuery) {
+        const matches = bus.routeNumber && bus.routeNumber.toLowerCase().includes(searchQuery.toLowerCase());
+        if (!matches) {
+          console.log(`🔍 Filtering out bus ${bus.busId} - route ${bus.routeNumber} doesn't match search "${searchQuery}"`);
+          return false;
+        }
+      }
+      
+      if (bus.status !== 'active') {
+        console.log(`🚌 Filtering out bus ${bus.busId} - status is ${bus.status} (not active)`);
+        return false;
+      }
+      
+      console.log(`✅ Keeping bus ${bus.busId} (Route ${bus.routeNumber}) - ${minutesOld}m old, status: ${bus.status}`);
+      return true;
     });
 
-    console.log('Filtered buses:', filtered);
+    console.log(`📊 Final result: ${filtered.length} buses after filtering from ${enhancedBuses.length} total`);
     return filtered;
-  }, [busLocations, selectedRoute, searchQuery]);
+  }, [busLocations, selectedRoute, searchQuery, enhanceBusesWithOccupancyData]);
 
   // Update map region when filtered buses change
   useEffect(() => {
@@ -293,6 +441,28 @@ const fetchRoutes = async () => {
     }
   }, [filteredBuses, userLocation]);
 
+  const toggleFullScreenMap = useCallback(() => {
+    setIsFullScreenMap(prev => !prev);
+  }, []);
+
+  // Calculate dynamic distance from passenger to bus
+  const calculateDistanceFromUser = (busLatitude: number, busLongitude: number): number => {
+    if (!userLocation) return 0;
+    
+    const R = 6371e3; // Earth's radius in meters
+    const φ1 = userLocation.latitude * Math.PI / 180;
+    const φ2 = busLatitude * Math.PI / 180;
+    const Δφ = (busLatitude - userLocation.latitude) * Math.PI / 180;
+    const Δλ = (busLongitude - userLocation.longitude) * Math.PI / 180;
+
+    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+            Math.cos(φ1) * Math.cos(φ2) *
+            Math.sin(Δλ/2) * Math.sin(Δλ/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+    return R * c; // Distance in meters
+  };
+
   const getBusStatusColor = (status: string) => {
     switch (status) {
       case 'active': return AppColors.success;
@@ -307,6 +477,75 @@ const fetchRoutes = async () => {
     if (occupancy < 0.5) return AppColors.success;
     if (occupancy < 0.8) return AppColors.warning;
     return AppColors.danger;
+  };
+
+  const getOccupancyLevelColor = (level: string) => {
+    const levelInfo = busOccupancyAPI.getOccupancyLevelInfo(level);
+    return levelInfo.color;
+  };
+
+
+
+  const getTrendInfo = (trend: string) => {
+    switch (trend) {
+      case 'improving': return { icon: '📈', label: 'Getting less crowded', color: '#28a745' };
+      case 'worsening': return { icon: '📉', label: 'Getting more crowded', color: '#dc3545' };
+      case 'stable': return { icon: '➡️', label: 'Stable condition', color: '#17a2b8' };
+      default: return { icon: '❓', label: 'Unknown trend', color: '#6c757d' };
+    }
+  };
+
+  const getOccupancyDisplayText = (bus: BusLocation) => {
+    // Only use passenger report data if available
+    if (bus.dynamicOccupancy && bus.dynamicOccupancy.dataFreshness !== 'no_data') {
+      // Simple occupancy level mapping
+      let simpleLevel = '';
+      let levelColor = '';
+      
+      switch (bus.dynamicOccupancy.level) {
+        case 'not_crowded':
+          simpleLevel = 'Not Crowded';
+          levelColor = '#28a745';
+          break;
+        case 'not_too_crowded':
+          simpleLevel = 'Moderate';
+          levelColor = '#ffc107';
+          break;
+        case 'crowded':
+          simpleLevel = 'Crowded';
+          levelColor = '#fd7e14';
+          break;
+        case 'very_crowded':
+          simpleLevel = 'Very Crowded';
+          levelColor = '#dc3545';
+          break;
+        default:
+          simpleLevel = 'Unknown';
+          levelColor = '#6c757d';
+      }
+      
+      return {
+        text: simpleLevel,
+        color: levelColor,
+        confidence: bus.dynamicOccupancy.avgConfidence,
+        freshness: bus.dynamicOccupancy.passengerFeedbackSummary,
+        source: 'passenger_reports',
+        overallCondition: {
+          label: simpleLevel,
+          color: levelColor,
+          icon: bus.dynamicOccupancy.level === 'not_crowded' ? '🟢' : 
+                bus.dynamicOccupancy.level === 'not_too_crowded' ? '🟡' :
+                bus.dynamicOccupancy.level === 'crowded' ? '🟠' : 
+                bus.dynamicOccupancy.level === 'very_crowded' ? '🔴' : '❓'
+        },
+        trendInfo: getTrendInfo(bus.dynamicOccupancy.trendDirection),
+        reliabilityScore: bus.dynamicOccupancy.reliabilityScore,
+        reportCount: bus.dynamicOccupancy.reportCount
+      };
+    }
+    
+    // If no passenger reports available, return null to indicate no data
+    return null;
   };
 
   const renderRouteItem = ({ item }: { item: BusRoute }) => (
@@ -339,11 +578,22 @@ const fetchRoutes = async () => {
 
   const renderBusItem = ({ item }: { item: BusLocation }) => {
     const occupancy = item.passengerCount / 60; // Assume capacity is 60
-    const timeSinceUpdate = Math.floor((Date.now() - item.lastUpdated.getTime()) / 60000);
+    const timeSinceUpdate = getMinutesSince(item.lastUpdated); // Using Sri Lanka time
+    const occupancyDisplay = getOccupancyDisplayText(item);
+    const isStaleData = timeSinceUpdate > 2; // Mark as stale if older than 2 minutes
+    
+    // Calculate real-time distance from passenger location
+    const dynamicDistance = calculateDistanceFromUser(item.latitude, item.longitude);
+    const distanceText = dynamicDistance < 1000 
+      ? `${Math.round(dynamicDistance)}m` 
+      : `${(dynamicDistance / 1000).toFixed(1)}km`;
 
     return (
       <TouchableOpacity
-        style={styles.busCard}
+        style={[
+          styles.busCard,
+          isStaleData && styles.staleBusCard // Add visual indicator for stale data
+        ]}
         onPress={() => focusOnBus(item)}
         onLongPress={() => {
           setSelectedBus(item);
@@ -355,78 +605,153 @@ const fetchRoutes = async () => {
             <Text style={styles.busId}>{item.registrationNumber}</Text>
             <Text style={styles.busRoute}>Route {item.routeNumber || 'N/A'}</Text>
           </View>
-          <View style={styles.busStatus}>
-            <View style={[styles.statusDot, { backgroundColor: getBusStatusColor(item.status) }]} />
-            <Text style={styles.statusText}>{item.status}</Text>
+          <View style={styles.busRightInfo}>
+            {/* Occupancy Display on the right */}
+            {occupancyDisplay ? (
+              <View style={styles.occupancyCompact}>
+                <Text style={styles.occupancyIconSmall}>
+                  {occupancyDisplay.overallCondition?.icon || '🚌'}
+                </Text>
+                <Text style={[styles.occupancyTextCompact, { color: occupancyDisplay.color }]}>
+                  {occupancyDisplay.overallCondition?.label || occupancyDisplay.text}
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.busStatus}>
+                <View style={[styles.statusDot, { backgroundColor: getBusStatusColor(item.status) }]} />
+                <Text style={styles.statusText}>{item.status}</Text>
+              </View>
+            )}
           </View>
         </View>
 
         <View style={styles.busDetails}>
+          {/* Dynamic Distance from passenger */}
           <View style={styles.busDetailRow}>
-            <Icon name="people-outline" size={16} color={getOccupancyColor(occupancy)} />
-            <Text style={[styles.busDetailText, { color: getOccupancyColor(occupancy) }]}>
-              Occupancy: {item.passengerCount}/60 ({Math.round(occupancy * 100)}%) {item.occupancyLevel}
-            </Text>
-          </View>
-          <View style={styles.busDetailRow}>
-            <Icon name="pin-outline" size={16} color={AppColors.textSecondary} />
+            <Ionicons name="pin-outline" size={16} color={AppColors.textSecondary} />
             <Text style={styles.busDetailText}>
-              Distance: {item.distanceKm.toFixed(2)} km
+              Distance: {distanceText} away
             </Text>
           </View>
         </View>
 
         <View style={styles.lastUpdated}>
-          <Text style={styles.lastUpdatedText}>
-            Updated {timeSinceUpdate === 0 ? 'now' : `${timeSinceUpdate}m ago`}
+          <Text style={[
+            styles.lastUpdatedText,
+            isStaleData && styles.staleDataText
+          ]}>
+            Updated {formatTimeSince(item.lastUpdated)}
+            {isStaleData && ' (May be offline)'}
           </Text>
         </View>
       </TouchableOpacity>
     );
   };
 
+  // Always fetch user location and nearby buses when screen is focused
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', async () => {
+      await requestLocationPermission();
+      await getUserLocation();
+      fetchBusLocations();
+    });
+    return unsubscribe;
+  }, [navigation]);
+
+  // Handle route parameters from navigation (e.g., from BusRouteResultsScreen)
+  useEffect(() => {
+    if (route?.params) {
+      const { selectedRoute: routeFromParams, fromSearch, searchFrom, searchTo } = route.params;
+      
+      if (routeFromParams) {
+        console.log(`🎯 Setting selected route from navigation: ${routeFromParams}`);
+        setSelectedRoute(routeFromParams);
+      }
+      
+      if (fromSearch) {
+        console.log(`🔍 Coming from search: ${searchFrom} → ${searchTo}`);
+        // You can use searchFrom and searchTo if needed for additional context
+      }
+    }
+  }, [route?.params]);
+
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={AppColors.background} />
+    <LinearGradient
+      colors={['#F8FAFF', '#E3F2FD', '#BBDEFB']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.gradientContainer}
+    >
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor={AppColors.background} />
 
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Icon name="arrow-back-outline" size={24} color={AppColors.text} />
-        </TouchableOpacity>
-        <Text style={styles.title}>Bus Tracking</Text>
-        <TouchableOpacity onPress={showAllBuses} style={styles.viewAllButton}>
-          <Icon name="expand-outline" size={24} color={AppColors.primary} />
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.searchContainer}>
-        <Icon name="search-outline" size={20} color={AppColors.textSecondary} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search route number..."
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <Icon name="close-circle" size={20} color={AppColors.textSecondary} />
+      <LinearGradient
+        colors={['#0056b3', '#1976d2', '#42a5f5']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.headerGradient}
+      >
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Ionicons name="arrow-back-outline" size={24} color="white" />
           </TouchableOpacity>
-        )}
-      </View>
+          <Text style={styles.titleWhite}>Bus Tracking</Text>
+          <TouchableOpacity onPress={toggleFullScreenMap} style={styles.viewAllButton}>
+            <Ionicons 
+              name={isFullScreenMap ? "contract-outline" : "expand-outline"} 
+              size={24} 
+              color="white" 
+            />
+          </TouchableOpacity>
+        </View>
+      </LinearGradient>
 
-      <View style={styles.routeFilterContainer}>
-        <Text style={styles.filterTitle}>Routes:</Text>
-        <FlatList
-          data={routes}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={(item) => item.routeNumber}
-          renderItem={renderRouteItem}
-          contentContainerStyle={styles.routeList}
-        />
-      </View>
+      {!isFullScreenMap && (
+        <>
+          <LinearGradient
+            colors={['#E3F2FD', '#FFFFFF', '#F8FAFF']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.searchGradient}
+          >
+            <View style={styles.searchContainer}>
+              <Ionicons name="search-outline" size={20} color={AppColors.textSecondary} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search route number..."
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                  <Ionicons name="close-circle" size={20} color={AppColors.textSecondary} />
+                </TouchableOpacity>
+              )}
+            </View>
+          </LinearGradient>
 
-      <View style={styles.mapContainer}>
+          <LinearGradient
+            colors={['#BBDEFB', '#E3F2FD', '#FFFFFF']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={styles.routeFilterGradient}
+          >
+            <View style={styles.routeFilterContainer}>
+            <Text style={styles.filterTitle}>Routes:</Text>
+            <FlatList
+              data={routes}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(item) => item.routeNumber}
+              renderItem={renderRouteItem}
+              contentContainerStyle={styles.routeList}
+            />
+            </View>
+          </LinearGradient>
+        </>
+      )}
+
+      <View style={[styles.mapContainer, isFullScreenMap && styles.fullScreenMapContainer]}>
         {loading && (
           <View style={styles.loadingOverlay}>
             <ActivityIndicator size="large" color={AppColors.primary} />
@@ -449,6 +774,19 @@ const fetchRoutes = async () => {
           showsMyLocationButton={true}
           onRegionChangeComplete={setMapRegion}
         >
+          {/* Show user's location marker explicitly */}
+          {userLocation && (
+            <Marker
+              coordinate={{ latitude: userLocation.latitude, longitude: userLocation.longitude }}
+              title="You"
+              description="Your current location"
+            >
+              <View style={{ backgroundColor: '#17a2b8', borderRadius: 12, padding: 4 }}>
+                <Ionicons name="person" size={18} color="white" />
+              </View>
+            </Marker>
+          )}
+          {/* Show nearby buses within radius */}
           {filteredBuses.map((bus) => (
             <Marker
               key={bus.busId}
@@ -457,18 +795,48 @@ const fetchRoutes = async () => {
                 longitude: bus.longitude,
               }}
               title={`Bus ${bus.registrationNumber} (${bus.routeNumber || 'N/A'})`}
-              description={`Occupancy: ${bus.occupancyLevel}`}
+              description={(() => {
+                const display = getOccupancyDisplayText(bus);
+                if (display?.overallCondition) {
+                  return `${display.overallCondition.icon} ${display.overallCondition.label}`;
+                }
+                return 'No occupancy data available';
+              })()}
               onPress={() => setSelectedBus(bus)}
             >
               <View style={[
                 styles.busMarker,
-                { backgroundColor: getBusStatusColor(bus.status) }
+                { 
+                  backgroundColor: (() => {
+                    const display = getOccupancyDisplayText(bus);
+                    // Use occupancy condition color if available, otherwise use bus status color
+                    if (display?.overallCondition && display.source === 'passenger_reports') {
+                      return display.overallCondition.color;
+                    }
+                    return getBusStatusColor(bus.status);
+                  })()
+                }
               ]}>
-                <Icon name="bus" size={16} color="white" />
+                <Text style={styles.busMarkerIcon}>
+                  {(() => {
+                    const display = getOccupancyDisplayText(bus);
+                    return display?.overallCondition?.icon || '🚌';
+                  })()}
+                </Text>
                 <Text style={styles.busMarkerText}>{bus.routeNumber || 'N/A'}</Text>
               </View>
             </Marker>
           ))}
+          {/* Show radius circle around user location */}
+          {userLocation && (
+            <Circle
+              center={{ latitude: userLocation.latitude, longitude: userLocation.longitude }}
+              radius={5000} // 5km radius
+              strokeColor={AppColors.info}
+              fillColor={AppColors.info + '20'}
+              strokeWidth={2}
+            />
+          )}
           {selectedBus && (
             <Circle
               center={{
@@ -483,7 +851,18 @@ const fetchRoutes = async () => {
           )}
         </MapView>
 
-        <View style={styles.mapControls}>
+        <View style={[styles.mapControls, isFullScreenMap && styles.fullScreenMapControls]}>
+          <TouchableOpacity
+            style={styles.mapControlButton}
+            onPress={() => {
+              console.log('🔄 Manual refresh triggered');
+              fetchBusLocations();
+              fetchOccupancyData();
+            }}
+          >
+            <Ionicons name="refresh" size={20} color={AppColors.primary} />
+            <Text style={styles.mapControlText}>Refresh</Text>
+          </TouchableOpacity>
           <TouchableOpacity
             style={styles.mapControlButton}
             onPress={() => {
@@ -491,51 +870,132 @@ const fetchRoutes = async () => {
               setSearchQuery('');
             }}
           >
-            <Icon name="refresh" size={20} color={AppColors.primary} />
+            <Ionicons name="filter-outline" size={20} color={AppColors.primary} />
             <Text style={styles.mapControlText}>Reset</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.mapControlButton}
             onPress={showAllBuses}
           >
-            <Icon name="locate" size={20} color={AppColors.primary} />
+            <Ionicons name="locate" size={20} color={AppColors.primary} />
             <Text style={styles.mapControlText}>Fit All</Text>
           </TouchableOpacity>
-        </View>
-      </View>
-
-      <View style={styles.busListContainer}>
-        <View style={styles.busListHeader}>
-          <Text style={styles.busListTitle}>
-            Nearby Buses ({filteredBuses.length})
-          </Text>
-          {selectedRoute && (
+          {isFullScreenMap && (
             <TouchableOpacity
-              onPress={() => setSelectedRoute(null)}
-              style={styles.clearFilterButton}
+              style={styles.mapControlButton}
+              onPress={() => getUserLocation()}
             >
-              <Text style={styles.clearFilterText}>Clear Route Filter</Text>
+              <Ionicons name="navigate" size={20} color={AppColors.primary} />
+              <Text style={styles.mapControlText}>My Location</Text>
             </TouchableOpacity>
           )}
         </View>
-
-        <FlatList
-          data={filteredBuses}
-          keyExtractor={(item) => item.busId}
-          renderItem={renderBusItem}
-          showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Icon name="bus-outline" size={48} color={AppColors.textSecondary} />
-              <Text style={styles.emptyText}>
-                {selectedRoute
-                  ? `No nearby buses found for route ${selectedRoute}`
-                  : 'No nearby buses found'}
-              </Text>
-            </View>
-          }
-        />
       </View>
+
+      {!isFullScreenMap && (
+        <LinearGradient
+          colors={['#FFFFFF', '#E3F2FD', '#BBDEFB']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={styles.busListGradient}
+        >
+          <View style={styles.busListContainer}>
+            <View style={styles.busListHeader}>
+            <View>
+              <Text style={styles.busListTitle}>
+                Nearby Buses ({filteredBuses.length})
+              </Text>
+              {lastRefreshTime && (
+                <Text style={styles.lastRefreshText}>
+                  Your location last updated: {formatTimeSince(lastRefreshTime)}
+                </Text>
+              )}
+            </View>
+            {selectedRoute && (
+              <TouchableOpacity
+                onPress={() => setSelectedRoute(null)}
+                style={styles.clearFilterButton}
+              >
+                <Text style={styles.clearFilterText}>Clear Route Filter</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <FlatList
+            data={filteredBuses}
+            keyExtractor={(item) => item.busId}
+            renderItem={renderBusItem}
+            showsVerticalScrollIndicator={false}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Ionicons name="bus-outline" size={48} color={AppColors.textSecondary} />
+                <Text style={styles.emptyText}>
+                  {selectedRoute
+                    ? `No nearby buses found for route ${selectedRoute}`
+                    : 'No nearby buses found'}
+                </Text>
+              </View>
+            }
+          />
+          </View>
+        </LinearGradient>
+      )}
+
+      {/* Full-screen map overlay with bus info */}
+      {isFullScreenMap && (
+        <View style={styles.fullScreenOverlay}>
+          <View style={styles.fullScreenBusInfo}>
+            <Text style={styles.fullScreenTitle}>
+              Nearby Buses ({filteredBuses.length})
+            </Text>
+            {selectedRoute && (
+              <Text style={styles.fullScreenSubtitle}>
+                Filtered by Route {selectedRoute}
+              </Text>
+            )}
+            {selectedBus && (
+              <View style={styles.selectedBusInfo}>
+                <Text style={styles.selectedBusText}>
+                  Selected: {selectedBus.registrationNumber} (Route {selectedBus.routeNumber})
+                </Text>
+                {(() => {
+                  const occupancyDisplay = getOccupancyDisplayText(selectedBus);
+                  if (occupancyDisplay) {
+                    return (
+                      <>
+                        <Text style={[styles.selectedBusOccupancy, { color: occupancyDisplay.color }]}>
+                          {occupancyDisplay.overallCondition?.icon} {occupancyDisplay.overallCondition?.label || occupancyDisplay.text}
+                        </Text>
+                        <Text style={styles.selectedBusReliability}>
+                          📊 Based on passenger feedback
+                        </Text>
+                      </>
+                    );
+                  } else {
+                    return (
+                      <Text style={[styles.selectedBusOccupancy, { color: AppColors.textSecondary }]}>
+                        No occupancy data available
+                      </Text>
+                    );
+                  }
+                })()}
+              </View>
+            )}
+          </View>
+          <TouchableOpacity 
+            style={styles.fullScreenFilterButton}
+            onPress={() => {
+              // Quick access to clear filters
+              setSelectedRoute(null);
+              setSearchQuery('');
+              setSelectedBus(null);
+            }}
+          >
+            <Ionicons name="filter-outline" size={20} color="white" />
+            <Text style={styles.fullScreenFilterText}>Clear Filters</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <Modal
         visible={showBusDetails}
@@ -553,7 +1013,7 @@ const fetchRoutes = async () => {
                     onPress={() => setShowBusDetails(false)}
                     style={styles.modalCloseButton}
                   >
-                    <Icon name="close" size={24} color={AppColors.text} />
+                    <Ionicons name="close" size={24} color={AppColors.text} />
                   </TouchableOpacity>
                 </View>
 
@@ -573,20 +1033,61 @@ const fetchRoutes = async () => {
                     </Text>
                   </View>
                   <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Occupancy:</Text>
-                    <Text style={[styles.detailValue, { color: getOccupancyColor(selectedBus.passengerCount / 60) }]}>
-                      {selectedBus.passengerCount}/60
-                      ({Math.round((selectedBus.passengerCount / 60) * 100)}%) {selectedBus.occupancyLevel}
-                    </Text>
+                    <Text style={styles.detailLabel}>Overall Condition:</Text>
+                    {(() => {
+                      const occupancyDisplay = getOccupancyDisplayText(selectedBus);
+                      if (occupancyDisplay) {
+                        return (
+                          <Text style={[styles.detailValue, { color: occupancyDisplay.color }]}>
+                            {occupancyDisplay.overallCondition?.label || occupancyDisplay.text}
+                          </Text>
+                        );
+                      } else {
+                        return (
+                          <Text style={[styles.detailValue, { color: AppColors.textSecondary }]}>
+                            No data available
+                          </Text>
+                        );
+                      }
+                    })()}
                   </View>
+                  {selectedBus.dynamicOccupancy && (
+                    <>
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Data Source:</Text>
+                        <Text style={styles.detailValue}>
+                          Passenger feedback
+                        </Text>
+                      </View>
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Data Quality:</Text>
+                        <Text style={styles.detailValue}>
+                          {busOccupancyAPI.getDataFreshnessInfo(selectedBus.dynamicOccupancy.dataFreshness).label}
+                        </Text>
+                      </View>
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Trend:</Text>
+                        <Text style={[styles.detailValue, { 
+                          color: getTrendInfo(selectedBus.dynamicOccupancy.trendDirection).color 
+                        }]}>
+                          {getTrendInfo(selectedBus.dynamicOccupancy.trendDirection).icon} {getTrendInfo(selectedBus.dynamicOccupancy.trendDirection).label}
+                        </Text>
+                      </View>
+                    </>
+                  )}
                   <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Confidence:</Text>
+                    <Text style={styles.detailLabel}>System Confidence:</Text>
                     <Text style={styles.detailValue}>{(selectedBus.confidence * 100).toFixed(0)}%</Text>
                   </View>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Distance:</Text>
                     <Text style={styles.detailValue}>
-                      {selectedBus.distanceKm.toFixed(2)} km
+                      {(() => {
+                        const distance = calculateDistanceFromUser(selectedBus.latitude, selectedBus.longitude);
+                        return distance < 1000 
+                          ? `${Math.round(distance)}m away` 
+                          : `${(distance / 1000).toFixed(1)}km away`;
+                      })()}
                     </Text>
                   </View>
                 </View>
@@ -599,7 +1100,7 @@ const fetchRoutes = async () => {
                       focusOnBus(selectedBus);
                     }}
                   >
-                    <Icon name="navigate" size={20} color="white" />
+                    <Ionicons name="navigate" size={20} color="white" />
                     <Text style={styles.trackButtonText}>Track on Map</Text>
                   </TouchableOpacity>
                 </View>
@@ -608,14 +1109,22 @@ const fetchRoutes = async () => {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
+  gradientContainer: {
+    flex: 1,
+  },
   container: {
     flex: 1,
-    backgroundColor: AppColors.background,
+    backgroundColor: 'transparent',
+  },
+  headerGradient: {
+    borderBottomWidth: 1,
+    borderBottomColor: AppColors.border,
   },
   header: {
     flexDirection: 'row',
@@ -623,9 +1132,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 10,
     paddingVertical: 12,
-    backgroundColor: AppColors.card,
-    borderBottomWidth: 1,
-    borderBottomColor: AppColors.border,
+    backgroundColor: 'transparent',
   },
   backButton: {
     padding: 8,
@@ -635,15 +1142,18 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: AppColors.text,
   },
+  titleWhite: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: 'white',
+  },
   viewAllButton: {
     padding: 8,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: AppColors.card,
-    marginHorizontal: 16,
-    marginVertical: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     paddingHorizontal: 12,
     borderRadius: 8,
     borderWidth: 1,
@@ -656,11 +1166,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: AppColors.text,
   },
-  routeFilterContainer: {
-    backgroundColor: AppColors.card,
+  searchGradient: {
+    marginHorizontal: 16,
+    marginVertical: 8,
+    borderRadius: 8,
+  },
+  routeFilterGradient: {
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: AppColors.border,
+  },
+  routeFilterContainer: {
+    backgroundColor: 'transparent',
+    paddingVertical: 12,
   },
   filterTitle: {
     fontSize: 14,
@@ -741,6 +1259,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
   },
+  busMarkerIcon: {
+    fontSize: 14,
+  },
   busMarkerText: {
     color: 'white',
     fontSize: 10,
@@ -770,11 +1291,14 @@ const styles = StyleSheet.create({
     color: AppColors.primary,
     marginTop: 2,
   },
-  busListContainer: {
+  busListGradient: {
     maxHeight: Dimensions.get('window').height * 0.35,
-    backgroundColor: AppColors.card,
     borderTopWidth: 1,
     borderTopColor: AppColors.border,
+  },
+  busListContainer: {
+    maxHeight: Dimensions.get('window').height * 0.35,
+    backgroundColor: 'transparent',
   },
   busListHeader: {
     flexDirection: 'row',
@@ -789,6 +1313,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: AppColors.text,
+  },
+  lastRefreshText: {
+    fontSize: 12,
+    color: AppColors.textSecondary,
+    marginTop: 2,
+    fontStyle: 'italic',
   },
   clearFilterButton: {
     paddingHorizontal: 12,
@@ -809,6 +1339,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: AppColors.border,
   },
+  staleBusCard: {
+    opacity: 0.6,
+    borderColor: AppColors.warning,
+    borderStyle: 'dashed',
+  },
   busHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -827,6 +1362,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: AppColors.textSecondary,
   },
+  busRightInfo: {
+    alignItems: 'flex-end',
+  },
   busStatus: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -836,6 +1374,24 @@ const styles = StyleSheet.create({
     color: AppColors.textSecondary,
     marginLeft: 4,
     textTransform: 'capitalize',
+  },
+  occupancyCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: AppColors.border,
+  },
+  occupancyIconSmall: {
+    fontSize: 16,
+    marginRight: 4,
+  },
+  occupancyTextCompact: {
+    fontSize: 11,
+    fontWeight: '600',
   },
   busDetails: {
     marginBottom: 8,
@@ -857,6 +1413,10 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: AppColors.textSecondary,
     fontStyle: 'italic',
+  },
+  staleDataText: {
+    color: AppColors.warning,
+    fontWeight: 'bold',
   },
   emptyContainer: {
     alignItems: 'center',
@@ -972,5 +1532,133 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  // Full-screen map styles
+  fullScreenMapContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 10,
+  },
+  fullScreenMapControls: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    flexDirection: 'column',
+    zIndex: 20,
+  },
+  fullScreenOverlay: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+    right: 80, // Leave space for controls
+    zIndex: 20,
+  },
+  fullScreenBusInfo: {
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  fullScreenTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 4,
+  },
+  fullScreenSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginBottom: 8,
+  },
+  selectedBusInfo: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  selectedBusText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'white',
+    marginBottom: 4,
+  },
+  selectedBusOccupancy: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+  fullScreenFilterButton: {
+    backgroundColor: 'rgba(0, 86, 179, 0.9)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  fullScreenFilterText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  // Enhanced Occupancy Styles
+  occupancyMainRow: {
+    alignItems: 'flex-start',
+    marginBottom: 8,
+    paddingVertical: 4,
+  },
+  occupancyIcon: {
+    fontSize: 20,
+    marginRight: 8,
+  },
+  occupancyInfo: {
+    flex: 1,
+  },
+  occupancyMainText: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    marginBottom: 2,
+  },
+  occupancyDescription: {
+    fontSize: 11,
+    color: AppColors.textSecondary,
+    fontStyle: 'italic',
+  },
+  trendIcon: {
+    fontSize: 14,
+    marginRight: 6,
+  },
+  trendInfo: {
+    flex: 1,
+  },
+  trendText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  reliabilityText: {
+    fontSize: 10,
+    color: AppColors.textSecondary,
+    marginTop: 1,
+  },
+  selectedBusReliability: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.7)',
+    marginTop: 4,
+  },
+  occupancySummary: {
+    marginTop: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    backgroundColor: 'rgba(0, 86, 179, 0.1)',
+    borderRadius: 4,
+  },
+  occupancySummaryText: {
+    fontSize: 11,
+    color: AppColors.primary,
+    fontWeight: '500',
   },
 });

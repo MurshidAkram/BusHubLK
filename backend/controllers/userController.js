@@ -1,7 +1,8 @@
 const { validationResult } = require('express-validator');
 const User = require('../models/userModel');
 
-// Get all users (Admin only)
+// Replace the getAllUsers function in userController.js with this:
+
 const getAllUsers = async (req, res) => {
   try {
     const users = await User.getAll();
@@ -17,7 +18,9 @@ const getAllUsers = async (req, res) => {
         role: user.role_name,
         is_active: user.is_active,
         last_login: user.last_login,
-        created_at: user.created_at
+        created_at: user.created_at,
+        region_id: user.region_id,
+        depot_id: user.depot_id
       }))
     });
   } catch (err) {

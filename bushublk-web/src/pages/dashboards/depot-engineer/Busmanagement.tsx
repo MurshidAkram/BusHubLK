@@ -34,7 +34,6 @@ type Bus = BusFromAPI & {
 type ServiceHistory = {
   date: string;
   type: string;
-  cost: number;
   description: string;
 };
 
@@ -42,7 +41,6 @@ type PartChange = {
   date: string;
   part: string;
   quantity: number;
-  cost: number;
 };
 
 type Alert = {
@@ -90,6 +88,70 @@ const Busmanagement: React.FC = () => {
 
   const token = context?.token;
 
+  const formatDate = (value?: string | null) => {
+    if (!value) return 'N/A';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleDateString('en-GB');
+  };
+
+  const fetchServiceHistoryForBus = async (busId: string): Promise<ServiceHistory[]> => {
+    try {
+      const response = await axios.get(
+        `http://localhost:5000/api/depot-engineer/buses/${busId}/service-history`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const schedules = Array.isArray(response.data?.schedules)
+        ? response.data.schedules
+        : [];
+
+      return schedules.map((schedule: any) => ({
+        date: formatDate(schedule.completed_date || schedule.scheduled_date),
+        type: schedule.service_type || 'Service',
+        description: schedule.status || 'Scheduled service',
+      }));
+    } catch (err) {
+      const axiosError = err as AxiosError;
+      console.error(`Failed to fetch service history for bus ${busId}:`, axiosError.message);
+      return [];
+    }
+  };
+
+  const fetchPartChangesForBus = async (busId: string): Promise<PartChange[]> => {
+    try {
+      const response = await axios.get(
+        `http://localhost:5000/api/depot-engineer/spare-parts/usage-history/${busId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          params: {
+            limit: 10,
+          },
+        }
+      );
+
+      const history = Array.isArray(response.data?.usageHistory)
+        ? response.data.usageHistory
+        : [];
+
+      return history.map((item: any) => ({
+        date: formatDate(item.usage_date),
+        part: item.part_name || 'Unknown part',
+        quantity: Number(item.quantity_used) || 0,
+      }));
+    } catch (err) {
+      const axiosError = err as AxiosError;
+      console.error(`Failed to fetch part changes for bus ${busId}:`, axiosError.message);
+      return [];
+    }
+  };
+
   const fetchBuses = async () => {
     setLoading(true);
     setError(null);
@@ -121,31 +183,35 @@ const Busmanagement: React.FC = () => {
       });
 
       if (response.data.buses) {
-        const fetchedBuses = response.data.buses.map(bus => ({
-          id: bus.bus_id,
-          registrationNumber: bus.registration_number,
-          model: bus.model,
-          year: bus.year,
-          mileage: bus.mileage,
-          status: bus.status,
-          location: bus.depot_name,
-          capacity: 50,
-          currentRoute: 'N/A',
-          lastService: '2024-06-15',
-          nextService: '2024-08-15',
-          fuelEfficiency: 4.5,
-          driver: 'John Doe',
-          conductor: 'Jane Smith',
-          serviceHistory: [
-            { date: '2024-06-15', type: 'Regular Service', cost: 15000, description: 'Oil change, brake inspection' },
-            { date: '2024-05-20', type: 'Repair', cost: 8500, description: 'Engine cooling system repair' },
-          ],
-          partChanges: [
-            { date: '2024-06-15', part: 'Engine Oil', quantity: 1, cost: 3500 },
-            { date: '2024-05-20', part: 'Radiator', quantity: 1, cost: 6500 },
-          ],
-          alerts: bus.status === 'Maintenance' ? [{ type: 'error', message: 'Under maintenance - ETA 2 days' }] : [],
-        }));
+        const fetchedBuses = await Promise.all(
+          response.data.buses.map(async (bus) => {
+            const [serviceHistory, partChanges] = await Promise.all([
+              fetchServiceHistoryForBus(bus.bus_id),
+              fetchPartChangesForBus(bus.bus_id),
+            ]);
+
+            const mostRecentService = serviceHistory[0]?.date || 'N/A';
+            const nextService = serviceHistory.find((item) => item.description?.toLowerCase().includes('pending'))?.date;
+
+            const derived: Bus = {
+              ...bus,
+              location: bus.depot_name,
+              capacity: 50,
+              currentRoute: 'N/A',
+              lastService: mostRecentService,
+              nextService: nextService || 'N/A',
+              fuelEfficiency: 4.5,
+              driver: 'John Doe',
+              conductor: 'Jane Smith',
+              serviceHistory,
+              partChanges,
+              alerts: bus.status === 'Maintenance' ? [{ type: 'error', message: 'Under maintenance - ETA 2 days' }] : [],
+            };
+
+            return derived;
+          })
+        );
+
         setBuses(fetchedBuses);
       } else {
         setError(`Failed to fetch buses: ${response.data.message}`);
@@ -158,7 +224,8 @@ const Busmanagement: React.FC = () => {
         if (axiosError.response.status === 403) {
             setError(`Permission Denied: You do not have access to view this information. Please check your user role with an administrator.`);
         } else {
-            setError(`Failed to fetch buses: ${axiosError.response.status} - ${axiosError.response.data?.message || axiosError.response.statusText}. Please verify the API endpoint with the backend team.`);
+            const responseMessage = (axiosError.response.data as { message?: string })?.message;
+            setError(`Failed to fetch buses: ${axiosError.response.status} - ${responseMessage || axiosError.response.statusText}. Please verify the API endpoint with the backend team.`);
         }
       } else if (axiosError.request) {
         setError('Failed to fetch buses. The API endpoint might be down or unreachable.');
@@ -187,9 +254,10 @@ const Busmanagement: React.FC = () => {
   }, [token, context?.user?.role, context?.user?.depot_id]); // Added depot_id to dependency array
 
   const filteredBuses = buses.filter((bus) => {
-    const matchesSearch =
-      bus.registrationNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      bus.model.toLowerCase().includes(searchTerm.toLowerCase());
+    const registration = (bus.registration_number || '').toLowerCase();
+    const model = (bus.model || '').toLowerCase();
+    const search = searchTerm.toLowerCase();
+    const matchesSearch = registration.includes(search) || model.includes(search);
     const matchesStatus = statusFilter === 'All' || bus.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -275,10 +343,10 @@ const Busmanagement: React.FC = () => {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
             {filteredBuses.map((bus) => (
-              <div key={bus.id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+              <div key={bus.bus_id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
                 <div className="flex justify-between items-start mb-4">
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900">{bus.registrationNumber}</h3>
+                    <h3 className="text-lg font-semibold text-gray-900">{bus.registration_number}</h3>
                     <p className="text-sm text-gray-600">
                       {bus.model} ({bus.year})
                     </p>
@@ -311,10 +379,7 @@ const Busmanagement: React.FC = () => {
                     <span className="mr-2">🛣</span>
                     Route: {bus.currentRoute || 'N/A'}
                   </div>
-                  <div className="flex items-center">
-                    <span className="mr-2">📅</span>
-                    Next Service: {bus.nextService || 'N/A'}
-                  </div>
+                 
                 </div>
 
                 
@@ -342,7 +407,7 @@ const Busmanagement: React.FC = () => {
               <div className="p-6">
                 <div className="flex justify-between items-start mb-6">
                   <div>
-                    <h2 className="text-2xl font-bold text-gray-900">{selectedBus.registrationNumber}</h2>
+                    <h2 className="text-2xl font-bold text-gray-900">{selectedBus.registration_number}</h2>
                     <p className="text-gray-600">
                       {selectedBus.model} ({selectedBus.year})
                     </p>
@@ -354,7 +419,7 @@ const Busmanagement: React.FC = () => {
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                   <DetailsSection title="Basic Information" data={[
-                    ['Registration', selectedBus.registrationNumber],
+                    ['Registration', selectedBus.registration_number],
                     ['Model', selectedBus.model],
                     ['Year', selectedBus.year],
                     ['Capacity', `${selectedBus.capacity || 0} seats`],
@@ -368,12 +433,12 @@ const Busmanagement: React.FC = () => {
                   ]} />
                 </div>
 
-                <TableSection title="🔧 Service History" columns={['Date', 'Type', 'Description', 'Cost (LKR)']} rows={
-                  selectedBus.serviceHistory.map(item => [item.date, item.type, item.description, item.cost.toLocaleString()])
+                <TableSection title="🔧 Service History" columns={['Date', 'Type', 'Status']} rows={
+                  selectedBus.serviceHistory.map(item => [item.date, item.type, item.description])
                 } />
 
-                <TableSection title="⚙ Recent Part Changes" columns={['Date', 'Part', 'Quantity', 'Cost (LKR)']} rows={
-                  selectedBus.partChanges.map(item => [item.date, item.part, item.quantity, item.cost.toLocaleString()])
+                <TableSection title="⚙ Recent Part Changes" columns={['Date', 'Part', 'Quantity']} rows={
+                  selectedBus.partChanges.map(item => [item.date, item.part, item.quantity.toString()])
                 } />
               </div>
             </div>
@@ -393,13 +458,6 @@ const StatCard = ({ label, value, color }: { label: string; value: string | numb
         <p className="text-2xl font-bold text-gray-900">{value}</p>
       </div>
     </div>
-  </div>
-);
-
-const InfoPair = ({ label, value }: { label: string; value: string }) => (
-  <div>
-    <p className="text-gray-500">{label}</p>
-    <p className="font-semibold">{value}</p>
   </div>
 );
 
@@ -433,7 +491,7 @@ const TableSection = ({ title, columns, rows }: {
           {rows.map((row, i) => (
             <tr key={i} className="border-b">
               {row.map((cell, j) => (
-                <td key={j} className={`px-4 py-2 ${j === row.length - 1 ? 'text-right' : ''}`}>{cell}</td>
+                <td key={j} className="px-4 py-2">{cell}</td>
               ))}
             </tr>
           ))}

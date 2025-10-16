@@ -1,4 +1,5 @@
 const Inspection = require('../models/inspectionModel');
+const User = require('../models/userModel');
 const { validationResult } = require('express-validator');
 
 // Create a new inspection
@@ -15,13 +16,16 @@ const createInspection = async (req, res) => {
     // Verify that the user is a regional technical officer and has access to this depot
     const userDepots = await Inspection.getDepotsByRegionForUser(user_id);
     const hasAccess = userDepots.some(depot => depot.depot_id === parseInt(depot_id));
-    
+
     if (!hasAccess) {
       return res.status(403).json({ error: 'Access denied. You can only schedule inspections for depots in your region.' });
     }
 
     const inspection = await Inspection.createInspection(inspection_type, date, time, user_id, depot_id);
-    
+
+    // Depot engineer notification aggregation reads directly from inspections table,
+    // so we do not need to push separate notification records here.
+
     res.status(201).json({
       message: 'Inspection scheduled successfully',
       inspection
@@ -37,7 +41,7 @@ const getInspections = async (req, res) => {
   try {
     const user_id = req.user.userId;
     const inspections = await Inspection.getInspectionsByUser(user_id);
-    
+
     res.json({
       message: 'Inspections retrieved successfully',
       inspections
@@ -53,7 +57,7 @@ const getUpcomingInspections = async (req, res) => {
   try {
     const user_id = req.user.userId;
     const inspections = await Inspection.getUpcomingInspections(user_id);
-    
+
     res.json({
       message: 'Upcoming inspections retrieved successfully',
       inspections
@@ -69,7 +73,7 @@ const getPastInspections = async (req, res) => {
   try {
     const user_id = req.user.userId;
     const inspections = await Inspection.getPastInspections(user_id);
-    
+
     res.json({
       message: 'Past inspections retrieved successfully',
       inspections
@@ -87,7 +91,7 @@ const markAsCompleted = async (req, res) => {
     const user_id = req.user.userId;
 
     const inspection = await Inspection.updateInspectionStatus(id, 'Completed', user_id);
-    
+
     if (!inspection) {
       return res.status(404).json({ error: 'Inspection not found or access denied' });
     }
@@ -117,16 +121,18 @@ const updateInspection = async (req, res) => {
     // Verify that the user has access to this depot
     const userDepots = await Inspection.getDepotsByRegionForUser(user_id);
     const hasAccess = userDepots.some(depot => depot.depot_id === parseInt(depot_id));
-    
+
     if (!hasAccess) {
       return res.status(403).json({ error: 'Access denied. You can only schedule inspections for depots in your region.' });
     }
 
     const inspection = await Inspection.updateInspection(id, inspection_type, date, time, depot_id, user_id);
-    
+
     if (!inspection) {
       return res.status(404).json({ error: 'Inspection not found or access denied' });
     }
+
+    // Aggregated depot engineer notifications pull inspection changes automatically.
 
     res.json({
       message: 'Inspection updated successfully',
@@ -144,11 +150,20 @@ const deleteInspection = async (req, res) => {
     const { id } = req.params;
     const user_id = req.user.userId;
 
+    // Get inspection details before deleting for notification
+    const inspectionDetails = await Inspection.getInspectionById(id, user_id);
+
+    if (!inspectionDetails) {
+      return res.status(404).json({ error: 'Inspection not found' });
+    }
+
     const inspection = await Inspection.deleteInspection(id, user_id);
-    
+
     if (!inspection) {
       return res.status(404).json({ error: 'Inspection not found or access denied' });
     }
+
+    // Aggregated depot engineer notifications reflect cancelled inspections automatically.
 
     res.json({
       message: 'Inspection deleted successfully',
@@ -160,12 +175,31 @@ const deleteInspection = async (req, res) => {
   }
 };
 
+// Get inspection count by status for the logged-in regional technical officer
+const getInspectionCountByStatus = async (req, res) => {
+  try {
+    const { status } = req.params;
+    const user_id = req.user.userId;
+
+    const count = await Inspection.getInspectionCountByStatus(user_id, status);
+
+    res.json({
+      success: true,
+      status,
+      count
+    });
+  } catch (err) {
+    console.error('Get inspection count by status error:', err);
+    res.status(500).json({ success: false, error: 'Server error' });
+  }
+};
+
 // Get depots for the regional technical officer
 const getUserDepots = async (req, res) => {
   try {
     const user_id = req.user.userId;
     const depots = await Inspection.getDepotsByRegionForUser(user_id);
-    
+
     res.json({
       message: 'Depots retrieved successfully',
       depots
@@ -183,7 +217,7 @@ const getInspectionById = async (req, res) => {
     const user_id = req.user.userId;
 
     const inspection = await Inspection.getInspectionById(id, user_id);
-    
+
     if (!inspection) {
       return res.status(404).json({ error: 'Inspection not found or access denied' });
     }
@@ -198,6 +232,70 @@ const getInspectionById = async (req, res) => {
   }
 };
 
+// Get inspections assigned to depot engineer's depot
+const getInspectionsForDepotEngineer = async (req, res) => {
+  try {
+    // Get depot engineer details to find their depot_id
+    const depotEngineerDetails = await User.getRoleSpecificDetails(req.user.userId, req.user.role);
+
+    if (!depotEngineerDetails || !depotEngineerDetails.depot_id) {
+      return res.status(404).json({
+        success: false,
+        message: 'Depot engineer details or depot ID not found for this user'
+      });
+    }
+
+    const depot_id = depotEngineerDetails.depot_id;
+    const inspections = await Inspection.getInspectionsByDepot(depot_id);
+
+    res.json({
+      success: true,
+      message: 'Inspections retrieved successfully',
+      inspections,
+      depot_id
+    });
+  } catch (err) {
+    console.error('Get inspections for depot engineer error:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Server error',
+      message: err.message
+    });
+  }
+};
+
+// Get inspections for depot manager - same as depot engineer but for manager role
+const getInspectionsForDepotManager = async (req, res) => {
+  try {
+    // Get depot manager details to find their depot_id
+    const depotManagerDetails = await User.getRoleSpecificDetails(req.user.userId, req.user.role);
+
+    if (!depotManagerDetails || !depotManagerDetails.depot_id) {
+      return res.status(404).json({
+        success: false,
+        message: 'Depot manager details or depot ID not found for this user'
+      });
+    }
+
+    const depot_id = depotManagerDetails.depot_id;
+    const inspections = await Inspection.getInspectionsByDepot(depot_id);
+
+    res.json({
+      success: true,
+      message: 'Inspections retrieved successfully',
+      inspections,
+      depot_id
+    });
+  } catch (err) {
+    console.error('Get inspections for depot manager error:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Server error',
+      message: err.message
+    });
+  }
+};
+
 module.exports = {
   createInspection,
   getInspections,
@@ -207,5 +305,8 @@ module.exports = {
   updateInspection,
   deleteInspection,
   getUserDepots,
-  getInspectionById
+  getInspectionById,
+  getInspectionsForDepotEngineer,
+  getInspectionsForDepotManager,
+  getInspectionCountByStatus
 };

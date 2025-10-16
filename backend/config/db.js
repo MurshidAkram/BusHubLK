@@ -13,8 +13,7 @@ const pool = new Pool({
   min: 4,  // minimum number of clients in the pool
   idleTimeoutMillis: 30000, // how long a client is allowed to remain idle before being closed
   connectionTimeoutMillis: 10000, // how long to wait when connecting a new client
-  maxUses: 7500, // close (and replace) a connection after it has been used this many times
-  // Retry logic
+  maxUses: 7500, 
   retries: 3,
   retryDelayMs: 1000
 });
@@ -26,6 +25,9 @@ pool.on('error', (err, client) => {
 
 pool.on('connect', (client) => {
   console.log('New database connection established');
+  client.query("SET TIME ZONE 'Asia/Colombo';").catch((err) => {
+    console.error('Failed to set database time zone', err);
+  });
 });
 
 module.exports = pool;

@@ -1,52 +1,301 @@
 const Communication = require('../models/communicationModel');
-const User = require('../models/userModel'); // To get user details
 
-/**
- * Get the list of contacts for the logged-in user.
- */
-const getContacts = async (req, res) => {
+// Get all channels for the authenticated user
+const getUserChannels = async (req, res) => {
   try {
-    // We need the full user object including depot_id and region_id
-    const fullUser = await User.findById(req.user.userId);
-    const roleDetails = await User.getRoleSpecificDetails(req.user.userId, fullUser.role_name);
-
-    const userContext = {
-      userId: req.user.userId,
-      role: fullUser.role_name,
-      depot_id: roleDetails?.depot_id,
-      region_id: roleDetails?.region_id,
-    };
-
-    // Ensure depot/region staff have the necessary IDs to find contacts
-    if ((userContext.role.startsWith('depot_') && (!userContext.depot_id || !userContext.region_id)) || (userContext.role.startsWith('regional_') && !userContext.region_id)) {
-        return res.status(400).json({ error: 'User is missing required depot or region association.' });
-    }
-
-    const contacts = await Communication.getContacts(userContext);
-
-    // Format the response to match the frontend's expectation
-    const formattedContacts = contacts.map(c => ({
-        id: c.user_id,
-        name: `${c.first_name} ${c.last_name}`,
-        role: c.role_name,
-        depot: c.depot_name,
-        region: c.region_name,
-        avatar: `https://placehold.co/100x100/E2E8F0/4A5568?text=${c.first_name[0]}${c.last_name[0]}`
-    }));
-
-    res.json(formattedContacts);
+    const userId = req.user.userId;
+    const channels = await Communication.getUserChannels(userId);
+    
+    res.json({
+      success: true,
+      channels
+    });
   } catch (error) {
-    console.error('Error fetching contacts:', error);
-    res.status(500).json({ error: 'Server error while fetching contacts.' });
+    console.error('Get user channels error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch channels'
+    });
   }
 };
 
-// We will add more functions here for:
-// - getConversations
-// - getMessagesForConversation
-// - sendMessage
-// - getAnnouncements
+// Get messages for a specific channel
+const getChannelMessages = async (req, res) => {
+  try {
+    const { channelId } = req.params;
+    const userId = req.user.userId;
+    const limit = parseInt(req.query.limit) || 50;
+    const offset = parseInt(req.query.offset) || 0;
+
+    const messages = await Communication.getChannelMessages(channelId, userId, limit, offset);
+    
+    // Mark channel as read when fetching messages
+    await Communication.markChannelAsRead(channelId, userId);
+    
+    res.json({
+      success: true,
+      messages
+    });
+  } catch (error) {
+    console.error('Get channel messages error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch messages'
+    });
+  }
+};
+
+// Send a message
+const sendMessage = async (req, res) => {
+  try {
+    const { channelId } = req.params;
+    const { messageText } = req.body;
+    const senderId = req.user.userId;
+
+    if (!messageText || messageText.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Message text is required'
+      });
+    }
+
+    const message = await Communication.sendMessage(channelId, senderId, messageText.trim());
+    
+    // Emit socket event (will be handled by socket.io)
+    if (req.io) {
+      req.io.to(`channel_${channelId}`).emit('new_message', {
+        channelId,
+        message
+      });
+    }
+    
+    res.status(201).json({
+      success: true,
+      message
+    });
+  } catch (error) {
+    console.error('Send message error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to send message'
+    });
+  }
+};
+
+// Get available contacts
+const getAvailableContacts = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const contacts = await Communication.getAvailableContacts(userId);
+    
+    res.json({
+      success: true,
+      contacts
+    });
+  } catch (error) {
+    console.error('Get available contacts error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch contacts'
+    });
+  }
+};
+
+// Create or get a direct channel with a contact
+const createOrGetDirectChannel = async (req, res) => {
+  try {
+    const { contactId } = req.body;
+    const userId = req.user.userId;
+
+    if (!contactId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Contact ID is required'
+      });
+    }
+
+    const channelId = await Communication.getOrCreateDirectChannel(userId, contactId);
+    const channelInfo = await Communication.getChannelInfo(channelId, userId);
+    
+    res.json({
+      success: true,
+      channel: channelInfo
+    });
+  } catch (error) {
+    console.error('Create/get channel error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create or get channel'
+    });
+  }
+};
+
+// Mark messages as read
+const markChannelAsRead = async (req, res) => {
+  try {
+    const { channelId } = req.params;
+    const userId = req.user.userId;
+
+    await Communication.markChannelAsRead(channelId, userId);
+    
+    res.json({
+      success: true,
+      message: 'Channel marked as read'
+    });
+  } catch (error) {
+    console.error('Mark channel as read error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to mark channel as read'
+    });
+  }
+};
+
+// Get channel info
+const getChannelInfo = async (req, res) => {
+  try {
+    const { channelId } = req.params;
+    const userId = req.user.userId;
+
+    const channelInfo = await Communication.getChannelInfo(channelId, userId);
+    
+    if (!channelInfo) {
+      return res.status(404).json({
+        success: false,
+        error: 'Channel not found or access denied'
+      });
+    }
+    
+    res.json({
+      success: true,
+      channel: channelInfo
+    });
+  } catch (error) {
+    console.error('Get channel info error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch channel info'
+    });
+  }
+};
+
+// Get regions list
+const getRegions = async (req, res) => {
+  try {
+    const regions = await Communication.getRegions();
+    res.json({
+      success: true,
+      regions
+    });
+  } catch (error) {
+    console.error('Get regions error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch regions'
+    });
+  }
+};
+
+// Get depots list (optionally filtered by region)
+const getDepots = async (req, res) => {
+  try {
+    const { regionId } = req.query;
+    const depots = await Communication.getDepots(regionId ? parseInt(regionId) : null);
+    res.json({
+      success: true,
+      depots
+    });
+  } catch (error) {
+    console.error('Get depots error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch depots'
+    });
+  }
+};
+
+// Get available contacts with filters (for DGM)
+const getAvailableContactsFiltered = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { regionId } = req.query;
+    
+    const filters = {};
+    if (regionId) filters.regionId = parseInt(regionId);
+    
+    const contacts = await Communication.getAvailableContacts(userId, filters);
+    
+    res.json({
+      success: true,
+      contacts
+    });
+  } catch (error) {
+    console.error('Get available contacts error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch contacts'
+    });
+  }
+};
+
+// Create announcement channel
+const createAnnouncementChannel = async (req, res) => {
+  try {
+    const { targetType, targetId, channelName, initialMessage } = req.body;
+    const creatorId = req.user.userId;
+
+    if (!['region', 'depot'].includes(targetType)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid target type. Must be "region" or "depot"'
+      });
+    }
+
+    if (!targetId || !channelName) {
+      return res.status(400).json({
+        success: false,
+        error: 'Target ID and channel name are required'
+      });
+    }
+
+    // Create the announcement channel
+    const channelId = await Communication.createAnnouncementChannel(
+      creatorId,
+      targetType,
+      targetId,
+      channelName
+    );
+
+    // Send initial message if provided
+    if (initialMessage && initialMessage.trim()) {
+      await Communication.sendMessage(channelId, creatorId, initialMessage.trim());
+    }
+
+    // Get channel info
+    const channelInfo = await Communication.getChannelInfo(channelId, creatorId);
+
+    res.status(201).json({
+      success: true,
+      channel: channelInfo
+    });
+  } catch (error) {
+    console.error('Create announcement error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create announcement'
+    });
+  }
+};
 
 module.exports = {
-  getContacts,
+  getUserChannels,
+  getChannelMessages,
+  sendMessage,
+  getAvailableContacts: getAvailableContactsFiltered, // Updated
+  createOrGetDirectChannel,
+  markChannelAsRead,
+  getChannelInfo,
+  getRegions,
+  getDepots,
+  createAnnouncementChannel
 };
