@@ -46,6 +46,8 @@ const Complaints: React.FC = () => {
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('All');
   const [filterPriority, setFilterPriority] = useState<string>('All');
+  const [filterDate, setFilterDate] = useState<string>(''); // YYYY-MM-DD
+  const [filterType, setFilterType] = useState<string>('All');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
   const [user, setUser] = useState<any>(null);
@@ -162,10 +164,11 @@ const Complaints: React.FC = () => {
   };
 
   const filteredComplaints = complaints.filter(complaint =>
-    (filterStatus === 'All' || complaint.status === filterStatus) &&
-    (filterPriority === 'All' || complaint.priority === filterPriority)
-  );
-
+  (filterStatus === 'All' || complaint.status === filterStatus) &&
+  (filterPriority === 'All' || complaint.priority === filterPriority) &&
+  (filterDate === '' || complaint.date === new Date(filterDate).toLocaleDateString()) &&
+  (filterType === 'All' || complaint.type === filterType)
+);
   // Pagination calculations
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -269,6 +272,36 @@ const Complaints: React.FC = () => {
                 <option value="High">High</option>
                 <option value="Medium">Medium</option>
                 <option value="Low">Low</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Filter by Date</label>
+              <input
+                type="date"
+                className="border rounded-md px-3 py-2 w-40"
+                value={filterDate}
+                onChange={e => {
+                  setFilterDate(e.target.value);
+                  setCurrentPage(1);
+                }}
+                max={new Date().toISOString().split('T')[0]}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Filter by Type</label>
+              <select
+                className="border rounded-md px-3 py-2 w-40"
+                value={filterType}
+                onChange={e => {
+                  setFilterType(e.target.value);
+                  setCurrentPage(1);
+                }}
+              >
+                <option value="All">All Types</option>
+                {/* Dynamically generate unique types from complaints */}
+                {[...new Set(complaints.map(c => c.type))].map(type => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
               </select>
             </div>
           </div>
