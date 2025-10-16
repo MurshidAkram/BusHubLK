@@ -16,7 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useDriver } from "../context/DriverContext";
-import { storageAPI } from "../services/api";
+import { driverAPI, storageAPI } from "../services/api";
 
 // App Color Palette (matching HomeScreen)
 const AppColors = {
@@ -77,13 +77,16 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
         style: "destructive",
         onPress: async () => {
           try {
-            // Clear all authentication data
-            await AsyncStorage.removeItem("driverToken");
-            await AsyncStorage.removeItem("driverData");
+            // Call API logout to blacklist token
+            const result = await driverAPI.logout();
             
-            // The RootNavigator checks auth status every second,
-            // so it will automatically redirect to login screen
-            Alert.alert("Success", "You have been logged out successfully.");
+            if (result.success) {
+              // The RootNavigator checks auth status every second,
+              // so it will automatically redirect to login screen
+              Alert.alert("Success", "You have been logged out successfully.");
+            } else {
+              Alert.alert("Warning", "Logged out locally, but could not reach server.");
+            }
           } catch (error) {
             console.error("Logout error:", error);
             Alert.alert("Error", "Failed to logout. Please try again.");
@@ -278,12 +281,6 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
                 "About BusHubLK", 
                 "BusHubLK Driver App\nVersion 1.0.0\n\nDeveloped for Sri Lanka Transport Board\n\nFor technical support, contact your depot manager."
               )}
-            />
-            <SettingItem
-              icon="flask-outline"
-              title="Test Notifications"
-              subtitle="Test the notification system"
-              onPress={() => navigation.navigate("NotificationTest")}
             />
           </View>
         </View>
