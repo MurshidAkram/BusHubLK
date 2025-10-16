@@ -53,7 +53,7 @@ const TopHeader = () => (
         />
       </View>
       <Text style={styles.headerTitle}>
-        BusHub<Text style={styles.superscript}>LK</Text> Driver
+        BusHubLK
       </Text>
     </View>
     <View style={styles.headerIconContainer}>
@@ -331,29 +331,26 @@ export default function HomeScreen() {
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.quickActionGrid}>
             <QuickActionButton
-              icon="bus-clock"
-              text="Travel Log"
-              onPress={() => navigation.navigate("TravelLog")}
-            />
-            <QuickActionButton
-              icon="car-wrench"
-              text="Bus Condition"
-              onPress={() => navigation.navigate("Condition")}
+              icon="map-marker-radius"
+              text="Tracking Data"
+              onPress={() => navigation.navigate("Tracking")}
             />
             <QuickActionButton
               icon="alert-circle"
               text="Emergency"
               onPress={() => navigation.navigate("Emergency")}
             />
+
+            <QuickActionButton
+              icon="car-wrench"
+              text="Bus Condition"
+              onPress={() => navigation.navigate("Condition")}
+            />
+
             <QuickActionButton
               icon="magnify"
               text="Lost & Found"
               onPress={() => navigation.navigate("LostAndFound")}
-            />
-            <QuickActionButton
-              icon="map-marker-radius"
-              text="Tracking Data"
-              onPress={() => navigation.navigate("Tracking")}
             />
           </View>
         </View>

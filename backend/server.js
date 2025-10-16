@@ -151,9 +151,12 @@ try {
 }
 
 const assignmentRoutes = require('./routes/assignmentRoutes');
+const dailyAssignmentRoutes = require('./routes/dailyAssignmentRoutes');
 
 // Add this with your other app.use() routes
 app.use('/api/assignments', assignmentRoutes);
+app.use('/api/dailyassignment', dailyAssignmentRoutes);
+console.log('✅ dailyAssignmentRoutes loaded');
 
 
 try {
@@ -203,6 +206,14 @@ try {
   console.log('✅ depotEngineerRoutes loaded');
 } catch (error) {
   console.log('❌ depotEngineerRoutes error:', error.message);
+}
+
+try {
+  const inspectionRoutes = require('./routes/inspectionRoutes');
+  app.use('/api/inspections', inspectionRoutes);
+  console.log('✅ inspectionRoutes loaded');
+} catch (error) {
+  console.log('❌ inspectionRoutes error:', error.message);
 }
 
 
