@@ -84,7 +84,14 @@ const Assignments = () => {
     <div>
       {/* Date Picker */}
       <div className="flex justify-end mb-4">
-        
+        <label className="mr-2 font-medium text-gray-700">Assignment Date:</label>
+        <input
+          type="date"
+          value={assignmentDate}
+          onChange={e => setAssignmentDate(e.target.value)}
+          className="border rounded px-2 py-1 text-gray-700"
+          max={new Date().toISOString().slice(0, 10)}
+        />
       </div>
       <div className="bg-white rounded-xl shadow-lg overflow-hidden">
         <div className="flex flex-col md:flex-row gap-0">
