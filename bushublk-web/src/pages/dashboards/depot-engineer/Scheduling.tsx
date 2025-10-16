@@ -925,6 +925,13 @@ const extractIssueDescription = (serviceType: string): string => {
 
   return serviceType.trim();
 };
+
+  const viewingStatus = viewingService
+    ? (viewingService.calculated_status || viewingService.status || 'Unknown').trim()
+    : '';
+
+  const viewingStatusBadge = getStatusColor(viewingStatus || '');
+  const viewingStatusIcon = getStatusIcon(viewingStatus || '');
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto flex flex-col h-full">
@@ -1568,9 +1575,9 @@ const extractIssueDescription = (serviceType: string): string => {
             <div className="bg-white rounded-lg p-6 w-full max-w-md">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold text-gray-900">Service Details</h3>
-                <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1">
-                  <FaCheckCircle size={10} />
-                  Completed
+                <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${viewingStatusBadge}`}>
+                  {viewingStatusIcon}
+                  {viewingStatus || 'Unknown'}
                 </span>
               </div>
               

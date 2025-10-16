@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { HiSearch, HiFilter, HiX, HiChevronLeft, HiChevronRight } from 'react-icons/hi';
+import { HiSearch, HiX, HiChevronLeft, HiChevronRight } from 'react-icons/hi';
 import { AppContext } from '../../../context/AppContext';
 import axios, { AxiosError } from 'axios';
 
@@ -15,12 +15,6 @@ interface Bus {
   status: 'Active' | 'In Service' | 'Maintenance' | 'Out of Service';
   depot_name?: string;
   region_name?: string;
-}
-
-interface Filters {
-  status: string;
-  class: string;
-  depot: string;
 }
 
 interface AppContextType {
@@ -50,12 +44,7 @@ const Busavailability = () => {
 
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const [showFilters, setShowFilters] = useState<boolean>(false);
-  const [filters, setFilters] = useState<Filters>({
-    status: '',
-    class: '',
-    depot: '',
-  });
+  const [statusFilter, setStatusFilter] = useState<string>('');
   const [buses, setBuses] = useState<Bus[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -152,29 +141,16 @@ const Busavailability = () => {
     setCurrentPage(1);
   };
 
-  const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFilters({ ...filters, [e.target.name]: e.target.value });
-    setCurrentPage(1);
-  };
-
-  const clearFilters = () => {
-    setFilters({ status: '', class: '', depot: '' });
-    setCurrentPage(1);
-  };
-
   const filteredBuses = buses.filter(bus => {
-    const matchesSearch = searchTerm === '' ||
-      bus.registration_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      bus.manufacturer.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      bus.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      bus.depot_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      bus.region_name?.toLowerCase().includes(searchTerm.toLowerCase());
+    const term = searchTerm.toLowerCase();
+    const matchesSearch = term === '' ||
+      bus.registration_number.toLowerCase().includes(term) ||
+      bus.class.toLowerCase().includes(term) ||
+      bus.status.toLowerCase().includes(term);
 
-    const matchesStatus = filters.status === '' || bus.status === filters.status;
-    const matchesClass = filters.class === '' || bus.class.toLowerCase().includes(filters.class.toLowerCase());
-    const matchesDepot = filters.depot === '' || bus.depot_id === filters.depot;
+    const matchesStatus = statusFilter === '' || bus.status === statusFilter;
 
-    return matchesSearch && matchesStatus && matchesClass && matchesDepot;
+    return matchesSearch && matchesStatus;
   });
 
   const totalPages = Math.ceil(filteredBuses.length / itemsPerPage);
@@ -351,17 +327,17 @@ const Busavailability = () => {
     <div className="container mx-auto p-6 bg-white rounded-lg shadow-md">
       <h2 className="text-3xl font-bold text-gray-800 mb-6">Bus Availability </h2>
 
-      {/* {successMessage && (
+      {successMessage && (
         <div className="mb-4 rounded-md bg-green-50 border border-green-200 p-4 text-green-700 text-sm">
           {successMessage}
         </div>
-      )} */}
+      )}
 
       <div className="flex flex-col md:flex-row justify-between items-center mb-6 space-y-4 md:space-y-0 md:space-x-4">
-        <div className="relative w-full md:w-1/3">
+        <div className="relative w-full md:w-1/2 lg:w-1/3">
           <input
             type="text"
-            placeholder="Search by registration, manufacturer, model, depot or region..."
+            placeholder="Search by registration number, class, or status..."
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             value={searchTerm}
             onChange={handleSearchChange}
@@ -369,74 +345,27 @@ const Busavailability = () => {
           <HiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
         </div>
 
-        <div className="flex space-x-4">
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        <div className="w-full md:w-1/3 lg:w-1/4">
+          <label htmlFor="statusFilter" className="block text-sm font-medium text-gray-700 mb-1">
+            Status
+          </label>
+          <select
+            id="statusFilter"
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
           >
-            <HiFilter className="mr-2" />
-            Filters
-          </button>
+            <option value="">All Statuses</option>
+            <option value="Active">Active</option>
+            <option value="In Service">In Service</option>
+            <option value="Maintenance">Maintenance</option>
+            <option value="Out of Service">Out of Service</option>
+          </select>
         </div>
       </div>
-
-      {showFilters && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 p-6 bg-white border border-gray-200 rounded-lg shadow-sm">
-          <div className="space-y-2">
-            <label htmlFor="status" className="text-sm font-medium text-gray-700 flex items-center">
-              <span className="bg-blue-100 text-blue-800 p-1 rounded mr-2">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
-                </svg>
-              </span>
-              Status
-            </label>
-            <select
-              id="status"
-              name="status"
-              value={filters.status}
-              onChange={handleFilterChange}
-              className="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 transition duration-150 ease-in-out"
-            >
-              <option value="">All Statuses</option>
-              <option value="Active" className="text-green-600">Active</option>
-              <option value="In Service" className="text-blue-600">In Service</option>
-              <option value="Maintenance" className="text-yellow-600">Maintenance</option>
-              <option value="Out of Service" className="text-red-600">Out of Service</option>
-            </select>
-          </div>
-
-          <div className="space-y-2">
-            <label htmlFor="class" className="text-sm font-medium text-gray-700 flex items-center">
-              <span className="bg-purple-100 text-purple-800 p-1 rounded mr-2">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z" />
-                </svg>
-              </span>
-              Class
-            </label>
-            <input
-              type="text"
-              id="class"
-              name="class"
-              value={filters.class}
-              onChange={handleFilterChange}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 transition duration-150 ease-in-out"
-              placeholder="e.g., Luxury, Standard"
-            />
-          </div>
-
-          <div className="md:col-span-3 flex justify-end pt-2">
-            <button
-              onClick={clearFilters}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition duration-150 ease-in-out"
-            >
-              <HiX className="mr-2" />
-              Clear All Filters
-            </button>
-          </div>
-        </div>
-      )}
 
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
@@ -451,9 +380,9 @@ const Busavailability = () => {
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Model
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              {/* <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Mileage
-              </th>
+              </th> */}
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Status
               </th>
@@ -469,7 +398,7 @@ const Busavailability = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{bus.registration_number}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{bus.class}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{bus.manufacturer} {bus.model}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{bus.mileage}</td>
+                  {/* <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{bus.mileage}</td> */}
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                       bus.status === 'Active' ? 'bg-green-100 text-green-800' :

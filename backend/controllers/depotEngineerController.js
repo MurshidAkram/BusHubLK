@@ -219,6 +219,25 @@ const updateBusStatus = async (req, res) => {
                 console.warn('Unable to load persisted checklist parts, falling back to request payload:', persistErr);
             }
 
+            const extractNoteDescription = (note) => {
+                if (typeof note !== 'string') {
+                    return '';
+                }
+
+                const trimmed = note.trim();
+
+                if (!trimmed) {
+                    return '';
+                }
+
+                const notesMatch = trimmed.match(/Notes?\s*:\s*(.+)$/i);
+                if (notesMatch?.[1]) {
+                    return notesMatch[1].trim();
+                }
+
+                return trimmed.replace(/^(?:low|medium|high)\s+severity\s+follow-up\s*:\s*/i, '').trim();
+            };
+
             const highSeverityIssues = schedulingParts.filter((part) => part.hasIssue && part.severity === 'high');
 
             if (highSeverityIssues.length > 0 && bus.depot_id) {
@@ -228,7 +247,10 @@ const updateBusStatus = async (req, res) => {
                 const nextDayDate = formatDateAsISO(nextDay);
 
                 const noteSummaries = highSeverityIssues
-                    .map((part) => (typeof part.notes === 'string' ? part.notes.trim() : ''))
+                    .map((part) => {
+                        const cleaned = extractNoteDescription(part.notes);
+                        return cleaned.length > 0 ? cleaned : (typeof part.notes === 'string' ? part.notes.trim() : '');
+                    })
                     .filter((note) => note.length > 0);
 
                 const combinedNotes = noteSummaries.length > 0
@@ -348,15 +370,22 @@ const getServiceHistoryForBus = async (req, res) => {
         }
 
         const schedules = await ServiceSchedule.getByBusId(bus_id);
-        const completedSchedules = Array.isArray(schedules)
-            ? schedules.filter((schedule) => (schedule.status || '').toLowerCase() === 'completed')
+        const enrichedSchedules = Array.isArray(schedules)
+            ? schedules.map((schedule) => ({
+                ...schedule,
+                calculated_status: ServiceSchedule.calculateStatus(
+                    schedule.scheduled_date,
+                    schedule.status,
+                    schedule.is_deleted
+                )
+            }))
             : [];
 
         res.json({
             success: true,
             message: 'Service history retrieved successfully',
-            schedules: completedSchedules,
-            count: completedSchedules.length,
+            schedules: enrichedSchedules,
+            count: enrichedSchedules.length,
             bus: {
                 bus_id: bus.bus_id,
                 registration_number: bus.registration_number,

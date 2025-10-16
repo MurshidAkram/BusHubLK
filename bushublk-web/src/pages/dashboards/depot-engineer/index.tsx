@@ -10,8 +10,7 @@ import {
   HiFire,
   HiHeart,
   HiLightningBolt,
-  HiShieldCheck,
-  HiExclamation
+  HiShieldCheck
 } from 'react-icons/hi';
 import { useState, useEffect, useContext } from 'react';
 import type { ReactElement } from 'react';
@@ -135,7 +134,7 @@ const DepotEngineerDashboard = () => {
       case 'storm':
         return 'bg-indigo-50 border-indigo-200';
       default:
-        return 'bg-gray-50 border-gray-200';
+        return 'bg-blue-50 border-blue-200';
     }
   };
 
@@ -146,6 +145,7 @@ const DepotEngineerDashboard = () => {
         return <HiFire className="w-5 h-5 text-red-600" />;
       case 'medical':
         return <HiHeart className="w-5 h-5 text-blue-600" />;
+      case 'breakdown':
       case 'mechanical':
       case 'engine':
         return <HiCog className="w-5 h-5 text-orange-600" />;
@@ -155,7 +155,7 @@ const DepotEngineerDashboard = () => {
       case 'accident':
       case 'collision':
       case 'crash':
-        return <HiExclamation className="w-5 h-5 text-amber-600" />;
+        return <HiTruck className="w-5 h-5 text-amber-600" />;
       case 'security':
       case 'threat':
         return <HiShieldCheck className="w-5 h-5 text-purple-600" />;
@@ -164,7 +164,7 @@ const DepotEngineerDashboard = () => {
       case 'storm':
         return <HiExclamationCircle className="w-5 h-5 text-indigo-600" />;
       default:
-        return <HiExclamationCircle className="w-5 h-5 text-gray-600" />;
+        return <HiExclamationCircle className="w-5 h-5 text-blue-600" />;
     }
   };
 
