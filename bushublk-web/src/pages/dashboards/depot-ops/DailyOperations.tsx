@@ -433,6 +433,9 @@ const DailyOperations: React.FC = () => {
     fetchAvailable();
   }, [user, token, assignmentDate]);
 
+  // Above your return, define today's date string:
+  const todayDateString = new Date().toISOString().split('T')[0];
+
   if (isLoading) return <div className="p-4 text-center">Loading data...</div>;
 
   return (
@@ -445,6 +448,7 @@ const DailyOperations: React.FC = () => {
           value={assignmentDate}
           onChange={e => setAssignmentDate(e.target.value)}
           className="border rounded px-2 py-1"
+          max={todayDateString}
         />
       </div>
 

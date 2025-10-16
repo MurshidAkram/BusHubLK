@@ -97,6 +97,7 @@ const BusScheduleTable = () => {
   const today = new Date();
   const todayString = today.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
   const todayDay = today.toLocaleDateString('en-US', { weekday: 'short' });
+  const todayDateString = new Date().toISOString().split('T')[0];
 
   return (
     <div className="bg-white rounded-2xl shadow-md p-6 min-h-screen">
@@ -180,6 +181,7 @@ const BusScheduleTable = () => {
                     value={selectedDate}
                     onChange={e => setSelectedDate(e.target.value)}
                     className="border rounded px-2 py-1"
+                    max={todayDateString}
                   />
                 </div>
               </div>
