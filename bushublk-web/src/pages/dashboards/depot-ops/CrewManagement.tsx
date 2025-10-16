@@ -298,7 +298,7 @@ const CrewManagement = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button
                         onClick={() => openStatusModal(member)}
-                        className={`inline-flex items-center text-blue-600 hover:text-blue-900 ${member.assigned_today ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        className={`inline-flex items-center text-blue-600 hover:text-blue-900 ${member.assigned_today ? 'opacity-30 cursor-not-allowed' : ''}`}
                         disabled={member.assigned_today}
                       >
                         <RotateCw className="h-4 w-4 mr-1" />

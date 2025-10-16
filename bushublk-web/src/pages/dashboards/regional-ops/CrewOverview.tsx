@@ -36,7 +36,7 @@ const CrewOverview = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
       const depotsData = await depotsRes.json();
-      const filteredDepots = (depotsData.depots || []).filter(d => d.region_id === regionId);
+      const filteredDepots = (depotsData.depots || []).filter((d: { region_id: number; }) => d.region_id === regionId);
       setDepots(filteredDepots);
 
       // Fetch all crews in parallel

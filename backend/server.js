@@ -1,4 +1,3 @@
-
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
@@ -192,6 +191,8 @@ const dailyAssignmentRoutes = require('./routes/dailyAssignmentRoutes');
 app.use('/api/assignments', dailyAssignmentRoutes);
 console.log('✅ dailyAssignmentRoutes loaded');
 
+const depotOpsDashboardRoutes = require('./routes/depotoperationsmanagerdashboardRoutes');
+app.use('/api/depot-ops-dashboard', depotOpsDashboardRoutes);
 
 
 try {
