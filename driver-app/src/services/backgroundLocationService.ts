@@ -3,9 +3,14 @@ import * as TaskManager from 'expo-task-manager';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { Alert, Platform } from 'react-native';
+import Constants from 'expo-constants';
 import { API_BASE_URL } from '../config/api';
 
 console.log('📦 BackgroundLocationService module loaded');
+
+// Detect if running in Expo Go
+const isExpoGo = Constants.appOwnership === 'expo';
+console.log(`🔍 Running in Expo Go: ${isExpoGo}`);
 
 const BACKGROUND_LOCATION_TASK = 'background-location-task';
 const OFFLINE_QUEUE_KEY = '@location_offline_queue';
@@ -17,6 +22,9 @@ console.log('🔧 Task name:', BACKGROUND_LOCATION_TASK);
 // Track last update to calculate intervals and prevent duplicates
 let lastProcessedTimestamp: number = 0;
 let lastUpdateTime: number | null = null;
+
+// Foreground tracking subscription for Expo Go
+let foregroundSubscription: Location.LocationSubscription | null = null;
 
 interface LocationUpdate {
   latitude: number;
@@ -264,6 +272,7 @@ export class BackgroundLocationService {
       console.log('🚀 BackgroundLocationService: Starting tracking...');
       console.log('📊 Parameters:', { driverId, busId, routeId });
       console.log('📱 Platform:', Platform.OS);
+      console.log('🔍 Expo Go mode:', isExpoGo);
 
       // Helper function to add timeout to any promise
       const withTimeout = <T>(promise: Promise<T>, timeoutMs: number, operation: string): Promise<T> => {
@@ -282,23 +291,14 @@ export class BackgroundLocationService {
         2000,
         'Foreground permission check'
       );
-      const backgroundStatus = await withTimeout(
-        Location.getBackgroundPermissionsAsync(),
-        2000,
-        'Background permission check'
-      );
       
       console.log('📍 Foreground permission:', foregroundStatus.status);
-      console.log('📍 Background permission:', backgroundStatus.status);
 
       if (foregroundStatus.status !== 'granted') {
         console.error('❌ Foreground location permission not granted');
         Alert.alert('Permission Required', 'Please enable location permissions to use tracking.');
         return false;
       }
-
-      const hasBackground = backgroundStatus.status === 'granted';
-      console.log(`✅ Permissions OK - Background: ${hasBackground ? 'YES' : 'NO'}`)
 
       // Store active assignment
       console.log('💾 Storing assignment to AsyncStorage...');
@@ -319,6 +319,99 @@ export class BackgroundLocationService {
         'AsyncStorage save status'
       );
       console.log('✅ Assignment stored successfully');
+
+      // ========================================
+      // EXPO GO: Use foreground tracking only
+      // ========================================
+      if (isExpoGo) {
+        console.log('🎯 Using FOREGROUND tracking for Expo Go');
+        
+        // Stop any existing foreground subscription
+        if (foregroundSubscription) {
+          console.log('⚠️ Stopping existing foreground subscription...');
+          foregroundSubscription.remove();
+          foregroundSubscription = null;
+        }
+
+        // Start foreground location tracking
+        console.log('🚀 Starting foreground location updates...');
+        foregroundSubscription = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.High,
+            timeInterval: 5000, // Update every 5 seconds
+            distanceInterval: 10, // Update every 10 meters
+          },
+          async (location) => {
+            try {
+              console.log(`📍 Foreground location update: ${location.coords.latitude.toFixed(6)}, ${location.coords.longitude.toFixed(6)}`);
+              
+              // Skip duplicate timestamps
+              if (location.timestamp === lastProcessedTimestamp) {
+                console.log('⏭️ Skipping duplicate location update');
+                return;
+              }
+              lastProcessedTimestamp = location.timestamp;
+
+              // Log interval between updates
+              const now = Date.now();
+              if (lastUpdateTime) {
+                const intervalSeconds = ((now - lastUpdateTime) / 1000).toFixed(1);
+                console.log(`⏱️ Update interval: ${intervalSeconds}s`);
+              }
+              lastUpdateTime = now;
+
+              const locationUpdate: OfflineQueueItem = {
+                latitude: location.coords.latitude,
+                longitude: location.coords.longitude,
+                timestamp: location.timestamp,
+                speed: location.coords.speed,
+                heading: location.coords.heading,
+                accuracy: location.coords.accuracy,
+                driverId,
+                busId,
+                routeId,
+              };
+
+              // Try to send location update immediately
+              const success = await sendLocationUpdate(locationUpdate);
+
+              if (!success) {
+                // If failed, add to offline queue
+                await addToOfflineQueue(locationUpdate);
+                console.log('📦 Location added to offline queue');
+              }
+
+              // Try to sync offline queue if online
+              await syncOfflineQueue();
+            } catch (error) {
+              console.error('❌ Error processing foreground location:', error);
+            }
+          }
+        );
+
+        console.log('✅ Foreground location tracking started successfully');
+        Alert.alert(
+          '✅ Tracking Started (Foreground)', 
+          'Your location is being tracked while the app is open.\n\n• Updates every 5 seconds or 10 meters\n• Keep app open for continuous tracking\n• For background tracking, use a standalone build\n\nPassengers can see your bus in real-time!',
+          [{ text: 'Got it!' }]
+        );
+        return true;
+      }
+
+      // ========================================
+      // STANDALONE BUILD: Use background tracking
+      // ========================================
+      console.log('🎯 Using BACKGROUND tracking for standalone build');
+      
+      const backgroundStatus = await withTimeout(
+        Location.getBackgroundPermissionsAsync(),
+        2000,
+        'Background permission check'
+      );
+      
+      console.log('📍 Background permission:', backgroundStatus.status);
+      const hasBackground = backgroundStatus.status === 'granted';
+      console.log(`✅ Permissions OK - Background: ${hasBackground ? 'YES' : 'NO'}`)
 
       // Check if already registered
       console.log('🔍 Checking if task already registered...');
@@ -448,22 +541,42 @@ export class BackgroundLocationService {
   static async stopTracking(): Promise<void> {
     try {
       console.log('🛑 Stopping location tracking...');
+      console.log('🔍 Expo Go mode:', isExpoGo);
       
-      // Stop background task if registered
-      console.log('🔍 Checking if task is registered...');
-      const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_LOCATION_TASK);
-      console.log(`📋 Task registered: ${isRegistered}`);
-      
-      if (isRegistered) {
-        console.log('⏹️ Stopping location updates...');
-        await Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
-        console.log('✅ Location updates stopped');
-        
-        // Minimal wait for task cleanup - just enough for proper cleanup
-        console.log('⏳ Waiting for task cleanup (500ms)...');
-        await new Promise(resolve => setTimeout(resolve, 500));
+      // ========================================
+      // EXPO GO: Stop foreground subscription
+      // ========================================
+      if (isExpoGo) {
+        console.log('🛑 Stopping foreground subscription...');
+        if (foregroundSubscription) {
+          foregroundSubscription.remove();
+          foregroundSubscription = null;
+          console.log('✅ Foreground subscription stopped');
+        } else {
+          console.log('ℹ️ No foreground subscription to stop');
+        }
       } else {
-        console.log('ℹ️ Task was not registered, no need to stop');
+        // ========================================
+        // STANDALONE BUILD: Stop background task
+        // ========================================
+        console.log('🛑 Stopping background task...');
+        
+        // Stop background task if registered
+        console.log('🔍 Checking if task is registered...');
+        const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_LOCATION_TASK);
+        console.log(`📋 Task registered: ${isRegistered}`);
+        
+        if (isRegistered) {
+          console.log('⏹️ Stopping location updates...');
+          await Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
+          console.log('✅ Location updates stopped');
+          
+          // Minimal wait for task cleanup - just enough for proper cleanup
+          console.log('⏳ Waiting for task cleanup (500ms)...');
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } else {
+          console.log('ℹ️ Task was not registered, no need to stop');
+        }
       }
 
       // Try to sync offline queue in background (don't wait for it)
@@ -542,6 +655,12 @@ export class BackgroundLocationService {
   // Check if background tracking is currently active
   static async isTracking(): Promise<boolean> {
     try {
+      // In Expo Go, check foreground subscription
+      if (isExpoGo) {
+        return foregroundSubscription !== null;
+      }
+      
+      // In standalone build, check task registration
       const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_LOCATION_TASK);
       return isRegistered;
     } catch (error) {
