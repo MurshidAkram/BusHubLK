@@ -39,13 +39,11 @@ const DepotOperationsManagerDashboard = () => {
   const [activeBuses, setActiveBuses] = useState(0);
   const [fleetStatus, setFleetStatus] = useState<{
     active: number;
-    inService: number;
     maintenance: number;
     outOfService: number;
     total: number;
   }>({
     active: 0,
-    inService: 0,
     maintenance: 0,
     outOfService: 0,
     total: 0
@@ -143,10 +141,17 @@ const DepotOperationsManagerDashboard = () => {
     axios.get(`http://localhost:5000/api/depot-ops-dashboard/depot/${user.depot_id}/fleet-status`, {
       headers: { Authorization: `Bearer ${token}` }
     })
-      .then(res => setFleetStatus(res.data))
+      .then(res => {
+        const d = res.data || {};
+        setFleetStatus({
+          active: Number(d.active ?? d.activeBuses ?? 0),
+          maintenance: Number(d.maintenance ?? d.maintenanceBuses ?? 0),
+          outOfService: Number(d.outOfService ?? d.out_of_service ?? 0),
+          total: Number(d.total ?? d.totalBuses ?? 0)
+        });
+      })
       .catch(() => setFleetStatus({
         active: 0,
-        inService: 0,
         maintenance: 0,
         outOfService: 0,
         total: 0
@@ -381,20 +386,7 @@ const DepotOperationsManagerDashboard = () => {
                 ></div>
               </div>
             </div>
-            <div>
-              <div className="flex justify-between mb-1">
-                <span className="text-sm font-medium text-blue-600">In Service Buses</span>
-                <span className="text-sm font-medium text-blue-600">
-                  {fleetStatus.inService}/{fleetStatus.total}
-                </span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2.5">
-                <div
-                  className="bg-blue-500 h-2.5 rounded-full"
-                  style={{ width: `${fleetStatus.total ? (fleetStatus.inService / fleetStatus.total) * 100 : 0}%` }}
-                ></div>
-              </div>
-            </div>
+
             <div>
               <div className="flex justify-between mb-1">
                 <span className="text-sm font-medium text-yellow-600">Maintenance Buses</span>
@@ -409,6 +401,7 @@ const DepotOperationsManagerDashboard = () => {
                 ></div>
               </div>
             </div>
+
             <div>
               <div className="flex justify-between mb-1">
                 <span className="text-sm font-medium text-red-600">Out of Service Buses</span>
