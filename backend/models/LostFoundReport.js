@@ -93,7 +93,8 @@ class LostFoundReport {
         reg.region_name,
         d.depot_name,
         CASE
-          WHEN r.created_at > NOW() - INTERVAL '1 hour' THEN 'An hour before'
+          WHEN r.created_at > NOW() - INTERVAL '1 minute' THEN 'Just now'
+          WHEN r.created_at > NOW() - INTERVAL '1 hour' THEN EXTRACT(MINUTE FROM NOW() - r.created_at) || ' minutes ago'
           WHEN r.created_at > NOW() - INTERVAL '1 day' THEN EXTRACT(HOUR FROM NOW() - r.created_at) || ' hours ago'
           ELSE EXTRACT(DAY FROM NOW() - r.created_at) || ' days ago'
         END as time_ago

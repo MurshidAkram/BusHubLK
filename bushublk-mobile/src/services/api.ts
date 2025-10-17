@@ -207,9 +207,9 @@ export const storageAPI = {
 export { busLiveTrackingAPI, API_BASE_URL };
 
 export const complaintAPI = {
-  searchBusRoutes: async (query: string) => {
+  searchBusRoutes: async (query: string, type: 'route' | 'bus' | 'all' = 'all') => {
     const response = await api.get('/api/complaints/bus-routes', {
-      params: { query },
+      params: { query, type },
     });
     return response.data;
   },
