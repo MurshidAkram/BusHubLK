@@ -232,26 +232,40 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ navigation })
     ({ item }: { item: PassengerNotification }) => {
       const iconName = getIconForCategory(item.category);
       return (
-        <TouchableOpacity
-          onPress={() => handleNotificationPress(item)}
-          style={styles.notificationCard}
-          accessibilityRole="button"
-        >
-          <View style={styles.iconWrapper}>
-            <Ionicons
-              name={iconName}
-              size={26}
-              color={AppColors.primary}
-            />
-          </View>
-          <View style={styles.notificationContent}>
-            <View style={styles.notificationHeaderRow}>
-              <Text style={styles.title}>{item.title}</Text>
-              <Text style={styles.timestamp}>{formatNotificationTime(item.createdAt)}</Text>
-            </View>
-            <Text style={styles.message}>{buildBodyPreview(item)}</Text>
-          </View>
-        </TouchableOpacity>
+        <View style={styles.notificationCardWrapper}>
+          <LinearGradient
+            colors={['#FFFFFF', '#F8FAFF']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.notificationCardGradient}
+          >
+            <TouchableOpacity
+              onPress={() => handleNotificationPress(item)}
+              style={styles.notificationCard}
+              accessibilityRole="button"
+            >
+              <LinearGradient
+                colors={['#E7F1FF', '#F0F8FF']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.iconWrapper}
+              >
+                <Ionicons
+                  name={iconName}
+                  size={24}
+                  color={AppColors.primary}
+                />
+              </LinearGradient>
+              <View style={styles.notificationContent}>
+                <View style={styles.notificationHeaderRow}>
+                  <Text style={styles.title}>{item.title}</Text>
+                  <Text style={styles.timestamp}>{formatNotificationTime(item.createdAt)}</Text>
+                </View>
+                <Text style={styles.message}>{buildBodyPreview(item)}</Text>
+              </View>
+            </TouchableOpacity>
+          </LinearGradient>
+        </View>
       );
     },
     [handleNotificationPress]
@@ -263,12 +277,17 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ navigation })
     }
     return (
       <View style={styles.emptyState} accessibilityRole="text">
-        <View style={styles.emptyIconWrapper}>
-          <Ionicons name="notifications-off-outline" size={48} color={AppColors.primary} />
-        </View>
+        <LinearGradient
+          colors={['#E7F1FF', '#F0F8FF']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.emptyIconWrapper}
+        >
+          <Ionicons name="notifications-off-outline" size={56} color={AppColors.primary} />
+        </LinearGradient>
         <Text style={styles.emptyText}>No notifications yet</Text>
         <Text style={styles.emptySubText}>
-          We’ll drop updates here as soon as something needs your attention.
+          We'll drop updates here as soon as something needs your attention.
         </Text>
       </View>
     );
@@ -287,7 +306,11 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ navigation })
           <View style={styles.listHeaderLeft}>
             <Text style={styles.listHeaderTitle}>Recent activity</Text>
             <Text style={styles.listHeaderSubtitle}>
-              Older alerts are cleared automatically after 30 days.
+              {unreadCount === 0
+                ? "You're all caught up"
+                : unreadCount === 1
+                ? "1 new update"
+                : `${unreadCount} new updates`}
             </Text>
           </View>
           <TouchableOpacity
@@ -311,7 +334,7 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ navigation })
         </View>
       </View>
     );
-  }, [loading, notifications.length]);
+  }, [loading, notifications.length, unreadCount, handleMarkAllAsRead]);
 
   return (
     <LinearGradient
@@ -321,13 +344,13 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ navigation })
       style={styles.gradientContainer}
     >
       <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="dark-content" backgroundColor={AppColors.background} />
+        <StatusBar barStyle="light-content" backgroundColor="#0056b3" />
 
-        {/* Enhanced Header with Gradient - fixed positioning */}
+        {/* Enhanced Header with Gradient */}
         <LinearGradient
-          colors={[AppColors.primary, AppColors.primaryLight]}
+          colors={['#0056b3', '#1976d2', '#42a5f5']}
           start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+          end={{ x: 1, y: 0 }}
           style={styles.headerGradient}
         >
           <View style={styles.headerContent}>
@@ -337,20 +360,10 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ navigation })
               accessibilityRole="button"
               accessibilityLabel="Go back"
             >
-              <Text style={styles.backArrow}>←</Text>
+              <Ionicons name="arrow-back-outline" size={24} color="white" />
             </TouchableOpacity>
-            <View style={styles.headerTitleContainer}>
             <Text style={styles.headerTitle}>Notifications</Text>
-            <Text style={styles.headerSubtitle}>
-              {unreadCount === 0
-                ? "You’re all caught up"
-                : unreadCount === 1
-                ? "1 new update awaiting"
-                : `${unreadCount} new updates waiting`}
-            </Text>
-          </View>
-          {/* Bell Icon in Header */}
-          <View style={styles.bellIconContainer}>
+            <View style={styles.bellIconContainer}>
             <Ionicons
               name="notifications"
               size={24}
@@ -416,126 +429,84 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
 
-  // Header styles (matching BusOccupancy screen structure)
+  // Header styles
   headerGradient: {
-    borderBottomWidth: 1,
-    borderBottomColor: AppColors.border,
+    paddingBottom: 16,
+    ...Platform.select({
+      android: {
+        elevation: 8,
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+      },
+    }),
   },
   headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 10,
+    paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: 'transparent',
   },
   backButton: {
     padding: 8,
   },
-  backArrow: {
-    fontSize: 24,
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-  },
-  headerTitleContainer: {
-    flex: 1,
-    marginLeft: 8,
-  },
   headerTitle: {
-    fontSize: 20,
+    flex: 1,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    marginBottom: 2,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.8)',
-    fontWeight: '500',
-  },
-  headerSummaryRow: {
-    marginTop: 12,
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  summaryBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 999,
-    marginRight: 12,
-  },
-  summaryBadgeText: {
-    marginLeft: 6,
-    fontSize: 16,
-    fontWeight: "700",
-    color: AppColors.primary,
-  },
-  headerHint: {
-    flex: 1,
-    textAlign: "right",
-    fontSize: 12,
-    color: "rgba(255, 255, 255, 0.85)",
-    marginLeft: 12,
-  },
-  markAllButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 18,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-  },
-  markAllButtonDisabled: {
-    opacity: 0.6,
-  },
-  markAllText: {
-    color: "#FFFFFF",
-    fontSize: 13,
-    fontWeight: "600",
-    letterSpacing: 0.2,
-    marginLeft: 6,
-  },
-  markAllTextDisabled: {
-    color: "rgba(255, 255, 255, 0.7)",
+    textAlign: 'center',
+    letterSpacing: 0.3,
   },
 
-  // Enhanced notification card styles (matching BusOccupancy card structure)
-  notificationCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: 16,
-    padding: 18,
-    marginHorizontal: 0,
+
+  // Enhanced notification card styles
+  notificationCardWrapper: {
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(222, 226, 230, 0.4)',
-    flexDirection: "row",
-    alignItems: "center",
+    borderRadius: 16,
+    overflow: 'hidden',
     ...Platform.select({
       android: {
-        elevation: 6,
+        elevation: 4,
       },
       ios: {
-        shadowColor: '#000',
-        shadowOpacity: 0.12,
-        shadowRadius: 10,
+        shadowColor: 'rgba(0, 0, 0, 0.1)',
+        shadowOpacity: 1,
+        shadowRadius: 12,
         shadowOffset: { width: 0, height: 4 },
       },
     }),
   },
+  notificationCardGradient: {
+    borderRadius: 16,
+  },
+  notificationCard: {
+    padding: 16,
+    flexDirection: "row",
+    alignItems: "center",
+  },
   iconWrapper: {
-    marginRight: 16,
-    position: "relative",
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: AppColors.primaryMuted,
+    marginRight: 14,
+    width: 48,
+    height: 48,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
+    ...Platform.select({
+      android: {
+        elevation: 2,
+      },
+      ios: {
+        shadowColor: AppColors.primary,
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 2 },
+      },
+    }),
   },
   notificationContent: {
     flex: 1,
@@ -589,67 +560,89 @@ const styles = StyleSheet.create({
   // Bell icon styles in header
   bellIconContainer: {
     position: 'relative',
-    padding: 8,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   bellBadge: {
     position: 'absolute',
-    top: 4,
-    right: 4,
+    top: 2,
+    right: 2,
     backgroundColor: AppColors.red,
     borderRadius: 10,
-    minWidth: 20,
-    height: 20,
+    minWidth: 18,
+    height: 18,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: '#0056b3',
   },
   bellBadgeText: {
     color: '#FFFFFF',
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
   },
 
   // List header styles
   listHeaderSpacer: {
-    height: 12,
+    height: 8,
   },
   listHeader: {
     paddingHorizontal: 4,
-    paddingBottom: 12,
-    marginTop: 8,
+    paddingBottom: 16,
+    marginTop: 4,
   },
   listHeaderTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
   listHeaderLeft: {
     flex: 1,
     marginRight: 12,
   },
   listHeaderTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "700",
     color: AppColors.text,
     marginBottom: 4,
+    letterSpacing: 0.3,
   },
   listHeaderSubtitle: {
     fontSize: 14,
     color: AppColors.textSecondary,
     lineHeight: 20,
+    fontWeight: '500',
   },
   
   // Secondary mark all button (in list header)
   markAllButtonSecondary: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: AppColors.primaryMuted,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
     gap: 6,
+    ...Platform.select({
+      android: {
+        elevation: 2,
+      },
+      ios: {
+        shadowColor: AppColors.primary,
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 2 },
+      },
+    }),
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: AppColors.primaryLight,
+    borderColor: AppColors.primary,
+  },
+  markAllButtonDisabled: {
+    opacity: 0.5,
+    borderColor: '#ccc',
   },
   markAllTextSecondary: {
     fontSize: 14,
@@ -660,33 +653,45 @@ const styles = StyleSheet.create({
     color: '#999',
   },
 
-  // Enhanced empty state (matching BusOccupancy style)
+  // Enhanced empty state
   emptyState: {
     alignItems: "center",
     paddingHorizontal: 32,
-    paddingVertical: 60,
+    paddingVertical: 80,
   },
   emptyIconWrapper: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: AppColors.primaryMuted,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 24,
+    ...Platform.select({
+      android: {
+        elevation: 4,
+      },
+      ios: {
+        shadowColor: AppColors.primary,
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 4 },
+      },
+    }),
   },
   emptyText: {
     textAlign: "center",
     color: AppColors.text,
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 8,
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 10,
+    letterSpacing: 0.3,
   },
   emptySubText: {
     textAlign: "center",
     color: AppColors.textSecondary,
-    fontSize: 14,
+    fontSize: 15,
     lineHeight: 22,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
+    fontWeight: '500',
   },
 });
