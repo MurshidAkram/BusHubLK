@@ -123,6 +123,31 @@ export const driverAPI = {
   // Logout
   logout: async () => {
     try {
+      const token = await storageAPI.getAuthToken();
+      
+      // Call backend to blacklist token
+      if (token) {
+        try {
+          const response = await fetch(`${API_BASE_URL}/driver/logout`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          });
+          
+          if (!response.ok) {
+            console.warn("Backend logout failed, continuing with local logout");
+          } else {
+            console.log("✅ Token blacklisted on server");
+          }
+        } catch (error) {
+          console.warn("Could not reach server for logout:", error);
+          // Continue with local logout even if backend fails
+        }
+      }
+      
+      // Clear local storage regardless of backend response
       await storageAPI.clearStorage();
       return { success: true };
     } catch (error) {
