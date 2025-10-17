@@ -81,11 +81,6 @@ export const TrackingStatusBanner: React.FC<TrackingStatusBannerProps> = ({ onPr
           
           <View style={styles.textContainer}>
             <Text style={styles.title}>🚍 Route Tracking Active</Text>
-            {assignment && (
-              <Text style={styles.subtitle}>
-                Bus {assignment.busId} • Route {assignment.routeId}
-              </Text>
-            )}
           </View>
 
           <Ionicons name="chevron-forward" size={20} color="#FFFFFF" />
@@ -98,40 +93,41 @@ export const TrackingStatusBanner: React.FC<TrackingStatusBannerProps> = ({ onPr
 const styles = StyleSheet.create({
   container: {
     marginHorizontal: 20,
-    marginBottom: 20,
-    borderRadius: 20,
+    marginBottom: 16,
+    borderRadius: 16,
     overflow: 'hidden',
     shadowColor: '#0056b3',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 5,
   },
   gradient: {
-    padding: 20,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
   },
   content: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   dotContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: 'rgba(255, 255, 255, 0.25)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 14,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowRadius: 2,
+    elevation: 1,
   },
   dot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
     backgroundColor: '#FFFFFF',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -144,9 +140,8 @@ const styles = StyleSheet.create({
   },
   title: {
     color: '#FFFFFF',
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '700',
-    marginBottom: 4,
     textShadowColor: 'rgba(0, 0, 0, 0.1)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
