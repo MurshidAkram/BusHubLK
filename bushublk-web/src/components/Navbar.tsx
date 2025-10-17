@@ -61,6 +61,13 @@ const Navbar: React.FC = () => {
             'Content-Type': 'application/json',
           },
         });
+      } else if (roleKey === 'dgm_technical') {
+        response = await fetch('http://localhost:5000/api/dgm-technical/notifications/unread-count', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
       } else if (roleKey === 'regional_tech' || roleKey === 'regional_technical_officer') {
         response = await fetch('http://localhost:5000/api/rto/notifications/unread-count', {
           headers: {
@@ -138,6 +145,8 @@ const Navbar: React.FC = () => {
     console.log('User role:', userRoleLabel); // Debug log
     if (roleKey === 'depot_engineer') {
       navigate('/depot-engineer/notifications');
+    } else if (roleKey === 'dgm_technical') {
+      navigate('/dgm-technical/Dgmtech_notification');
     } else if (roleKey === 'depot_manager') {
       navigate('/depot-manager/notifications');
     } else if (roleKey === 'regional_tech' || roleKey === 'regional_technical_officer') {
