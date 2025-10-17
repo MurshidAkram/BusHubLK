@@ -79,6 +79,15 @@ const DepotManagerDashboard = () => {
     return str.charAt(0).toUpperCase() + str.slice(1);
   }
 
+  // Pagination for spare parts table
+  const [sparePage, setSparePage] = useState<number>(1);
+  const SPARE_ITEMS_PER_PAGE = 4;
+  const spareTotalPages = Math.max(1, Math.ceil(sparePartsSummary.length / SPARE_ITEMS_PER_PAGE));
+  useEffect(() => {
+    // reset to first page when data changes
+    setSparePage(1);
+  }, [sparePartsSummary]);
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -234,17 +243,7 @@ const DepotManagerDashboard = () => {
               </div>
 
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">In Service</span>
-                <span className="text-sm font-medium text-blue-600">
-                  {fleetStatus?.inService || 0}/{fleetStatus?.total || 0}
-                </span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div className="bg-blue-500 h-2 rounded-full" style={{width: `${fleetStatus?.total ? (fleetStatus.inService / fleetStatus.total) * 100 : 0}%`}}></div>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Maintenance</span>
+                <span className="text-sm text-gray-600">Maintenance buses </span>
                 <span className="text-sm font-medium text-orange-600">
                   {fleetStatus?.maintenance || 0}/{fleetStatus?.total || 0}
                 </span>
@@ -254,7 +253,7 @@ const DepotManagerDashboard = () => {
               </div>
 
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Out of Service</span>
+                <span className="text-sm text-gray-600">Out of Service buses </span>
                 <span className="text-sm font-medium text-red-600">
                   {fleetStatus?.outOfService || 0}/{fleetStatus?.total || 0}
                 </span>
@@ -347,51 +346,94 @@ const DepotManagerDashboard = () => {
 
         {/* Spare Parts Details */}
         <div className="bg-white rounded-lg shadow-sm">
-          <div className="p-6 border-b border-gray-200">
+          <div className="p-6 border-b border-gray-200 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900">Spare Parts Details</h2>
+            <span className="text-sm text-gray-500">{sparePartsSummary.length} parts</span>
           </div>
-          <div className="p-6 overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Part Name</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Total Stock</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Unit</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Last Restocked</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {sparePartsSummary.length === 0 ? (
+
+          <div className="p-4">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-100">
+                <thead className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
                   <tr>
-                    <td colSpan={4} className="px-4 py-8 text-gray-500 text-center">
-                      <div className="flex flex-col items-center justify-center">
-                        <HiClipboardCheck className="w-8 h-8 text-gray-300 mb-2" />
-                        <p className="text-sm">No spare parts found</p>
-                      </div>
-                    </td>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Part</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider">Stock</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Unit</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider">Last Restocked</th>
                   </tr>
-                ) : (
-                  sparePartsSummary.map((part, idx) => (
-                    <tr key={part.part_name + part.unit + idx}>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <span className="text-sm font-medium text-gray-900">{capitalizeFirst(part.part_name)}</span>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <span className="text-sm font-semibold text-gray-900">{part.total_stock}</span>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <span className="text-sm text-gray-600">{part.unit}</span>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <span className="text-sm text-gray-600">
-                          {part.last_restocked ? new Date(part.last_restocked).toLocaleDateString() : <span className="text-gray-400">-</span>}
-                        </span>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-100">
+                  {sparePartsSummary.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="px-6 py-8 text-gray-500 text-center">
+                        <div className="flex flex-col items-center justify-center">
+                          <HiClipboardCheck className="w-8 h-8 text-gray-300 mb-2" />
+                          <p className="text-sm">No spare parts found</p>
+                        </div>
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : (
+                    sparePartsSummary
+                      .slice((sparePage - 1) * SPARE_ITEMS_PER_PAGE, sparePage * SPARE_ITEMS_PER_PAGE)
+                      .map((part, idx) => (
+                        <tr key={`${part.part_name}-${part.unit}-${idx}`} className="hover:bg-gray-50">
+                          <td className="px-4 py-4">
+                            <div className="text-sm font-medium text-gray-900">{capitalizeFirst(part.part_name)}</div>
+                            {part.description && <div className="text-xs text-gray-400 mt-1">{part.description}</div>}
+                          </td>
+                          <td className="px-4 py-4 text-center">
+                            <div className="inline-flex items-center px-3 py-1 rounded-full bg-gray-100 text-sm font-semibold text-gray-800">
+                              {part.total_stock}
+                            </div>
+                          </td>
+                          <td className="px-4 py-4">
+                            <span className="text-sm text-gray-600">{part.unit}</span>
+                          </td>
+                          <td className="px-4 py-4 text-center align-middle">
+                            <span className="text-sm text-gray-600 block">
+                              {part.last_restocked ? new Date(part.last_restocked).toLocaleDateString() : <span className="text-gray-400">-</span>}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination controls */}
+            <div className="mt-4 flex items-center justify-between">
+              <div className="text-sm text-gray-600">
+                Showing {(sparePage - 1) * SPARE_ITEMS_PER_PAGE + 1} - {Math.min(sparePage * SPARE_ITEMS_PER_PAGE, sparePartsSummary.length)} of {sparePartsSummary.length}
+              </div>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setSparePage(p => Math.max(1, p - 1))}
+                  disabled={sparePage === 1}
+                  className={`px-3 py-1 rounded-md text-sm border ${sparePage === 1 ? 'text-gray-400 border-gray-200 cursor-not-allowed' : 'text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+                >
+                  Previous
+                </button>
+                <div className="flex items-center space-x-1 text-sm">
+                  {Array.from({ length: spareTotalPages }).map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setSparePage(i + 1)}
+                      className={`px-2 py-1 rounded-md ${sparePage === i + 1 ? 'bg-indigo-600 text-white' : 'text-gray-600 border border-gray-100 hover:bg-gray-50'}`}
+                    >
+                      {i + 1}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setSparePage(p => Math.min(spareTotalPages, p + 1))}
+                  disabled={sparePage === spareTotalPages}
+                  className={`px-3 py-1 rounded-md text-sm border ${sparePage === spareTotalPages ? 'text-gray-400 border-gray-200 cursor-not-allowed' : 'text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>

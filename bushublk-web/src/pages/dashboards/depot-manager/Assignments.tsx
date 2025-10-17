@@ -178,7 +178,7 @@ const Assignments = () => {
                               {slot.assignment ? (
                                 <>
                                   <div className="font-medium">{slot.assignment.bus_registration}</div>
-                                  <div className="text-sm text-gray-500">{slot.assignment.bus_type}</div>
+                                  <div className="text-sm text-gray-500">Class {slot.assignment.bus_type}</div>
                                 </>
                               ) : (
                                 <span className="bg-red-100 text-red-800 px-2.5 py-0.5 rounded-full text-xs font-medium">Not assigned</span>
