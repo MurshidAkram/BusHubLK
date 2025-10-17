@@ -230,10 +230,46 @@ router.post('/login', [
   }
 });
 
+// @route   POST /api/passengers/logout
+// @desc    Logout passenger (blacklist token)
+// @access  Private (requires authentication)
+const { authenticateJWT } = require('../middlewares/authMiddleware');
+
+router.post('/logout', authenticateJWT, async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    
+    if (!token) {
+      return res.status(400).json({ error: 'No token provided' });
+    }
+
+    // Decode token to get expiry
+    const decoded = jwt.decode(token);
+    if (!decoded || !decoded.exp) {
+      return res.status(400).json({ error: 'Invalid token format' });
+    }
+
+    // Convert JWT exp (seconds) to PostgreSQL timestamp
+    const expiresAt = new Date(decoded.exp * 1000);
+
+    // Add token to blacklist
+    await db.query(
+      `INSERT INTO token_blacklist (token, user_id, user_type, expires_at, reason) 
+       VALUES ($1, $2, 'passenger', $3, 'logout')`,
+      [token, decoded.userId, expiresAt]
+    );
+
+    console.log('✅ Passenger token blacklisted successfully');
+    res.json({ success: true, message: 'Logged out successfully' });
+  } catch (err) {
+    console.error('❌ Passenger logout error:', err);
+    res.status(500).json({ error: 'Server error during logout' });
+  }
+});
+
 // @route   GET /api/passengers/profile
 // @desc    Get passenger profile
 // @access  Private (requires authentication middleware)
-const { authenticateJWT } = require('../middlewares/authMiddleware');
 
 router.get('/profile', authenticateJWT, async (req, res) => {
   try {
