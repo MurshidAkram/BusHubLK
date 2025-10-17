@@ -13,6 +13,7 @@ import {
   Modal,
   Dimensions,
   FlatList,
+  Platform,
 } from "react-native";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
@@ -21,20 +22,23 @@ import { storageAPI } from "../services/api";
 import { API_BASE_URL } from "../config/api";
 import { LinearGradient } from 'expo-linear-gradient';
 
-// --- Using the same modern color palette for consistency ---
+// --- Enhanced Color Palette (matching BusOccupancyScreen) ---
 const AppColors = {
-  background: "#F8FAFC",
+  background: "#F8FAFF",
   card: "#FFFFFF",
-  primary: "#3B82F6",
-  primaryDark: "#1E40AF",
-  text: "#0F172A",
-  textSecondary: "#64748B",
-  border: "#E2E8F0",
+  primary: "#0056b3",
+  primaryDark: "#003d82",
+  primaryLight: "#0076e3",
+  primaryMuted: "rgba(0, 86, 179, 0.1)",
+  text: "#1F2937",
+  textSecondary: "#6B7280",
+  border: "#E5E7EB",
+  borderLight: "rgba(222, 226, 230, 0.4)",
   success: "#10B981",
-  warning: "#3B82F6", // Changed from yellow to blue
+  warning: "#0056b3", // Blue for pending status
   danger: "#EF4444",
-  shadow: "rgba(15, 23, 42, 0.08)",
-
+  red: "#EF4444",
+  shadow: "rgba(0, 0, 0, 0.1)",
 };
 
 type Complaint = {
@@ -397,19 +401,28 @@ export default function ComplaintHistoryScreen() {
 
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* --- Redesigned Header --- */}
-      <LinearGradient colors={[AppColors.primary, AppColors.primaryDark]} style={styles.headerGradient}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerIconContainer}>
-            <Ionicons name="arrow-back-outline" size={28} color="#FFFFFF" />
-          </TouchableOpacity>
-          <View style={styles.headerTitleContainer}>
+    <LinearGradient
+      colors={['#F8FAFF', '#E3F2FD', '#BBDEFB']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.gradientContainer}
+    >
+      <SafeAreaView style={styles.safeArea}>
+        {/* --- Enhanced Header (matching Lost&Found style) --- */}
+        <LinearGradient
+          colors={['#0056b3', '#1976d2', '#42a5f5']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.headerGradient}
+        >
+          <View style={styles.headerContent}>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+              <Ionicons name="arrow-back-outline" size={24} color="white" />
+            </TouchableOpacity>
             <Text style={styles.headerTitle}>Complaint History</Text>
+            <View style={{ width: 40 }} />
           </View>
-          <View style={{ width: 40 }} />
-        </View>
-      </LinearGradient>
+        </LinearGradient>
 
       {loading && complaints.length === 0 ? (
         <View style={styles.loaderWrapper}>
@@ -531,11 +544,19 @@ export default function ComplaintHistoryScreen() {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
+  gradientContainer: {
+    flex: 1,
+  },
+  safeArea: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
   container: {
     flex: 1,
     backgroundColor: AppColors.background,
@@ -554,104 +575,121 @@ const styles = StyleSheet.create({
   },
 
   headerGradient: {
-    paddingBottom: 10,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
   },
 
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    height: 70,
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  headerTitleContainer: {
-    flex: 1,
-    alignItems: "center",
+  backButton: {
+    padding: 8,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerTitle: {
-    color: "#FFFFFF",
     fontSize: 22,
-    fontWeight: "700",
-
-  },
-  headerIconContainer: {
-    padding: 5,
+    fontWeight: 'bold',
+    color: 'white',
+    flex: 1,
+    textAlign: 'center',
   },
   emptyContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     paddingBottom: 50,
+    paddingHorizontal: 20,
   },
   emptyTitle: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: "700",
-
     color: AppColors.text,
-    marginTop: 20,
+    marginTop: 24,
+    letterSpacing: 0.3,
   },
   emptyText: {
     fontSize: 16,
     color: AppColors.textSecondary,
     textAlign: "center",
-    marginTop: 10,
-    marginBottom: 30,
+    marginTop: 12,
+    marginBottom: 32,
     paddingHorizontal: 30,
-    lineHeight: 24,
+    lineHeight: 26,
+    fontWeight: '500',
   },
   submitButton: {
-    backgroundColor: AppColors.primary,
-    paddingVertical: 14,
-    paddingHorizontal: 30,
-    borderRadius: 12,
-    elevation: 2,
-
+    backgroundColor: '#0056b3',
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    borderRadius: 14,
+    ...Platform.select({
+      android: {
+        elevation: 6,
+      },
+      ios: {
+        shadowColor: '#0056b3',
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 4 },
+      },
+    }),
   },
   submitButtonText: {
     color: "#FFFFFF",
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "700",
+    letterSpacing: 0.5,
   },
   listContentContainer: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingHorizontal: 16,
+    paddingTop: 16,
     paddingBottom: 32,
   },
   emptyListContainer: {
     flexGrow: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingTop: 40,
     paddingBottom: 60,
     justifyContent: 'center',
   },
   card: {
-    backgroundColor: AppColors.card,
-    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: AppColors.border,
-    marginBottom: 20,
-    shadowColor: AppColors.shadow,
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
+    borderColor: 'rgba(0, 86, 179, 0.08)',
+    marginBottom: 16,
+    ...Platform.select({
+      android: {
+        elevation: 8,
+      },
+      ios: {
+        shadowColor: 'rgba(0, 86, 179, 0.15)',
+        shadowOpacity: 1,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 6 },
+      },
+    }),
   },
   cardHeader: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 15,
+    padding: 18,
     borderBottomWidth: 1,
-    borderBottomColor: AppColors.border,
+    borderBottomColor: 'rgba(0, 86, 179, 0.08)',
   },
 
   statusIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 48,
+    height: 48,
+    borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 15,
+    marginRight: 16,
   },
   headerTextContainer: {
     flex: 1,
@@ -661,44 +699,48 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: AppColors.text,
     textTransform: "capitalize",
-    marginBottom: 2,
+    marginBottom: 4,
+    letterSpacing: 0.3,
   },
   complaintDate: {
     fontSize: 13,
     color: AppColors.textSecondary,
-
+    fontWeight: '500',
   },
   complaintFiledDate: {
     fontSize: 12,
     color: AppColors.textSecondary,
     opacity: 0.8,
-    marginTop: 2,
+    marginTop: 3,
+    fontWeight: '500',
   },
   statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
   },
   statusText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "bold",
     color: "#FFFFFF",
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   cardBody: {
-    paddingHorizontal: 20,
-    paddingTop: 15,
-
+    paddingHorizontal: 18,
+    paddingTop: 16,
+    paddingBottom: 4,
   },
   infoRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 15,
+    marginBottom: 14,
   },
   infoText: {
     fontSize: 15,
     color: AppColors.text,
     marginLeft: 12,
+    fontWeight: '500',
   },
   infoBold: {
     fontWeight: '600',
@@ -707,16 +749,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
+    paddingVertical: 14,
     paddingHorizontal: 20,
     borderTopWidth: 1,
-    borderTopColor: AppColors.border,
+    borderTopColor: 'rgba(0, 86, 179, 0.08)',
+    backgroundColor: 'rgba(0, 86, 179, 0.02)',
   },
   viewMoreText: {
     fontSize: 14,
     color: AppColors.primary,
-    marginRight: 5,
-    fontWeight: '500',
+    marginRight: 6,
+    fontWeight: '600',
+    letterSpacing: 0.3,
   },
   footerLoader: {
     paddingVertical: 18,
@@ -727,67 +771,76 @@ const styles = StyleSheet.create({
   // Modal Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: AppColors.card,
-    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
     margin: 20,
     maxHeight: '80%',
     width: Dimensions.get('window').width - 40,
-    shadowColor: AppColors.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
+    ...Platform.select({
+      android: {
+        elevation: 12,
+      },
+      ios: {
+        shadowColor: 'rgba(0, 86, 179, 0.25)',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 1,
+        shadowRadius: 16,
+      },
+    }),
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
+    padding: 24,
     borderBottomWidth: 1,
-    borderBottomColor: AppColors.border,
+    borderBottomColor: 'rgba(0, 86, 179, 0.08)',
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 21,
     fontWeight: '700',
     color: AppColors.text,
+    letterSpacing: 0.3,
   },
   closeButton: {
-    padding: 5,
+    padding: 6,
   },
   modalBody: {
-    padding: 20,
+    padding: 24,
   },
   detailSection: {
-    marginBottom: 20,
+    marginBottom: 22,
   },
   detailLabel: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: AppColors.textSecondary,
-    marginBottom: 8,
+    marginBottom: 10,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
   },
   detailValue: {
     fontSize: 16,
     color: AppColors.text,
     fontWeight: '500',
-    marginBottom: 4,
+    marginBottom: 6,
+    letterSpacing: 0.2,
   },
   detailDescription: {
     fontSize: 16,
     color: AppColors.text,
-    lineHeight: 24,
-    backgroundColor: AppColors.background,
-    padding: 15,
-    borderRadius: 12,
+    lineHeight: 26,
+    backgroundColor: 'rgba(0, 86, 179, 0.03)',
+    padding: 18,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: AppColors.border,
+    borderColor: 'rgba(0, 86, 179, 0.1)',
+    fontWeight: '500',
   },
 
 });
