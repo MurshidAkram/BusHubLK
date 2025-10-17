@@ -339,7 +339,7 @@ const Autoforwardbusstatus = () => {
               <option value="good">Good</option>
               <option value="minor issues">Minor Issues</option>
               <option value="major issues">Major Issues</option>
-              <option value="out of service">Out of Service</option>
+              {/* <option value="out of service">Out of Service</option> */}
             </select>
           </div>
         </div>

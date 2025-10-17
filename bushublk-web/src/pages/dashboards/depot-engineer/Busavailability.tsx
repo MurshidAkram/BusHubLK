@@ -12,7 +12,7 @@ interface Bus {
   model: string;
   year: number;
   mileage: string;
-  status: 'Active' | 'In Service' | 'Maintenance' | 'Out of Service';
+  status: 'Active'  | 'Maintenance' | 'Out of Service';
   depot_name?: string;
   region_name?: string;
 }
@@ -278,25 +278,43 @@ const Busavailability = () => {
         setPartConditions(PART_DEFINITIONS.map((part) => ({ ...part })));
 
         const autoSchedule = (response.data as any)?.automatic_service_schedule;
-        if (autoSchedule?.error) {
-          setSuccessMessage(response.data.message || 'Bus status updated, but automatic follow-up scheduling failed.');
+        const baseMessage = response.data.message || 'Bus status updated successfully.';
+
+        if (autoSchedule?.triggered) {
+          const summary = autoSchedule.summary || {};
+          const parts: string[] = [];
+
+          if (summary.created) {
+            const plural = summary.created === 1 ? 'task' : 'tasks';
+            const dateText = autoSchedule.scheduled_date ? ` on ${autoSchedule.scheduled_date}` : '';
+            parts.push(`${summary.created} new follow-up ${plural} scheduled${dateText}`);
+          }
+
+          if (summary.existing) {
+            const plural = summary.existing === 1 ? 'task was' : 'tasks were';
+            parts.push(`${summary.existing} existing follow-up ${plural} already scheduled`);
+          }
+
+          if (summary.failed) {
+            const plural = summary.failed === 1 ? 'task' : 'tasks';
+            parts.push(`${summary.failed} automatic follow-up ${plural} failed to schedule`);
+          }
+
+          const detail = parts.length > 0 ? ` (${parts.join(' | ')})` : '';
+          setSuccessMessage(`${baseMessage}${detail}`);
+        } else if (autoSchedule?.error) {
+          setSuccessMessage(baseMessage);
         } else if (autoSchedule?.updated) {
           const scheduledDate = autoSchedule.scheduled_date ? ` (scheduled for ${autoSchedule.scheduled_date})` : '';
-          setSuccessMessage(
-            response.data.message || `Bus status updated and the existing follow-up service was refreshed${scheduledDate}.`
-          );
+          setSuccessMessage(baseMessage || `Bus status updated and the existing follow-up service was refreshed${scheduledDate}.`);
         } else if (autoSchedule?.created) {
           const scheduledDate = autoSchedule.scheduled_date ? ` (scheduled for ${autoSchedule.scheduled_date})` : '';
-          setSuccessMessage(
-            response.data.message || `Bus status updated and follow-up service created${scheduledDate}.`
-          );
+          setSuccessMessage(baseMessage || `Bus status updated and follow-up service created${scheduledDate}.`);
         } else if (autoSchedule) {
           const scheduledDate = autoSchedule.scheduled_date ? ` on ${autoSchedule.scheduled_date}` : '';
-          setSuccessMessage(
-            response.data.message || `Bus status updated. Existing follow-up service detected${scheduledDate}.`
-          );
+          setSuccessMessage(baseMessage || `Bus status updated. Existing follow-up service detected${scheduledDate}.`);
         } else {
-          setSuccessMessage(response.data.message || 'Bus status updated successfully.');
+          setSuccessMessage(baseMessage);
         }
       } else {
         setError('Failed to update bus status: ' + (response.data.message || 'Unknown error.'));
@@ -360,7 +378,7 @@ const Busavailability = () => {
           >
             <option value="">All Statuses</option>
             <option value="Active">Active</option>
-            <option value="In Service">In Service</option>
+            {/* <option value="In Service">In Service</option> */}
             <option value="Maintenance">Maintenance</option>
             <option value="Out of Service">Out of Service</option>
           </select>
@@ -402,7 +420,7 @@ const Busavailability = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                       bus.status === 'Active' ? 'bg-green-100 text-green-800' :
-                      bus.status === 'In Service' ? 'bg-blue-100 text-blue-800' :
+                      // bus.status === 'In Service' ? 'bg-blue-100 text-blue-800' :
                       bus.status === 'Maintenance' ? 'bg-yellow-100 text-yellow-800' :
                       'bg-red-100 text-red-800'
                     }`}>
@@ -477,7 +495,7 @@ const Busavailability = () => {
                   <p className="text-sm"><span className="font-medium">Current Status:</span> 
                     <span className={`ml-2 px-2 py-1 rounded-full text-xs ${
                       selectedBus.status === 'Active' ? 'bg-green-100 text-green-800' :
-                      selectedBus.status === 'In Service' ? 'bg-blue-100 text-blue-800' :
+                      // selectedBus.status === 'In Service' ? 'bg-blue-100 text-blue-800' :
                       selectedBus.status === 'Maintenance' ? 'bg-yellow-100 text-yellow-800' :
                       'bg-red-100 text-red-800'
                     }`}>
@@ -496,7 +514,7 @@ const Busavailability = () => {
                     className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="Active">Active - Ready for Service</option>
-                    <option value="In Service">In Service - Currently Operating</option>
+                    {/* <option value="In Service">In Service - Currently Operating</option> */}
                     <option value="Maintenance">Maintenance - Requires Repair/Service</option>
                     <option value="Out of Service">Out of Service - Not Available</option>
                   </select>

@@ -162,7 +162,7 @@ const updateBusStatus = async (req, res) => {
         const updatedBus = await Bus.update(bus_id, { status });
 
         let checklistRecord = null;
-        let automaticServiceSchedule = null;
+        let automaticServiceSummary = null;
 
         if (part_checking_data) {
             const { statusAfterCheck, parts } = part_checking_data;
@@ -238,42 +238,86 @@ const updateBusStatus = async (req, res) => {
                 return trimmed.replace(/^(?:low|medium|high)\s+severity\s+follow-up\s*:\s*/i, '').trim();
             };
 
-            const highSeverityIssues = schedulingParts.filter((part) => part.hasIssue && part.severity === 'high');
+            const issueParts = schedulingParts.filter((part) => part.hasIssue);
+            const hasHighSeverityIssue = issueParts.some((part) => part.severity === 'high');
 
-            if (highSeverityIssues.length > 0 && bus.depot_id) {
+            if (hasHighSeverityIssue && bus.depot_id) {
                 const nextDay = new Date();
                 nextDay.setDate(nextDay.getDate() + 1);
                 nextDay.setHours(0, 0, 0, 0);
                 const nextDayDate = formatDateAsISO(nextDay);
 
-                const noteSummaries = highSeverityIssues
-                    .map((part) => {
-                        const cleaned = extractNoteDescription(part.notes);
-                        return cleaned.length > 0 ? cleaned : (typeof part.notes === 'string' ? part.notes.trim() : '');
-                    })
-                    .filter((note) => note.length > 0);
+                const existingSchedules = await ServiceSchedule.getByBusAndDate(bus.bus_id, nextDayDate);
+                const existingByType = new Map();
+                existingSchedules.forEach((schedule) => {
+                    if (schedule?.service_type) {
+                        existingByType.set(String(schedule.service_type).toLowerCase(), schedule);
+                    }
+                });
 
-                const combinedNotes = noteSummaries.length > 0
-                    ? noteSummaries.join('; ')
-                    : 'High severity issue recorded.';
+                const activeAutoFollowUps = await ServiceSchedule.getActiveAutoFollowUps(bus.bus_id);
+                const activeIdentifierSet = new Set();
+                const activeScheduleLookup = new Map();
+                activeAutoFollowUps.forEach((schedule) => {
+                    if (typeof schedule.service_type === 'string') {
+                        const lowerType = schedule.service_type.toLowerCase();
+                        const match = lowerType.match(/auto follow-up \[([^\]]+)\]/);
+                        const identifier = match?.[1];
+                        if (identifier) {
+                            activeIdentifierSet.add(identifier);
+                            activeScheduleLookup.set(identifier, schedule);
+                        }
+                    }
+                });
 
-                const serviceType = combinedNotes.length > 240
-                    ? `${combinedNotes.slice(0, 237)}...`
-                    : combinedNotes;
+                const scheduleResults = [];
 
-                try {
-                    const existingSchedule = await ServiceSchedule.findActiveByBusAndDate(bus.bus_id, nextDayDate);
+                for (const part of issueParts) {
+                    const partLabel = part.label || part.key || 'Unknown Part';
+                    const severityLabel = (part.severity || 'unspecified').toUpperCase();
+                    const identifierSource = (part.key || partLabel).toString().trim().toLowerCase();
+                    const identifier = identifierSource.replace(/[^a-z0-9]+/g, '-');
+                    const noteSummary = extractNoteDescription(part.notes);
+                    const description = noteSummary && noteSummary.length > 0 ? noteSummary : partLabel;
 
-                    if (existingSchedule) {
-                        automaticServiceSchedule = {
-                            created: false,
-                            skipped: true,
-                            schedule: existingSchedule,
-                            reason: 'existing_schedule_for_date',
-                            parts: highSeverityIssues.map((part) => part.label || part.key).filter(Boolean),
-                            scheduled_date: nextDayDate
-                        };
-                    } else {
+                    let serviceType = `Auto follow-up [${identifier}] ${partLabel} (${severityLabel})`;
+                    if (description && description.length > 0) {
+                        serviceType = `${serviceType} - ${description}`;
+                    }
+
+                    if (serviceType.length > 240) {
+                        serviceType = `${serviceType.slice(0, 237)}...`;
+                    }
+
+                    const baseResult = {
+                        part_key: part.key || identifier,
+                        part_label: partLabel,
+                        severity: part.severity || null,
+                        scheduled_date: nextDayDate,
+                        service_type: serviceType,
+                        note_excerpt: noteSummary || null,
+                        description
+                    };
+
+                    if (activeIdentifierSet.has(identifier)) {
+                        scheduleResults.push({
+                            ...baseResult,
+                            outcome: 'existing_active',
+                            schedule: activeScheduleLookup.get(identifier) || existingByType.get(serviceType.toLowerCase()) || null
+                        });
+                        continue;
+                    }
+
+                    if (existingByType.has(serviceType.toLowerCase())) {
+                        scheduleResults.push({
+                            ...baseResult,
+                            outcome: 'existing',
+                            schedule: existingByType.get(serviceType.toLowerCase())
+                        });
+                        continue;
+                    }
+
+                    try {
                         const createdSchedule = await ServiceSchedule.create({
                             service_type: serviceType,
                             bus_id: bus.bus_id,
@@ -285,36 +329,70 @@ const updateBusStatus = async (req, res) => {
                             ? await ServiceSchedule.findById(createdSchedule.id)
                             : null;
 
-                        automaticServiceSchedule = {
-                            created: true,
-                            schedule: hydratedSchedule || createdSchedule,
-                            reason: 'high_severity_issues',
-                            parts: highSeverityIssues.map((part) => part.label || part.key).filter(Boolean),
-                            scheduled_date: nextDayDate
-                        };
+                        const scheduleRecord = hydratedSchedule || createdSchedule;
+
+                        scheduleResults.push({
+                            ...baseResult,
+                            outcome: 'created',
+                            schedule: scheduleRecord
+                        });
+
+                        existingByType.set(serviceType.toLowerCase(), scheduleRecord);
+                        activeIdentifierSet.add(identifier);
+                        activeScheduleLookup.set(identifier, scheduleRecord);
+                    } catch (scheduleErr) {
+                        console.error(`Automatic service scheduling failed for part ${partLabel}:`, scheduleErr);
+                        scheduleResults.push({
+                            ...baseResult,
+                            outcome: 'error',
+                            error: scheduleErr.message || 'Automatic follow-up scheduling failed.'
+                        });
                     }
-                } catch (scheduleErr) {
-                    console.error('Automatic service scheduling failed:', scheduleErr);
-                    automaticServiceSchedule = {
-                        created: false,
-                        error: true,
-                        reason: 'high_severity_issues',
-                        parts: highSeverityIssues.map((part) => part.label || part.key).filter(Boolean),
+                }
+
+                if (scheduleResults.length > 0) {
+                    const createdCount = scheduleResults.filter((entry) => entry.outcome === 'created').length;
+                    const existingCount = scheduleResults.filter((entry) => entry.outcome === 'existing' || entry.outcome === 'existing_active').length;
+                    const errorCount = scheduleResults.filter((entry) => entry.outcome === 'error').length;
+
+                    automaticServiceSummary = {
+                        triggered: true,
                         scheduled_date: nextDayDate,
-                        message: 'Automatic follow-up scheduling failed.',
-                        errorDetails: scheduleErr.message
+                        summary: {
+                            created: createdCount,
+                            existing: existingCount,
+                            failed: errorCount
+                        },
+                        results: scheduleResults,
+                        created: createdCount > 0,
+                        skipped: existingCount > 0 && createdCount === 0 && errorCount === 0,
+                        error: errorCount > 0,
+                        updated: false
                     };
                 }
             }
         }
 
         let message = 'Bus status updated successfully';
-        if (automaticServiceSchedule?.created) {
-            message += ' and follow-up service scheduled for tomorrow for recorded issues.';
-        } else if (automaticServiceSchedule?.skipped) {
-            message += ' (existing follow-up service detected for tomorrow).';
-        } else if (automaticServiceSchedule?.error) {
-            message += ' however automatic follow-up scheduling could not be completed.';
+        if (automaticServiceSummary?.triggered) {
+            const { summary, scheduled_date } = automaticServiceSummary;
+            const fragments = [];
+
+            if (summary?.created) {
+                fragments.push(`${summary.created} follow-up service${summary.created === 1 ? '' : 's'} scheduled for ${scheduled_date}`);
+            }
+
+            if (summary?.existing) {
+                fragments.push(`${summary.existing} existing follow-up service${summary.existing === 1 ? '' : 's'} already scheduled`);
+            }
+
+            if (summary?.failed) {
+                fragments.push(`${summary.failed} follow-up service${summary.failed === 1 ? '' : 's'} failed to schedule automatically`);
+            }
+
+            if (fragments.length > 0) {
+                message += ` (${fragments.join(' | ')})`;
+            }
         }
 
         const responsePayload = {
@@ -324,8 +402,8 @@ const updateBusStatus = async (req, res) => {
             checklist: checklistRecord
         };
 
-        if (automaticServiceSchedule) {
-            responsePayload.automatic_service_schedule = automaticServiceSchedule;
+        if (automaticServiceSummary) {
+            responsePayload.automatic_service_schedule = automaticServiceSummary;
         }
 
         res.json(responsePayload);

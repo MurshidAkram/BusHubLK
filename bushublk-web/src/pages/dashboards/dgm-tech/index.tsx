@@ -389,7 +389,7 @@ const MaintenanceDashboard = () => {
         {/* Total Buses */}
         <SummaryCard title="Total Buses" value={dashboardData?.total_buses} icon={<FaBus className="text-gray-500" />} color="text-gray-600" />
         {/* In Service */}
-        <SummaryCard title="In Service" value={dashboardData?.buses_active} icon={<FaCheckCircle className="text-green-500" />} color="text-green-600" />
+        {/* <SummaryCard title="In Service" value={dashboardData?.buses_active} icon={<FaCheckCircle className="text-green-500" />} color="text-green-600" /> */}
         {/* Under Maintenance */}
         <SummaryCard title="Under Maintenance" value={dashboardData?.buses_in_maintenance} icon={<FaTools className="text-yellow-500" />} color="text-yellow-600" subtitle="Not available for service" />
         {/* Out of Service */}

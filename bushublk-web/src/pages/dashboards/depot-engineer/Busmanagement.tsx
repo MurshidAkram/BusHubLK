@@ -377,7 +377,7 @@ const Busmanagement: React.FC = () => {
         <div className="bg-white rounded-lg shadow-sm p-6 grid grid-cols-1 md:grid-cols-5 gap-6">
           <StatCard label="Total Buses" value={fleetStats.total} color="text-blue-600" />
           <StatCard label="Active" value={fleetStats.active} color="text-green-600" />
-          <StatCard label="In Service" value={fleetStats.inService} color="text-blue-600" />
+          {/* <StatCard label="In Service" value={fleetStats.inService} color="text-blue-600" /> */}
           <StatCard label="Maintenance" value={fleetStats.maintenance} color="text-yellow-600" />
          
         </div>
@@ -400,7 +400,7 @@ const Busmanagement: React.FC = () => {
               >
                 <option value="All">All Status</option>
                 <option value="Active">Active</option>
-                <option value="In Service">In Service</option>
+                {/* <option value="In Service">In Service</option> */}
                 <option value="Maintenance">Maintenance</option>
                 <option value="Out of Service">Out of Service</option>
               </select>

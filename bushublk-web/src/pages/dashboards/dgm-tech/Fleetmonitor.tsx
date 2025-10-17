@@ -323,7 +323,7 @@ const FleetMonitor = () => {
                     >
                       <option value="">All Status</option>
                       <option value="Active">Active</option>
-                      <option value="In Service">In Service</option>
+                      {/* <option value="In Service">In Service</option> */}
                       <option value="Maintenance">Maintenance</option>
                       <option value="Out of Service">Out of Service</option>
                       {/* <option value="Retired">Retired</option> */}

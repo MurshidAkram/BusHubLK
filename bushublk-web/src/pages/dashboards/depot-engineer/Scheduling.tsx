@@ -897,6 +897,11 @@ const extractIssueDescription = (serviceType: string): string => {
     return '';
   }
 
+  const autoMatch = serviceType.match(/auto follow-up[^-]*-\s*(.+)$/i);
+  if (autoMatch?.[1]) {
+    return autoMatch[1].trim();
+  }
+
   const notesMatch = serviceType.match(/Notes?\s*:\s*(.+)$/i);
   if (notesMatch?.[1]) {
     return notesMatch[1].trim();
@@ -919,7 +924,7 @@ const extractIssueDescription = (serviceType: string): string => {
     .split(' - ')
     .map((segment) => segment.trim())
     .filter(Boolean);
-  if (hyphenSegments.length >= 3) {
+  if (hyphenSegments.length >= 2) {
     return hyphenSegments[hyphenSegments.length - 1];
   }
 

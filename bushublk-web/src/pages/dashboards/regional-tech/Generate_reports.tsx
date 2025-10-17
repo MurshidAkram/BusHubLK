@@ -23,7 +23,7 @@ type DepotSnapshot = {
   depot: string
   region_name: string
   active: number
-  in_service: number
+
   out_of_service: number
   under_maintenance: number
   lastInspection: string
@@ -200,7 +200,7 @@ const GenerateReports = () => {
         depot_id: Number(entry.depot_id),
         region_name: entry.region_name,
         active: Number(entry.active) || 0,
-        in_service: Number(entry.in_service) || 0,
+
         out_of_service: Number(entry.out_of_service) || 0,
         under_maintenance: Number(entry.under_maintenance) || 0,
         lastInspection: entry.lastInspection || 'Never',
@@ -515,12 +515,11 @@ const GenerateReports = () => {
       (acc, depot) => {
         acc.totalDepots += 1
         acc.active += depot.active
-        acc.inService += depot.in_service
         acc.outOfService += depot.out_of_service
         acc.underMaintenance += depot.under_maintenance
         return acc
       },
-      { totalDepots: 0, active: 0, inService: 0, outOfService: 0, underMaintenance: 0 }
+      { totalDepots: 0, active: 0,outOfService: 0, underMaintenance: 0 }
     )
   }, [filteredDepots])
 
@@ -847,10 +846,10 @@ const GenerateReports = () => {
                 <p className="text-xs uppercase tracking-wide text-slate-500">Active buses</p>
                 <p className="mt-2 text-2xl font-semibold text-emerald-600">{fleetTotals.active}</p>
               </div>
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+              {/* <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                 <p className="text-xs uppercase tracking-wide text-slate-500">In service</p>
                 <p className="mt-2 text-2xl font-semibold text-blue-600">{fleetTotals.inService}</p>
-              </div>
+              </div> */}
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                 <p className="text-xs uppercase tracking-wide text-slate-500">Maintenance / Out</p>
                 <p className="mt-2 text-2xl font-semibold text-amber-600">{fleetTotals.underMaintenance + fleetTotals.outOfService}</p>
@@ -899,7 +898,7 @@ const GenerateReports = () => {
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">Depot</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">Region</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">Active</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">In service</th>
+                    {/* <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">In service</th> */}
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">Under maintenance</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">Out of service</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">Last inspection</th>
@@ -918,7 +917,7 @@ const GenerateReports = () => {
                         <td className="px-4 py-3 text-sm font-medium text-slate-800">{depot.depot}</td>
                         <td className="px-4 py-3 text-sm text-slate-600">{depot.region_name}</td>
                         <td className="px-4 py-3 text-sm font-semibold text-emerald-600">{depot.active}</td>
-                        <td className="px-4 py-3 text-sm font-semibold text-blue-600">{depot.in_service}</td>
+                        {/* <td className="px-4 py-3 text-sm font-semibold text-blue-600">{depot.in_service}</td> */}
                         <td className="px-4 py-3 text-sm font-semibold text-amber-600">{depot.under_maintenance}</td>
                         <td className="px-4 py-3 text-sm font-semibold text-rose-600">{depot.out_of_service}</td>
                         <td className="px-4 py-3 text-sm text-slate-600">{depot.lastInspection}</td>

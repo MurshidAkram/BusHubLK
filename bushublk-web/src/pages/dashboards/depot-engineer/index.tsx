@@ -985,7 +985,7 @@ const DepotEngineerDashboard = () => {
               )) : (
                 <div className="text-center py-6 text-gred-500">
                   <HiCheckCircle className="w-8 h-8 mx-auto mb-2 text-red-400" />
-                  <p>No pending emergency reports</p>
+                  <p>No emergency reports for today.</p>
                  
                 </div>
               )}

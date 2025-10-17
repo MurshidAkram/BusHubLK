@@ -515,11 +515,49 @@ const completeService = async (req, res) => {
             });
         }
 
-        res.json({
+        let busStatusUpdate = null;
+        if (updatedSchedule?.bus_id && typeof updatedSchedule.service_type === 'string') {
+            const lowerType = updatedSchedule.service_type.toLowerCase();
+            if (lowerType.startsWith('auto follow-up')) {
+                const outstanding = await ServiceSchedule.countOutstandingAutoFollowUps(updatedSchedule.bus_id);
+                if (outstanding === 0) {
+                    const currentBus = await Bus.findById(updatedSchedule.bus_id);
+                    if (currentBus) {
+                        if (currentBus.status !== 'Active') {
+                            const updatedBus = await Bus.update(updatedSchedule.bus_id, { status: 'Active' });
+                            busStatusUpdate = {
+                                updated: true,
+                                status: updatedBus.status,
+                                bus: updatedBus
+                            };
+                        } else {
+                            busStatusUpdate = {
+                                updated: false,
+                                status: currentBus.status,
+                                bus: currentBus
+                            };
+                        }
+                    }
+                }
+            }
+        }
+
+        let message = 'Service completed successfully';
+        if (busStatusUpdate?.updated) {
+            message += ' and bus status restored to Active.';
+        }
+
+        const responseBody = {
             success: true,
-            message: 'Service completed successfully',
+            message,
             schedule: updatedSchedule
-        });
+        };
+
+        if (busStatusUpdate) {
+            responseBody.bus_status = busStatusUpdate;
+        }
+
+        res.json(responseBody);
     } catch (err) {
         console.error('Complete service error:', err);
         res.status(500).json({
