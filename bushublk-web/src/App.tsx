@@ -84,6 +84,7 @@ import CrewOverview from './pages/dashboards/regional-ops/CrewOverview'
 import IncidentTracking from './pages/dashboards/regional-ops/IncidentTracking'
 import CommCenter from './pages/dashboards/regional-ops/communicationHub'
 import OpsReports from './pages/dashboards/regional-ops/OpsReports'
+import RegionalOpsNotifications from './pages/dashboards/regional-ops/RegionalOpsNotifications'
 
 // DGM Operations Components
 import DGMOperationsSidebarContent from './components/dgm-ops/DGMOperationsSidebarContent'
@@ -255,6 +256,7 @@ const App = () => {
     <Route path="crew-overview" element={<CrewOverview />} />
     <Route path="incident-tracking" element={<IncidentTracking />} />
     <Route path="communication-hub" element={<CommCenter />} />
+  <Route path="notifications" element={<RegionalOpsNotifications />} />
     <Route path="ops-reports" element={<OpsReports />} />
     
             {/* Add individual pages later */}

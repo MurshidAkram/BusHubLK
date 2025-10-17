@@ -212,11 +212,11 @@ try {
 
 
 try {
-const depotManagerRoutes = require('./routes/depotManagerRoutes');
-app.use('/api/depot-manager', depotManagerRoutes);
-console.log('✅ depotManagerRoutes loaded');
+  const depotManagerRoutes = require('./routes/depotManagerRoutes');
+  app.use('/api/depot-manager', depotManagerRoutes);
+  console.log('✅ depotManagerRoutes loaded');
 } catch (error) {
-console.log('❌ depotManagerRoutes error: ', error.message);
+  console.log('❌ depotManagerRoutes error: ', error.message);
 }
 
 
@@ -380,6 +380,14 @@ try {
 }
 
 try {
+  const regionalOperationsRoutes = require('./routes/regionalOperationsRoutes');
+  app.use('/api/regional-operations', regionalOperationsRoutes);
+  console.log('✅ regionalOperationsRoutes loaded');
+} catch (error) {
+  console.log('❌ regionalOperationsRoutes error:', error.message);
+}
+
+try {
   const complaintRoutes = require('./routes/complaintRoutes');
   app.use('/api/complaints', complaintRoutes);
   console.log('✅ complaintRoutes loaded');
@@ -430,7 +438,7 @@ try {
   app.use('/api/communication', communicationRoutes);
   console.log('✅ communicationRoutes loaded');
 } catch (error) {
-  console.log('❌ communicationRoutes error:', error.message);  
+  console.log('❌ communicationRoutes error:', error.message);
 }
 
 // Error handling middleware (should be added after all routes are registered)
