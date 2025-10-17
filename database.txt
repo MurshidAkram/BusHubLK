@@ -780,7 +780,7 @@ CREATE TABLE spare_parts_usage_history (
 );
 
 -- Indexes
-CREATE INDEX idx_usage_bus ON spare_parts_usage_history(bus_id);
+CREATE INDEX idx_usage_bus ON spare_partson_usage_history(bus_id);
 CREATE INDEX idx_usage_depot ON spare_parts_usage_history(depot_id);
 CREATE INDEX idx_usage_date ON spare_parts_usage_history(usage_date);
 CREATE INDEX idx_usage_part ON spare_parts_usage_history(part_id);
