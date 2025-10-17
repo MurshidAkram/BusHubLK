@@ -27,26 +27,29 @@ import * as ImagePicker from "expo-image-picker";
 import DropDownPicker from "react-native-dropdown-picker";
 import { LinearGradient } from 'expo-linear-gradient';
 
-// --- The Modern App Color Palette You Liked ---
+// --- Enhanced Color Palette (matching BusOccupancyScreen) ---
 const AppColors = {
-  background: "#F8FAFC",
+  background: "#F8FAFF",
   card: "#FFFFFF",
-  primary: "#3B82F6",
-  primaryDark: "#1E40AF",
-  primaryLight: "#DBEAFE",
+  primary: "#0056b3",
+  primaryDark: "#003d82",
+  primaryLight: "#0076e3",
+  primaryMuted: "rgba(0, 86, 179, 0.1)",
   secondary: "#64748B",
   accent: "#F59E0B",
-  text: "#0F172A",
-  textSecondary: "#64748B",
+  text: "#1F2937",
+  textSecondary: "#6B7280",
   textLight: "#94A3B8",
-  border: "#E2E8F0",
-  borderLight: "#F1F5F9",
+  border: "#E5E7EB",
+  borderLight: "rgba(222, 226, 230, 0.4)",
   success: "#10B981",
   warning: "#F59E0B",
   danger: "#EF4444",
+  red: "#EF4444",
   purple: "#8B5CF6",
   indigo: "#6366F1",
-  shadow: "rgba(15, 23, 42, 0.08)",
+  orange: "#F97316",
+  shadow: "rgba(0, 0, 0, 0.1)",
 };
 
 type ComplaintsScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Complaints'>;
@@ -95,6 +98,7 @@ export default function ComplaintsScreen() {
 
   const [routeNumber, setRouteNumber] = useState("");
   const [busNumber, setBusNumber] = useState("");
+  const [location, setLocation] = useState("");
   const [date, setDate] = useState(new Date());
   const [time, setTime] = useState(new Date());
   const [priority, setPriority] = useState("Medium");
@@ -266,7 +270,7 @@ export default function ComplaintsScreen() {
   }, []);
 
   const handleSubmit = async () => {
-    if (!complaintTypeValue || !routeNumber || !description) {
+    if (!complaintTypeValue || !routeNumber || !location || !description) {
       Alert.alert("Missing Information", "Please fill all required fields before submitting.");
       return;
     }
@@ -287,6 +291,8 @@ export default function ComplaintsScreen() {
       formData.append('complaintType', complaintTypeValue);
       formData.append('routeNumber', routeNumber);
       if (busNumber) formData.append('busNumber', busNumber);
+      formData.append('location', location);
+      // contactInfo will be auto-filled from user profile in backend
       formData.append('date', date.toISOString().split('T')[0]);
       formData.append('time', time.toTimeString().split(' ')[0]);
       formData.append('priority', priority);
@@ -374,26 +380,31 @@ export default function ComplaintsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <LinearGradient
+      colors={['#F8FAFF', '#E3F2FD', '#BBDEFB']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.gradientContainer}
+    >
+      <SafeAreaView style={styles.safeArea}>
 
-      {/* --- The New Header UI --- */}
-      <LinearGradient
-        colors={[AppColors.primary, AppColors.primaryDark]}
-        style={styles.headerGradient}
-      >
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerIconContainer}>
-            <Ionicons name="arrow-back-outline" size={28} color="#FFFFFF" />
-          </TouchableOpacity>
-          <View style={styles.headerTitleContainer}>
+        {/* --- Enhanced Header (matching Lost&Found style) --- */}
+        <LinearGradient
+          colors={['#0056b3', '#1976d2', '#42a5f5']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.headerGradient}
+        >
+          <View style={styles.headerContent}>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+              <Ionicons name="arrow-back-outline" size={24} color="white" />
+            </TouchableOpacity>
             <Text style={styles.headerTitle}>File a Complaint</Text>
-            <Text style={styles.headerSubtitle}>Help us improve our service</Text>
+            <TouchableOpacity onPress={() => navigation.navigate("ComplaintHistory")} style={styles.headerRightAction}>
+              <Ionicons name="time-outline" size={24} color="white" />
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity onPress={() => navigation.navigate("ComplaintHistory")} style={styles.headerIconContainer}>
-            <Ionicons name="time-outline" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-        </View>
-      </LinearGradient>
+        </LinearGradient>
 
       <Animated.View style={[styles.animatedContainer, { opacity: fadeAnim }]}>
         <ScrollView contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
@@ -552,6 +563,18 @@ export default function ComplaintsScreen() {
           {/* --- CARD 2: TIME & PLACE --- */}
           <View style={styles.card}>
             <View style={styles.cardHeaderContainer}><View style={styles.cardIconContainer}><Ionicons name="location" size={24} color={AppColors.indigo} /></View><View><Text style={styles.cardHeader}>Time & Place</Text><Text style={styles.cardSubheader}>When and where did this happen?</Text></View></View>
+            
+            <Text style={styles.label}>Location</Text>
+            <View style={styles.enhancedInputContainer}>
+              <Ionicons name="location-outline" size={20} color={AppColors.indigo} style={styles.inputIcon} />
+              <TextInput
+                style={styles.inputText}
+                placeholder="e.g., Colombo Fort Bus Stand"
+                value={location}
+                onChangeText={setLocation}
+              />
+            </View>
+
             <View style={styles.row}>
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Date</Text>
@@ -592,79 +615,277 @@ export default function ComplaintsScreen() {
         </ScrollView>
       </Animated.View>
 
-
       {showDatePicker && <DateTimePicker value={date} mode="date" display="default" onChange={onDateChange} />}
       {showTimePicker && <DateTimePicker value={time} mode="time" display="default" onChange={onTimeChange} />}
-    </SafeAreaView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
-// --- The New StyleSheet for the Modern UI ---
+// --- Enhanced StyleSheet (matching BusOccupancyScreen) ---
 const styles = StyleSheet.create({
-
+    gradientContainer: {
+      flex: 1,
+    },
+    safeArea: {
+      flex: 1,
+      backgroundColor: 'transparent',
+    },
     container:{flex:1,backgroundColor:AppColors.background},
     animatedContainer:{flex:1},
-    headerGradient:{paddingBottom:10,},
-    header:{flexDirection:"row",alignItems:"center",justifyContent:"space-between",paddingHorizontal:20,paddingVertical:15,height:70},
-    headerIconContainer:{padding:8,borderRadius:12,backgroundColor:"rgba(255, 255, 255, 0.1)"},
-    headerTitleContainer:{flex:1,alignItems:"center"},
-    headerTitle:{color:"#FFFFFF",fontSize:22,fontWeight:"700"},
-    headerSubtitle:{color:"rgba(255, 255, 255, 0.8)",fontSize:14,marginTop:2},
-    contentContainer:{paddingHorizontal:20,paddingTop:10,paddingBottom:40},
-    card:{backgroundColor:AppColors.card,borderRadius:16,padding:20,marginBottom:20,shadowColor:AppColors.shadow,shadowOffset:{width:0,height:2},shadowOpacity:1,shadowRadius:8,borderWidth:1,borderColor:AppColors.borderLight},
-    cardHeaderContainer:{flexDirection:"row",alignItems:"center",marginBottom:20},
-    cardIconContainer:{width:48,height:48,borderRadius:12,backgroundColor:AppColors.primaryLight,alignItems:"center",justifyContent:"center",marginRight:15},
-    cardHeader:{fontSize:20,fontWeight:"700",color:AppColors.text},
-    cardSubheader:{fontSize:14,color:AppColors.textSecondary,marginTop:2},
-    label:{fontSize:16,fontWeight:"600",color:AppColors.text,marginBottom:10, marginTop: 15},
-    enhancedInputContainer:{flexDirection:"row",alignItems:"center",backgroundColor:AppColors.background,borderRadius:12,paddingHorizontal:16,height:56,borderWidth:2,borderColor:AppColors.border},
-    inputIcon:{marginRight:12},
+    headerGradient:{
+      paddingVertical: 16,
+      paddingHorizontal: 16,
+    },
+    headerContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    backButton: {
+      padding: 8,
+      width: 40,
+      height: 40,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    headerTitle:{
+      fontSize: 22,
+      fontWeight: 'bold',
+      color: 'white',
+      flex: 1,
+      textAlign: 'center',
+    },
+    headerRightAction: {
+      padding: 8,
+      width: 40,
+      height: 40,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    contentContainer:{paddingHorizontal:16,paddingTop:16,paddingBottom:40},
+    card:{
+      backgroundColor: '#FFFFFF',
+      borderRadius: 20,
+      padding: 24,
+      marginBottom: 20,
+      borderWidth: 1,
+      borderColor: 'rgba(0, 86, 179, 0.08)',
+      ...Platform.select({
+        android: {
+          elevation: 8,
+        },
+        ios: {
+          shadowColor: 'rgba(0, 86, 179, 0.15)',
+          shadowOpacity: 1,
+          shadowRadius: 12,
+          shadowOffset: { width: 0, height: 6 },
+        },
+      }),
+    },
+    cardHeaderContainer:{flexDirection:"row",alignItems:"center",marginBottom:24,paddingBottom:16,borderBottomWidth:1,borderBottomColor:'rgba(0, 86, 179, 0.08)'},
+    cardIconContainer:{
+      width:52,
+      height:52,
+      borderRadius:16,
+      backgroundColor:'rgba(0, 86, 179, 0.12)',
+      alignItems:"center",
+      justifyContent:"center",
+      marginRight:16
+    },
+    cardHeader:{fontSize:20,fontWeight:"700",color:AppColors.text,letterSpacing:0.3},
+    cardSubheader:{fontSize:13,color:AppColors.textSecondary,marginTop:4,fontWeight:'500'},
+    label:{fontSize:15,fontWeight:"600",color:AppColors.text,marginBottom:12, marginTop: 16,letterSpacing:0.2},
+    enhancedInputContainer:{
+      flexDirection:"row",
+      alignItems:"center",
+      backgroundColor:'#FFFFFF',
+      borderRadius:14,
+      paddingHorizontal:18,
+      height:58,
+      borderWidth:1.5,
+      borderColor:'rgba(0, 86, 179, 0.15)',
+      ...Platform.select({
+        android: {
+          elevation: 2,
+        },
+        ios: {
+          shadowColor: 'rgba(0, 86, 179, 0.08)',
+          shadowOpacity: 1,
+          shadowRadius: 4,
+          shadowOffset: { width: 0, height: 2 },
+        },
+      }),
+    },
+    inputIcon:{marginRight:14},
     inputText:{flex:1,fontSize:16,color:AppColors.text,fontWeight:"500"},
-    row:{flexDirection:"row",justifyContent:"space-between",gap:15},
+    row:{flexDirection:"row",justifyContent:"space-between",gap:12},
     inputGroup:{flex:1},
     dropdownPicker: {
-      backgroundColor: AppColors.background,
-      borderColor: AppColors.border,
-      borderRadius: 12,
-      borderWidth: 2,
-      height: 56,
-      paddingHorizontal: 16,
+      backgroundColor: '#FFFFFF',
+      borderColor: 'rgba(0, 86, 179, 0.15)',
+      borderRadius: 14,
+      borderWidth: 1.5,
+      height: 58,
+      paddingHorizontal: 18,
       marginBottom: 15,
-      minHeight: 56,
+      minHeight: 58,
       zIndex: 999,
+      ...Platform.select({
+        android: {
+          elevation: 2,
+        },
+        ios: {
+          shadowColor: 'rgba(0, 86, 179, 0.08)',
+          shadowOpacity: 1,
+          shadowRadius: 4,
+          shadowOffset: { width: 0, height: 2 },
+        },
+      }),
     },
     dropdownContainer: {
-      backgroundColor: AppColors.card,
-      borderColor: AppColors.border,
-      borderRadius: 12,
-      borderWidth: 2,
+      backgroundColor: '#FFFFFF',
+      borderColor: 'rgba(0, 86, 179, 0.15)',
+      borderRadius: 14,
+      borderWidth: 1.5,
       marginTop: 4,
-      elevation: 5,
-      shadowColor: AppColors.shadow,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.25,
-      shadowRadius: 4,
+      ...Platform.select({
+        android: {
+          elevation: 8,
+        },
+        ios: {
+          shadowColor: 'rgba(0, 86, 179, 0.15)',
+          shadowOpacity: 1,
+          shadowRadius: 8,
+          shadowOffset: { width: 0, height: 4 },
+        },
+      }),
       zIndex: 999,
     },
-    placeholderText:{color:AppColors.textLight,fontSize:16},
-    priorityContainer:{flexDirection:"row",justifyContent:"space-between", marginBottom: 15},
-    priorityButton:{flex:1,paddingVertical:12,borderRadius:10,alignItems:"center",backgroundColor:AppColors.background,borderWidth:2,borderColor: AppColors.border, marginHorizontal: 4},
-    priorityButtonText:{color:AppColors.textSecondary,fontWeight:"600"},
-    descriptionInput:{backgroundColor:AppColors.background,borderRadius:12,padding:16,height:120,fontSize:16,color:AppColors.text,textAlignVertical:"top",borderWidth:2,borderColor:AppColors.border,fontWeight:"500", marginBottom: 15},
-    uploadBox:{height:120,borderRadius:16,borderWidth:2,borderColor:AppColors.border,borderStyle:"dashed",justifyContent:"center",alignItems:"center",backgroundColor:AppColors.background,marginTop:8},
+    placeholderText:{color:AppColors.textSecondary,fontSize:16,fontWeight:'500'},
+    priorityContainer:{flexDirection:"row",justifyContent:"space-between", marginBottom: 18,gap:10},
+    priorityButton:{
+      flex:1,
+      paddingVertical:14,
+      borderRadius:12,
+      alignItems:"center",
+      backgroundColor:'#FFFFFF',
+      borderWidth:1.5,
+      borderColor: 'rgba(0, 86, 179, 0.15)',
+      ...Platform.select({
+        android: {
+          elevation: 2,
+        },
+        ios: {
+          shadowColor: 'rgba(0, 86, 179, 0.08)',
+          shadowOpacity: 1,
+          shadowRadius: 4,
+          shadowOffset: { width: 0, height: 2 },
+        },
+      }),
+    },
+    priorityButtonText:{color:AppColors.textSecondary,fontWeight:"600",fontSize:15},
+    descriptionInput:{
+      backgroundColor:'#FFFFFF',
+      borderRadius:14,
+      padding:18,
+      height:130,
+      fontSize:16,
+      color:AppColors.text,
+      textAlignVertical:"top",
+      borderWidth:1.5,
+      borderColor:'rgba(0, 86, 179, 0.15)',
+      fontWeight:"500", 
+      marginBottom: 18,
+      ...Platform.select({
+        android: {
+          elevation: 2,
+        },
+        ios: {
+          shadowColor: 'rgba(0, 86, 179, 0.08)',
+          shadowOpacity: 1,
+          shadowRadius: 4,
+          shadowOffset: { width: 0, height: 2 },
+        },
+      }),
+    },
+    uploadBox:{
+      height:140,
+      borderRadius:16,
+      borderWidth:2,
+      borderColor:'rgba(0, 86, 179, 0.2)',
+      borderStyle:"dashed",
+      justifyContent:"center",
+      alignItems:"center",
+      backgroundColor:'rgba(0, 86, 179, 0.03)',
+      marginTop:8
+    },
     uploadContent:{alignItems: "center"},
-    uploadText:{marginTop:8,color:AppColors.textSecondary,fontSize:14},
+    uploadText:{marginTop:10,color:AppColors.textSecondary,fontSize:15,fontWeight:'500'},
     previewImage:{width:"100%",height:"100%",borderRadius:14},
-    submitButton:{backgroundColor:AppColors.primary,paddingVertical:18,borderRadius:16,alignItems:"center",marginTop:10,elevation:4,shadowColor:AppColors.primary,shadowOffset:{width:0,height:4},shadowOpacity:0.3,shadowRadius:8},
+    submitButton:{
+      backgroundColor:'#0056b3',
+      paddingVertical:20,
+      borderRadius:16,
+      alignItems:"center",
+      marginTop:16,
+      ...Platform.select({
+        android: {
+          elevation: 8,
+        },
+        ios: {
+          shadowColor: '#0056b3',
+          shadowOffset:{width:0,height:6},
+          shadowOpacity:0.35,
+          shadowRadius:10,
+        },
+      }),
+    },
     submitButtonDisabled:{backgroundColor:AppColors.textSecondary},
-  submitButtonText:{color:"#FFFFFF",fontSize:18,fontWeight:"700"},
+  submitButtonText:{color:"#FFFFFF",fontSize:18,fontWeight:"700",letterSpacing:0.5},
   autocompleteWrapper:{zIndex:40},
-  suggestionsWrapper:{marginTop:8,backgroundColor:AppColors.card,borderRadius:12,borderWidth:1,borderColor:AppColors.borderLight,shadowColor:AppColors.shadow,shadowOffset:{width:0,height:4},shadowOpacity:0.15,shadowRadius:10,elevation:4,maxHeight:200,overflow:"hidden"},
-  suggestionLoading:{paddingVertical:16,alignItems:"center",justifyContent:"center"},
-  suggestionItem:{paddingVertical:12,paddingHorizontal:14,flexDirection:"row",alignItems:"center",justifyContent:"space-between",borderBottomWidth:1,borderBottomColor:AppColors.borderLight},
+  suggestionsWrapper:{
+    marginTop:8,
+    backgroundColor:'#FFFFFF',
+    borderRadius:14,
+    borderWidth:1.5,
+    borderColor:'rgba(0, 86, 179, 0.15)',
+    ...Platform.select({
+      android: {
+        elevation: 8,
+      },
+      ios: {
+        shadowColor: 'rgba(0, 86, 179, 0.15)',
+        shadowOpacity: 1,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 6 },
+      },
+    }),
+    maxHeight:200,
+    overflow:"hidden"
+  },
+  suggestionLoading:{paddingVertical:18,alignItems:"center",justifyContent:"center"},
+  suggestionItem:{
+    paddingVertical:14,
+    paddingHorizontal:16,
+    flexDirection:"row",
+    alignItems:"center",
+    justifyContent:"space-between",
+    borderBottomWidth:1,
+    borderBottomColor:'rgba(0, 86, 179, 0.06)'
+  },
   suggestionItemLast:{borderBottomWidth:0},
-  suggestionPrimary:{fontSize:16,fontWeight:"600",color:AppColors.text},
-  suggestionSecondary:{fontSize:13,color:AppColors.textSecondary,marginTop:2},
-  suggestionBadge:{fontSize:12,fontWeight:"700",color:AppColors.primaryDark,backgroundColor:AppColors.primaryLight,paddingHorizontal:10,paddingVertical:4,borderRadius:999},
+  suggestionPrimary:{fontSize:16,fontWeight:"600",color:AppColors.text,letterSpacing:0.2},
+  suggestionSecondary:{fontSize:13,color:AppColors.textSecondary,marginTop:3,fontWeight:'500'},
+  suggestionBadge:{
+    fontSize:11,
+    fontWeight:"700",
+    color:'#FFFFFF',
+    backgroundColor:'#0056b3',
+    paddingHorizontal:12,
+    paddingVertical:6,
+    borderRadius:12,
+    overflow:'hidden'
+  },
 
 });

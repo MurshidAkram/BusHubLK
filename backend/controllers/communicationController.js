@@ -1,4 +1,59 @@
 const Communication = require('../models/communicationModel');
+const ideamartSmsService = require('../services/ideamartSmsService');
+
+const maybeBroadcastIdeamartAnnouncement = async ({ channelId, senderId, messageText }) => {
+  if (!ideamartSmsService.hasIdeamartCredentials) {
+    console.warn('Ideamart SMS: credentials missing, skipping broadcast.');
+    return;
+  }
+
+  try {
+    const channelInfo = await Communication.getChannelInfo(channelId, senderId);
+
+    if (!channelInfo) {
+      console.warn(`Ideamart SMS: channel ${channelId} not found or inaccessible for sender ${senderId}.`);
+      return;
+    }
+
+    const creatorParticipant = Array.isArray(channelInfo.participants)
+      ? channelInfo.participants.find((participant) => participant.user_id === channelInfo.created_by)
+      : null;
+
+    const creatorRole = creatorParticipant?.role;
+
+    const shouldBroadcast = ideamartSmsService.shouldTriggerCeoAnnouncementBroadcast({
+      channelId,
+      senderId,
+      channelCreatorId: channelInfo.created_by,
+      creatorRole
+    });
+
+    if (!shouldBroadcast) {
+      console.info(
+        `Ideamart SMS: broadcast skipped (channelId=${channelId}, senderId=${senderId}, creatorId=${channelInfo.created_by}, role=${creatorRole}).`
+      );
+      return;
+    }
+
+    const announcementMessage = channelInfo.channel_name
+      ? `${channelInfo.channel_name}: ${messageText}`
+      : `CEO Announcement: ${messageText}`;
+
+    const result = await ideamartSmsService.sendSmsToActivePassengers({
+      message: announcementMessage,
+        sourceAddress: process.env.IDEAMART_SOURCE_ADDRESS,
+        channelId,
+        senderId
+    });
+
+    if (!result || result.requested === 0) {
+      console.warn('Ideamart broadcast executed but no valid passenger phone numbers were found.');
+    }
+  } catch (error) {
+    const details = error?.response?.data || error.message;
+    console.error('Failed to send Ideamart announcement broadcast:', details);
+  }
+};
 
 // Get all channels for the authenticated user
 const getUserChannels = async (req, res) => {
@@ -59,7 +114,15 @@ const sendMessage = async (req, res) => {
       });
     }
 
-    const message = await Communication.sendMessage(channelId, senderId, messageText.trim());
+    const trimmedMessage = messageText.trim();
+
+    const message = await Communication.sendMessage(channelId, senderId, trimmedMessage);
+
+    await maybeBroadcastIdeamartAnnouncement({
+      channelId,
+      senderId,
+      messageText: trimmedMessage
+    });
     
     // Emit socket event (will be handled by socket.io)
     if (req.io) {
@@ -268,7 +331,13 @@ const createAnnouncementChannel = async (req, res) => {
 
     // Send initial message if provided
     if (initialMessage && initialMessage.trim()) {
-      await Communication.sendMessage(channelId, creatorId, initialMessage.trim());
+      const trimmedInitialMessage = initialMessage.trim();
+      await Communication.sendMessage(channelId, creatorId, trimmedInitialMessage);
+      await maybeBroadcastIdeamartAnnouncement({
+        channelId,
+        senderId: creatorId,
+        messageText: trimmedInitialMessage
+      });
     }
 
     // Get channel info

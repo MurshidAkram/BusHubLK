@@ -118,6 +118,7 @@ createReport: async (reportData, client = pool) => { // <-- Add client parameter
       // Fetch depot contact phone directly from depots table
       const depotQuery = {
         text: `
+
           SELECT contact_phone as phone
           FROM depots
           WHERE depot_id = $1
