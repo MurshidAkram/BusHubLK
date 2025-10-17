@@ -194,7 +194,7 @@ const BusScheduleTable = () => {
                       <th className="px-8 py-6 text-left"><div className="flex items-center space-x-2"><Route className="h-4 w-4 text-gray-500" /><span className="font-semibold text-gray-700 text-sm uppercase tracking-wide">Route</span></div></th>
                       <th className="px-8 py-6 text-left"><div className="flex items-center space-x-2"><Clock className="h-4 w-4 text-gray-500" /><span className="font-semibold text-gray-700 text-sm uppercase tracking-wide">Scheduled</span></div></th>
                       <th className="px-8 py-6 text-left"><div className="flex items-center space-x-2"><Clock className="h-4 w-4 text-gray-500" /><span className="font-semibold text-gray-700 text-sm uppercase tracking-wide">Actual</span></div></th>
-                      <th className="px-8 py-6 text-left"><span className="font-semibold text-gray-700 text-sm uppercase tracking-wide">Distance</span></th>
+                    {/*<th className="px-8 py-6 text-left"><span className="font-semibold text-gray-700 text-sm uppercase tracking-wide">Distance</span></th>*/}
                       <th className="px-8 py-6 text-right"><span className="font-semibold text-gray-700 text-sm uppercase tracking-wide">Actions</span></th>
                     </tr>
                   </thead>
@@ -245,12 +245,12 @@ const BusScheduleTable = () => {
                             </div>
                           </div>
                         </td>
-                        <td className="px-8 py-6">
+                    {/*    <td className="px-8 py-6">
                           <div className="bg-gray-50 rounded-2xl px-4 py-3 inline-block">
                             <p className="font-bold text-gray-900 text-lg">{row.total_distance_km}</p>
                             <p className="text-sm text-gray-500">kilometers</p>
                           </div>
-                        </td>
+                        </td>*/}
                         <td className="px-8 py-6 text-right">
                           <button
                             onClick={() => handleModalOpen(row)}

@@ -615,8 +615,8 @@ const IncidentManagement = () => {
 
       {/* Modal for Report Details */}
       {showModal && selectedReport && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+        <div className="fixed inset-0 backdrop-blur-sm bg-white/10 flex items-center justify-center z-50 p-4">
+   <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="p-8">
               <div className="flex justify-between items-center mb-8">
                 <h2 className="text-3xl font-bold text-gray-900">Report Details</h2>
