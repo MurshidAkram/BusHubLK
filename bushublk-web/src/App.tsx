@@ -59,7 +59,7 @@ import DepotEscalateissues from './pages/dashboards/depot-engineer/DepotEscalate
 import Depotcommunityhub from './pages/dashboards/depot-engineer/communicationHub'
 import Depotinspection from './pages/dashboards/depot-engineer/DepotInspection'
 import DepotEngineerNotifications from './pages/dashboards/depot-engineer/Notifications'
-import Generate_reports from './pages/dashboards/depot-engineer/Generate_reports'
+import DepotGenerateReports from './pages/dashboards/depot-engineer/Generate_reports'
 
 
 
@@ -71,7 +71,7 @@ import Inspectionschedular from './pages/dashboards/regional-tech/Inspectionsche
 import Rtoissuetracker from './pages/dashboards/regional-tech/Rtoissuetracker'
 import Regioncommunityhub from './pages/dashboards/regional-tech/communicationHub'  
 import RTONotifications from './pages/dashboards/regional-tech/RTONotifications'
-import Generatereports from './pages/dashboards/regional-tech/Generate_reports'
+import RegionalGenerateReports from './pages/dashboards/regional-tech/Generate_reports'
 
 
 // Regional Operations Officer Components
@@ -225,7 +225,7 @@ const App = () => {
           <Route path="Autoforwardbusstatus" element={<Autoforwardbusstatus />} />
           <Route path="DepotEscalateissues" element={<DepotEscalateissues />} />
           <Route path="Depotcommunityhub" element={<Depotcommunityhub />} />
-          <Route path="Depotreports" element={<Generate_reports />} />
+          <Route path="Depotreports" element={<DepotGenerateReports />} />
           {/* Add individual pages later */}
         </Route>
         </Route>
@@ -240,7 +240,7 @@ const App = () => {
           <Route path="Rtoissuetracker" element={<Rtoissuetracker />} />
           <Route path="Regioncommunityhub" element={<Regioncommunityhub />} />
           <Route path="notifications" element={<RTONotifications />} />
-          <Route path="Regionreports" element={<Generate_reports />} />
+          <Route path="Regionreports" element={<RegionalGenerateReports />} />
           {/* Add individual pages later */}
         </Route>
         </Route>

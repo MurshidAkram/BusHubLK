@@ -221,7 +221,7 @@ const Regionservicemonitor: React.FC = () => {
                         <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Model</th>
                         <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Year</th>
                         <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Status</th>
-                        <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Mileage</th>
+                        {/* <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Mileage</th> */}
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -244,9 +244,9 @@ const Regionservicemonitor: React.FC = () => {
                               {bus.status}
                             </span>
                           </td>
-                          <td className="px-4 py-2 text-sm text-gray-600">
+                          {/* <td className="px-4 py-2 text-sm text-gray-600">
                             {bus.mileage ? `${formatNumber(bus.mileage)} km` : '—'}
-                          </td>
+                          </td> */}
                         </tr>
                       ))}
                     </tbody>

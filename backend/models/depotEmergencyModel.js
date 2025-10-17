@@ -197,28 +197,54 @@ const Emergency = {
     /**
      * Finds all reports escalated to RTO for the RTO dashboard
      */
-    findAllForRTO: async () => {
+    findAllForRTO: async (regionId = null) => {
+        const conditions = [];
+        const params = [];
+
+        if (regionId) {
+            params.push(regionId);
+            conditions.push(`d.region_id = $${params.length}`);
+        }
+
+        const regionFilter = conditions.length ? ` AND ${conditions.join(' AND ')}` : '';
+
         const query = `
-          SELECT 
-            er.id, er.driver_id, er.bus_id, er.incident_type, er.description,
-            er.latitude, er.longitude, er.status, er.created_at,
-            u.first_name || ' ' || u.last_name AS driver_name,
-            u.phone AS driver_phone,
-            b.registration_number AS vehicle_registration
-          FROM emergency_reports er
-          LEFT JOIN users u ON er.driver_id = u.user_id
-          LEFT JOIN buses b ON er.bus_id = b.bus_id
-          WHERE er.status = 'Escalated to RTO'
-            OR (
-              er.status IN ('In Progress', 'Resolved') AND (
-                EXISTS (SELECT 1 FROM manager_chats mc WHERE mc.report_id = er.id)
-                OR
-                EXISTS (SELECT 1 FROM rto_manager_chats rmc WHERE rmc.report_id = er.id)
-              )
-            )
-          ORDER BY er.created_at DESC
-        `;
-        const { rows } = await pool.query(query);
+                    SELECT 
+                        er.id,
+                        er.driver_id,
+                        er.bus_id,
+                        er.incident_type,
+                        er.description,
+                        er.latitude,
+                        er.longitude,
+                        er.status,
+                        er.created_at,
+                        u.first_name || ' ' || u.last_name AS driver_name,
+                        u.phone AS driver_phone,
+                        b.registration_number AS vehicle_registration,
+                        d.depot_id,
+                        d.depot_name,
+                        r.region_id,
+                        r.region_name
+                    FROM emergency_reports er
+                    LEFT JOIN users u ON er.driver_id = u.user_id
+                    LEFT JOIN buses b ON er.bus_id = b.bus_id
+                    LEFT JOIN depots d ON b.depot_id = d.depot_id
+                    LEFT JOIN regions r ON d.region_id = r.region_id
+                    WHERE (
+                            er.status = 'Escalated to RTO'
+                            OR (
+                                er.status IN ('In Progress', 'Resolved') AND (
+                                    EXISTS (SELECT 1 FROM manager_chats mc WHERE mc.report_id = er.id)
+                                    OR
+                                    EXISTS (SELECT 1 FROM rto_manager_chats rmc WHERE rmc.report_id = er.id)
+                                )
+                            )
+                        )
+                        ${regionFilter}
+                    ORDER BY er.created_at DESC
+                `;
+        const { rows } = await pool.query(query, params);
         return rows;
     },
     // --- NEW: A dedicated statistics function for the Manager Dashboard --- //
