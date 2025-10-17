@@ -260,8 +260,11 @@ const Navbar = () => {
               >
                 <HiBell className="h-6 w-6" />
                 {notificationCount > 0 && (
-                  <span className="absolute top-0 right-0 h-4 w-4 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold">
-                    {notificationCount > 9 ? '9+' : notificationCount}
+                  <span
+                    className="absolute top-0 right-0 flex h-5 items-center justify-center rounded-full bg-red-500 px-1 text-xs font-bold text-white"
+                    style={{ minWidth: '20px' }}
+                  >
+                    {notificationCount}
                   </span>
                 )}
               </button>
