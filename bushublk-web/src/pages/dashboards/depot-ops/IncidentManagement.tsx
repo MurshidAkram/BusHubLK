@@ -79,6 +79,8 @@ const IncidentManagement = () => {
     pending_reports: 0
   });
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
+  // today's date (YYYY-MM-DD) used to prevent selecting future dates
+  const today = new Date().toISOString().slice(0, 10);
 
   // API Functions
   const fetchReports = useCallback(async () => {
@@ -106,14 +108,19 @@ const IncidentManagement = () => {
       console.log('📊 API Response:', data);
 
       if (data.success) {
-        setReports(data.data || []);
-        setPagination(data.pagination || {
-          current_page: 1,
-          total_pages: 1,
-          total_items: 0,
-          items_per_page: 20
+        // ensure latest incident_date first (server may return unsorted)
+        const rows = Array.isArray(data.data) ? data.data.slice() : [];
+        rows.sort((a: LostFoundReport, b: LostFoundReport) => {
+          return new Date(b.incident_date).getTime() - new Date(a.incident_date).getTime();
         });
-        console.log(`✅ Loaded ${data.data?.length || 0} reports`);
+        setReports(rows);
+         setPagination(data.pagination || {
+           current_page: 1,
+           total_pages: 1,
+           total_items: 0,
+           items_per_page: 20
+         });
+         console.log(`✅ Loaded ${data.data?.length || 0} reports`);
       } else {
         throw new Error(data.message || 'Failed to fetch reports');
       }
@@ -402,7 +409,13 @@ const IncidentManagement = () => {
                 type="date"
                 className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                 value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
+                max={today}
+                onChange={(e) => {
+                  // guard: prevent future dates if user manipulates value
+                  const v = e.target.value;
+                  if (v && v > today) return;
+                  setDateFilter(v);
+                }}
                 placeholder="Select date"
               />
             </div>
@@ -731,22 +744,36 @@ const IncidentManagement = () => {
                   </div>
 
                   {/* Item Photo */}
-                  {selectedReport.item_photo_url && (
-                    <div className="bg-gray-50 rounded-xl p-6">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Item Photo</h3>
-                      <div className="border rounded-lg overflow-hidden">
-                        <img 
-                          src={selectedReport.item_photo_url} 
-                          alt="Item photo" 
-                          className="w-full h-64 object-cover"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.style.display = 'none';
-                          }}
-                        />
+                  {(() => {
+                    const url = selectedReport.item_photo_url;
+                    const isString = typeof url === 'string';
+                    const cleaned = isString ? url.trim() : '';
+                    const invalid = ['', 'null', '[null]', 'undefined', 'n/a', '/null'];
+                    if (!isString || invalid.includes(cleaned.toLowerCase())) return null;
+
+                    // build full src: if startsWith http use as-is, otherwise prepend API_BASE_URL
+                    const src = cleaned.startsWith('http')
+                      ? cleaned
+                      : `${API_BASE_URL}${cleaned.startsWith('/') ? '' : '/'}${cleaned}`;
+
+                    return (
+                      <div className="bg-gray-50 rounded-xl p-6">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Item Photo</h3>
+                        <div className="border rounded-lg overflow-hidden">
+                          <img
+                            src={src}
+                            alt="Item photo"
+                            className="w-full h-64 object-cover"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              console.warn('Image load failed:', target.src);
+                              target.style.display = 'none';
+                            }}
+                          />
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
 
                   {selectedReport.resolution_notes && (
                     <div className="bg-gray-50 rounded-xl p-6">
