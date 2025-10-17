@@ -297,26 +297,6 @@ export default function SignupScreen({ navigation }: any) {
                   <Text style={styles.loginLink}>Sign In</Text>
                 </TouchableOpacity>
               </View>
-
-              {/* Divider */}
-              <View style={styles.dividerContainer}>
-                <View style={styles.divider} />
-                <Text style={styles.dividerText}>or sign up with</Text>
-                <View style={styles.divider} />
-              </View>
-
-              {/* Social Signup Buttons */}
-              <View style={styles.socialContainer}>
-                <TouchableOpacity style={styles.socialButton}>
-                  <Ionicons name="logo-google" size={20} color="#ea4335" />
-                  <Text style={styles.socialButtonText}>Google</Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity style={styles.socialButton}>
-                  <Ionicons name="logo-facebook" size={20} color="#1877f2" />
-                  <Text style={styles.socialButtonText}>Facebook</Text>
-                </TouchableOpacity>
-              </View>
             </View>
           </ScrollView>
         </KeyboardAvoidingView>

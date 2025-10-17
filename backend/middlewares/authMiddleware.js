@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/userModel');
+const db = require('../config/db');
 
 const authenticateJWT = async (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -10,9 +11,26 @@ const authenticateJWT = async (req, res, next) => {
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       
+      // Check if token is blacklisted
+      const blacklisted = await db.query(
+        'SELECT id FROM token_blacklist WHERE token = $1 AND expires_at > NOW() LIMIT 1',
+        [token]
+      );
+      
+      if (blacklisted.rows && blacklisted.rows.length > 0) {
+        console.log('🚫 Token is blacklisted');
+        return res.status(403).json({ error: 'Invalid or expired token' });
+      }
+      
       // Verify user still exists and is active
       const user = await User.findById(decoded.userId);
-      if (!user || !user.is_active) {
+      if (!user) {
+        console.log('❌ User not found for userId:', decoded.userId);
+        return res.status(403).json({ error: 'Access denied. User account not found or inactive.' });
+      }
+      
+      if (!user.is_active) {
+        console.log('❌ User account is inactive:', decoded.userId);
         return res.status(403).json({ error: 'Access denied. User account not found or inactive.' });
       }
 
@@ -26,7 +44,10 @@ const authenticateJWT = async (req, res, next) => {
       };
       next();
     } catch (err) {
-      console.error('JWT verification error:', err);
+      console.error('🔴 JWT verification error:', err.name, err.message);
+      if (err.name === 'TokenExpiredError') {
+        console.log('⏰ Token has expired at:', err.expiredAt);
+      }
       return res.status(403).json({ error: 'Invalid or expired token' });
     }
   } else {

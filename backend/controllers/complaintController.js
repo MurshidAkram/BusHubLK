@@ -233,12 +233,23 @@ exports.deleteComplaint = (req, res) => {
  */
 exports.searchBusRoutes = async (req, res) => {
   try {
-    const { query = '' } = req.query;
+    const { query = '', type = 'all' } = req.query;
     if (!query.trim()) {
       return res.status(200).json({ success: true, data: [] });
     }
 
-    const matches = await BusRoute.search(query.trim());
+    let matches;
+    if (type === 'route') {
+      // Search only routes
+      matches = await BusRoute.searchRoutes(query.trim());
+    } else if (type === 'bus') {
+      // Search only buses
+      matches = await BusRoute.searchBuses(query.trim());
+    } else {
+      // Default: search both (backward compatibility)
+      matches = await BusRoute.search(query.trim());
+    }
+
     res.status(200).json({ success: true, data: matches });
   } catch (error) {
     console.error('Error searching bus routes:', error);

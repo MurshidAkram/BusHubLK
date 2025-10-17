@@ -154,11 +154,12 @@ class DailyAssignment {
               r.end_location,
               d.depot_name,
               CONCAT(udriver.first_name, ' ', udriver.last_name) AS driver_name,
-              CASE 
-                WHEN uconductor.user_id IS NOT NULL 
+              CASE
+                WHEN uconductor.user_id IS NOT NULL
                 THEN CONCAT(uconductor.first_name, ' ', uconductor.last_name)
                 ELSE NULL
               END AS conductor_name,
+              uconductor.phone AS conductor_phone_number,
               da.created_at, da.updated_at
        FROM dailyassignment da
        JOIN buses b ON da.bus_id = b.bus_id
@@ -166,8 +167,8 @@ class DailyAssignment {
        JOIN depots d ON da.depot_id = d.depot_id
        JOIN users udriver ON da.driver_id = udriver.user_id
        LEFT JOIN users uconductor ON da.conductor_id = uconductor.user_id
-       WHERE da.driver_id = $1 
-         AND da.assignment_date >= CURRENT_DATE 
+       WHERE da.driver_id = $1
+         AND da.assignment_date >= CURRENT_DATE
          AND da.assignment_date <= CURRENT_DATE + $2::integer
          AND da.is_active = true
        ORDER BY da.assignment_date ASC, da.shift_start_time ASC`,

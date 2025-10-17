@@ -6,11 +6,14 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
-  SafeAreaView,
   ActivityIndicator,
   Linking,
+  Platform,
+  StatusBar,
 } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from "@react-navigation/native";
 import { authAPI, storageAPI, complaintAPI } from "../services/api";
 
@@ -25,6 +28,8 @@ const AppColors = {
   textMuted: "#6B7280",
   border: "#E5E7EB",
   danger: "#DC3545",
+  green: "#10B981",
+  shadow: "rgba(0, 0, 0, 0.1)",
 };
 
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
@@ -245,248 +250,442 @@ export default function ProfileScreen({ navigation }: any) {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#0056b3" />
-          <Text style={styles.loadingText}>Loading your profile...</Text>
-        </View>
-      </SafeAreaView>
+      <LinearGradient
+        colors={['#F8FAFF', '#E3F2FD', '#BBDEFB']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.gradientContainer}
+      >
+        <SafeAreaView style={styles.container}>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={AppColors.primary} />
+            <Text style={styles.loadingText}>Loading your profile...</Text>
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.headerLabel}>Your profile</Text>
-          <Text style={styles.headerTitle}>{displayName}</Text>
-          <Text style={styles.headerSubtitle}>{displayRole}</Text>
-        </View>
-      </View>
-
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.contentContainer}>
-        <View style={styles.summaryCard}>
-          <View style={styles.avatarCircle}>
-            <Text style={styles.avatarInitials}>{initials}</Text>
-          </View>
-          <View style={styles.summaryDetails}>
-            <Text style={styles.summaryName}>{displayName}</Text>
-            <View style={styles.metaChip}>
-              <Ionicons name="shield-checkmark" size={16} color={AppColors.primary} />
-              <Text style={styles.metaChipText}>Verified account details</Text>
-            </View>
-            <View style={styles.infoGrid}>
-              <View style={styles.infoItem}>
-                <Ionicons name="mail-outline" size={18} color={AppColors.textMuted} />
-                <Text style={styles.infoText}>{userData?.email || "Add your email"}</Text>
-              </View>
-              <View style={styles.infoItem}>
-                <Ionicons name="call-outline" size={18} color={AppColors.textMuted} />
-                <Text style={styles.infoText}>{(() => {
-                  console.log("🎯 Rendering phone number:", userData?.phone);
-                  console.log("🎯 User data keys:", userData ? Object.keys(userData) : "No userData");
-                  return userData?.phone || "Add your phone number";
-                })()}</Text>
+    <LinearGradient
+      colors={['#F8FAFF', '#E3F2FD', '#BBDEFB']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.gradientContainer}
+    >
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor="#0056b3" />
+        
+        {/* Enhanced Header with Gradient */}
+        <LinearGradient
+          colors={['#0056b3', '#1976d2', '#42a5f5']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.headerGradient}
+        >
+          <View style={styles.header}>
+            <View style={styles.headerContent}>
+              <Text style={styles.headerLabel}>Your profile</Text>
+              <Text style={styles.headerTitle}>{displayName}</Text>
+              <View style={styles.roleChip}>
+                <Ionicons name="shield-checkmark" size={14} color="white" />
+                <Text style={styles.roleChipText}>{displayRole}</Text>
               </View>
             </View>
           </View>
-        </View>
+        </LinearGradient>
 
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Account actions</Text>
-          {profileOptions.map((option, index) => (
-            <TouchableOpacity
-              key={option.key}
-              style={[styles.optionRow, index === profileOptions.length - 1 && styles.optionRowLast]}
-              onPress={option.onPress}
-              activeOpacity={0.85}
+        <ScrollView 
+          style={styles.scrollView} 
+          contentContainerStyle={styles.contentContainer}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Profile Summary Card */}
+          <View style={styles.summaryCardWrapper}>
+            <LinearGradient
+              colors={['#FFFFFF', '#F8FAFF']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.summaryCardGradient}
             >
-              <View style={styles.optionIconWrapper}>
-                <Ionicons name={option.icon} size={22} color={AppColors.primary} />
+              <View style={styles.summaryCard}>
+                <LinearGradient
+                  colors={['#0056b3', '#1976d2']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.avatarCircle}
+                >
+                  <Text style={styles.avatarInitials}>{initials}</Text>
+                </LinearGradient>
+                <View style={styles.summaryDetails}>
+                  <Text style={styles.summaryName}>{displayName}</Text>
+                  <View style={styles.verifiedBadge}>
+                    <Ionicons name="checkmark-circle" size={16} color={AppColors.green} />
+                    <Text style={styles.verifiedText}>Verified account</Text>
+                  </View>
+                </View>
               </View>
-              <View style={styles.optionBody}>
-                <Text style={styles.optionTitle}>{option.title}</Text>
-                <Text style={styles.optionSubtitle}>{option.subtitle}</Text>
+            </LinearGradient>
+          </View>
+
+          {/* Contact Information Card */}
+          <View style={styles.sectionCardWrapper}>
+            <View style={styles.sectionCard}>
+              <View style={styles.sectionTitleRow}>
+                <Ionicons name="information-circle" size={22} color={AppColors.primary} />
+                <Text style={styles.sectionTitle}>Contact information</Text>
               </View>
-              <Ionicons name="chevron-forward" size={20} color={AppColors.textMuted} />
-            </TouchableOpacity>
-          ))}
-        </View>
+              
+              <View style={styles.infoRow}>
+                <View style={styles.infoIconWrapper}>
+                  <Ionicons name="mail" size={20} color={AppColors.primary} />
+                </View>
+                <View style={styles.infoContent}>
+                  <Text style={styles.infoLabel}>Email address</Text>
+                  <Text style={styles.infoValue}>{userData?.email || "Add your email"}</Text>
+                </View>
+              </View>
 
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Support</Text>
-          <TouchableOpacity style={styles.helpBanner} onPress={handleOpenSupport} activeOpacity={0.85}>
-            <View style={styles.helpIconWrapper}>
-              <Ionicons name="headset-outline" size={22} color={AppColors.card} />
-            </View>
-            <View style={styles.helpContent}>
-              <Text style={styles.helpTitle}>Need a hand?</Text>
-              <Text style={styles.helpText}>Our team is ready to help with routes, payments, or technical issues.</Text>
-              <Text style={styles.helpAction}>Contact support</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
+              <View style={styles.infoDivider} />
 
-        <Text style={styles.versionText}>BusHubLK v1.0.0</Text>
-      </ScrollView>
-    </SafeAreaView>
+              <View style={styles.infoRow}>
+                <View style={styles.infoIconWrapper}>
+                  <Ionicons name="call" size={20} color={AppColors.primary} />
+                </View>
+                <View style={styles.infoContent}>
+                  <Text style={styles.infoLabel}>Phone number</Text>
+                  <Text style={styles.infoValue}>{userData?.phone || "Add your phone number"}</Text>
+                </View>
+              </View>
+            </View>
+          </View>
+
+          {/* Account Actions Card */}
+          <View style={styles.sectionCardWrapper}>
+            <View style={styles.sectionCard}>
+              <View style={styles.sectionTitleRow}>
+                <Ionicons name="settings" size={22} color={AppColors.primary} />
+                <Text style={styles.sectionTitle}>Account actions</Text>
+              </View>
+              
+              {profileOptions.map((option, index) => (
+                <React.Fragment key={option.key}>
+                  {index > 0 && <View style={styles.optionDivider} />}
+                  <TouchableOpacity
+                    style={styles.optionRow}
+                    onPress={option.onPress}
+                    activeOpacity={0.7}
+                  >
+                    <LinearGradient
+                      colors={['#E7F1FF', '#F0F8FF']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.optionIconWrapper}
+                    >
+                      <Ionicons name={option.icon} size={22} color={AppColors.primary} />
+                    </LinearGradient>
+                    <View style={styles.optionBody}>
+                      <Text style={styles.optionTitle}>{option.title}</Text>
+                      <Text style={styles.optionSubtitle}>{option.subtitle}</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={20} color={AppColors.textMuted} />
+                  </TouchableOpacity>
+                </React.Fragment>
+              ))}
+            </View>
+          </View>
+
+          {/* Support Banner */}
+          <View style={styles.supportBannerWrapper}>
+            <LinearGradient
+              colors={['#0056b3', '#1976d2', '#42a5f5']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.supportBannerGradient}
+            >
+              <TouchableOpacity 
+                style={styles.supportBanner} 
+                onPress={handleOpenSupport} 
+                activeOpacity={0.8}
+              >
+                <View style={styles.supportIconWrapper}>
+                  <Ionicons name="headset" size={26} color="white" />
+                </View>
+                <View style={styles.supportContent}>
+                  <Text style={styles.supportTitle}>Need help?</Text>
+                  <Text style={styles.supportText}>
+                    Our support team is ready to assist you with any questions
+                  </Text>
+                  <View style={styles.supportActionRow}>
+                    <Text style={styles.supportAction}>Contact support</Text>
+                    <Ionicons name="arrow-forward" size={16} color="white" />
+                  </View>
+                </View>
+              </TouchableOpacity>
+            </LinearGradient>
+          </View>
+
+          <Text style={styles.versionText}>BusHubLK v1.0.0</Text>
+        </ScrollView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
+  gradientContainer: {
+    flex: 1,
+  },
   container: {
     flex: 1,
-    backgroundColor: AppColors.background,
+    backgroundColor: 'transparent',
+  },
+  
+  // Enhanced Header Styles
+  headerGradient: {
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+    ...Platform.select({
+      android: {
+        elevation: 8,
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+      },
+    }),
   },
   header: {
-    backgroundColor: AppColors.primary,
-    paddingHorizontal: 24,
-    paddingTop: 36,
-    paddingBottom: 28,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  headerContent: {
+    flex: 1,
   },
   headerLabel: {
-    color: "rgba(255,255,255,0.65)",
+    color: "rgba(255,255,255,0.75)",
     fontSize: 12,
     fontWeight: "600",
-    letterSpacing: 1,
+    letterSpacing: 1.2,
     textTransform: "uppercase",
+    marginBottom: 8,
   },
   headerTitle: {
-    marginTop: 6,
     color: AppColors.card,
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: "700",
+    marginBottom: 10,
+    letterSpacing: 0.5,
   },
-  headerSubtitle: {
+  roleChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
     marginTop: 4,
-    color: "rgba(255,255,255,0.8)",
-    fontSize: 14,
-    fontWeight: "500",
-    textTransform: "capitalize",
   },
+  roleChipText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 6,
+    textTransform: 'capitalize',
+  },
+  
   scrollView: {
     flex: 1,
   },
   contentContainer: {
-    paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 40,
+    paddingHorizontal: 16,
   },
+  
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    paddingHorizontal: 20,
   },
   loadingText: {
-    marginTop: 12,
-    fontSize: 15,
+    marginTop: 16,
+    fontSize: 16,
     color: AppColors.textMuted,
-    fontWeight: "500",
+    fontWeight: "600",
+  },
+  
+  // Profile Summary Card
+  summaryCardWrapper: {
+    marginBottom: 20,
+    borderRadius: 20,
+    overflow: 'hidden',
+    ...Platform.select({
+      android: {
+        elevation: 6,
+      },
+      ios: {
+        shadowColor: AppColors.shadow,
+        shadowOpacity: 1,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 4 },
+      },
+    }),
+  },
+  summaryCardGradient: {
+    borderRadius: 20,
   },
   summaryCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: AppColors.card,
-    borderRadius: 24,
-    padding: 22,
-    shadowColor: AppColors.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 14,
-    elevation: 3,
-    marginBottom: 24,
+    padding: 20,
   },
   avatarCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: AppColors.primaryMuted,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 18,
+    marginRight: 16,
+    ...Platform.select({
+      android: {
+        elevation: 4,
+      },
+      ios: {
+        shadowColor: AppColors.primary,
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 2 },
+      },
+    }),
   },
   avatarInitials: {
-    fontSize: 26,
+    fontSize: 32,
     fontWeight: "700",
-    color: AppColors.primary,
+    color: AppColors.card,
   },
   summaryDetails: {
     flex: 1,
   },
   summaryName: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "700",
     color: AppColors.text,
-  },
-  metaChip: {
-    marginTop: 10,
-    flexDirection: "row",
-    alignItems: "center",
-    alignSelf: "flex-start",
-    backgroundColor: AppColors.primaryMuted,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-  },
-  metaChipText: {
-    marginLeft: 6,
-    fontSize: 12,
-    fontWeight: "600",
-    color: AppColors.primary,
-  },
-  infoGrid: {
-    marginTop: 16,
-  },
-  infoItem: {
-    flexDirection: "row",
-    alignItems: "center",
     marginBottom: 8,
   },
-  infoText: {
-    marginLeft: 10,
-    fontSize: 14,
-    color: AppColors.textMuted,
+  verifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    alignSelf: 'flex-start',
+  },
+  verifiedText: {
+    marginLeft: 6,
+    fontSize: 12,
+    fontWeight: '600',
+    color: AppColors.green,
+  },
+  
+  // Section Card Styles
+  sectionCardWrapper: {
+    marginBottom: 20,
+    borderRadius: 20,
+    overflow: 'hidden',
+    ...Platform.select({
+      android: {
+        elevation: 4,
+      },
+      ios: {
+        shadowColor: AppColors.shadow,
+        shadowOpacity: 1,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 3 },
+      },
+    }),
   },
   sectionCard: {
     backgroundColor: AppColors.card,
     borderRadius: 20,
-    paddingHorizontal: 20,
-    paddingVertical: 22,
-    shadowColor: AppColors.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 2,
-    marginBottom: 24,
+    padding: 20,
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: AppColors.border,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "700",
     color: AppColors.text,
-    marginBottom: 16,
+    marginLeft: 10,
   },
+  
+  // Info Rows
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+  },
+  infoIconWrapper: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: AppColors.primaryMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  infoContent: {
+    flex: 1,
+  },
+  infoLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: AppColors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  infoValue: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: AppColors.text,
+  },
+  infoDivider: {
+    height: 1,
+    backgroundColor: AppColors.border,
+    marginVertical: 4,
+  },
+  
+  // Option Rows
   optionRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: AppColors.border,
+    paddingVertical: 14,
   },
-  optionRowLast: {
-    borderBottomWidth: 0,
-    paddingBottom: 0,
+  optionDivider: {
+    height: 1,
+    backgroundColor: AppColors.border,
+    marginVertical: 4,
   },
   optionIconWrapper: {
-    width: 44,
-    height: 44,
+    width: 48,
+    height: 48,
     borderRadius: 14,
-    backgroundColor: AppColors.primaryMuted,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 16,
+    marginRight: 14,
   },
   optionBody: {
     flex: 1,
@@ -495,53 +694,79 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: AppColors.text,
+    marginBottom: 4,
   },
   optionSubtitle: {
-    marginTop: 4,
     fontSize: 13,
     color: AppColors.textMuted,
+    fontWeight: '500',
   },
-  helpBanner: {
+  
+  // Support Banner
+  supportBannerWrapper: {
+    marginBottom: 24,
+    borderRadius: 20,
+    overflow: 'hidden',
+    ...Platform.select({
+      android: {
+        elevation: 6,
+      },
+      ios: {
+        shadowColor: AppColors.primary,
+        shadowOpacity: 0.25,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 4 },
+      },
+    }),
+  },
+  supportBannerGradient: {
+    borderRadius: 20,
+  },
+  supportBanner: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: AppColors.primaryMuted,
-    borderRadius: 18,
-    padding: 18,
-    paddingRight: 22,
+    padding: 20,
   },
-  helpIconWrapper: {
-    width: 48,
-    height: 48,
+  supportIconWrapper: {
+    width: 56,
+    height: 56,
     borderRadius: 16,
-    backgroundColor: AppColors.primary,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: "center",
     justifyContent: "center",
+    marginRight: 16,
   },
-  helpContent: {
+  supportContent: {
     flex: 1,
-    marginLeft: 16,
   },
-  helpTitle: {
-    fontSize: 16,
+  supportTitle: {
+    fontSize: 18,
     fontWeight: "700",
-    color: AppColors.primaryDark,
+    color: 'white',
     marginBottom: 6,
   },
-  helpText: {
+  supportText: {
     fontSize: 13,
-    color: AppColors.textMuted,
+    color: 'rgba(255, 255, 255, 0.85)',
     lineHeight: 18,
-    marginBottom: 6,
+    marginBottom: 10,
   },
-  helpAction: {
-    fontSize: 13,
+  supportActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  supportAction: {
+    fontSize: 14,
     fontWeight: "700",
-    color: AppColors.primary,
+    color: 'white',
+    marginRight: 6,
   },
+  
   versionText: {
     textAlign: "center",
     fontSize: 13,
     color: AppColors.textMuted,
-    marginBottom: 12,
+    marginTop: 12,
+    fontWeight: '500',
   },
 });

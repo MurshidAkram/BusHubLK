@@ -252,7 +252,7 @@ const ProfileScreen = () => {
           </Text>
           <Text style={styles.driverRole}>Certified SLTB Bus Driver</Text>
           <View style={styles.driverIdBadge}>
-            <Text style={styles.driverIdText}>ID: {driverData.driver_id}</Text>
+            <Text style={styles.driverIdText}>Your ID: DRV-{driverData.driver_id}</Text>
           </View>
         </View>
 
