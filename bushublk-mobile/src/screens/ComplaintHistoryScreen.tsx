@@ -14,6 +14,7 @@ import {
   Dimensions,
   FlatList,
   Platform,
+  Image,
 } from "react-native";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
@@ -39,6 +40,9 @@ const AppColors = {
   danger: "#EF4444",
   red: "#EF4444",
   shadow: "rgba(0, 0, 0, 0.1)",
+  purple: "#8B5CF6",
+  indigo: "#6366F1",
+  orange: "#F97316",
 };
 
 type Complaint = {
@@ -480,65 +484,124 @@ export default function ComplaintHistoryScreen() {
             </View>
 
             {selectedComplaint && (
-              <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
-                <View style={styles.detailSection}>
-                  <Text style={styles.detailLabel}>Complaint Type</Text>
-                  <Text style={styles.detailValue}>{selectedComplaint.complaint_type.replace(/_/g, " ")}</Text>
-                </View>
-
-                <View style={styles.detailSection}>
-                  <Text style={styles.detailLabel}>Status</Text>
-                  {detailStatusStyle && (
-                    <View style={[styles.statusBadge, { backgroundColor: detailStatusStyle.backgroundColor }]}>
-                      <Text style={styles.statusText}>{detailStatusStyle.label}</Text>
+              <ScrollView 
+                style={styles.modalBody} 
+                contentContainerStyle={styles.modalBodyContent}
+                showsVerticalScrollIndicator={false}
+              >
+                {/* Complaint Type & Status Row */}
+                <View style={styles.enhancedRow}>
+                  <View style={styles.enhancedField}>
+                    <View style={styles.fieldIconContainer}>
+                      <Ionicons name="document-text-outline" size={20} color={AppColors.primary} />
                     </View>
-                  )}
+                    <View style={styles.fieldContent}>
+                      <Text style={styles.detailLabel}>Complaint Type</Text>
+                      <Text style={styles.detailValue}>{selectedComplaint.complaint_type.replace(/_/g, " ")}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.enhancedField}>
+                    <View style={styles.fieldIconContainer}>
+                      <Ionicons name="pulse-outline" size={20} color={AppColors.primary} />
+                    </View>
+                    <View style={styles.fieldContent}>
+                      <Text style={styles.detailLabel}>Status</Text>
+                      {detailStatusStyle && (
+                        <View style={[styles.statusBadgeModal, { backgroundColor: detailStatusStyle.backgroundColor }]}>
+                          <Text style={styles.statusTextModal}>{detailStatusStyle.label}</Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
                 </View>
 
-                <View style={styles.detailSection}>
-                  <Text style={styles.detailLabel}>Route Information</Text>
-                  <Text style={styles.detailValue}>Route {selectedComplaint.route_number}</Text>
-                  {selectedComplaint.bus_number && (
-                    <Text style={styles.detailValue}>Bus No. {selectedComplaint.bus_number}</Text>
-                  )}
+                {/* Route & Bus Information */}
+                <View style={styles.infoCard}>
+                  <View style={styles.infoCardHeader}>
+                    <Ionicons name="bus-outline" size={22} color={AppColors.primary} />
+                    <Text style={styles.infoCardTitle}>Transport Details</Text>
+                  </View>
+                  <View style={styles.infoCardBody}>
+                    <View style={styles.infoItem}>
+                      <Text style={styles.infoItemLabel}>Route Number</Text>
+                      <Text style={styles.infoItemValue}>{selectedComplaint.route_number}</Text>
+                    </View>
+                    {selectedComplaint.bus_number && (
+                      <View style={styles.infoItem}>
+                        <Text style={styles.infoItemLabel}>Bus Number</Text>
+                        <Text style={styles.infoItemValue}>{selectedComplaint.bus_number}</Text>
+                      </View>
+                    )}
+                  </View>
                 </View>
 
-                <View style={styles.detailSection}>
-                  <Text style={styles.detailLabel}>Location</Text>
-                  <Text style={styles.detailValue}>{selectedComplaint.location}</Text>
+                {/* Location & Priority */}
+                <View style={styles.enhancedRow}>
+                  <View style={styles.enhancedField}>
+                    <View style={styles.fieldIconContainer}>
+                      <Ionicons name="location-outline" size={20} color={AppColors.indigo} />
+                    </View>
+                    <View style={styles.fieldContent}>
+                      <Text style={styles.detailLabel}>Location</Text>
+                      <Text style={styles.detailValue}>{selectedComplaint.location}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.enhancedField}>
+                    <View style={styles.fieldIconContainer}>
+                      <Ionicons name="flag-outline" size={20} color={AppColors.orange} />
+                    </View>
+                    <View style={styles.fieldContent}>
+                      <Text style={styles.detailLabel}>Priority</Text>
+                      <Text style={styles.detailValue}>{selectedComplaint.priority || 'Medium'}</Text>
+                    </View>
+                  </View>
                 </View>
 
-                <View style={styles.detailSection}>
-                  <Text style={styles.detailLabel}>Incident Date</Text>
-                  <Text style={styles.detailValue}>{formatDate(selectedComplaint.incident_date)}</Text>
+                {/* Timeline Information */}
+                <View style={styles.infoCard}>
+                  <View style={styles.infoCardHeader}>
+                    <Ionicons name="time-outline" size={22} color={AppColors.purple} />
+                    <Text style={styles.infoCardTitle}>Timeline</Text>
+                  </View>
+                  <View style={styles.infoCardBody}>
+                    <View style={styles.infoItem}>
+                      <Text style={styles.infoItemLabel}>Incident Date</Text>
+                      <Text style={styles.infoItemValue}>{formatDate(selectedComplaint.incident_date)}</Text>
+                    </View>
+                    <View style={styles.infoItem}>
+                      <Text style={styles.infoItemLabel}>Last Updated</Text>
+                      <Text style={styles.infoItemValue}>
+                        {formatDateTime(selectedComplaint.last_updated_at || selectedComplaint.updated_at || selectedComplaint.created_at)}
+                      </Text>
+                    </View>
+                  </View>
                 </View>
 
-                <View style={styles.detailSection}>
-                  <Text style={styles.detailLabel}>Filed Date</Text>
-                  <Text style={styles.detailValue}>{formatDate(selectedComplaint.created_at)}</Text>
-                </View>
-
-                <View style={styles.detailSection}>
-                  <Text style={styles.detailLabel}>Last Updated</Text>
-                  <Text style={styles.detailValue}>
-                    {formatDateTime(selectedComplaint.last_updated_at || selectedComplaint.updated_at || selectedComplaint.created_at)}
-                  </Text>
-                </View>
-
-                <View style={styles.detailSection}>
-                  <Text style={styles.detailLabel}>Priority</Text>
-                  <Text style={styles.detailValue}>{selectedComplaint.priority || 'Medium'}</Text>
-                </View>
-
-                <View style={styles.detailSection}>
-                  <Text style={styles.detailLabel}>Description</Text>
+                {/* Description */}
+                <View style={styles.descriptionSection}>
+                  <View style={styles.descriptionHeader}>
+                    <Ionicons name="reader-outline" size={20} color={AppColors.text} />
+                    <Text style={styles.descriptionTitle}>Description</Text>
+                  </View>
                   <Text style={styles.detailDescription}>{selectedComplaint.description || 'No description provided'}</Text>
                 </View>
 
-                <View style={styles.detailSection}>
-                  <Text style={styles.detailLabel}>Contact Information</Text>
-                  <Text style={styles.detailValue}>{selectedComplaint.contact_info || 'Not provided'}</Text>
-                </View>
+                {/* Attached Image */}
+                {selectedComplaint.image_url && (
+                  <View style={styles.imageSection}>
+                    <View style={styles.imageSectionHeader}>
+                      <Ionicons name="image-outline" size={20} color={AppColors.text} />
+                      <Text style={styles.imageSectionTitle}>Attached Photo</Text>
+                    </View>
+                    <View style={styles.imageContainer}>
+                      <Image 
+                        source={{ uri: `${API_BASE_URL}${selectedComplaint.image_url}` }}
+                        style={styles.complaintImage}
+                        resizeMode="cover"
+                      />
+                    </View>
+                  </View>
+                )}
               </ScrollView>
             )}
           </View>
@@ -779,8 +842,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
     margin: 20,
-    maxHeight: '80%',
+    maxHeight: '85%',
     width: Dimensions.get('window').width - 40,
+    overflow: 'hidden',
     ...Platform.select({
       android: {
         elevation: 12,
@@ -797,9 +861,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 24,
+    padding: 20,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0, 86, 179, 0.08)',
+    backgroundColor: '#FFFFFF',
   },
   modalTitle: {
     fontSize: 21,
@@ -811,36 +876,163 @@ const styles = StyleSheet.create({
     padding: 6,
   },
   modalBody: {
-    padding: 24,
+    flexGrow: 0,
+    flexShrink: 1,
+  },
+  modalBodyContent: {
+    padding: 20,
+    paddingBottom: 30,
   },
   detailSection: {
     marginBottom: 22,
   },
   detailLabel: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '600',
     color: AppColors.textSecondary,
-    marginBottom: 10,
+    marginBottom: 6,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
   detailValue: {
-    fontSize: 16,
+    fontSize: 15,
     color: AppColors.text,
-    fontWeight: '500',
-    marginBottom: 6,
+    fontWeight: '600',
     letterSpacing: 0.2,
   },
   detailDescription: {
-    fontSize: 16,
+    fontSize: 15,
     color: AppColors.text,
-    lineHeight: 26,
+    lineHeight: 24,
     backgroundColor: 'rgba(0, 86, 179, 0.03)',
-    padding: 18,
-    borderRadius: 14,
+    padding: 16,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(0, 86, 179, 0.1)',
     fontWeight: '500',
+  },
+  // Enhanced Modal Styles
+  enhancedRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 14,
+  },
+  enhancedField: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 86, 179, 0.04)',
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 86, 179, 0.08)',
+  },
+  fieldIconContainer: {
+    marginBottom: 8,
+  },
+  fieldContent: {
+    flex: 1,
+  },
+  statusBadgeModal: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+    marginTop: 4,
+  },
+  statusTextModal: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  infoCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 86, 179, 0.12)',
+    marginBottom: 14,
+    overflow: 'hidden',
+  },
+  infoCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 86, 179, 0.06)',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 86, 179, 0.08)',
+  },
+  infoCardTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: AppColors.text,
+    marginLeft: 10,
+    letterSpacing: 0.3,
+  },
+  infoCardBody: {
+    padding: 14,
+  },
+  infoItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  infoItemLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: AppColors.textSecondary,
+    letterSpacing: 0.2,
+  },
+  infoItemValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: AppColors.text,
+    letterSpacing: 0.3,
+  },
+  descriptionSection: {
+    marginBottom: 14,
+  },
+  descriptionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  descriptionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: AppColors.text,
+    marginLeft: 10,
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+  imageSection: {
+    marginBottom: 8,
+  },
+  imageSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  imageSectionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: AppColors.text,
+    marginLeft: 10,
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+  imageContainer: {
+    borderRadius: 14,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 86, 179, 0.12)',
+    backgroundColor: '#F8F9FA',
+  },
+  complaintImage: {
+    width: '100%',
+    height: 250,
+    backgroundColor: '#F8F9FA',
   },
 
 });

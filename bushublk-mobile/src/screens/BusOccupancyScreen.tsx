@@ -15,6 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 
 import { API_BASE_URL } from '../config/api';
@@ -924,9 +925,6 @@ export default function BusOccupancyScreen() {
         </View>
         {buses.length > 0 ? (
           <>
-            <Text style={styles.nearbyBusesNote}>
-              Active buses within 5km radius (updated ≤2 min ago):
-            </Text>
             <View style={styles.nearbyBusesContainer}>
               {buses.slice(0, 3).map((bus, index) => {
               const distance = calculateDistance(
@@ -961,22 +959,14 @@ export default function BusOccupancyScreen() {
                   }}
                 >
                   <View style={styles.nearbyBusInfo}>
-                    <Text style={[
-                      styles.nearbyBusNumber,
-                      isDetectedBus && styles.detectedBusText
-                    ]}>
+                    <Text style={styles.nearbyBusNumber}>
                       {bus.registration_number} 
-                      <Text style={[
-                        styles.nearbyBusRoute,
-                        isDetectedBus && styles.detectedBusText
-                      ]}> • Route {bus.route_number}</Text>
+                      <Text style={styles.nearbyBusRoute}> • Route {bus.route_number}</Text>
                       {isDetectedBus && <Text style={styles.detectedBusIndicator}> ✅</Text>}
                     </Text>
-                    <Text style={[
-                      styles.nearbyBusDetails,
-                      isDetectedBus && styles.detectedBusText
-                    ]}>
-                      📍 {distance < 1000 ? `${distance.toFixed(0)}m` : `${(distance/1000).toFixed(1)}km`} away • {bus.occupancy_level || 'Unknown occupancy'}
+                    <Text style={styles.nearbyBusDetails}>
+                      📍 {distance < 1000 ? `${distance.toFixed(0)}m` : `${(distance/1000).toFixed(1)}km`} away
+                      {bus.occupancy_level && bus.occupancy_level !== 'unknown' && ` • ${bus.occupancy_level.replace(/_/g, ' ')}`}
                     </Text>
                     <Text style={styles.nearbyBusTime}>
                       Recently updated
@@ -1021,19 +1011,19 @@ export default function BusOccupancyScreen() {
           </View>
         {currentBus ? (
           <View style={styles.detectedBusContent}>
-            <View style={styles.currentBusHeader}>
-              <Text style={styles.currentBusTitle}>{currentBus.registration_number || currentBus.number}</Text>
-            </View>
-            <Text style={styles.currentBusRoute}>
-              {/* Only show route name if available, remove (unknown) */}
-              {currentBus.route_name ? currentBus.route_name : ''}
-            </Text>
-            <Text style={styles.subValue}>
-              Route: {currentBus.route_number} | Status: {currentBus.tracking_status || 'Active'}
-            </Text>
-            <Text style={styles.subValue}>
-              Status: Currently tracking
-            </Text>
+            <LinearGradient
+              colors={['#0056b3', '#1976d2', '#42a5f5']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.currentBusInfoGradient}
+            >
+              <Text style={styles.currentBusTitleWhite}>
+                {currentBus.registration_number || currentBus.number}
+              </Text>
+              <Text style={styles.currentBusRouteWhite}>
+                Route {currentBus.route_number}
+              </Text>
+            </LinearGradient>
             {/* Hide confidence, distance, speed, movement correlation, data age from UI */}
             {busStatuses[currentBus.id]?.occupancy && (
               <View style={styles.currentOccupancy}>
@@ -1182,9 +1172,9 @@ export default function BusOccupancyScreen() {
 
         {/* Header outside of ScrollView - fixed positioning */}
         <LinearGradient
-          colors={[AppColors.primary, AppColors.primaryLight]}
+          colors={['#0056b3', '#1976d2', '#42a5f5']}
           start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+          end={{ x: 1, y: 0 }}
           style={styles.headerGradient}
         >
           <View style={styles.headerContent}>
@@ -1200,12 +1190,10 @@ export default function BusOccupancyScreen() {
               }}
               style={styles.backButton}
             >
-              <Text style={styles.backArrow}>←</Text>
+              <Ionicons name="arrow-back-outline" size={24} color="white" />
             </TouchableOpacity>
-            <View style={styles.headerTitleContainer}>
-              <Text style={styles.headerTitle}>Bus Occupancy</Text>
-              <Text style={styles.headerSubtitle}>Report and track bus capacity</Text>
-            </View>
+            <Text style={styles.headerTitle}>Bus Occupancy</Text>
+            <View style={{ width: 40 }} />
           </View>
         </LinearGradient>
 
@@ -1296,8 +1284,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   scrollContent: {
-    paddingTop: 16,
-    paddingBottom: 20,
+    paddingTop: 20,
+    paddingBottom: 24,
   },
   
   // Loading screen styles
@@ -1305,85 +1293,88 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 20,
   },
   loadingText: {
-    marginTop: 16,
-    fontSize: 16,
+    marginTop: 20,
+    fontSize: 17,
     color: AppColors.textSecondary,
     textAlign: 'center',
-    fontWeight: '500',
+    fontWeight: '600',
+    letterSpacing: 0.3,
   },
   loadingSubText: {
-    marginTop: 12,
-    fontSize: 12,
+    marginTop: 14,
+    fontSize: 13,
     color: AppColors.textSecondary,
     textAlign: 'center',
     paddingHorizontal: 20,
-    lineHeight: 18,
+    lineHeight: 20,
+    fontWeight: '500',
   },
   errorText: {
     fontSize: 16,
     color: AppColors.red,
     textAlign: 'center',
-    marginVertical: 12,
-    fontWeight: '500',
+    marginVertical: 14,
+    fontWeight: '600',
+    letterSpacing: 0.2,
   },
 
   // Header styles (matching BusTrackingScreen structure)
   headerGradient: {
-    borderBottomWidth: 1,
-    borderBottomColor: AppColors.border,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    ...Platform.select({
+      android: {
+        elevation: 8,
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+      },
+    }),
   },
   headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 10,
-    paddingVertical: 12,
-    backgroundColor: 'transparent',
   },
   backButton: {
     padding: 8,
-  },
-  backArrow: {
-    fontSize: 24,
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-  },
-  headerTitleContainer: {
-    flex: 1,
-    marginLeft: 8,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 2,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.8)',
-    fontWeight: '500',
+    color: 'white',
+    flex: 1,
+    textAlign: 'center',
   },
 
   // Section styles (enhanced to match BusTrackingScreen)
   sectionCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: 16,
-    padding: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
     marginHorizontal: 16,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: 'rgba(222, 226, 230, 0.4)',
+    borderColor: 'rgba(0, 86, 179, 0.08)',
     ...Platform.select({
       android: {
-        elevation: 6,
+        elevation: 8,
       },
       ios: {
-        shadowColor: '#000',
-        shadowOpacity: 0.12,
-        shadowRadius: 10,
-        shadowOffset: { width: 0, height: 4 },
+        shadowColor: 'rgba(0, 86, 179, 0.15)',
+        shadowOpacity: 1,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 6 },
       },
     }),
   },
@@ -1391,19 +1382,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 86, 179, 0.08)',
   },
   sectionTitleContainer: {
     flex: 1,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 19,
     fontWeight: 'bold',
     color: AppColors.text,
-    marginBottom: 2,
+    marginBottom: 4,
+    letterSpacing: 0.3,
   },
   sectionSubtitle: {
-    fontSize: 12,
+    fontSize: 13,
     color: AppColors.textSecondary,
     fontWeight: '500',
   },
@@ -1439,29 +1434,58 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   detectedBusContent: {
-    backgroundColor: 'rgba(248, 250, 255, 0.5)',
-    borderRadius: 8,
-    padding: 16,
+    backgroundColor: 'rgba(227, 242, 253, 0.3)',
+    borderRadius: 16,
+    padding: 20,
     marginTop: 8,
     borderWidth: 1,
-    borderColor: 'rgba(222, 226, 230, 0.4)',
+    borderColor: 'rgba(0, 86, 179, 0.15)',
   },
   currentBusHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 10,
+  },
+  currentBusInfoGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  currentBusTitleWhite: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    letterSpacing: 0.4,
+  },
+  currentBusRouteWhite: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
+  },
+  currentBusRouteName: {
+    fontSize: 15,
+    color: AppColors.text,
+    marginBottom: 12,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   currentBusTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     marginLeft: 8,
     color: AppColors.text,
+    letterSpacing: 0.3,
   },
   currentBusRoute: {
-    fontSize: 16,
+    fontSize: 17,
     color: AppColors.text,
-    marginBottom: 12,
-    fontWeight: '500',
+    marginBottom: 14,
+    fontWeight: '600',
   },
   confidenceContainer: {
     marginBottom: 12,
@@ -1515,19 +1539,32 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     marginBottom: 12,
+    marginTop: 8,
   },
   occupancyButton: {
     flex: 1,
     minWidth: '45%',
-    paddingVertical: 10,
-    borderRadius: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
     alignItems: 'center',
     margin: 4,
+    ...Platform.select({
+      android: {
+        elevation: 4,
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOpacity: 0.15,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 3 },
+      },
+    }),
   },
   occupancyButtonText: {
     color: '#fff',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: 'bold',
+    letterSpacing: 0.3,
   },
   currentOccupancy: {
     flexDirection: 'row',
@@ -1545,25 +1582,30 @@ const styles = StyleSheet.create({
   },
   noBusText: {
     fontSize: 16,
-    color: '#6c757d',
+    color: AppColors.textSecondary,
     textAlign: 'center',
-    paddingVertical: 12,
+    paddingVertical: 16,
+    fontWeight: '500',
+    lineHeight: 24,
   },
   label: {
     fontSize: 16,
     fontWeight: 'bold',
     marginBottom: 8,
-    color: '#495057',
+    color: AppColors.text,
+    letterSpacing: 0.3,
   },
   value: {
-    fontSize: 14,
-    color: '#6c757d',
-    marginBottom: 4,
+    fontSize: 15,
+    color: AppColors.textSecondary,
+    marginBottom: 6,
+    fontWeight: '500',
   },
   subValue: {
-    fontSize: 12,
-    color: '#6c757d',
-    marginBottom: 2,
+    fontSize: 13,
+    color: AppColors.textSecondary,
+    marginBottom: 4,
+    fontWeight: '500',
   },
   movementInfo: {
     marginTop: 8,
@@ -1578,13 +1620,15 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   refreshButton: {
-    padding: 8,
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: 'rgba(0, 86, 179, 0.08)',
   },
   statusItem: {
-    padding: 12,
-    marginBottom: 8,
+    padding: 16,
+    marginBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(222, 226, 230, 0.3)',
+    borderBottomColor: 'rgba(0, 86, 179, 0.08)',
   },
   statusItemContent: {
     flexDirection: 'row',
@@ -1598,52 +1642,53 @@ const styles = StyleSheet.create({
   statusRightContent: {
     justifyContent: 'space-between',
     alignItems: 'flex-end',
-    minWidth: 80,
+    minWidth: 85,
     minHeight: 60,
     paddingVertical: 4,
   },
   userStatusItem: {
-    backgroundColor: '#e8f5e8',
+    backgroundColor: 'rgba(16, 185, 129, 0.08)',
     paddingHorizontal: 12,
-    borderRadius: 8,
+    borderRadius: 12,
     marginVertical: 4,
     borderLeftWidth: 4,
-    borderLeftColor: '#28a745',
+    borderLeftColor: '#10B981',
   },
   statusHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 3,
+    marginBottom: 6,
   },
   statusBusNumber: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '600',
     color: AppColors.text,
     marginTop: 6,
-    marginBottom: 2,
-    letterSpacing: 0.3,
+    marginBottom: 4,
+    letterSpacing: 0.4,
   },
   statusRouteNumber: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: 'bold',
-    color: AppColors.primary,
-    backgroundColor: 'rgba(227, 242, 253, 0.6)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    color: '#0056b3',
+    backgroundColor: 'rgba(227, 242, 253, 0.7)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
     textAlign: 'center',
-    minWidth: 60,
+    minWidth: 65,
+    overflow: 'hidden',
   },
   userUpdateIndicator: {
     fontSize: 12,
-    color: '#28a745',
+    color: '#10B981',
     fontWeight: 'bold',
   },
   statusRoute: {
-    fontSize: 13,
+    fontSize: 14,
     color: AppColors.textSecondary,
-    marginBottom: 4,
+    marginBottom: 6,
     fontWeight: '500',
   },
   statusOccupancy: {
@@ -1655,20 +1700,22 @@ const styles = StyleSheet.create({
   statusOccupancyText: {
     fontSize: 11,
     fontWeight: 'bold',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
     color: '#FFFFFF',
     textTransform: 'uppercase',
-    letterSpacing: 0.3,
+    letterSpacing: 0.5,
     textAlign: 'center',
     alignSelf: 'flex-end',
+    overflow: 'hidden',
   },
   statusTime: {
     fontSize: 12,
     color: '#6c757d',
     textAlign: 'right',
-    marginBottom: 8,
+    marginBottom: 10,
+    fontWeight: '500',
   },
   statusConfidence: {
     fontSize: 11,
@@ -1677,107 +1724,112 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: 20,
-    padding: 24,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 28,
     width: '90%',
-    maxWidth: 400,
+    maxWidth: 420,
     borderWidth: 1,
-    borderColor: 'rgba(222, 226, 230, 0.6)',
+    borderColor: 'rgba(0, 86, 179, 0.1)',
     ...Platform.select({
       android: {
-        elevation: 8,
+        elevation: 12,
       },
       ios: {
-        shadowColor: '#000',
-        shadowOpacity: 0.15,
-        shadowRadius: 12,
-        shadowOffset: { width: 0, height: 6 },
+        shadowColor: 'rgba(0, 86, 179, 0.25)',
+        shadowOpacity: 1,
+        shadowRadius: 16,
+        shadowOffset: { width: 0, height: 8 },
       },
     }),
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 21,
     fontWeight: 'bold',
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: 10,
+    color: AppColors.text,
+    letterSpacing: 0.3,
   },
   modalSubtitle: {
-    fontSize: 14,
-    color: '#6c757d',
+    fontSize: 15,
+    color: AppColors.textSecondary,
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
+    fontWeight: '500',
   },
   occupancyOptions: {
-    marginBottom: 20,
+    marginBottom: 24,
   },
   occupancyOption: {
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
+    padding: 18,
+    borderRadius: 14,
+    marginBottom: 14,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.3)',
     ...Platform.select({
       android: {
-        elevation: 2,
+        elevation: 4,
       },
       ios: {
         shadowColor: '#000',
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 3 },
       },
     }),
   },
   selectedOccupancy: {
     borderWidth: 3,
-    borderColor: AppColors.primary,
-    transform: [{ scale: 1.02 }],
+    borderColor: '#0056b3',
+    transform: [{ scale: 1.03 }],
+    ...Platform.select({
+      android: {
+        elevation: 8,
+      },
+      ios: {
+        shadowOpacity: 0.25,
+        shadowRadius: 10,
+      },
+    }),
+  },
+  occupancyLabel: {
+    fontSize: 17,
+    fontWeight: 'bold',
+    color: '#fff',
+    letterSpacing: 0.3,
+  },
+  occupancyDescription: {
+    fontSize: 13,
+    color: '#fff',
+    marginTop: 4,
+    fontWeight: '500',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 14,
+    alignItems: 'center',
     ...Platform.select({
       android: {
         elevation: 4,
       },
       ios: {
-        shadowOpacity: 0.2,
-        shadowRadius: 6,
-      },
-    }),
-  },
-  occupancyLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  occupancyDescription: {
-    fontSize: 12,
-    color: '#fff',
-    marginTop: 2,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  modalButton: {
-    flex: 1,
-    padding: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginHorizontal: 6,
-    ...Platform.select({
-      android: {
-        elevation: 2,
-      },
-      ios: {
         shadowColor: '#000',
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 3 },
       },
     }),
   },
@@ -1785,63 +1837,66 @@ const styles = StyleSheet.create({
     backgroundColor: AppColors.textSecondary,
   },
   confirmButton: {
-    backgroundColor: AppColors.primary,
+    backgroundColor: '#0056b3',
   },
   cancelButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+    letterSpacing: 0.3,
   },
   confirmButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+    letterSpacing: 0.3,
   },
   // Nearby Buses Styles
   nearbyBusesContainer: {
     marginTop: 8,
   },
   nearbyBusesNote: {
-    fontSize: 12,
-    color: '#6c757d',
-    marginBottom: 8,
+    fontSize: 13,
+    color: AppColors.textSecondary,
+    marginBottom: 12,
     fontStyle: 'italic',
+    fontWeight: '500',
   },
   nearbyBusItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: 'rgba(248, 249, 250, 0.8)',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 10,
+    backgroundColor: 'rgba(248, 250, 255, 0.5)',
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 12,
     borderWidth: 1,
-    borderColor: 'rgba(233, 236, 239, 0.6)',
+    borderColor: 'rgba(0, 86, 179, 0.1)',
     ...Platform.select({
       android: {
-        elevation: 2,
+        elevation: 3,
       },
       ios: {
-        shadowColor: '#000',
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-        shadowOffset: { width: 0, height: 2 },
+        shadowColor: 'rgba(0, 86, 179, 0.1)',
+        shadowOpacity: 1,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 3 },
       },
     }),
   },
   detectedBusItem: {
-    backgroundColor: 'rgba(227, 242, 253, 0.9)',
-    borderColor: AppColors.primary,
+    backgroundColor: 'rgba(227, 242, 253, 0.7)',
+    borderColor: '#0056b3',
     borderWidth: 2,
     ...Platform.select({
       android: {
-        elevation: 4,
+        elevation: 6,
       },
       ios: {
-        shadowColor: AppColors.primary,
-        shadowOpacity: 0.2,
-        shadowRadius: 6,
-        shadowOffset: { width: 0, height: 3 },
+        shadowColor: '#0056b3',
+        shadowOpacity: 0.25,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 4 },
       },
     }),
   },
@@ -1850,51 +1905,56 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   nearbyBusNumber: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: 'bold',
     color: '#212529',
-    marginBottom: 2,
+    marginBottom: 4,
+    letterSpacing: 0.3,
   },
   nearbyBusRoute: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#6c757d',
+    fontWeight: '500',
   },
   detectedBusText: {
-    color: '#007bff',
+    color: '#0056b3',
   },
   detectedBusIndicator: {
-    fontSize: 12,
-    color: '#28a745',
+    fontSize: 13,
+    color: '#10B981',
     fontWeight: 'bold',
   },
   nearbyBusDetails: {
     fontSize: 12,
     color: '#6c757d',
-    marginBottom: 2,
+    marginBottom: 4,
+    fontWeight: '500',
   },
   nearbyBusTime: {
-    fontSize: 10,
+    fontSize: 11,
     color: '#6c757d',
     fontStyle: 'italic',
   },
   nearbyBusStatus: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 12,
-    minWidth: 50,
+    minWidth: 55,
     alignItems: 'center',
   },
   nearbyBusStatusText: {
-    fontSize: 10,
+    fontSize: 11,
     color: '#fff',
     fontWeight: 'bold',
+    letterSpacing: 0.3,
   },
   moreNearbyBuses: {
-    fontSize: 12,
-    color: '#6c757d',
+    fontSize: 13,
+    color: AppColors.textSecondary,
     textAlign: 'center',
-    marginTop: 8,
+    marginTop: 12,
     fontStyle: 'italic',
+    fontWeight: '500',
   },
   refreshButtonText: {
     fontSize: 12,
