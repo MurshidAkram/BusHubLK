@@ -481,5 +481,3 @@ server.listen(PORT, '0.0.0.0', () => {
   }
 });
 
-// add this after your other route registrations (for example after depotRoutes or crewRoutes)
-// regional routes already registered earlier in the file near depotRoutes

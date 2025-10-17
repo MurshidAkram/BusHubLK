@@ -17,7 +17,6 @@ const CREW_COLORS = ['#10b981', '#f59e42', '#6366f1', '#f87171'];
 
 type FleetStats = {
   active: number;
-  in_service: number;
   maintenance: number;
   out_of_service: number;
   total: number;
@@ -50,7 +49,7 @@ const RegionalOperationsOfficerDashboard = (): JSX.Element => {
   const { user, token } = useContext(AppContext) || {};
   const regionId = (user as any)?.region_id || (user as any)?.regionId || Number(localStorage.getItem('region_id')) || 1;
 
-  const [fleetStats, setFleetStats] = useState<FleetStats>({ active: 0, in_service: 0, maintenance: 0, out_of_service: 0, total: 0 });
+  const [fleetStats, setFleetStats] = useState<FleetStats>({ active: 0, maintenance: 0, out_of_service: 0, total: 0 });
   const [crewCounts, setCrewCounts] = useState<CrewCounts>({ drivers_on_duty: 0, drivers_on_break: 0, conductors_on_duty: 0, conductors_on_break: 0 });
   const [incidents, setIncidents] = useState<IncidentItem[]>([]);
   const [depotsPerformance, setDepotsPerformance] = useState<DepotPerf[]>([]);
@@ -89,7 +88,6 @@ const RegionalOperationsOfficerDashboard = (): JSX.Element => {
         if (!cancelled) {
           setFleetStats({
             active: Number(f.active || 0),
-            in_service: Number(f.in_service || 0),
             maintenance: Number(f.maintenance || 0),
             out_of_service: Number(f.out_of_service || 0),
             total: Number(f.total || 0),
@@ -328,16 +326,6 @@ const RegionalOperationsOfficerDashboard = (): JSX.Element => {
               </div>
               <div className="w-2/5 bg-gray-100 rounded-full h-3">
                 <div className="bg-green-500 h-3 rounded-full" style={{ width: `${pct(fleetStats.active)}%` }} />
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-500">In Service</p>
-                <p className="text-xl font-semibold text-gray-900">{fleetStats.in_service}</p>
-              </div>
-              <div className="w-2/5 bg-gray-100 rounded-full h-3">
-                <div className="bg-blue-500 h-3 rounded-full" style={{ width: `${pct(fleetStats.in_service)}%` }} />
               </div>
             </div>
 
