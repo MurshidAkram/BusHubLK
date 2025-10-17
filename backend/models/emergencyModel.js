@@ -7,7 +7,17 @@ const Emergency = {
    * @returns {Promise<object>} The newly created report.
    */
 createReport: async (reportData, client = pool) => { // <-- Add client parameter
-  const { driver_id, bus_id, assignment_id, incidentType, description, latitude, longitude } = reportData;
+
+  const {
+    driver_id,
+    incidentType,
+    description,
+    latitude,
+    longitude,
+    bus_id = null,
+    assignment_id = null,
+  } = reportData;
+
   const query = {
     text: `INSERT INTO emergency_reports(driver_id, bus_id, assignment_id, incident_type, description, latitude, longitude)
            VALUES($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
@@ -77,10 +87,10 @@ createReport: async (reportData, client = pool) => { // <-- Add client parameter
     return rows[0];
   },
 
-/**
-   * Finds the phone number of a Depot Engineer based on a driver's ID.
+  /**
+   * Finds the phone number of a Depot based on a driver's ID.
    * @param {number} driverId - The ID of the driver.
-   * @returns {Promise<Array<object>>} A promise that resolves to the query result.
+   * @returns {Promise<Array<object>>} A promise that resolves to the depot contact phone.
    */
   findDepotEngineerByDriverId: async (driverId) => {
     // First get the depot_id for the driver
@@ -100,24 +110,26 @@ createReport: async (reportData, client = pool) => { // <-- Add client parameter
       }
 
       const depotId = driverResult.rows[0].depot_id;
+      if (!depotId) {
+        console.log('[DEBUG] Driver has no depot assigned:', driverId);
+        return [];
+      }
 
-      // Get depot engineer's phone number
-      // Removed hardcoded role_id = 12. Relies on the user being in depot_engineers table for the depot.
-      const engineerQuery = {
+      // Fetch depot contact phone directly from depots table
+      const depotQuery = {
         text: `
-          SELECT u.phone
-          FROM users u
-          INNER JOIN depot_engineers de ON de.depot_engineer_id = u.user_id
-          WHERE de.depot_id = $1
-          AND u.is_active = true
-          LIMIT 1
+
+          SELECT contact_phone as phone
+          FROM depots
+          WHERE depot_id = $1
+            AND contact_phone IS NOT NULL
         `,
         values: [depotId]
       };
 
-      const engineerResult = await pool.query(engineerQuery);
-      console.log('[DEBUG] Engineer query result:', engineerResult.rows);
-      return engineerResult.rows;
+      const depotResult = await pool.query(depotQuery);
+      console.log('[DEBUG] Depot contact query result:', depotResult.rows);
+      return depotResult.rows;
       
     } catch (error) {
       console.error('[ERROR] Query error:', error);

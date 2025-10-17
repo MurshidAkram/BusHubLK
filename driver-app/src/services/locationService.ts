@@ -106,65 +106,83 @@ class LocationService {
   async startSmartLocationTracking(busId: string, routeId: string, busRegistration?: string) {
     console.log("📱 Starting smart location tracking for EAS build...");
     
-    // Check permissions first
-    const { status: foregroundStatus } = await Location.requestForegroundPermissionsAsync();
-    if (foregroundStatus !== 'granted') {
+    try {
+      // Check permissions first
+      const { status: foregroundStatus } = await Location.requestForegroundPermissionsAsync();
+      if (foregroundStatus !== 'granted') {
+        Alert.alert(
+          "Permission Required",
+          "Location access is required for bus tracking. Please enable location permissions in Settings.",
+          [{ text: "OK" }]
+        );
+        return false;
+      }
+
+      // Try to request background permissions, but don't fail if it's not available (e.g., Expo Go)
+      let hasBackgroundPermission = false;
+      try {
+        const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
+        hasBackgroundPermission = backgroundStatus === 'granted';
+        
+        if (!hasBackgroundPermission) {
+          Alert.alert(
+            "Background Tracking",
+            "For continuous tracking even when the app is closed, please enable 'Allow all the time' location permission.\n\nFor now, tracking will work when the app is open.",
+            [{ text: "Continue" }]
+          );
+        }
+      } catch (bgError) {
+        console.log("⚠️ Background permissions not available (likely using Expo Go):", bgError);
+        Alert.alert(
+          "Limited Tracking Mode",
+          "Background tracking is not available in Expo Go. The app will track location while it's open.\n\nFor full background tracking, please use a development build.",
+          [{ text: "Continue Anyway" }]
+        );
+      }
+
+      console.log(`🎯 Starting tracking with background permission: ${hasBackgroundPermission}`);
+      
+      // Get driver ID from current assignment
+      const driverId = this.currentAssignment?.driver_id;
+      
+      if (!driverId) {
+        console.error('❌ No driver ID available in current assignment');
+        Alert.alert('Error', 'Driver information not available. Please try again.');
+        return false;
+      }
+      
+      console.log(`📋 Using assignment data:`, {
+        driverId,
+        busId,
+        routeId,
+        assignment: this.currentAssignment
+      });
+      
+      // Use BackgroundLocationService for all tracking (works for both foreground and background)
+      const success = await BackgroundLocationService.startTracking(
+        Number(driverId),
+        Number(busId),
+        Number(routeId)
+      );
+      
+      if (success) {
+        // Mark tracking as active
+        await AsyncStorage.setItem(TRACKING_STATUS_KEY, 'active');
+        console.log('✅ Tracking started successfully and marked as active');
+      } else {
+        console.error('❌ BackgroundLocationService.startTracking returned false');
+      }
+      
+      return success;
+    } catch (error) {
+      console.error("❌ Error in startSmartLocationTracking:", error);
       Alert.alert(
-        "Permission Required",
-        "Location access is required for bus tracking. Please enable location permissions in Settings.",
+        "Tracking Error",
+        `Failed to start location tracking: ${error instanceof Error ? error.message : 'Unknown error'}\n\nPlease try again or restart the app.`,
         [{ text: "OK" }]
       );
       return false;
     }
-
-
-    // Request background permissions for continuous tracking
-    const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
-    const hasBackgroundPermission = backgroundStatus === 'granted';
-    
-    if (!hasBackgroundPermission) {
-      Alert.alert(
-        "Background Tracking",
-        "For continuous tracking even when the app is closed, please enable 'Allow all the time' location permission.\n\nFor now, tracking will work when the app is open.",
-        [{ text: "Continue" }]
-      );
-    }
-
-    console.log(`🎯 Starting tracking with background permission: ${hasBackgroundPermission}`);
-    
-    // Get driver ID from current assignment
-    const driverId = this.currentAssignment?.driver_id;
-    
-    if (!driverId) {
-      console.error('❌ No driver ID available in current assignment');
-      Alert.alert('Error', 'Driver information not available. Please try again.');
-      return false;
-    }
-    
-    console.log(`📋 Using assignment data:`, {
-      driverId,
-      busId,
-      routeId,
-      assignment: this.currentAssignment
-    });
-    
-    // Use BackgroundLocationService for all tracking (works for both foreground and background)
-    const success = await BackgroundLocationService.startTracking(
-      Number(driverId),
-      Number(busId),
-      Number(routeId)
-    );
-    
-    if (success) {
-      // Mark tracking as active
-      await AsyncStorage.setItem(TRACKING_STATUS_KEY, 'active');
-      console.log('✅ Tracking started successfully and marked as active');
-    } else {
-      console.error('❌ BackgroundLocationService.startTracking returned false');
-    }
-    
-    return success;
-
   }
 
   // Direct tracking method that bypasses permission requests

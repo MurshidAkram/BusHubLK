@@ -1,6 +1,7 @@
 const db = require('../config/db');
 const { executeTransaction } = require('../utils/dbUtils');
 const LostFoundReport = require('../models/LostFoundReport');
+const passengerNotificationService = require('../services/passengerNotificationService');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs').promises;
@@ -205,6 +206,36 @@ const submitReport = async (req, res) => {
       console.log('📊 Found', matches.length, 'potential matches');
     } catch (matchError) {
       console.log('⚠️  Match finding skipped:', matchError.message);
+    }
+
+    // Broadcast notification to passengers
+    try {
+      const trimmedDescription = (item_description || '').trim();
+      const snippet = trimmedDescription.length > 80
+        ? `${trimmedDescription.slice(0, 77)}...`
+        : trimmedDescription;
+
+      const titlePrefix = report_type === 'lost' ? 'Lost item reported' : 'Found item reported';
+      const routeContext = route_number ? ` on route ${route_number}` : '';
+
+      await passengerNotificationService.createBroadcastNotification({
+        title: `${titlePrefix}${routeContext}`,
+        body: snippet || 'Tap to view details about the report.',
+        category: 'lost_found',
+        related_entity_type: 'lost_found_report',
+        related_entity_id: newReport.report_id,
+        metadata: {
+          reportId: newReport.report_id,
+          reportType: report_type,
+          routeNumber: route_number || null,
+          regionId: reportData.region_id || null
+        },
+        excludePassengerIds: [Number(passenger_id)]
+      });
+
+      console.log('📢 Passenger notification broadcast for lost/found report');
+    } catch (notifyError) {
+      console.error('⚠️  Failed to broadcast passenger notification:', notifyError.message);
     }
 
     // POST-TRANSACTION VERIFICATION - Use a fresh connection to avoid caching

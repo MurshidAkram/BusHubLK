@@ -219,4 +219,43 @@ export const complaintAPI = {
   },
 };
 
+export const notificationAPI = {
+  getNotifications: async (params?: {
+    page?: number;
+    limit?: number;
+    includeRead?: boolean;
+    category?: string;
+  }) => {
+    const queryParams: Record<string, any> = {};
+    if (params?.page !== undefined) queryParams.page = params.page;
+    if (params?.limit !== undefined) queryParams.limit = params.limit;
+    if (params?.includeRead !== undefined) {
+      queryParams.includeRead = params.includeRead ? 'true' : 'false';
+    }
+    if (params?.category) queryParams.category = params.category;
+
+    const response = await api.get('/api/passenger-notifications', {
+      params: queryParams,
+    });
+    return response.data;
+  },
+
+  getUnreadCount: async () => {
+    const response = await api.get('/api/passenger-notifications/unread-count');
+    return response.data;
+  },
+
+  markAsRead: async (notificationId: number) => {
+    await api.post(`/api/passenger-notifications/${notificationId}/read`);
+  },
+
+  markAllAsRead: async () => {
+    await api.post('/api/passenger-notifications/mark-all-read');
+  },
+
+  deleteNotification: async (notificationId: number) => {
+    await api.delete(`/api/passenger-notifications/${notificationId}`);
+  },
+};
+
 export default api;

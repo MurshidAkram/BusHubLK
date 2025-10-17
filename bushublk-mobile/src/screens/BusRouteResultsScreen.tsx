@@ -414,7 +414,8 @@ export default function BusRouteResultsScreen({ route, navigation }: any) {
   
 
   const handleRouteCardPress = (routeNumber: string) => {
-    navigation.navigate('BusTracker', { 
+
+    navigation.navigate('BusTracking', { 
       selectedRoute: routeNumber,
       fromSearch: true,
       searchFrom: fromText,

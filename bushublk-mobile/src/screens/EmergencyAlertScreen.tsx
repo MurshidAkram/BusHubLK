@@ -25,11 +25,13 @@ import { API_BASE_URL } from '../config/api';
 import { storageAPI } from '../services/api';
 
 const AppColors = {
-    background: '#F7F8FC',
+    background: '#F8FAFF',
     card: '#FFFFFF',
-    primary: '#3B82F6',
-    primaryLight: '#EFF6FF',
-    text: '#111827',
+    primary: '#0056b3',
+    primaryDark: '#003d82',
+    primaryLight: '#0076e3',
+    primaryMuted: 'rgba(0, 86, 179, 0.1)',
+    text: '#1F2937',
     textSecondary: '#6B7280',
     border: '#E5E7EB',
     red: '#EF4444',
@@ -469,7 +471,6 @@ const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
     const handleRefreshHistory = () => fetchAlertHistory();
 
     const renderEmergencyView = () => (
-    <LinearGradient colors={['#3B82F6', '#60A5FA', '#DBEAFE']} style={styles.emergencyGradient}>
         <View style={styles.emergencyContainer}>
             <View style={styles.emergencyCard}>
                 <View style={styles.emergencyIcon}><Text style={styles.emergencyIconText}>⚠️</Text></View>
@@ -488,13 +489,13 @@ const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
                     <TouchableOpacity
                         style={[
                             styles.emergencyButton, styles.panicButton,
-                            { height: 85, borderRadius: 42, justifyContent: 'center', alignItems: 'center' },
+                            { height: 95, borderRadius: 48, justifyContent: 'center', alignItems: 'center' },
                             (contactsLoading || contacts.length === 0 || !contacts.find(c => c.isPrimary) || currentLatitude === null || currentLongitude === null) && { opacity: 0.5 }
                         ]}
                         disabled={contactsLoading || contacts.length === 0 || !contacts.find(c => c.isPrimary) || currentLatitude === null || currentLongitude === null}
                         onPress={handleEmergencyAction}
                     >
-                        <Text style={[styles.emergencyButtonText, { fontSize: 24 }]}>EMERGENCY ALERT</Text>
+                        <Text style={[styles.emergencyButtonText, { fontSize: 26 }]}>EMERGENCY ALERT</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -525,7 +526,6 @@ const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
                 )}
             </View>
         </View>
-    </LinearGradient>
     );
 
     const renderContactsView = () => (
@@ -659,12 +659,27 @@ const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
     };
 
     return (
-    <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-            <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}><Text style={styles.backButtonText}>←</Text></TouchableOpacity>
-            <Text style={styles.pageHeaderTitle}>Emergency Alert</Text>
-        </View>
-        <View style={styles.tabBar}>
+    <LinearGradient
+        colors={['#F8FAFF', '#E3F2FD', '#BBDEFB']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.gradientContainer}
+    >
+        <SafeAreaView style={styles.container}>
+            <LinearGradient
+                colors={['#0056b3', '#1976d2', '#42a5f5']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.headerGradient}
+            >
+                <View style={styles.header}>
+                    <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+                        <Text style={styles.backButtonText}>←</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.pageHeaderTitle}>Emergency Alert</Text>
+                </View>
+            </LinearGradient>
+            <View style={styles.tabBar}>
             {[{ key: 'emergency', label: 'Emergency' }, { key: 'contacts', label: 'Contacts' }, { key: 'history', label: 'History' }].map(tab => (
                 <TouchableOpacity key={tab.key} onPress={() => setActiveScreen(tab.key as ScreenType)} style={[styles.tab, activeScreen === tab.key && styles.activeTab]}>
                     <Text style={[styles.tabText, activeScreen === tab.key ? styles.activeTabText : styles.inactiveTabText]}>{tab.label}</Text>
@@ -674,43 +689,185 @@ const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
         <View style={styles.content}>
             {renderContent()}
         </View>
-        {renderAddContactModal()}
-        {renderEditContactModal()}
-        {renderDeleteConfirmationModal()}
-    </SafeAreaView>
+            {renderAddContactModal()}
+            {renderEditContactModal()}
+            {renderDeleteConfirmationModal()}
+        </SafeAreaView>
+    </LinearGradient>
     );
 };
 
-// Styles remain unchanged, so they are omitted here for brevity.
-// You can just copy the components and logic functions above.
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: AppColors.background },
+    gradientContainer: {
+        flex: 1,
+    },
+    container: { 
+        flex: 1, 
+        backgroundColor: 'transparent',
+    },
     content: { flex: 1, paddingHorizontal: 16 },
-    header: { paddingVertical: 8, paddingHorizontal: 16, backgroundColor: AppColors.card },
-    pageHeaderTitle: { fontSize: 24, fontWeight: 'bold', color: AppColors.text, textAlign: 'center', marginBottom: 16 },
-    backButton: { position: 'absolute', left: 16, top: 10, zIndex: 1, padding: 8 },
-    backButtonText: { fontSize: 24, color: AppColors.primary, fontWeight: 'bold' },
-    tabBar: { flexDirection: 'row', justifyContent: 'space-around', backgroundColor: AppColors.card, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: AppColors.border },
-    tab: { paddingVertical: 10, borderBottomWidth: 3, borderBottomColor: 'transparent', flex: 1, alignItems: 'center' },
-    activeTab: { borderBottomColor: AppColors.primary },
-    tabText: { fontSize: 16, fontWeight: '600', color: AppColors.textSecondary },
-    activeTabText: { color: AppColors.primary },
-    inactiveTabText: {}, // Added for completeness, can be empty
+    headerGradient: {
+        paddingTop: Platform.OS === 'ios' ? 0 : 8,
+        ...Platform.select({
+            android: {
+                elevation: 8,
+            },
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.15,
+                shadowRadius: 8,
+            },
+        }),
+    },
+    header: { 
+        paddingVertical: 16, 
+        paddingHorizontal: 16, 
+        backgroundColor: 'transparent',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        position: 'relative',
+    },
+    pageHeaderTitle: { 
+        fontSize: 24, 
+        fontWeight: 'bold', 
+        color: '#FFFFFF', 
+        textAlign: 'center',
+    },
+    backButton: { 
+        position: 'absolute', 
+        left: 16, 
+        zIndex: 1, 
+        padding: 8,
+        alignSelf: 'center',
+    },
+    backButtonText: { 
+        fontSize: 24, 
+        color: '#FFFFFF', 
+        fontWeight: 'bold',
+    },
+    tabBar: { 
+        flexDirection: 'row', 
+        justifyContent: 'space-around', 
+        backgroundColor: AppColors.card, 
+        paddingVertical: 8,
+        borderBottomWidth: 2, 
+        borderBottomColor: AppColors.border,
+        ...Platform.select({
+            android: {
+                elevation: 4,
+            },
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.1,
+                shadowRadius: 4,
+            },
+        }),
+    },
+    tab: { 
+        paddingVertical: 12, 
+        borderBottomWidth: 3, 
+        borderBottomColor: 'transparent', 
+        flex: 1, 
+        alignItems: 'center',
+    },
+    activeTab: { 
+        borderBottomColor: AppColors.primary,
+        backgroundColor: AppColors.primaryMuted,
+    },
+    tabText: { 
+        fontSize: 16, 
+        fontWeight: '600', 
+        color: AppColors.textSecondary,
+    },
+    activeTabText: { 
+        color: AppColors.primary,
+        fontWeight: '700',
+    },
+    inactiveTabText: {},
     listContainer: { flex: 1, paddingTop: 16 },
     listHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
     listTitle: { fontSize: 22, fontWeight: 'bold', color: AppColors.text },
-    addButton: { backgroundColor: AppColors.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 12 },
+    addButton: { 
+        backgroundColor: AppColors.primary, 
+        paddingHorizontal: 20, 
+        paddingVertical: 10, 
+        borderRadius: 12,
+        ...Platform.select({
+            android: {
+                elevation: 2,
+            },
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.1,
+                shadowRadius: 3,
+            },
+        }),
+    },
     addButtonText: { color: AppColors.card, fontSize: 14, fontWeight: 'bold' },
-    clearButton: { backgroundColor: AppColors.textSecondary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 12 },
+    clearButton: { 
+        backgroundColor: AppColors.textSecondary, 
+        paddingHorizontal: 20, 
+        paddingVertical: 10, 
+        borderRadius: 12,
+        ...Platform.select({
+            android: {
+                elevation: 2,
+            },
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.1,
+                shadowRadius: 3,
+            },
+        }),
+    },
     clearButtonText: { color: AppColors.card, fontSize: 14, fontWeight: 'bold' },
-    refreshButton: { backgroundColor: AppColors.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 12 },
+    refreshButton: { 
+        backgroundColor: AppColors.primary, 
+        paddingHorizontal: 20, 
+        paddingVertical: 10, 
+        borderRadius: 12,
+        ...Platform.select({
+            android: {
+                elevation: 2,
+            },
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.1,
+                shadowRadius: 3,
+            },
+        }),
+    },
     refreshButtonText: { color: AppColors.card, fontSize: 14, fontWeight: 'bold' },
     scrollableList: { flex: 1 },
     errorText: { color: AppColors.textSecondary, textAlign: 'center', marginTop: 40, fontSize: 16 },
     loadingMessageContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 20 },
-    loadingMessageText: { fontSize: 16, color: AppColors.textSecondary, marginLeft: 10 },
-    noPrimaryContactText: { fontSize: 15, color: AppColors.textSecondary, textAlign: 'center', marginTop: 20, paddingHorizontal: 10, lineHeight: 22 },
-    contactCard: { backgroundColor: AppColors.card, borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: AppColors.border },
+    loadingMessageText: { fontSize: 17, color: AppColors.textSecondary, marginLeft: 10 },
+    noPrimaryContactText: { fontSize: 16, color: AppColors.textSecondary, textAlign: 'center', marginTop: 24, paddingHorizontal: 10, lineHeight: 24 },
+    contactCard: { 
+        backgroundColor: AppColors.card, 
+        borderRadius: 16, 
+        padding: 16, 
+        marginBottom: 12, 
+        borderWidth: 1, 
+        borderColor: AppColors.border,
+        ...Platform.select({
+            android: {
+                elevation: 2,
+            },
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.08,
+                shadowRadius: 4,
+            },
+        }),
+    },
     contactCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
     contactName: { fontSize: 18, fontWeight: 'bold', color: AppColors.text },
     contactActions: { flexDirection: 'row', gap: 20 },
@@ -720,13 +877,31 @@ const styles = StyleSheet.create({
     contactCardBody: { marginBottom: 16, borderTopWidth: 1, borderTopColor: AppColors.border, paddingTop: 12, gap: 8 },
     contactDetail: { fontSize: 14, color: AppColors.textSecondary },
     contactCardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    primaryBadge: { backgroundColor: AppColors.primaryLight, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
-    primaryBadgeText: { color: AppColors.primary, fontWeight: 'bold', fontSize: 12 },
+    primaryBadge: { backgroundColor: AppColors.primary, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
+    primaryBadgeText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 12 },
     setPrimaryButton: { borderWidth: 1, borderColor: AppColors.primary, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
     setPrimaryText: { color: AppColors.primary, fontSize: 12, fontWeight: 'bold' },
     callButton: { backgroundColor: AppColors.green, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 },
     callButtonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 12 },
-    alertCard: { backgroundColor: AppColors.card, borderRadius: 16, borderWidth: 1, borderColor: AppColors.border, padding: 16, marginBottom: 12 },
+    alertCard: { 
+        backgroundColor: AppColors.card, 
+        borderRadius: 16, 
+        borderWidth: 1, 
+        borderColor: AppColors.border, 
+        padding: 16, 
+        marginBottom: 12,
+        ...Platform.select({
+            android: {
+                elevation: 2,
+            },
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.08,
+                shadowRadius: 4,
+            },
+        }),
+    },
     alertHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
     alertInfo: {},
     alertType: { fontSize: 16, fontWeight: 'bold', color: AppColors.text },
@@ -737,22 +912,72 @@ const styles = StyleSheet.create({
     alertFeature: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     featureIcon: { fontSize: 14 },
     featureText: { fontSize: 12, color: AppColors.textSecondary },
-    emergencyGradient: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 16 },
-    emergencyContainer: { flex: 1, width: '100%', justifyContent: 'center', alignItems: 'center' },
-    emergencyCard: { backgroundColor: 'rgba(255,255,255,0.98)', borderRadius: 24, padding: 24, alignItems: 'center', width: '95%', maxWidth: 400 },
-    emergencyIcon: { width: 90, height: 90, backgroundColor: '#fff', borderRadius: 45, justifyContent: 'center', alignItems: 'center', marginBottom: 18 },
-    emergencyIconText: { fontSize: 44 },
-    emergencyTitle: { fontSize: 28, fontWeight: 'bold', color: AppColors.primary, marginBottom: 8, textAlign: 'center' },
-    emergencyDivider: { width: 60, height: 4, backgroundColor: AppColors.primary, borderRadius: 2, marginVertical: 8, opacity: 0.2 },
-    emergencySubtitle: { fontSize: 15, color: AppColors.textSecondary, textAlign: 'center', marginBottom: 28, lineHeight: 22 },
-    emergencyButtonsArea: { width: '100%', gap: 12 },
-    emergencyButton: { paddingVertical: 18, borderRadius: 12, alignItems: 'center', width: '100%' },
+    emergencyGradient: { 
+        flex: 1, 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        padding: 16,
+    },
+    emergencyContainer: { 
+        flex: 1, 
+        width: '100%', 
+        justifyContent: 'flex-start', 
+        alignItems: 'center',
+        paddingTop: 20,
+    },
+    emergencyCard: { 
+        backgroundColor: 'rgba(255,255,255,0.98)', 
+        borderRadius: 28, 
+        padding: 32, 
+        alignItems: 'center', 
+        width: '98%',
+        ...Platform.select({
+            android: {
+                elevation: 8,
+            },
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 8 },
+                shadowOpacity: 0.15,
+                shadowRadius: 12,
+            },
+        }),
+    },
+    emergencyIcon: { width: 110, height: 110, backgroundColor: '#fff', borderRadius: 55, justifyContent: 'center', alignItems: 'center', marginBottom: 24 },
+    emergencyIconText: { fontSize: 56 },
+    emergencyTitle: { fontSize: 32, fontWeight: 'bold', color: AppColors.primary, marginBottom: 12, textAlign: 'center' },
+    emergencyDivider: { width: 80, height: 5, backgroundColor: AppColors.primary, borderRadius: 2, marginVertical: 12, opacity: 0.2 },
+    emergencySubtitle: { fontSize: 17, color: AppColors.textSecondary, textAlign: 'center', marginBottom: 32, lineHeight: 26 },
+    emergencyButtonsArea: { width: '100%', gap: 16 },
+    emergencyButton: { paddingVertical: 22, borderRadius: 14, alignItems: 'center', width: '100%' },
     panicButton: { backgroundColor: AppColors.red },
     policeCallButton: { backgroundColor: '#0056b3' },
     depotCallButton: { backgroundColor: '#0056b3' },
-    emergencyButtonText: { color: '#fff', fontSize: 17, fontWeight: '700' },
-    modalBackdrop: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0, 0, 0, 0.6)' },
-    modalContent: { backgroundColor: AppColors.card, padding: 24, borderRadius: 20, width: '90%', maxHeight: '85%' },
+    emergencyButtonText: { color: '#fff', fontSize: 19, fontWeight: '700' },
+    modalBackdrop: { 
+        flex: 1, 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    },
+    modalContent: { 
+        backgroundColor: AppColors.card, 
+        padding: 24, 
+        borderRadius: 20, 
+        width: '90%', 
+        maxHeight: '85%',
+        ...Platform.select({
+            android: {
+                elevation: 10,
+            },
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 10 },
+                shadowOpacity: 0.3,
+                shadowRadius: 20,
+            },
+        }),
+    },
     modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 24, color: AppColors.text, textAlign: 'center' },
     modalInput: { backgroundColor: AppColors.background, borderWidth: 1, borderColor: AppColors.border, borderRadius: 12, padding: 16, marginBottom: 16, fontSize: 16 },
     modalToggleContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginVertical: 12, paddingVertical: 4 },

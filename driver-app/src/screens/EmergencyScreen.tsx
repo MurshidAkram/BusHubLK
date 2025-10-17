@@ -162,20 +162,20 @@ const EmergencyScreen = ({ navigation }: EmergencyScreenProps) => {
             const assignment = await driverAPI.getDailyAssignment(driver.driver_id.toString());
             if (assignment && !assignment.error) {
               setCurrentAssignment(assignment); // Store full assignment data
-              busNumber = assignment.bus_registration || assignment.registration_number || 'Unknown';
-              routeNumber = assignment.route_number || 'Unknown';
+              busNumber = String(assignment.bus_registration || assignment.registration_number || 'Unknown');
+              routeNumber = String(assignment.route_number || 'Unknown');
               console.log('✅ Emergency: Got assignment data:', { busNumber, routeNumber, assignment });
             } else {
               console.log('⚠️ Emergency: No current assignment, using stored data');
               // Fallback to stored driver data
-              busNumber = driver.busRegistration || driver.bus_number || 'Unknown';
+              busNumber = String(driver.busRegistration || driver.bus_number || 'Unknown');
               
               // Try to get route details if routeId is available
               if (driver.routeId) {
                 try {
                   const route = await driverAPI.getRouteById(driver.routeId);
                   if (route && route.route_number) {
-                    routeNumber = route.route_number;
+                    routeNumber = String(route.route_number);
                   }
                 } catch (error) {
                   console.error('Failed to fetch route details:', error);
@@ -185,14 +185,14 @@ const EmergencyScreen = ({ navigation }: EmergencyScreenProps) => {
           } catch (error) {
             console.error('Failed to fetch current assignment:', error);
             // Fallback to stored driver data
-            busNumber = driver.busRegistration || driver.bus_number || 'Unknown';
-            routeNumber = driver.route_number || 'Unknown';
+            busNumber = String(driver.busRegistration || driver.bus_number || 'Unknown');
+            routeNumber = String(driver.route_number || 'Unknown');
           }
           
           setBusInfo({
-            busNumber: busNumber,
-            routeNumber: routeNumber,
-            driverName: `${driver.first_name} ${driver.last_name}` || 'Unknown Driver'
+            busNumber: String(busNumber || 'Unknown'),
+            routeNumber: String(routeNumber || 'Unknown'),
+            driverName: String(`${driver.first_name || ''} ${driver.last_name || ''}`.trim() || 'Unknown Driver')
           });
           fetchHistory(driver.driver_id);
         }
@@ -485,7 +485,7 @@ const EmergencyScreen = ({ navigation }: EmergencyScreenProps) => {
                     styles.quickIncidentText,
                     selectedIncident === incident.text && styles.quickIncidentTextSelected
                   ]}>
-                    {String(incident.text)}
+                    {incident.text}
                   </Text>
                 </LinearGradient>
               </TouchableOpacity>
@@ -520,7 +520,7 @@ const EmergencyScreen = ({ navigation }: EmergencyScreenProps) => {
                   urgencyLevel === level && styles.urgencyTextSelected,
                   { color: urgencyLevel === level ? '#ffffff' : color }
                 ]}>
-                  {String(label)}
+                  {label}
                 </Text>
                 {urgencyLevel === level && (
                   <LinearGradient
@@ -533,26 +533,31 @@ const EmergencyScreen = ({ navigation }: EmergencyScreenProps) => {
           </View>
 
           {/* Bus Information Display */}
-          {busInfo && (
+          {busInfo && busInfo.busNumber && (
             <View style={styles.busInfoContainer}>
               <Text style={styles.sectionTitle}>Vehicle Information</Text>
               <LinearGradient colors={[AppColors.accent, '#ffffff']} style={styles.busInfoBox}>
                 <View style={styles.busInfoRow}>
                   <MaterialCommunityIcons name="bus" size={20} color={AppColors.primary} />
                   <Text style={styles.busInfoText}>
-                    Bus: {String(busInfo.busNumber || 'Unknown')}
+
+                    Bus: {busInfo?.busNumber || 'Unknown'}
+
                   </Text>
                 </View>
                 <View style={styles.busInfoRow}>
                   <MaterialCommunityIcons name="map-marker-path" size={20} color={AppColors.primary} />
                   <Text style={styles.busInfoText}>
-                    Route: {String(busInfo.routeNumber || 'Unknown')}
+
+                    Route: {busInfo?.routeNumber || 'Unknown'}
+
                   </Text>
                 </View>
                 <View style={styles.busInfoRow}>
                   <MaterialCommunityIcons name="account" size={20} color={AppColors.primary} />
                   <Text style={styles.busInfoText}>
-                    Driver: {String(busInfo.driverName || 'Unknown Driver')}
+                    Driver: {busInfo?.driverName || 'Unknown Driver'}
+
                   </Text>
                 </View>
               </LinearGradient>

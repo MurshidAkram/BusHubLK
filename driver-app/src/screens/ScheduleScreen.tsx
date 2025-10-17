@@ -70,6 +70,7 @@ interface DailyAssignment {
   depot_name?: string;
   driver_name?: string;
   conductor_name?: string;
+  conductor_phone_number?: string;
 }
 
 // Enhanced Header component
@@ -266,9 +267,25 @@ const ScheduleCard = ({ schedule, index, isTodayAssignment, navigation }: {
   };
 
   const handleEndRoute = async () => {
+    // Check if ending schedule before scheduled end time
+    const now = new Date();
+    const currentTime = now.getHours() * 60 + now.getMinutes(); // Convert to minutes since midnight
+    
+    let isEndingEarly = false;
+    if (schedule.shift_end_time) {
+      const [endHours, endMinutes] = schedule.shift_end_time.split(':').map(Number);
+      const scheduledEndTime = endHours * 60 + endMinutes;
+      isEndingEarly = currentTime < scheduledEndTime;
+    }
+
+    const title = isEndingEarly ? "End Schedule Early?" : "End Schedule?";
+    const message = isEndingEarly 
+      ? `Your scheduled end time is ${schedule.shift_end_time ? schedule.shift_end_time.slice(0, 5) : 'not set'}. Are you sure you want to end this schedule early? Location tracking will stop.`
+      : "Are you sure you want to end this schedule? Location tracking will stop.";
+
     Alert.alert(
-      "End Schedule?",
-      "Are you sure you want to end this schedule? Location tracking will stop.",
+      title,
+      message,
       [
         {
           text: "Cancel",
@@ -445,9 +462,26 @@ const ScheduleCard = ({ schedule, index, isTodayAssignment, navigation }: {
                 <Text style={[styles.detailValue, isTodayAssignment && styles.todayText]}>
                   {schedule.conductor_name || (schedule.conductor_id ? `Conductor ${schedule.conductor_id}` : 'Not Assigned')}
                 </Text>
+                {schedule.conductor_phone_number && (
+                  <View style={styles.detailRow}>
+                    <View style={styles.detailItem}>
+                      <Ionicons
+                        name="call-outline"
+                        size={18}
+                        color={isTodayAssignment ? "rgba(255, 255, 255, 0.8)" : AppColors.primary}
+                      />
+                      <View style={styles.detailTextContainer}>
+                        <Text style={[styles.detailValue, isTodayAssignment && styles.todayText]}>
+                          {schedule.conductor_phone_number}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                )}
               </View>
             </View>
           </View>
+
 
           <View style={styles.detailRow}>
             <View style={styles.detailItem}>
@@ -700,8 +734,34 @@ const ScheduleScreen = ({ navigation }: any) => {
       }
     } catch (error: any) {
       console.error('Error loading schedules:', error);
-      setError(error.message || 'Failed to load schedules');
-      Alert.alert('Error', error.message || 'Failed to load schedules');
+      
+      // Check if the error is related to invalid or expired token
+      const errorMessage = error.message || 'Failed to load schedules';
+      const isTokenError = errorMessage.toLowerCase().includes('token') || 
+                          errorMessage.toLowerCase().includes('expired') ||
+                          errorMessage.toLowerCase().includes('invalid') ||
+                          errorMessage.toLowerCase().includes('unauthorized');
+      
+      if (isTokenError) {
+        const userFriendlyMessage = 'Your session has expired. Please log in again.';
+        setError(userFriendlyMessage);
+        Alert.alert(
+          'Session Expired',
+          userFriendlyMessage,
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                // Optionally navigate to login screen
+                // navigation?.navigate('Login');
+              }
+            }
+          ]
+        );
+      } else {
+        setError(errorMessage);
+        Alert.alert('Error', errorMessage);
+      }
     } finally {
       setLoading(false);
     }
