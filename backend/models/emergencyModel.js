@@ -123,7 +123,7 @@ createReport: async (reportData, client = pool) => { // <-- Add client parameter
           WHERE de.depot_id = $1
             AND u.role_id = 12
             AND u.is_active = true
-          ORDER BY COALESCE(de.assigned_at, u.updated_at, u.created_at) DESC
+          ORDER BY COALESCE(u.updated_at, u.created_at) DESC
           LIMIT 1
         `,
         values: [depotId]
