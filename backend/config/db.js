@@ -12,9 +12,11 @@ const pool = new Pool({
   max: 20, // maximum number of clients in the pool
   min: 5,  // minimum number of clients in the pool (increased from 4)
   idleTimeoutMillis: 60000, // 60 seconds (increased from 30s to reduce reconnections)
-  connectionTimeoutMillis: 10000, // how long to wait when connecting a new client
+  connectionTimeoutMillis: 15000, // 15 seconds - increased to handle peak loads
   maxUses: 7500, 
   allowExitOnIdle: false, // Keep pool alive
+  statement_timeout: 10000, // 10 seconds - kill queries that run too long
+  query_timeout: 10000, // 10 seconds - timeout for query execution
 });
 
 // Track connection statistics
