@@ -533,26 +533,31 @@ const EmergencyScreen = ({ navigation }: EmergencyScreenProps) => {
           </View>
 
           {/* Bus Information Display */}
-          {busInfo && (
+          {busInfo && busInfo.busNumber && (
             <View style={styles.busInfoContainer}>
               <Text style={styles.sectionTitle}>Vehicle Information</Text>
               <LinearGradient colors={[AppColors.accent, '#ffffff']} style={styles.busInfoBox}>
                 <View style={styles.busInfoRow}>
                   <MaterialCommunityIcons name="bus" size={20} color={AppColors.primary} />
                   <Text style={styles.busInfoText}>
-                    Bus: {busInfo.busNumber || 'Unknown'}
+
+                    Bus: {busInfo?.busNumber || 'Unknown'}
+
                   </Text>
                 </View>
                 <View style={styles.busInfoRow}>
                   <MaterialCommunityIcons name="map-marker-path" size={20} color={AppColors.primary} />
                   <Text style={styles.busInfoText}>
-                    Route: {busInfo.routeNumber || 'Unknown'}
+
+                    Route: {busInfo?.routeNumber || 'Unknown'}
+
                   </Text>
                 </View>
                 <View style={styles.busInfoRow}>
                   <MaterialCommunityIcons name="account" size={20} color={AppColors.primary} />
                   <Text style={styles.busInfoText}>
-                    Driver: {busInfo.driverName || 'Unknown Driver'}
+                    Driver: {busInfo?.driverName || 'Unknown Driver'}
+
                   </Text>
                 </View>
               </LinearGradient>

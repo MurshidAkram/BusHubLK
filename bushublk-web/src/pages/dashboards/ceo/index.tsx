@@ -98,8 +98,7 @@ const CEODashboard = () => {
       id: 1, 
       name: 'Western Province', 
       depots: 12, 
-      vehicles: 720, 
-      revenue: 680000000, 
+      vehicles: 720,  
       efficiency: 89, 
       growth: 5.2,
       status: 'excellent',
@@ -163,18 +162,14 @@ const CEODashboard = () => {
   ];
 
   const keyAlerts = [
-    { id: 1, type: 'financial', message: 'Q4 revenue target 98% achieved', priority: 'low', time: '2 hours ago' },
     { id: 2, type: 'operational', message: 'Eastern Province efficiency below target', priority: 'high', time: '4 hours ago' },
-    { id: 3, type: 'compliance', message: 'Annual safety audit completed successfully', priority: 'low', time: '1 day ago' },
-    { id: 4, type: 'strategic', message: 'New depot construction project on schedule', priority: 'medium', time: '1 day ago' },
-    { id: 5, type: 'technical', message: 'Fleet modernization program 75% complete', priority: 'medium', time: '2 days ago' }
+    { id: 3, type: 'compliance', message: 'Western region 95% on time', priority: 'low', time: '1 day ago' },
+    { id: 4, type: 'strategic', message: 'New depot created in Western Region', priority: 'medium', time: '1 day ago' },
+    { id: 5, type: 'technical', message: 'Colombo Central Depot 50 active buses', priority: 'medium', time: '2 days ago' }
   ];
 
   const performanceIndicators = [
-    { title: 'Revenue Growth', value: '8.5%', trend: 'up', target: '10%', status: 'on-track' },
-    { title: 'Operational Costs', value: 'Rs. 18.2/km', trend: 'down', target: 'Rs. 17.5/km', status: 'improving' },
     { title: 'Fleet Utilization', value: '91%', trend: 'up', target: '93%', status: 'on-track' },
-    { title: 'Employee Satisfaction', value: '78%', trend: 'up', target: '80%', status: 'on-track' },
     { title: 'Safety Incidents', value: '0.08/1000km', trend: 'down', target: '0.05/1000km', status: 'improving' },
     { title: 'On-Time Performance', value: '87%', trend: 'up', target: '90%', status: 'on-track' }
   ];
@@ -210,7 +205,6 @@ const CEODashboard = () => {
 
   const getAlertIcon = (type: string) => {
     switch (type) {
-      case 'financial': return <HiCurrencyDollar className="h-4 w-4" />;
       case 'operational': return <HiTrendingUp className="h-4 w-4" />;
       case 'compliance': return <HiShieldCheck className="h-4 w-4" />;
       case 'strategic': return <HiLightBulb className="h-4 w-4" />;
@@ -352,10 +346,7 @@ const CEODashboard = () => {
                     <p className="text-xs text-gray-500">Vehicles</p>
                     <p className="font-medium text-gray-900">{region.vehicles}</p>
                   </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Revenue</p>
-                    <p className="font-medium text-gray-900">{formatCurrency(region.revenue)}</p>
-                  </div>
+                  
                   <div>
                     <p className="text-xs text-gray-500">Efficiency</p>
                     <p className="font-medium text-gray-900">{region.efficiency}%</p>
@@ -404,10 +395,6 @@ const CEODashboard = () => {
             <HiChartSquareBar className="h-8 w-8 text-blue-600 mb-2" />
             <span className="text-sm font-medium text-gray-700">Strategic Dashboard</span>
           </button>
-          <button className="flex flex-col items-center p-4 rounded-lg border border-gray-200 hover:border-green-300 hover:bg-green-50 transition-colors">
-            <HiCurrencyDollar className="h-8 w-8 text-green-600 mb-2" />
-            <span className="text-sm font-medium text-gray-700">Financial Reports</span>
-          </button>
           <button className="flex flex-col items-center p-4 rounded-lg border border-gray-200 hover:border-purple-300 hover:bg-purple-50 transition-colors">
             <HiGlobeAlt className="h-8 w-8 text-purple-600 mb-2" />
             <span className="text-sm font-medium text-gray-700">Regional Analysis</span>
@@ -415,14 +402,6 @@ const CEODashboard = () => {
           <button className="flex flex-col items-center p-4 rounded-lg border border-gray-200 hover:border-orange-300 hover:bg-orange-50 transition-colors">
             <HiUsers className="h-8 w-8 text-orange-600 mb-2" />
             <span className="text-sm font-medium text-gray-700">Workforce Analytics</span>
-          </button>
-          <button className="flex flex-col items-center p-4 rounded-lg border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50 transition-colors">
-            <HiShieldCheck className="h-8 w-8 text-indigo-600 mb-2" />
-            <span className="text-sm font-medium text-gray-700">Compliance Review</span>
-          </button>
-          <button className="flex flex-col items-center p-4 rounded-lg border border-gray-200 hover:border-yellow-300 hover:bg-yellow-50 transition-colors">
-            <HiLightBulb className="h-8 w-8 text-yellow-600 mb-2" />
-            <span className="text-sm font-medium text-gray-700">Innovation Hub</span>
           </button>
         </div>
       </div>
