@@ -231,7 +231,7 @@ const UNION_NOTIFICATIONS_CTE = `
     JOIN roles r ON u.role_id = r.role_id
     WHERE c.channel_type = 'direct'
       AND m.sender_id <> $1
-      AND r.role_name IN ('depot_manager', 'depot_operations', 'regional_tech')
+  AND r.role_name IN ('depot_manager', 'depot_operations', 'regional_tech', 'admin')
       AND NOT EXISTS (
         SELECT 1
         FROM message_read_status mrs
@@ -319,17 +319,17 @@ class DepotEngineerNotificationModel {
     `;
 
     const params = [userId, sourceType, sourceId, depotId, regionId];
-      const { rows } = await pool.query(query, params);
+    const { rows } = await pool.query(query, params);
 
-      if (sourceType === 'direct_message') {
-        await pool.query(
-          `INSERT INTO message_read_status (message_id, user_id, read_at)
+    if (sourceType === 'direct_message') {
+      await pool.query(
+        `INSERT INTO message_read_status (message_id, user_id, read_at)
            VALUES ($1, $2, NOW())
            ON CONFLICT (message_id, user_id)
            DO UPDATE SET read_at = NOW();`,
-          [sourceId, userId]
-        );
-      }
+        [sourceId, userId]
+      );
+    }
 
     return rows[0];
   }
@@ -356,24 +356,24 @@ class DepotEngineerNotificationModel {
     `;
 
     const params = [userId, depotId, regionId];
-        const { rows } = await pool.query(query, params);
+    const { rows } = await pool.query(query, params);
 
-        const directMessageIds = rows
-          .filter((row) => row.source_type === 'direct_message')
-          .map((row) => Number(row.source_id))
-          .filter((id) => Number.isFinite(id));
+    const directMessageIds = rows
+      .filter((row) => row.source_type === 'direct_message')
+      .map((row) => Number(row.source_id))
+      .filter((id) => Number.isFinite(id));
 
-        if (directMessageIds.length > 0) {
-            await pool.query(
-                `INSERT INTO message_read_status (message_id, user_id, read_at)
+    if (directMessageIds.length > 0) {
+      await pool.query(
+        `INSERT INTO message_read_status (message_id, user_id, read_at)
                  SELECT UNNEST($1::bigint[]), $2, NOW()
                  ON CONFLICT (message_id, user_id)
                  DO UPDATE SET read_at = NOW();`,
-                [directMessageIds, userId]
-            );
-        }
+        [directMessageIds, userId]
+      );
+    }
 
-        return rows;
+    return rows;
   }
 }
 
