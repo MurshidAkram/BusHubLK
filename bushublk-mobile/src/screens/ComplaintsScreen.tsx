@@ -249,15 +249,23 @@ export default function ComplaintsScreen() {
     setTimeout(() => setBusSuggestions([]), 150);
   }, []);
 
-  const handleSelectSuggestion = useCallback((suggestion: BusRouteSuggestion) => {
+  const handleSelectSuggestion = useCallback((suggestion: BusRouteSuggestion, mode: "route" | "bus") => {
     const derivedRoute = suggestion.route_number ?? "";
     const derivedBus = suggestion.registration_number ?? suggestion.bus_registration ?? "";
 
-    if (derivedRoute) {
-      setRouteNumber(derivedRoute);
-    }
-    if (derivedBus) {
-      setBusNumber(derivedBus);
+    if (mode === "route") {
+      // Only set route number when selecting from route suggestions
+      if (derivedRoute) {
+        setRouteNumber(derivedRoute);
+      }
+    } else {
+      // Set both route and bus when selecting from bus suggestions
+      if (derivedRoute) {
+        setRouteNumber(derivedRoute);
+      }
+      if (derivedBus) {
+        setBusNumber(derivedBus);
+      }
     }
 
     setRouteSuggestions([]);
@@ -476,19 +484,14 @@ export default function ComplaintsScreen() {
                           <TouchableOpacity
                             key={suggestionKey}
                             style={[styles.suggestionItem, isLast && styles.suggestionItemLast]}
-                            onPress={() => handleSelectSuggestion(suggestion)}
+                            onPress={() => handleSelectSuggestion(suggestion, "route")}
                           >
-                            <View>
+                            <View style={{flex: 1}}>
                               <Text style={styles.suggestionPrimary}>{suggestion.route_number || "Route not assigned"}</Text>
                               {suggestion.route_name ? (
                                 <Text style={styles.suggestionSecondary}>{suggestion.route_name}</Text>
                               ) : null}
                             </View>
-                            {(suggestion.registration_number || suggestion.bus_registration) ? (
-                              <Text style={styles.suggestionBadge}>
-                                {suggestion.registration_number || suggestion.bus_registration}
-                              </Text>
-                            ) : null}
                           </TouchableOpacity>
                         );
                       })
@@ -528,7 +531,7 @@ export default function ComplaintsScreen() {
                           <TouchableOpacity
                             key={suggestionKey}
                             style={[styles.suggestionItem, isLast && styles.suggestionItemLast]}
-                            onPress={() => handleSelectSuggestion(suggestion)}
+                            onPress={() => handleSelectSuggestion(suggestion, "bus")}
                           >
                             <View>
                               <Text style={styles.suggestionPrimary}>{busLabel}</Text>
