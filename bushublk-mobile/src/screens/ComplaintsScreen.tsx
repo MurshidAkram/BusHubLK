@@ -253,9 +253,35 @@ export default function ComplaintsScreen() {
     setTimeout(() => setRouteSuggestions([]), 150);
   }, []);
 
-  const handleSelectRouteSuggestion = useCallback((suggestion: RouteSuggestion) => {
-    setRouteNumber(suggestion.route_number || "");
-    setIsValidRoute(true); // Mark as valid when selected from dropdown
+
+  const handleBusBlur = useCallback(() => {
+    if (busSearchTimeout.current) {
+      clearTimeout(busSearchTimeout.current);
+      busSearchTimeout.current = null;
+    }
+    setTimeout(() => setBusSuggestions([]), 150);
+  }, []);
+
+  const handleSelectSuggestion = useCallback((suggestion: BusRouteSuggestion, mode: "route" | "bus") => {
+    const derivedRoute = suggestion.route_number ?? "";
+    const derivedBus = suggestion.registration_number ?? suggestion.bus_registration ?? "";
+
+    if (mode === "route") {
+      // Only set route number when selecting from route suggestions
+      if (derivedRoute) {
+        setRouteNumber(derivedRoute);
+      }
+    } else {
+      // Set both route and bus when selecting from bus suggestions
+      if (derivedRoute) {
+        setRouteNumber(derivedRoute);
+      }
+      if (derivedBus) {
+        setBusNumber(derivedBus);
+      }
+    }
+
+
     setRouteSuggestions([]);
     Keyboard.dismiss();
   }, []);
@@ -481,34 +507,26 @@ export default function ComplaintsScreen() {
                         <ActivityIndicator size="small" color={AppColors.primary} />
                       </View>
                     ) : (
-                      <ScrollView 
-                        nestedScrollEnabled={true}
-                        showsVerticalScrollIndicator={true}
-                        style={{ maxHeight: 200 }}
-                      >
-                        {routeSuggestions.map((suggestion, index) => {
-                          const suggestionKey = `route-sugg-${suggestion.route_id}-${index}`;
-                          const isLast = index === routeSuggestions.length - 1;
-                          return (
-                            <TouchableOpacity
-                              key={suggestionKey}
-                              style={[styles.suggestionItem, isLast && styles.suggestionItemLast]}
-                              onPress={() => handleSelectRouteSuggestion(suggestion)}
-                            >
-                              <View style={{ flex: 1 }}>
-                                <Text style={styles.suggestionPrimary}>
-                                  Route {suggestion.route_number}
-                                </Text>
-                                {(suggestion.start_location && suggestion.end_location) ? (
-                                  <Text style={styles.suggestionSecondary}>
-                                    {suggestion.start_location} → {suggestion.end_location}
-                                  </Text>
-                                ) : null}
-                              </View>
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </ScrollView>
+
+                      routeSuggestions.map((suggestion, index) => {
+                        const suggestionKey = `route-sugg-${suggestion.bus_route_id ?? index}-${index}`;
+                        const isLast = index === routeSuggestions.length - 1;
+                        return (
+                          <TouchableOpacity
+                            key={suggestionKey}
+                            style={[styles.suggestionItem, isLast && styles.suggestionItemLast]}
+                            onPress={() => handleSelectSuggestion(suggestion, "route")}
+                          >
+                            <View style={{flex: 1}}>
+                              <Text style={styles.suggestionPrimary}>{suggestion.route_number || "Route not assigned"}</Text>
+                              {suggestion.route_name ? (
+                                <Text style={styles.suggestionSecondary}>{suggestion.route_name}</Text>
+                              ) : null}
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      })
+
                     )}
                   </View>
                 )}
@@ -525,6 +543,43 @@ export default function ComplaintsScreen() {
                     autoCapitalize="characters"
                   />
                 </View>
+
+                {(isBusLoading || (busSuggestions.length > 0 && busNumber.trim().length > 0)) && (
+                  <View style={styles.suggestionsWrapper}>
+                    {isBusLoading ? (
+                      <View style={styles.suggestionLoading}>
+                        <ActivityIndicator size="small" color={AppColors.primary} />
+                      </View>
+                    ) : (
+                      busSuggestions.map((suggestion, index) => {
+                        const suggestionKey = `bus-sugg-${suggestion.bus_route_id ?? index}-${index}`;
+                        const isLast = index === busSuggestions.length - 1;
+                        const busLabel = suggestion.registration_number || suggestion.bus_registration || "Bus not assigned";
+                        const routeLabel = suggestion.route_number
+                          ? `Route ${suggestion.route_number}${suggestion.route_name ? ` · ${suggestion.route_name}` : ""}`
+                          : suggestion.route_name || "";
+                        return (
+                          <TouchableOpacity
+                            key={suggestionKey}
+                            style={[styles.suggestionItem, isLast && styles.suggestionItemLast]}
+                            onPress={() => handleSelectSuggestion(suggestion, "bus")}
+                          >
+                            <View>
+                              <Text style={styles.suggestionPrimary}>{busLabel}</Text>
+                              {routeLabel ? (
+                                <Text style={styles.suggestionSecondary}>{routeLabel}</Text>
+                              ) : null}
+                            </View>
+                            {suggestion.route_number ? (
+                              <Text style={styles.suggestionBadge}>{suggestion.route_number}</Text>
+                            ) : null}
+                          </TouchableOpacity>
+                        );
+                      })
+                    )}
+                  </View>
+                )}
+
               </View>
             </View>
           </View>
