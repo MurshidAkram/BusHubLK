@@ -54,15 +54,12 @@ const AppColors = {
 
 type ComplaintsScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Complaints'>;
 
-interface BusRouteSuggestion {
-  bus_route_id: number;
-  bus_id: number | null;
-  route_id: number | null;
-  registration_number: string | null;
-  bus_registration?: string | null;
-  route_number: string | null;
-  route_name?: string | null;
-  bus_name?: string | null;
+interface RouteSuggestion {
+  route_id: number;
+  route_number: string;
+  route_name: string;
+  start_location?: string;
+  end_location?: string;
 }
 
 export default function ComplaintsScreen() {
@@ -104,20 +101,15 @@ export default function ComplaintsScreen() {
   const [priority, setPriority] = useState("Medium");
   const [description, setDescription] = useState("");
   const [image, setImage] = useState<string | null>(null);
-  const [routeSuggestions, setRouteSuggestions] = useState<BusRouteSuggestion[]>([]);
-  const [busSuggestions, setBusSuggestions] = useState<BusRouteSuggestion[]>([]);
+  const [routeSuggestions, setRouteSuggestions] = useState<RouteSuggestion[]>([]);
   const [isRouteLoading, setIsRouteLoading] = useState(false);
-  const [isBusLoading, setIsBusLoading] = useState(false);
+  const [isValidRoute, setIsValidRoute] = useState(false);
   const routeSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const busSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   React.useEffect(() => {
     return () => {
       if (routeSearchTimeout.current) {
         clearTimeout(routeSearchTimeout.current);
-      }
-      if (busSearchTimeout.current) {
-        clearTimeout(busSearchTimeout.current);
       }
     };
   }, []);
@@ -142,58 +134,93 @@ export default function ComplaintsScreen() {
   };
 
   const pickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert("Permission Denied", "Sorry, we need camera roll permissions to make this work!");
-      return;
-    }
+    Alert.alert(
+      'Select Image',
+      'Choose how you want to select an image',
+      [
+        {
+          text: 'Camera',
+          onPress: async () => {
+            try {
+              // Request camera permission
+              const cameraPermission = await ImagePicker.requestCameraPermissionsAsync();
+              
+              if (cameraPermission.granted === false) {
+                Alert.alert('Permission Required', 'Permission to access camera is required!');
+                return;
+              }
+              
+              const result = await ImagePicker.launchCameraAsync({
+                mediaTypes: ['images'],
+                allowsEditing: true,
+                aspect: [4, 3],
+                quality: 0.7,
+              });
+              
+              if (!result.canceled && result.assets && result.assets.length > 0) {
+                setImage(result.assets[0].uri);
+              }
+            } catch (error) {
+              console.error('Camera error:', error);
+              Alert.alert('Error', 'Failed to take photo');
+            }
+          }
+        },
+        {
+          text: 'Gallery',
+          onPress: async () => {
+            try {
+              // Request media library permission
+              const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+              
+              if (status !== "granted") {
+                Alert.alert("Permission Required", "Permission to access photo gallery is required!");
+                return;
+              }
 
-    let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.7,
-    });
+              const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ['images'],
+                allowsEditing: true,
+                aspect: [4, 3],
+                quality: 0.7,
+              });
 
-    if (!result.canceled) {
-      setImage(result.assets[0].uri);
-    }
+              if (!result.canceled && result.assets && result.assets.length > 0) {
+                setImage(result.assets[0].uri);
+              }
+            } catch (error) {
+              console.error('Gallery error:', error);
+              Alert.alert('Error', 'Failed to select image from gallery');
+            }
+          }
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        }
+      ]
+    );
   };
 
-  const fetchBusRouteSuggestions = useCallback(async (query: string, mode: "route" | "bus") => {
+  const fetchRouteSuggestions = useCallback(async (query: string) => {
     const trimmed = query.trim();
     if (!trimmed) {
-      if (mode === "route") {
-        setRouteSuggestions([]);
-      } else {
-        setBusSuggestions([]);
-      }
+      setRouteSuggestions([]);
       return;
     }
 
     try {
-      if (mode === "route") {
-        setIsRouteLoading(true);
-      } else {
-        setIsBusLoading(true);
-      }
+      setIsRouteLoading(true);
 
-      const response = await complaintAPI.searchBusRoutes(trimmed);
-      const matches: BusRouteSuggestion[] = Array.isArray(response?.data) ? response.data : [];
+      // Use the type parameter to search only routes
+      const response = await complaintAPI.searchBusRoutes(trimmed, 'route');
+      const matches: any[] = Array.isArray(response?.data) ? response.data : [];
 
-      if (mode === "route") {
-        setRouteSuggestions(matches.slice(0, 8));
-      } else {
-        setBusSuggestions(matches.slice(0, 8));
-      }
+      setRouteSuggestions(matches.slice(0, 8));
     } catch (error) {
-      console.error("Error searching bus routes:", error);
+      console.error("Error searching routes:", error);
     } finally {
-      if (mode === "route") {
-        setIsRouteLoading(false);
-      } else {
-        setIsBusLoading(false);
-      }
+      setIsRouteLoading(false);
     }
   }, []);
 
@@ -202,40 +229,21 @@ export default function ComplaintsScreen() {
       clearTimeout(routeSearchTimeout.current);
     }
     routeSearchTimeout.current = setTimeout(() => {
-      fetchBusRouteSuggestions(value, "route");
+      fetchRouteSuggestions(value);
     }, 350);
-  }, [fetchBusRouteSuggestions]);
-
-  const scheduleBusSearch = useCallback((value: string) => {
-    if (busSearchTimeout.current) {
-      clearTimeout(busSearchTimeout.current);
-    }
-    busSearchTimeout.current = setTimeout(() => {
-      fetchBusRouteSuggestions(value, "bus");
-    }, 350);
-  }, [fetchBusRouteSuggestions]);
+  }, [fetchRouteSuggestions]);
 
   const handleRouteInputChange = useCallback((value: string) => {
     setRouteNumber(value);
+    setIsValidRoute(false); // Mark as invalid when user types
     scheduleRouteSearch(value);
   }, [scheduleRouteSearch]);
 
-  const handleBusInputChange = useCallback((value: string) => {
-    setBusNumber(value);
-    scheduleBusSearch(value);
-  }, [scheduleBusSearch]);
-
   const handleRouteFocus = useCallback(() => {
     if (routeNumber.trim()) {
-      fetchBusRouteSuggestions(routeNumber, "route");
+      fetchRouteSuggestions(routeNumber);
     }
-  }, [fetchBusRouteSuggestions, routeNumber]);
-
-  const handleBusFocus = useCallback(() => {
-    if (busNumber.trim()) {
-      fetchBusRouteSuggestions(busNumber, "bus");
-    }
-  }, [fetchBusRouteSuggestions, busNumber]);
+  }, [fetchRouteSuggestions, routeNumber]);
 
   const handleRouteBlur = useCallback(() => {
     if (routeSearchTimeout.current) {
@@ -245,27 +253,10 @@ export default function ComplaintsScreen() {
     setTimeout(() => setRouteSuggestions([]), 150);
   }, []);
 
-  const handleBusBlur = useCallback(() => {
-    if (busSearchTimeout.current) {
-      clearTimeout(busSearchTimeout.current);
-      busSearchTimeout.current = null;
-    }
-    setTimeout(() => setBusSuggestions([]), 150);
-  }, []);
-
-  const handleSelectSuggestion = useCallback((suggestion: BusRouteSuggestion) => {
-    const derivedRoute = suggestion.route_number ?? "";
-    const derivedBus = suggestion.registration_number ?? suggestion.bus_registration ?? "";
-
-    if (derivedRoute) {
-      setRouteNumber(derivedRoute);
-    }
-    if (derivedBus) {
-      setBusNumber(derivedBus);
-    }
-
+  const handleSelectRouteSuggestion = useCallback((suggestion: RouteSuggestion) => {
+    setRouteNumber(suggestion.route_number || "");
+    setIsValidRoute(true); // Mark as valid when selected from dropdown
     setRouteSuggestions([]);
-    setBusSuggestions([]);
     Keyboard.dismiss();
   }, []);
 
@@ -275,6 +266,10 @@ export default function ComplaintsScreen() {
       return;
     }
 
+    if (!isValidRoute) {
+      Alert.alert("Invalid Route", "Please select a valid route from the dropdown suggestions.");
+      return;
+    }
 
     setIsSubmitting(true);
 
@@ -461,17 +456,23 @@ export default function ComplaintsScreen() {
             <View style={styles.row}>
               <View style={[styles.inputGroup, styles.autocompleteWrapper]}>
                 <Text style={styles.label}>Route No.</Text>
-                <View style={styles.enhancedInputContainer}>
+                <View style={[
+                  styles.enhancedInputContainer,
+                  isValidRoute && styles.validInputContainer
+                ]}>
                   <Ionicons name="bus-outline" size={20} color={AppColors.primary} style={styles.inputIcon} />
                   <TextInput
                     style={styles.inputText}
-                    placeholder="e.g., 177"
+                    placeholder="e.g. 177"
                     value={routeNumber}
                     onChangeText={handleRouteInputChange}
                     onFocus={handleRouteFocus}
                     onBlur={handleRouteBlur}
                     autoCapitalize="characters"
                   />
+                  {isValidRoute && (
+                    <Ionicons name="checkmark-circle" size={20} color={AppColors.success} style={{ marginLeft: 8 }} />
+                  )}
                 </View>
                 {(isRouteLoading || (routeSuggestions.length > 0 && routeNumber.trim().length > 0)) && (
                   <View style={styles.suggestionsWrapper}>
@@ -480,82 +481,50 @@ export default function ComplaintsScreen() {
                         <ActivityIndicator size="small" color={AppColors.primary} />
                       </View>
                     ) : (
-                      routeSuggestions.map((suggestion, index) => {
-                        const suggestionKey = `route-sugg-${suggestion.bus_route_id ?? index}-${index}`;
-                        const isLast = index === routeSuggestions.length - 1;
-                        return (
-                          <TouchableOpacity
-                            key={suggestionKey}
-                            style={[styles.suggestionItem, isLast && styles.suggestionItemLast]}
-                            onPress={() => handleSelectSuggestion(suggestion)}
-                          >
-                            <View>
-                              <Text style={styles.suggestionPrimary}>{suggestion.route_number || "Route not assigned"}</Text>
-                              {suggestion.route_name ? (
-                                <Text style={styles.suggestionSecondary}>{suggestion.route_name}</Text>
-                              ) : null}
-                            </View>
-                            {(suggestion.registration_number || suggestion.bus_registration) ? (
-                              <Text style={styles.suggestionBadge}>
-                                {suggestion.registration_number || suggestion.bus_registration}
-                              </Text>
-                            ) : null}
-                          </TouchableOpacity>
-                        );
-                      })
+                      <ScrollView 
+                        nestedScrollEnabled={true}
+                        showsVerticalScrollIndicator={true}
+                        style={{ maxHeight: 200 }}
+                      >
+                        {routeSuggestions.map((suggestion, index) => {
+                          const suggestionKey = `route-sugg-${suggestion.route_id}-${index}`;
+                          const isLast = index === routeSuggestions.length - 1;
+                          return (
+                            <TouchableOpacity
+                              key={suggestionKey}
+                              style={[styles.suggestionItem, isLast && styles.suggestionItemLast]}
+                              onPress={() => handleSelectRouteSuggestion(suggestion)}
+                            >
+                              <View style={{ flex: 1 }}>
+                                <Text style={styles.suggestionPrimary}>
+                                  Route {suggestion.route_number}
+                                </Text>
+                                {(suggestion.start_location && suggestion.end_location) ? (
+                                  <Text style={styles.suggestionSecondary}>
+                                    {suggestion.start_location} → {suggestion.end_location}
+                                  </Text>
+                                ) : null}
+                              </View>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </ScrollView>
                     )}
                   </View>
                 )}
               </View>
-              <View style={[styles.inputGroup, styles.autocompleteWrapper]}>
+              <View style={styles.inputGroup}>
                 <Text style={styles.label}>Bus No. (Optional)</Text>
                 <View style={styles.enhancedInputContainer}>
                   <Ionicons name="information-circle-outline" size={20} color={AppColors.secondary} style={styles.inputIcon} />
                   <TextInput
                     style={styles.inputText}
-                    placeholder="e.g., ND-1234"
+                    placeholder="e.g.ND-1234"
                     value={busNumber}
-                    onChangeText={handleBusInputChange}
-                    onFocus={handleBusFocus}
-                    onBlur={handleBusBlur}
+                    onChangeText={setBusNumber}
                     autoCapitalize="characters"
                   />
                 </View>
-                {(isBusLoading || (busSuggestions.length > 0 && busNumber.trim().length > 0)) && (
-                  <View style={styles.suggestionsWrapper}>
-                    {isBusLoading ? (
-                      <View style={styles.suggestionLoading}>
-                        <ActivityIndicator size="small" color={AppColors.primary} />
-                      </View>
-                    ) : (
-                      busSuggestions.map((suggestion, index) => {
-                        const suggestionKey = `bus-sugg-${suggestion.bus_route_id ?? index}-${index}`;
-                        const isLast = index === busSuggestions.length - 1;
-                        const busLabel = suggestion.registration_number || suggestion.bus_registration || "Bus not assigned";
-                        const routeLabel = suggestion.route_number
-                          ? `Route ${suggestion.route_number}${suggestion.route_name ? ` · ${suggestion.route_name}` : ""}`
-                          : suggestion.route_name || "";
-                        return (
-                          <TouchableOpacity
-                            key={suggestionKey}
-                            style={[styles.suggestionItem, isLast && styles.suggestionItemLast]}
-                            onPress={() => handleSelectSuggestion(suggestion)}
-                          >
-                            <View>
-                              <Text style={styles.suggestionPrimary}>{busLabel}</Text>
-                              {routeLabel ? (
-                                <Text style={styles.suggestionSecondary}>{routeLabel}</Text>
-                              ) : null}
-                            </View>
-                            {suggestion.route_number ? (
-                              <Text style={styles.suggestionBadge}>{suggestion.route_number}</Text>
-                            ) : null}
-                          </TouchableOpacity>
-                        );
-                      })
-                    )}
-                  </View>
-                )}
               </View>
             </View>
           </View>
@@ -569,7 +538,7 @@ export default function ComplaintsScreen() {
               <Ionicons name="location-outline" size={20} color={AppColors.indigo} style={styles.inputIcon} />
               <TextInput
                 style={styles.inputText}
-                placeholder="e.g., Colombo Fort Bus Stand"
+                placeholder="e.g. Colombo Fort Bus Stand"
                 value={location}
                 onChangeText={setLocation}
               />
@@ -683,7 +652,7 @@ const styles = StyleSheet.create({
         },
       }),
     },
-    cardHeaderContainer:{flexDirection:"row",alignItems:"center",marginBottom:24,paddingBottom:16,borderBottomWidth:1,borderBottomColor:'rgba(0, 86, 179, 0.08)'},
+    cardHeaderContainer:{flexDirection:"row",alignItems:"center",marginBottom:16,paddingBottom:12,borderBottomWidth:1,borderBottomColor:'rgba(0, 86, 179, 0.08)'},
     cardIconContainer:{
       width:52,
       height:52,
@@ -695,7 +664,7 @@ const styles = StyleSheet.create({
     },
     cardHeader:{fontSize:20,fontWeight:"700",color:AppColors.text,letterSpacing:0.3},
     cardSubheader:{fontSize:13,color:AppColors.textSecondary,marginTop:4,fontWeight:'500'},
-    label:{fontSize:15,fontWeight:"600",color:AppColors.text,marginBottom:12, marginTop: 16,letterSpacing:0.2},
+    label:{fontSize:15,fontWeight:"600",color:AppColors.text,marginBottom:8, marginTop: 8,letterSpacing:0.2},
     enhancedInputContainer:{
       flexDirection:"row",
       alignItems:"center",
@@ -716,6 +685,10 @@ const styles = StyleSheet.create({
           shadowOffset: { width: 0, height: 2 },
         },
       }),
+    },
+    validInputContainer: {
+      borderColor: AppColors.success,
+      borderWidth: 2,
     },
     inputIcon:{marginRight:14},
     inputText:{flex:1,fontSize:16,color:AppColors.text,fontWeight:"500"},
@@ -763,7 +736,7 @@ const styles = StyleSheet.create({
       zIndex: 999,
     },
     placeholderText:{color:AppColors.textSecondary,fontSize:16,fontWeight:'500'},
-    priorityContainer:{flexDirection:"row",justifyContent:"space-between", marginBottom: 18,gap:10},
+    priorityContainer:{flexDirection:"row",justifyContent:"space-between", marginBottom: 8,gap:10},
     priorityButton:{
       flex:1,
       paddingVertical:14,
@@ -796,7 +769,7 @@ const styles = StyleSheet.create({
       borderWidth:1.5,
       borderColor:'rgba(0, 86, 179, 0.15)',
       fontWeight:"500", 
-      marginBottom: 18,
+      marginBottom: 8,
       ...Platform.select({
         android: {
           elevation: 2,
@@ -861,7 +834,6 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 6 },
       },
     }),
-    maxHeight:200,
     overflow:"hidden"
   },
   suggestionLoading:{paddingVertical:18,alignItems:"center",justifyContent:"center"},
