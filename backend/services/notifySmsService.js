@@ -156,16 +156,23 @@ const sendSms = async ({ message, phoneNumbers }) => {
   };
 };
 
-const fetchActivePassengerPhones = async (client) => {
+const fetchActiveRecipientPhones = async (client) => {
   const query = `
     SELECT DISTINCT u.user_id, u.phone
-    FROM passengers p
-    JOIN users u ON u.user_id = p.passenger_id
+    FROM users u
     JOIN roles r ON u.role_id = r.role_id
-    WHERE r.role_name = 'passenger'
-      AND u.is_active = TRUE
+    WHERE u.is_active = TRUE
       AND u.phone IS NOT NULL
       AND TRIM(u.phone) <> ''
+      AND (
+        (r.role_name = 'passenger' AND EXISTS (
+          SELECT 1 FROM passengers p WHERE p.passenger_id = u.user_id
+        ))
+        OR
+        (r.role_name = 'driver' AND EXISTS (
+          SELECT 1 FROM drivers d WHERE d.driver_id = u.user_id
+        ))
+      )
   `;
 
   const result = await client.query(query);
@@ -192,8 +199,8 @@ const sendSmsToActivePassengers = async ({ message, channelId = null, senderId =
   };
 
   try {
-    const passengerPhones = await fetchActivePassengerPhones(client);
-    const phoneNumbers = passengerPhones.map((row) => row.phone);
+  const recipientPhones = await fetchActiveRecipientPhones(client);
+  const phoneNumbers = recipientPhones.map((row) => row.phone);
 
     logPayload.requestedCount = phoneNumbers.length;
     logPayload.recipients = phoneNumbers;
