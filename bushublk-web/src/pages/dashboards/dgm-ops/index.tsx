@@ -13,10 +13,11 @@ const DGMOperationsDashboard = () => {
     <div className="space-y-6">
       {/* Executive Header */}
       <div className="bg-white text-black rounded-lg shadow-lg p-8">
-        <h1 className="text-3xl font-bold mb-2">DGM Operations Executive Dashboard</h1>
-        <p className="text-grey-100">Strategic oversight of national bus operations across all regions</p>
+        <h1 className="text-3xl font-bold mb-2">DGM Operations Officer Dashboard</h1>
+        <p className="text-grey-100">Oversight of bus operations across all regions</p>
         <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="text-center">
+            
             <p className="text-2xl font-bold">4</p>
             <p className="text-sm opacity-90">Regions</p>
           </div>
@@ -26,7 +27,7 @@ const DGMOperationsDashboard = () => {
           </div>
           <div className="text-center">
             <p className="text-2xl font-bold">1,247</p>
-            <p className="text-sm opacity-90">Total Fleet</p>
+            <p className="text-sm opacity-90">Total buses</p>
           </div>
           <div className="text-center">
             <p className="text-2xl font-bold">2,494</p>
@@ -45,8 +46,7 @@ const DGMOperationsDashboard = () => {
               </div>
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Fleet Utilization</p>
-              <p className="text-3xl font-bold text-gray-900">91.2%</p>
+              <p className="text-3xl font-bold text-gray-900">Active buses</p>
               <p className="text-sm text-blue-600">1,137 buses active</p>
             </div>
           </div>
@@ -60,9 +60,8 @@ const DGMOperationsDashboard = () => {
               </div>
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Revenue Efficiency</p>
-              <p className="text-3xl font-bold text-gray-900">94.7%</p>
-              <p className="text-sm text-purple-600">Target: 95%</p>
+              <p className="text-3xl font-bold text-gray-900">Active Drivers</p>
+              <p className="text-sm text-purple-600"> 250 drivers active today</p>
             </div>
           </div>
         </div>
@@ -75,9 +74,8 @@ const DGMOperationsDashboard = () => {
               </div>
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Staff Efficiency</p>
-              <p className="text-3xl font-bold text-gray-900">88.9%</p>
-              <p className="text-sm text-orange-600">2,217 active today</p>
+              <p className="text-3xl font-bold text-gray-900">Active Conductors</p>
+              <p className="text-sm text-orange-600">2,217 conductorsd active today</p>
             </div>
           </div>
         </div>

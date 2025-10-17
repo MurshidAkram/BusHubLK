@@ -389,6 +389,15 @@ const depotRoutes = require('./routes/depotRoutes');
 app.use('/api/depots', depotRoutes);
 console.log('✅ depotRoutes loaded');
 
+// Register regional operations dashboard routes (protected routes)
+try {
+  const regionalOperationsRoutes = require('./routes/regionaloperationsDashboardRoutes');
+  app.use('/api/regional-dashboard', regionalOperationsRoutes);
+  console.log('✅ regionaloperationsDashboardRoutes loaded');
+} catch (error) {
+  console.log('❌ regionaloperationsDashboardRoutes error:', error.message);
+}
+
 const busTripSummaryRoutes = require('./routes/busTripSummaryRoutes');
 app.use('/api/trip-summary', busTripSummaryRoutes);
 console.log('✅ busTripSummaryRoutes loaded');
@@ -463,3 +472,6 @@ server.listen(PORT, '0.0.0.0', () => {
     console.log('❌ Network utils error:', error.message);
   }
 });
+
+// add this after your other route registrations (for example after depotRoutes or crewRoutes)
+// regional routes already registered earlier in the file near depotRoutes
