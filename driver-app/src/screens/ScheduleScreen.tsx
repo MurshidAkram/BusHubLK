@@ -70,6 +70,7 @@ interface DailyAssignment {
   depot_name?: string;
   driver_name?: string;
   conductor_name?: string;
+  conductor_phone_number?: string;
 }
 
 // Enhanced Header component
@@ -461,9 +462,26 @@ const ScheduleCard = ({ schedule, index, isTodayAssignment, navigation }: {
                 <Text style={[styles.detailValue, isTodayAssignment && styles.todayText]}>
                   {schedule.conductor_name || (schedule.conductor_id ? `Conductor ${schedule.conductor_id}` : 'Not Assigned')}
                 </Text>
+                {schedule.conductor_phone_number && (
+                  <View style={styles.detailRow}>
+                    <View style={styles.detailItem}>
+                      <Ionicons
+                        name="call-outline"
+                        size={18}
+                        color={isTodayAssignment ? "rgba(255, 255, 255, 0.8)" : AppColors.primary}
+                      />
+                      <View style={styles.detailTextContainer}>
+                        <Text style={[styles.detailValue, isTodayAssignment && styles.todayText]}>
+                          {schedule.conductor_phone_number}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                )}
               </View>
             </View>
           </View>
+
 
           <View style={styles.detailRow}>
             <View style={styles.detailItem}>
