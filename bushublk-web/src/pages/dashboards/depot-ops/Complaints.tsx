@@ -20,6 +20,8 @@ interface Complaint {
   contact: string;
   status: 'Pending' | 'In Progress' | 'Resolved'; // Updated status values to match DB
   submittedDate: string;
+  reporterEmail?: string | null;
+  reporterPhone?: string | null;
 }
 
 // Interface for the raw data from the API (using snake_case)
@@ -37,6 +39,9 @@ interface ApiComplaint {
   contact_info: string;
   status: 'Pending' | 'In Progress' | 'Resolved';
   created_at: string;
+  // added fields returned by backend join
+  reporter_email?: string | null;
+  reporter_phone?: string | null;
 }
 
 const Complaints: React.FC = () => {
@@ -106,18 +111,23 @@ const Complaints: React.FC = () => {
           throw new Error('Invalid response format');
         }
 
+        // Ensure complaints are sorted by incident date (latest first)
+        // Sort the raw API array by incident_date (ISO or DB format) before transforming
+        response.data.complaints.sort((a: ApiComplaint, b: ApiComplaint) => {
+          return new Date(b.incident_date).getTime() - new Date(a.incident_date).getTime();
+        });
+        
         // Transform the snake_case data from the API to camelCase for the component
         const transformedComplaints = response.data.complaints.map((c: ApiComplaint): Complaint => {
           // Clean and format the image URL
           const imageUrl = c.image_url ? c.image_url : undefined;
-          console.log('Processing image URL:', c.image_url, 'to:', imageUrl); // Debug log
           
           return {
             id: c.id.toString(),
             type: c.complaint_type,
             routeNumber: c.route_number,
-            busNumber: c.bus_number,
-            date: new Date(c.incident_date).toLocaleDateString(), // Format date
+            busNumber: c.bus_number && c.bus_number.trim() !== '' ? c.bus_number : undefined,
+            date: new Date(c.incident_date).toLocaleDateString(),
             time: c.incident_time,
             location: c.location,
             priority: c.priority,
@@ -125,7 +135,10 @@ const Complaints: React.FC = () => {
             attachment: imageUrl,
             contact: c.contact_info,
             status: c.status,
-            submittedDate: new Date(c.created_at).toLocaleString(), // Format timestamp
+            submittedDate: new Date(c.created_at).toLocaleString(),
+            // include reporter contact if backend provided it
+            reporterEmail: c.reporter_email || null,
+            reporterPhone: c.reporter_phone || null
           };
         });
 
@@ -193,9 +206,10 @@ const Complaints: React.FC = () => {
         setComplaints(prev => prev.map(c =>
             c.id === id ? { ...c, status: newStatus } : c
         ));
-        // Also update the selected complaint if it's open in the modal
+
+        // Close the modal if the updated complaint is currently open so the table is visible
         if (selectedComplaint && selectedComplaint.id === id) {
-            setSelectedComplaint({ ...selectedComplaint, status: newStatus });
+            setSelectedComplaint(null);
         }
     } catch (err) {
         console.error("Failed to update status:", err);
@@ -325,7 +339,9 @@ const Complaints: React.FC = () => {
                 <tr key={complaint.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{complaint.date}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{complaint.routeNumber}</td>
-                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{complaint.busNumber || 'N/A'}</td>
+                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                     {(complaint.busNumber && complaint.busNumber.toString().trim()) ? complaint.busNumber : 'Not given'}
+                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{complaint.type}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${priorityColors[complaint.priority]}`}>
@@ -444,7 +460,9 @@ const Complaints: React.FC = () => {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700">Bus Number</label>
-                      <p className="mt-1 p-2 bg-gray-50 rounded-md">{selectedComplaint.busNumber || 'N/A'}</p>
+                      <p className="mt-1 p-2 bg-gray-50 rounded-md">
+                        {(selectedComplaint.busNumber && selectedComplaint.busNumber.toString().trim()) ? selectedComplaint.busNumber : 'Not given'}
+                      </p>
                     </div>
                   </div>
 
@@ -480,6 +498,8 @@ const Complaints: React.FC = () => {
                       onChange={(e) => {
                         handleStatusChange(selectedComplaint.id, e.target.value as 'Pending' | 'In Progress' | 'Resolved');
                       }}
+                       // don't allow changing a resolved complaint
+                       disabled={selectedComplaint.status === 'Resolved'}
                     >
                       <option value="Pending">Pending</option>
                       <option value="In Progress">In Progress</option>
@@ -489,7 +509,10 @@ const Complaints: React.FC = () => {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Contact Information</label>
-                    <p className="mt-1 p-2 bg-gray-50 rounded-md">{selectedComplaint.contact}</p>
+                    <div className="mt-1 p-2 bg-gray-50 rounded-md space-y-1 text-sm text-gray-900">
+                       {selectedComplaint.reporterPhone && <div> phone: {selectedComplaint.reporterPhone}</div>}
+                      {selectedComplaint.reporterEmail && <div>email: {selectedComplaint.reporterEmail}</div>}
+                    </div>
                   </div>
 
                   <div>
@@ -544,16 +567,19 @@ const Complaints: React.FC = () => {
                     </svg>
                     Close
                   </button>
-                  <button
-                    onClick={() => handleStatusChange(selectedComplaint.id, 'In Progress')}
-                    className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors duration-200 inline-flex items-center"
-                    disabled={selectedComplaint.status === 'Resolved'}
-                  >
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+
+                  {/* Hide action button when complaint is already resolved */}
+                  {selectedComplaint.status !== 'Resolved' && (
+                    <button
+                     onClick={() => handleStatusChange(selectedComplaint.id, selectedComplaint.status === 'Pending' ? 'In Progress' : selectedComplaint.status)}
+                     className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors duration-200 inline-flex items-center"
+                   >
+                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                     {selectedComplaint.status === 'Pending' ? 'Start Processing' : 'Update Status'}
-                  </button>
+                   </button>
+                 )}
                 </div>
               </div>
             </div>

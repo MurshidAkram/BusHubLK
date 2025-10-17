@@ -13,30 +13,42 @@ import {
   Linking,
   Platform,
   Modal,
+  Dimensions,
+  FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Dropdown } from 'react-native-element-dropdown';
 import * as ImagePicker from 'expo-image-picker';
 import { storageAPI } from '../services/api';
 
 const AppColors = {
-  background: '#F8F9FA',
-  card: '#FFFFFF',
-  primary: '#0056b3',
-  primaryLight: '#4A90E2',
-  text: '#212529',
-  textSecondary: '#6C757D',
-  border: '#DEE2E6',
-  lost: '#dc3545',
-  found: '#8A2BE2',
+  background: "#F8FAFF",
+  card: "#FFFFFF",
+  primary: "#0056b3",
+  primaryDark: "#003d82",
+  primaryLight: "#0076e3",
+  primaryMuted: "rgba(0, 86, 179, 0.1)",
+  text: "#1F2937",
+  textSecondary: "#6B7280",
+  border: "#E5E7EB",
+  red: "#EF4444",
+  yellow: "#F59E0B",
+  green: "#10B981",
+  orange: "#F97316",
+  purple: "#8B5CF6",
+  lost: '#EF4444',
+  found: '#10B981',  // Changed to green
   inputBackground: '#FFFFFF',
   activeBlue: '#E7F1FF',
   error: '#A94442',
-  headerGradient: '#F8FAFC',
   shadow: 'rgba(0, 0, 0, 0.1)',
   accent: '#F0F8FF',
-  success: '#28a745',
+  success: '#10B981',
+  warning: '#F59E0B',
+  danger: '#EF4444',
+  info: '#17a2b8',
 };
 
 // Data for the dropdown
@@ -73,9 +85,11 @@ interface Report {
   item_photo_url?: string;
   reward_offered?: number;
   approximate_location?: string;
-  is_verified?: boolean;
   resolved_date?: string;
   passenger_id?: number;
+  driver_id?: number;
+  created_at?: string;
+  updated_at?: string;
   // New depot handover fields
   handed_to_depot_id?: number;
   handover_date?: string;
@@ -345,24 +359,70 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
         return;
       }
 
-      console.log('📱 Loading my reports for user:', user.id);
+      console.log('📱 Loading my reports for user:', user.id, 'type:', user.userType);
       setLoading(true);
       
-      const response = await fetch(`${API_BASE_URL}/api/lost-found/users/${user.id}/reports`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
+      let allMyReports: Report[] = [];
+      
+      // Load passenger reports (if user is a passenger or if userType is not specified)
+      if (!user.userType || user.userType === 'passenger' || user.userType === 'user') {
+        try {
+          const passengerResponse = await fetch(`${API_BASE_URL}/api/lost-found/users/${user.id}/reports`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Accept': 'application/json',
+            }
+          });
+          
+          const passengerData = await passengerResponse.json();
+          if (passengerData.success) {
+            allMyReports = [...allMyReports, ...passengerData.data];
+            console.log('✅ Passenger reports loaded:', passengerData.data.length);
+          }
+        } catch (error) {
+          console.error('Error loading passenger reports:', error);
         }
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        setMyReports(data.data);
-        console.log('✅ My reports loaded:', data.data.length);
-      } else {
-        console.error('Failed to load my reports:', data.message);
       }
+      
+      // Load driver reports (if user is a driver)
+      if (user.userType === 'driver' || user.driver_id) {
+        try {
+          const driverResponse = await fetch(`${API_BASE_URL}/api/driver/found-items?driver_id=${user.driver_id || user.id}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Accept': 'application/json',
+            }
+          });
+          
+          const driverData = await driverResponse.json();
+          if (driverData.success) {
+            // Transform driver reports to match passenger report format
+            const transformedDriverReports = driverData.data.map((report: any) => ({
+              ...report,
+              report_type: 'found', // Driver reports are always 'found' items
+              first_name: report.driver_name?.split(' ')[0] || 'Driver',
+              last_name: report.driver_name?.split(' ').slice(1).join(' ') || '',
+              passenger_id: null,
+              driver_id: user.driver_id || user.id,
+              // Explicitly map the photo URL (driver API returns item_photo_url)
+              item_photo_url: report.item_photo_url || report.photo_url,
+            }));
+            
+            allMyReports = [...allMyReports, ...transformedDriverReports];
+            console.log('✅ Driver reports loaded:', transformedDriverReports.length);
+            console.log('📸 Driver reports with photos:', transformedDriverReports.filter(r => r.item_photo_url).length);
+          }
+        } catch (error) {
+          console.error('Error loading driver reports:', error);
+        }
+      }
+      
+      // Sort all reports by creation date (newest first)
+      allMyReports.sort((a, b) => new Date(b.created_at || b.incident_date).getTime() - new Date(a.created_at || a.incident_date).getTime());
+      
+      setMyReports(allMyReports);
+      console.log('✅ All my reports loaded:', allMyReports.length);
+      
     } catch (error) {
       console.error('Error loading my reports:', error);
     } finally {
@@ -637,23 +697,28 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
         body.append('contact_email', formData.email || '');
         body.append('contact_phone', formData.phone);
         body.append('reward_offered', formData.rewardOffered ? String(formData.rewardOffered) : '0');
+        
         // React Native FormData photo object (Expo format)
+        // Fix the MIME type - ImagePicker returns "image" but backend needs "image/jpeg" or "image/png"
+        const fileExtension = formData.photo.fileName?.split('.').pop()?.toLowerCase();
+        const mimeType = fileExtension === 'png' ? 'image/png' : 'image/jpeg';
+        
         body.append('photo', {
           uri: formData.photo.uri,
           name: formData.photo.fileName || 'photo.jpg',
-          type: formData.photo.type || 'image/jpeg',
+          type: mimeType,
         } as any);
         
         console.log('[LostAndFoundScreen] FormData photo object:', {
           uri: formData.photo.uri,
           name: formData.photo.fileName || 'photo.jpg',
-          type: formData.photo.type || 'image/jpeg',
+          type: mimeType,
+          originalType: formData.photo.type,
         });
         
         headers = {
           'Authorization': `Bearer ${token}`,
-          // Don't set Content-Type for FormData - let the browser/React Native set it
-          // 'Content-Type': 'multipart/form-data' // This is set automatically
+          'Accept': 'application/json',
         };
       } else {
         body = JSON.stringify({
@@ -1004,68 +1069,6 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
 
   const renderListView = () => (
     <>
-      <View style={styles.topNav}>
-        <TouchableOpacity 
-          style={[styles.topNavButton, activeView === 'list' && styles.activeTopNavButton]}
-          onPress={() => setActiveView('list')}
-        >
-          <Text style={[styles.topNavButtonText, activeView === 'list' && styles.activeTopNavButtonText]}>Search Items</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.topNavButton, activeView === 'myreports' && styles.activeTopNavButton]}
-          onPress={async () => { 
-            setActiveView('myreports'); 
-            await loadMyReports();
-          }}
-        >
-          <Text style={[styles.topNavButtonText, activeView === 'myreports' && styles.activeTopNavButtonText]}>My Reports</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.topNavButton} onPress={() => { setActiveView('report'); setReportStep(1); setErrors({}); }}>
-          <Text style={styles.topNavButtonText}>Report Item</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.headerRightAction} 
-          onPress={async () => {
-            console.log('🔄 Manual refresh requested');
-            if (activeView === 'list') {
-              await loadReports();
-            } else if (activeView === 'myreports') {
-              await loadMyReports();
-            }
-          }}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="refresh-outline" size={20} color={AppColors.primary} />
-        </TouchableOpacity>
-      </View>
-      
-      <View style={styles.searchSection}>
-        <StyledTextInput
-          icon="search-outline"
-          placeholder="Search for lost or found items"
-          value={searchQuery}
-          onChangeText={handleSearchChange}
-          autoCapitalize="none"
-        />
-         <Dropdown
-            style={styles.dropdown}
-            placeholderStyle={styles.placeholderStyle}
-            selectedTextStyle={styles.selectedTextStyle}
-            inputSearchStyle={styles.inputSearchStyle}
-            iconStyle={styles.iconStyle}
-            data={itemCategories}
-            maxHeight={300}
-            labelField="label"
-            valueField="value"
-            placeholder="All Items"
-            value={selectedCategory}
-            onChange={item => {
-              console.log('Category changed to:', item.value); // Debug log
-              setSelectedCategory(item.value);
-            }}
-            />
-      </View>
-
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={AppColors.primary} />
@@ -1073,17 +1076,30 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
         </View>
       ) : reports.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Ionicons name="search-outline" size={60} color={AppColors.textSecondary} />
-          <Text style={styles.emptyTitle}>No items found</Text>
-          <Text style={styles.emptyMessage}>
-            {searchQuery || selectedCategory !== 'all' 
-              ? 'Try adjusting your search filters' 
-              : 'Be the first to report a lost or found item'}
-          </Text>
+          <LinearGradient
+            colors={['#F8FAFF', '#E3F2FD']}
+            style={styles.emptyGradient}
+          >
+            <Ionicons name="search-outline" size={60} color={AppColors.textSecondary} />
+            <Text style={styles.emptyTitle}>No items found</Text>
+            <Text style={styles.emptyMessage}>
+              {searchQuery || selectedCategory !== 'all' 
+                ? 'Try adjusting your search filters' 
+                : 'Be the first to report a lost or found item'}
+            </Text>
+            <TouchableOpacity 
+              style={styles.emptyActionButton}
+              onPress={() => { setActiveView('report'); setReportStep(1); setErrors({}); }}
+            >
+              <Ionicons name="add-circle-outline" size={20} color="white" />
+              <Text style={styles.emptyActionText}>Report an Item</Text>
+            </TouchableOpacity>
+          </LinearGradient>
         </View>
       ) : (
-        reports.map((report) => (
-          <View key={report.report_id} style={styles.itemCard}>
+        <View style={styles.scrollableItemsContainer}>
+          {reports.map((report) => (
+            <View key={report.report_id} style={styles.itemCard}>
             <View style={styles.cardHeader}>
               <View style={[styles.tag, report.report_type === 'lost' ? styles.lostTag : styles.foundTag]}>
                 <Text style={[styles.tagText, report.report_type === 'lost' ? styles.lostTagText : styles.foundTagText]}>
@@ -1098,7 +1114,11 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
               {report.item_description && report.item_description.length > 50 ? '...' : ''}
             </Text>
             <Text style={styles.itemDescription}>
-              {report.item_description}
+              {/* Clean up driver report descriptions by removing the driver info suffix */}
+              {report.driver_id 
+                ? report.item_description.split('\n\n[Driver Report')[0] 
+                : report.item_description
+              }
             </Text>
             
             <View style={styles.itemDetails}>
@@ -1137,42 +1157,53 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
             <View style={styles.separator} />
             
             <View style={styles.contactSection}>
-              <View style={styles.contactInfo}>
+              {/* Header row with Contact label, name, and Your Report badge */}
+              <View style={styles.contactHeader}>
                 <Text style={styles.contactName}>
-                  Contact: {report.first_name ? `${report.first_name} ${report.last_name?.charAt(0) || ''}.` : 'Anonymous'}
+                  <Text style={styles.contactLabel}>Contact: </Text>
+                  {report.driver_id 
+                    ? `Driver ${report.first_name || 'Unknown'}${report.last_name ? ` ${report.last_name.charAt(0)}.` : ''}` 
+                    : (report.first_name ? `${report.first_name} ${report.last_name?.charAt(0) || ''}.` : 'Anonymous')
+                  }
                 </Text>
-                {report.contact_email && (
-                  <Text style={styles.contactEmail}>
-                    📧 {report.contact_email}
-                  </Text>
-                )}
-                <Text style={styles.contactNote}>
-                  {report.is_verified ? '✅ Verified user' : '⚠️ Unverified'}
-                </Text>
-                
-                {/* Display depot handover information if available */}
-                {report.handed_to_depot_id && (
-                  <View style={styles.depotHandoverInfo}>
-                    <Ionicons name="business-outline" size={16} color={AppColors.success} />
-                    <Text style={styles.depotHandoverText}>
-                      Handed to depot on {report.handover_date ? new Date(report.handover_date).toLocaleDateString() : 'Unknown date'}
-                    </Text>
+                {/* Show "Your Report" indicator for current user's reports */}
+                {(report.passenger_id === (userData as any)?.id || report.driver_id === (userData as any)?.driver_id || report.driver_id === (userData as any)?.id) && (
+                  <View style={styles.ownReportIndicator}>
+                    <Ionicons name="person-circle" size={16} color={AppColors.primary} />
+                    <Text style={styles.ownReportText}>Your Report</Text>
                   </View>
                 )}
               </View>
+
+              {/* Email */}
+              {report.contact_email && (
+                <Text style={styles.contactEmail}>
+                  📧 {report.contact_email}
+                </Text>
+              )}
+              
+              {/* Display depot handover information if available */}
+              {report.handed_to_depot_id && (
+                <View style={styles.depotHandoverInfo}>
+                  <Ionicons name="business-outline" size={16} color={AppColors.success} />
+                  <Text style={styles.depotHandoverText}>
+                    Handed to depot on {report.handover_date ? new Date(report.handover_date).toLocaleDateString() : 'Unknown date'}
+                  </Text>
+                </View>
+              )}
               
               {/* Only show contact buttons if this is not the current user's report */}
-              {report.passenger_id !== (userData as any)?.id && (
+              {(report.passenger_id !== (userData as any)?.id && report.driver_id !== (userData as any)?.driver_id && report.driver_id !== (userData as any)?.id) && (
                 <View style={styles.contactButtons}>
                   {report.contact_phone && (
                     <TouchableOpacity 
-                      style={styles.contactButton}
+                      style={styles.callButton}
                       onPress={() => {
                         Linking.openURL(`tel:${report.contact_phone}`);
                       }}
                     >
-                      <Ionicons name="call-outline" size={16} color={AppColors.primary} />
-                      <Text style={styles.contactButtonText}>Call</Text>
+                      <Ionicons name="call" size={18} color="#059669" />
+                      <Text style={styles.callButtonText}>Call</Text>
                     </TouchableOpacity>
                   )}
                   {report.contact_email && (
@@ -1182,38 +1213,22 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
                         Linking.openURL(`mailto:${report.contact_email}`);
                       }}
                     >
-                      <Ionicons name="mail-outline" size={16} color={AppColors.primary} />
+                      <Ionicons name="mail" size={18} color="#4F46E5" />
                       <Text style={styles.contactButtonText}>Email</Text>
                     </TouchableOpacity>
                   )}
                 </View>
               )}
-              
-              {/* Show "Your Report" indicator for current user's reports */}
-              {report.passenger_id === (userData as any)?.id && (
-                <View style={styles.ownReportIndicator}>
-                  <Ionicons name="person-circle" size={20} color={AppColors.primary} />
-                  <Text style={styles.ownReportText}>Your Report</Text>
-                </View>
-              )}
             </View>
           </View>
-        ))
+          ))}
+        </View>
       )}
     </>
   );
 
   const renderMyReportsView = () => (
     <>
-      {activeView === 'myreports' && (
-        <View style={styles.searchSection}>
-          <Text style={styles.sectionTitle}>My Lost & Found Reports</Text>
-          <Text style={styles.sectionSubtitle}>
-            Manage your submitted reports and mark them as resolved when found.
-          </Text>
-        </View>
-      )}
-      
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={AppColors.primary} />
@@ -1221,15 +1236,28 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
         </View>
       ) : myReports.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Ionicons name="document-outline" size={60} color={AppColors.textSecondary} />
-          <Text style={styles.emptyTitle}>No reports yet</Text>
-          <Text style={styles.emptyMessage}>
-            You haven't submitted any lost or found reports yet.
-          </Text>
+          <LinearGradient
+            colors={['#F8FAFF', '#E3F2FD']}
+            style={styles.emptyGradient}
+          >
+            <Ionicons name="document-outline" size={60} color={AppColors.textSecondary} />
+            <Text style={styles.emptyTitle}>No reports yet</Text>
+            <Text style={styles.emptyMessage}>
+              You haven't submitted any lost or found reports yet.
+            </Text>
+            <TouchableOpacity 
+              style={styles.emptyActionButton}
+              onPress={() => { setActiveView('report'); setReportStep(1); setErrors({}); }}
+            >
+              <Ionicons name="add-circle-outline" size={20} color="white" />
+              <Text style={styles.emptyActionText}>Create First Report</Text>
+            </TouchableOpacity>
+          </LinearGradient>
         </View>
       ) : (
-        myReports.map((report) => (
-          <View key={report.report_id} style={styles.itemCard}>
+        <View style={styles.scrollableItemsContainer}>
+          {myReports.map((report) => (
+            <View key={report.report_id} style={styles.itemCard}>
             <View style={styles.cardHeader}>
               <View style={[styles.tag, report.report_type === 'lost' ? styles.lostTag : styles.foundTag]}>
                 <Text style={[styles.tagText, report.report_type === 'lost' ? styles.lostTagText : styles.foundTagText]}>
@@ -1251,7 +1279,11 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
               {report.item_description && report.item_description.length > 50 ? '...' : ''}
             </Text>
             <Text style={styles.itemDescription}>
-              {report.item_description}
+              {/* Clean up driver report descriptions by removing the driver info suffix */}
+              {report.driver_id 
+                ? report.item_description.split('\n\n[Driver Report')[0] 
+                : report.item_description
+              }
             </Text>
             
             <View style={styles.itemDetails}>
@@ -1306,7 +1338,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
                 )}
                 {/* Display depot handover info if available */}
                 {report.handed_to_depot_id && report.depot_name && (
-                  <Text style={styles.depotHandoverInfo}>
+                  <Text style={styles.depotHandoverInfoText}>
                     📦 Handed to: {report.depot_name}
                     {report.handover_date && ` on ${new Date(report.handover_date).toLocaleDateString()}`}
                   </Text>
@@ -1331,9 +1363,9 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
                       setShowDepotModal(true);
                     }}
                   >
-                    <Ionicons name="business-outline" size={16} color={AppColors.primary} />
+                    <Ionicons name="business" size={18} color="#2563EB" />
                     <Text style={styles.depotHandoverButtonText}>
-                      {report.handed_to_depot_id ? 'Update Depot Info' : 'Hand to Depot'}
+                      {report.handed_to_depot_id ? 'Update Depot' : 'Hand to Depot'}
                     </Text>
                   </TouchableOpacity>
                 )}
@@ -1356,14 +1388,15 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
                       );
                     }}
                   >
-                    <Ionicons name="checkmark-circle-outline" size={16} color={AppColors.success} />
+                    <Ionicons name="checkmark-circle" size={18} color="#059669" />
                     <Text style={styles.resolveButtonText}>Mark Resolved</Text>
                   </TouchableOpacity>
                 )}
               </View>
             </View>
           </View>
-        ))
+          ))}
+        </View>
       )}
     </>
   );
@@ -1383,7 +1416,10 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
     
     switch (reportStep) {
       case 1: return (
-        <View style={styles.stepContainer}>
+        <LinearGradient
+          colors={['#F8FAFF', '#E3F2FD', '#FFFFFF']}
+          style={styles.stepContainer}
+        >
           {/* Modern Progress Indicator */}
           <View style={styles.modernProgressContainer}>
             <View style={styles.progressIndicator}>
@@ -1462,7 +1498,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
                     <Ionicons
                       name={item.icon}
                       size={28}
-                      color={formData.itemType === item.key ? '#FFFFFF' : item.color}
+                      color={item.color}
                     />
                   </View>
                   <Text style={[styles.modernCategoryLabel, formData.itemType === item.key && styles.activeCategoryLabel]}>
@@ -1484,11 +1520,14 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
             <Text style={styles.modernButtonText}>Continue</Text>
             <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
           </TouchableOpacity>
-        </View>
+        </LinearGradient>
       );
       
       case 2: return (
-        <View style={styles.stepContainer}>
+        <LinearGradient
+          colors={['#F8FAFF', '#E3F2FD', '#FFFFFF']}
+          style={styles.stepContainer}
+        >
           {/* Modern Progress Indicator */}
           <View style={styles.modernProgressContainer}>
             <View style={styles.progressIndicator}>
@@ -1586,8 +1625,8 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
           {/* Region Dropdown */}
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>Select Region *</Text>
-            <View style={styles.modernInputContainer}>
-              <Ionicons name="location-outline" size={20} color={AppColors.textSecondary} style={styles.modernInputIcon} />
+            <View style={styles.dropdownWrapper}>
+              <Ionicons name="location-outline" size={20} color={AppColors.textSecondary} style={styles.dropdownIcon} />
               <Dropdown
                 style={styles.dropdown}
                 placeholderStyle={styles.placeholderStyle}
@@ -1608,10 +1647,10 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
                 }}
                 disable={regions.length === 0}
               />
-              {regions.length === 0 && (
-                <Text style={{ color: AppColors.error, marginTop: 8 }}>Regions are loading... If this persists, please check your connection.</Text>
-              )}
             </View>
+            {regions.length === 0 && (
+              <Text style={{ color: AppColors.error, marginTop: 8 }}>Regions are loading... If this persists, please check your connection.</Text>
+            )}
             {errors.region && <Text style={styles.modernErrorText}>{errors.region}</Text>}
           </View>
 
@@ -1651,11 +1690,14 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
               <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
-        </View>
+        </LinearGradient>
       );
       
       case 3: return (
-        <View style={styles.stepContainer}>
+        <LinearGradient
+          colors={['#F8FAFF', '#E3F2FD', '#FFFFFF']}
+          style={styles.stepContainer}
+        >
           {/* Modern Progress Indicator */}
           <View style={styles.modernProgressContainer}>
             <View style={styles.progressIndicator}>
@@ -1811,7 +1853,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
             </View>
             {errors.email && <Text style={styles.modernErrorText}>{errors.email}</Text>}
 
-            <View style={styles.modernInputContainer}>
+            <View style={[styles.modernInputContainer, { marginTop: 16 }]}>
               <Ionicons name="call-outline" size={20} color={AppColors.textSecondary} style={styles.modernInputIcon} />
               <TextInput
                 placeholder="Your phone number"
@@ -1872,7 +1914,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
               <Ionicons name="checkmark" size={20} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
-        </View>
+        </LinearGradient>
       );
       
       case 4: return (
@@ -1930,38 +1972,145 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={AppColors.headerGradient} />
-      
-      {/* Enhanced Header */}
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton} activeOpacity={0.7}>
-            <Ionicons name="arrow-back" size={24} color={AppColors.text} />
-          </TouchableOpacity>
-          
-          <View style={styles.headerTitleContainer}>
-            <Text style={styles.headerTitle}>Lost & Found</Text>
-            
+    <LinearGradient
+      colors={['#F8FAFF', '#E3F2FD', '#BBDEFB']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.gradientContainer}
+    >
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor={AppColors.background} />
+        
+        {/* Enhanced Header with Gradient */}
+        <LinearGradient
+          colors={['#0056b3', '#1976d2', '#42a5f5']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.headerGradient}
+        >
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+              <Ionicons name="arrow-back-outline" size={24} color="white" />
+            </TouchableOpacity>
+            <Text style={styles.titleWhite}>Lost & Found</Text>
+            <TouchableOpacity 
+              style={styles.headerRightAction} 
+              onPress={async () => {
+                console.log('🔄 Manual refresh requested');
+                if (activeView === 'list') {
+                  await loadReports();
+                } else if (activeView === 'myreports') {
+                  await loadMyReports();
+                }
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="refresh-outline" size={24} color="white" />
+            </TouchableOpacity>
           </View>
-          
-          
-        </View>
-      </View>
-      
-      <ScrollView
-        contentContainerStyle={styles.contentContainer}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="none"
-        showsVerticalScrollIndicator={false}
-      >
-        {activeView === 'list' ? renderListView() : 
-         activeView === 'myreports' ? renderMyReportsView() : (
-          <View style={styles.reportContainer}>
-            {renderReportFlow()}
+        </LinearGradient>
+
+        {/* Navigation Tabs with Gradient - Dynamic colors based on active view */}
+        <LinearGradient
+          colors={
+            activeView === 'list' 
+              ? ['#BBDEFB', '#E3F2FD', '#FFFFFF'] 
+              : activeView === 'myreports'
+              ? ['#E3F2FD', '#BBDEFB', '#90CAF9']
+              : ['#E3F2FD', '#BBDEFB', '#90CAF9']
+          }
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.navGradient}
+        >
+          <View style={styles.topNav}>
+            <TouchableOpacity 
+              style={[styles.topNavButton, activeView === 'list' && styles.activeTopNavButton]}
+              onPress={() => setActiveView('list')}
+            >
+              <Text style={[styles.topNavButtonText, activeView === 'list' && styles.activeTopNavButtonText]}>Search Items</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.topNavButton, activeView === 'myreports' && styles.activeTopNavButton]}
+              onPress={async () => { 
+                setActiveView('myreports'); 
+                await loadMyReports();
+              }}
+            >
+              <Text style={[styles.topNavButtonText, activeView === 'myreports' && styles.activeTopNavButtonText]}>My Reports</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.topNavButton, activeView === 'report' && styles.activeTopNavButton]}
+              onPress={() => { setActiveView('report'); setReportStep(1); setErrors({}); }}
+            >
+              <Ionicons name="add-circle-outline" size={20} color={activeView === 'report' ? 'white' : AppColors.primary} />
+              <Text style={[styles.topNavButtonText, activeView === 'report' && styles.activeTopNavButtonText, { marginLeft: 4 }]}>Report</Text>
+            </TouchableOpacity>
+          </View>
+        </LinearGradient>
+
+        {/* Fixed Search Section for List View */}
+        {activeView === 'list' && (
+          <View style={styles.searchCardWrapper}>
+            <LinearGradient
+              colors={['#E8F4FD', '#F0F8FF', '#FFFFFF']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={styles.searchGradient}
+            >
+              <View style={styles.searchSection}>
+                <View style={styles.searchContainer}>
+                  <Ionicons name="search-outline" size={20} color={AppColors.textSecondary} />
+                  <TextInput
+                    style={styles.searchInput}
+                    placeholder="Search for lost or found items..."
+                    value={searchQuery}
+                    onChangeText={handleSearchChange}
+                    autoCapitalize="none"
+                  />
+                  {searchQuery.length > 0 && (
+                    <TouchableOpacity onPress={() => setSearchQuery('')}>
+                      <Ionicons name="close-circle" size={20} color={AppColors.textSecondary} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+                
+                <View style={styles.filterContainer}>
+                  <Text style={styles.filterTitle}>Category:</Text>
+                  <Dropdown
+                    style={styles.modernDropdown}
+                    placeholderStyle={styles.placeholderStyle}
+                    selectedTextStyle={styles.selectedTextStyle}
+                    inputSearchStyle={styles.inputSearchStyle}
+                    iconStyle={styles.iconStyle}
+                    data={itemCategories}
+                    maxHeight={300}
+                    labelField="label"
+                    valueField="value"
+                    placeholder="All Items"
+                    value={selectedCategory}
+                    onChange={item => {
+                      console.log('Category changed to:', item.value);
+                      setSelectedCategory(item.value);
+                    }}
+                  />
+                </View>
+              </View>
+            </LinearGradient>
           </View>
         )}
-      </ScrollView>
+        
+        <ScrollView
+          contentContainerStyle={styles.contentContainer}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="none"
+          showsVerticalScrollIndicator={false}
+        >
+          {activeView === 'list' ? renderListView() : 
+           activeView === 'myreports' ? renderMyReportsView() : 
+           renderReportFlow()
+          }
+        </ScrollView>
       
       {/* Date and Time Pickers */}
       <DateTimePicker
@@ -2058,108 +2207,62 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
-// Your styles remain the same
 const styles = StyleSheet.create({
+  gradientContainer: {
+    flex: 1,
+  },
   container: { 
     flex: 1, 
-    backgroundColor: AppColors.background 
+    backgroundColor: 'transparent',
   },
   
-  // Enhanced Header Styles
-  header: {
-    backgroundColor: AppColors.headerGradient,
-    paddingTop: 30,
-    paddingBottom: 15,
+  // Enhanced Header Styles with Gradient
+  headerGradient: {
     borderBottomWidth: 1,
     borderBottomColor: AppColors.border,
-    elevation: 8,
-    shadowColor: AppColors.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    zIndex: 1000,
   },
-  
-  headerContent: {
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-  },
-  
-  backButton: { 
-    padding: 12,
-    width: 48,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 24,
-    backgroundColor: AppColors.card,
-    elevation: 2,
-    shadowColor: AppColors.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  
-  headerLeftAction: {
-    padding: 12,
-    width: 48,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 24,
+    paddingHorizontal: 10,
+    paddingVertical: 12,
     backgroundColor: 'transparent',
   },
-  
-  headerTitleContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+  backButton: {
+    padding: 8,
   },
-  
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: AppColors.text,
-    letterSpacing: -0.5,
-    textAlign: 'center',
+  titleWhite: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: 'white',
   },
-  
-  headerSubtitle: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: AppColors.textSecondary,
-    textAlign: 'center',
-    marginTop: 2,
-  },
-  
   headerRightAction: {
-    padding: 12,
-    width: 48,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 24,
-    backgroundColor: 'transparent',
+    padding: 8,
   },
 
   contentContainer: { 
-    padding: 20, 
-    paddingBottom: 40 
+    paddingTop: 5, 
+    paddingBottom: 48,
   },
   
-  // Enhanced Navigation
+  // Enhanced Navigation with Gradient
+  navGradient: {
+    marginHorizontal: 16,
+    marginVertical: 8,
+    borderRadius: 12,
+  },
   topNav: { 
     flexDirection: 'row', 
-    backgroundColor: AppColors.card, 
+    backgroundColor: 'rgba(255, 255, 255, 0.9)', 
     borderRadius: 12, 
     padding: 6, 
-    marginBottom: 24,
+    marginHorizontal: 16,
+    marginVertical: 8,
     elevation: 3,
     shadowColor: AppColors.shadow,
     shadowOffset: { width: 0, height: 2 },
@@ -2173,6 +2276,8 @@ const styles = StyleSheet.create({
     alignItems: 'center', 
     borderRadius: 8,
     marginHorizontal: 2,
+    flexDirection: 'row',
+    justifyContent: 'center',
   },
   
   activeTopNavButton: { 
@@ -2189,9 +2294,87 @@ const styles = StyleSheet.create({
     color: AppColors.card,
   },
   
-  // Enhanced Search Section
+  // Enhanced Search Section with Modern Design
+  searchCardWrapper: {
+    marginHorizontal: 16,
+    marginVertical: 8,
+    borderRadius: 16,
+    overflow: 'hidden',
+    ...Platform.select({
+      android: {
+        elevation: 4,
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 3 },
+      },
+    }),
+  },
+  
+  searchGradient: {
+    borderRadius: 16,
+  },
+  
   searchSection: {
-    marginBottom: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+  },
+  
+  // Scrollable Items Container with Rounded Corners
+  scrollableItemsContainer: {
+    backgroundColor: 'transparent',
+    marginTop: 4,
+  },
+  
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(222, 226, 230, 0.6)',
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  searchInput: {
+    flex: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 10,
+    fontSize: 15,
+    color: AppColors.text,
+    fontWeight: '500',
+  },
+  filterContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  filterTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: AppColors.text,
+    marginRight: 14,
+    minWidth: 80,
+  },
+  modernDropdown: {
+    flex: 1,
+    height: 46,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(222, 226, 230, 0.6)',
+    paddingHorizontal: 14,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
   },
 
   // Dropdown container
@@ -2236,19 +2419,26 @@ const styles = StyleSheet.create({
     paddingTop: 16,
   },
   
-  // Enhanced Item Card
+  // Enhanced Item Card with Modern Design (matching BusOccupancyScreen)
   itemCard: { 
-    backgroundColor: AppColors.card, 
+    backgroundColor: 'rgba(255, 255, 255, 0.95)', 
     borderRadius: 16, 
     padding: 20, 
-    borderWidth: 1, 
-    borderColor: AppColors.border, 
+    marginHorizontal: 16,
     marginBottom: 16,
-    elevation: 3,
-    shadowColor: AppColors.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
+    borderWidth: 1, 
+    borderColor: 'rgba(222, 226, 230, 0.4)', 
+    ...Platform.select({
+      android: {
+        elevation: 6,
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOpacity: 0.12,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 4 },
+      },
+    }),
   },
   
   cardHeader: { 
@@ -2259,26 +2449,32 @@ const styles = StyleSheet.create({
   },
   
   tag: { 
-    paddingVertical: 6, 
-    paddingHorizontal: 16, 
+    paddingVertical: 8, 
+    paddingHorizontal: 14, 
     borderRadius: 20,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
   
   lostTag: {
     backgroundColor: '#FFF5F5',
-    borderWidth: 1,
-    borderColor: '#FED7D7',
+    borderWidth: 1.5,
+    borderColor: '#FC8181',
   },
   
   foundTag: {
-    backgroundColor: '#F0F8FF',
-    borderWidth: 1,
-    borderColor: '#BEE3F8',
+    backgroundColor: '#ECFDF5',  // Light green background
+    borderWidth: 1.5,
+    borderColor: 'rgba(16, 185, 129, 0.4)',  // Green border
   },
   
   tagText: { 
-    fontWeight: '600', 
+    fontWeight: '700', 
     fontSize: 12,
+    letterSpacing: 0.3,
   },
   
   lostTagText: {
@@ -2286,71 +2482,91 @@ const styles = StyleSheet.create({
   },
   
   foundTagText: {
-    color: AppColors.primary,
+    color: AppColors.success,  // Green text
   },
   
   timeStamp: {
-    fontSize: 12,
+    fontSize: 13,
     color: AppColors.textSecondary,
-    fontWeight: '500',
+    fontWeight: '600',
+    letterSpacing: 0.2,
   },
   
   itemTitle: { 
-    fontSize: 18, 
-    fontWeight: '600', 
+    fontSize: 19, 
+    fontWeight: '700', 
     color: AppColors.text, 
-    marginBottom: 8,
+    marginBottom: 10,
+    letterSpacing: 0.2,
   },
   
   itemDescription: { 
-    fontSize: 14, 
+    fontSize: 15, 
     color: AppColors.textSecondary, 
-    lineHeight: 22, 
+    lineHeight: 24, 
     marginBottom: 16,
+    fontWeight: '500',
   },
   
   itemDetails: {
     marginBottom: 16,
+    paddingLeft: 2,
   },
   
   detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   
   detailText: {
     fontSize: 14,
     color: AppColors.textSecondary,
+    fontWeight: '500',
     marginLeft: 8,
   },
   
   separator: { 
-    height: 1, 
-    backgroundColor: AppColors.border, 
-    marginVertical: 16,
+    height: 1.5, 
+    backgroundColor: 'rgba(229, 231, 235, 0.8)', 
+    marginVertical: 12,
+    marginHorizontal: 4,
   },
   
-  contactSection: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
+  contactSection: {
+    paddingTop: 8,
+  },
+
+  contactHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 6,
   },
-  
+
+  contactLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: AppColors.textSecondary,
+  },
+
   contactInfo: {
     flex: 1,
   },
   
   contactName: { 
     fontSize: 14, 
-    fontWeight: '600', 
+    fontWeight: '700', 
     color: AppColors.text,
+    letterSpacing: 0.2,
+    flex: 1,
   },
   
   contactNote: { 
-    fontSize: 12, 
+    fontSize: 13, 
     color: AppColors.textSecondary, 
-    marginTop: 2,
+    marginTop: 4,
+    fontWeight: '500',
   },
   
   reportButton: {
@@ -2369,20 +2585,6 @@ const styles = StyleSheet.create({
     fontWeight: '500', 
     fontSize: 12,
     marginLeft: 4,
-  },
-  
-  // Enhanced Report Container
-  reportContainer: { 
-    backgroundColor: AppColors.card, 
-    borderRadius: 16, 
-    padding: 24, 
-    borderWidth: 1, 
-    borderColor: AppColors.border,
-    elevation: 3,
-    shadowColor: AppColors.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
   },
   
   // Progress Bar
@@ -2500,11 +2702,6 @@ const styles = StyleSheet.create({
     color: AppColors.textSecondary,
   },
   
-  activeCategoryLabel: { 
-    color: AppColors.primary, 
-    fontWeight: '600',
-  },
-  
   row: { 
     flexDirection: 'row', 
     gap: 12,
@@ -2556,45 +2753,58 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   
-  // Enhanced Buttons
+  // Enhanced Buttons - Modern Design
   submitButton: { 
-    backgroundColor: AppColors.primary, 
-    paddingVertical: 16, 
-    borderRadius: 12, 
+    backgroundColor: AppColors.primaryDark, 
+    paddingVertical: 18, 
+    borderRadius: 14, 
     alignItems: 'center', 
-    marginTop: 24,
+    marginTop: 28,
     flexDirection: 'row',
     justifyContent: 'center',
-    elevation: 3,
-    shadowColor: AppColors.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
+    ...Platform.select({
+      android: {
+        elevation: 5,
+      },
+      ios: {
+        shadowColor: AppColors.primary,
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 4 },
+      },
+    }),
   },
   
   submitButtonText: { 
     color: '#FFFFFF', 
-    fontWeight: '600', 
-    fontSize: 16,
+    fontWeight: '700', 
+    fontSize: 17,
     marginRight: 8,
+    letterSpacing: 0.3,
   },
   
   secondaryButton: { 
     backgroundColor: 'transparent', 
-    paddingVertical: 16, 
-    borderRadius: 12, 
+    paddingVertical: 18, 
+    borderRadius: 14, 
     alignItems: 'center', 
-    borderWidth: 1, 
-    borderColor: AppColors.border,
+    borderWidth: 1.5, 
+    borderColor: 'rgba(222, 226, 230, 0.8)',
     flexDirection: 'row',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
   },
   
   secondaryButtonText: { 
     color: AppColors.text, 
-    fontWeight: '600', 
-    fontSize: 16,
+    fontWeight: '700', 
+    fontSize: 17,
     marginLeft: 8,
+    letterSpacing: 0.3,
   },
   
   buttonRow: { 
@@ -2644,29 +2854,36 @@ const styles = StyleSheet.create({
   
   errorText: { 
     color: AppColors.error, 
-    fontSize: 12, 
+    fontSize: 13, 
     marginTop: -8, 
-    marginBottom: 8, 
-    paddingLeft: 8,
+    marginBottom: 10, 
+    paddingLeft: 10,
+    fontWeight: '600',
+    letterSpacing: 0.2,
   },
   // Dropdown styles
+  dropdownWrapper: {
+    position: 'relative',
+  },
+  
+  dropdownIcon: {
+    position: 'absolute',
+    left: 16,
+    top: 17,
+    zIndex: 10,
+  },
+  
   dropdown: {
     width: '100%',
-    minWidth: 250,
-    maxWidth: 400,
-    alignSelf: 'center',
     height: 54,
-    borderColor: AppColors.primary,
-    borderWidth: 2,
+    borderColor: AppColors.border,
+    borderWidth: 1,
     borderRadius: 12,
-    paddingHorizontal: 16,
-    marginBottom: 16,
-    backgroundColor: AppColors.card,
-    elevation: 3,
-    shadowColor: AppColors.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    paddingLeft: 48,
+    paddingRight: 16,
+    backgroundColor: AppColors.inputBackground,
+    elevation: 0,
+    shadowOpacity: 0,
   },
   icon: {
     marginRight: 5,
@@ -2709,52 +2926,160 @@ const styles = StyleSheet.create({
   },
   
   emptyContainer: {
+    margin: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(222, 226, 230, 0.4)',
+    ...Platform.select({
+      android: {
+        elevation: 4,
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 3 },
+      },
+    }),
+  },
+  emptyGradient: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 60,
+    paddingVertical: 70,
+    paddingHorizontal: 24,
   },
   
   emptyTitle: {
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: 22,
+    fontWeight: '700',
     color: AppColors.text,
-    marginTop: 16,
-    marginBottom: 8,
+    marginTop: 20,
+    marginBottom: 10,
+    letterSpacing: 0.3,
   },
   
   emptyMessage: {
-    fontSize: 14,
+    fontSize: 15,
     color: AppColors.textSecondary,
     textAlign: 'center',
-    paddingHorizontal: 40,
-    lineHeight: 20,
+    paddingHorizontal: 20,
+    lineHeight: 22,
+    marginBottom: 24,
+    fontWeight: '500',
   },
   
-  // Item Image
-  itemImage: {
-    width: '100%',
-    height: 200,
-    borderRadius: 12,
-    marginBottom: 16,
-  },
-  
-  // Contact Button
-  contactButton: {
+  emptyActionButton: {
+    backgroundColor: AppColors.primaryDark,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: AppColors.accent,
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    borderRadius: 12,
+    ...Platform.select({
+      android: {
+        elevation: 4,
+      },
+      ios: {
+        shadowColor: AppColors.primary,
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 4 },
+      },
+    }),
+  },
+  
+  emptyActionText: {
+    color: 'white',
+    fontSize: 15,
+    fontWeight: '700',
+    marginLeft: 8,
+    letterSpacing: 0.3,
+  },
+  
+  // Item Image - Modern with shadow
+  itemImage: {
+    width: '100%',
+    height: 220,
+    borderRadius: 14,
+    marginBottom: 18,
     borderWidth: 1,
-    borderColor: AppColors.primary,
+    borderColor: 'rgba(222, 226, 230, 0.4)',
+    ...Platform.select({
+      android: {
+        elevation: 4,
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOpacity: 0.12,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 3 },
+      },
+    }),
+  },
+  
+  // Contact Button - Clean Minimal Design
+  contactButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2,
+    borderColor: '#E0E7FF',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#6366F1',
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 2 },
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   
   contactButtonText: {
-    color: AppColors.primary,
+    color: '#4F46E5',
     fontWeight: '600',
-    fontSize: 12,
-    marginLeft: 4,
+    fontSize: 14,
+    marginLeft: 6,
+  },
+
+  // Call Button - Clean Green Design
+  callButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2,
+    borderColor: '#D1FAE5',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#10B981',
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 2 },
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  
+  callButtonText: {
+    color: '#059669',
+    fontWeight: '600',
+    fontSize: 14,
+    marginLeft: 6,
   },
   
   // Date/Time Picker Styles
@@ -2820,6 +3145,12 @@ const styles = StyleSheet.create({
   // Modern Report Flow Styles
   stepContainer: {
     flex: 1,
+    marginHorizontal: 16,
+    marginVertical: 8,
+    borderRadius: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 24,
+    overflow: 'hidden',
   },
   
   modernProgressContainer: {
@@ -2974,8 +3305,9 @@ const styles = StyleSheet.create({
   },
   
   activeCategoryCard: {
-    backgroundColor: AppColors.primary,
+    backgroundColor: 'rgba(0, 86, 179, 0.08)',
     borderColor: AppColors.primary,
+    borderWidth: 3,
   },
   
   categoryIconContainer: {
@@ -2989,9 +3321,14 @@ const styles = StyleSheet.create({
   
   modernCategoryLabel: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '600',
     color: AppColors.text,
     textAlign: 'center',
+  },
+  
+  activeCategoryLabel: {
+    color: AppColors.primaryDark,
+    fontWeight: '700',
   },
   
   selectedIndicator: {
@@ -3014,14 +3351,14 @@ const styles = StyleSheet.create({
   },
   
   modernPrimaryButton: {
+    flex: 1,
     backgroundColor: AppColors.primary,
     borderRadius: 16,
     paddingVertical: 18,
-    paddingHorizontal: 32,
+    paddingHorizontal: 24,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 32,
     elevation: 4,
     shadowColor: AppColors.shadow,
     shadowOffset: { width: 0, height: 4 },
@@ -3180,6 +3517,22 @@ const styles = StyleSheet.create({
   modernSuccessContainer: {
     alignItems: 'center',
     paddingVertical: 48,
+    paddingHorizontal: 20,
+    marginHorizontal: 16,
+    marginVertical: 8,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    ...Platform.select({
+      android: {
+        elevation: 4,
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 3 },
+      },
+    }),
   },
   
   successAnimation: {
@@ -3281,7 +3634,8 @@ const styles = StyleSheet.create({
 
   contactButtons: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 12,
+    marginTop: 4,
   },
 
   // My Reports specific styles
@@ -3293,28 +3647,33 @@ const styles = StyleSheet.create({
   },
 
   resolvedTag: {
-    backgroundColor: AppColors.success + '20',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
     marginLeft: 8,
+    borderWidth: 1.5,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+    shadowColor: AppColors.success,
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
 
   resolvedTagText: {
     color: AppColors.success,
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
 
   myReportActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 12,
+    paddingTop: 8,
   },
 
   reportInfo: {
-    flex: 1,
+    marginBottom: 8,
   },
 
   reportId: {
@@ -3326,23 +3685,45 @@ const styles = StyleSheet.create({
 
   reportStatus: {
     fontSize: 14,
-    color: AppColors.textSecondary,
+    color: AppColors.success,
+    fontWeight: '600',
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+    marginBottom: 8,
   },
 
   resolveButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: AppColors.success + '20',
+    justifyContent: 'center',
+    paddingVertical: 10,
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    gap: 6,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2,
+    borderColor: '#D1FAE5',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#10B981',
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 2 },
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
 
   resolveButtonText: {
     fontSize: 14,
-    color: AppColors.success,
+    color: '#059669',
     fontWeight: '600',
+    marginLeft: 6,
   },
 
   // Route autocomplete styles
@@ -3594,60 +3975,94 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 
-  // Depot handover and own report styles
+  // Depot handover and own report styles - Modern
   depotHandoverInfo: {
-    backgroundColor: '#e8f5e8',
-    padding: 12,
-    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
     marginTop: 8,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.2)',
+  },
+
+  depotHandoverInfoText: {
+    fontSize: 13,
+    color: AppColors.success,
+    fontWeight: '600',
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
   },
 
   ownReportText: {
-    fontSize: 14,
-    color: '#666',
-    fontStyle: 'italic',
-    textAlign: 'center',
-    padding: 12,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 8,
-    marginTop: 8,
+    fontSize: 13,
+    color: AppColors.primaryDark,
+    fontWeight: '600',
+    letterSpacing: 0.2,
   },
 
   ownReportIndicator: {
-    backgroundColor: '#e3f2fd',
-    padding: 8,
-    borderRadius: 6,
-    marginBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(0, 118, 227, 0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 16,
+    marginTop: 4,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 118, 227, 0.2)',
   },
 
   depotHandoverText: {
-    fontSize: 14,
-    color: '#2d5016',
-    fontWeight: '500',
+    fontSize: 13,
+    color: AppColors.success,
+    fontWeight: '600',
+    flex: 1,
   },
 
   actionButtonsContainer: {
     flexDirection: 'row',
-    gap: 8,
-    flexWrap: 'wrap',
+    gap: 12,
+    marginTop: 4,
   },
 
   depotHandoverButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f0f9ff',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: AppColors.primary,
-    gap: 6,
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2,
+    borderColor: '#DBEAFE',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#3B82F6',
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 2 },
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
 
   depotHandoverButtonText: {
     fontSize: 14,
-    color: AppColors.primary,
-    fontWeight: '500',
+    color: '#2563EB',
+    fontWeight: '600',
+    marginLeft: 6,
   },
 
   // Modal styles

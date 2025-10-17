@@ -25,6 +25,9 @@ pool.on('error', (err, client) => {
 
 pool.on('connect', (client) => {
   console.log('New database connection established');
+  client.query("SET TIME ZONE 'Asia/Colombo';").catch((err) => {
+    console.error('Failed to set database time zone', err);
+  });
 });
 
 module.exports = pool;

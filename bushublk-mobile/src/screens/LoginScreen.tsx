@@ -210,13 +210,7 @@ export default function LoginScreen({ navigation }: any) {
                 </TouchableOpacity>
               </View>
 
-              {/* Divider */}
-              <View style={styles.dividerContainer}>
-                <View style={styles.divider} />
-                <Text style={styles.dividerText}>or</Text>
-                <View style={styles.divider} />
-              </View>
-
+              
               
             </View>
           </ScrollView>

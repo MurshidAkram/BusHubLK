@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from "react";
-import { useNavigation } from "@react-navigation/native";
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import {
   StyleSheet,
   View,
@@ -16,12 +16,13 @@ import {
   Animated,
   findNodeHandle,
   UIManager,
+  LayoutChangeEvent,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 import axios from "axios";
-import { storageAPI } from "../services/api";
+import { storageAPI, notificationAPI } from "../services/api";
 import { API_BASE_URL } from "../config/api";
 
 // Type definitions
@@ -97,6 +98,8 @@ export default function HomeScreen() {
 
   // User state
   const [userData, setUserData] = useState<UserData | null>(null);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const isFetchingUnreadRef = useRef(false);
 
   // Plan Your Journey state
   const [from, setFrom] = useState<string>("");
@@ -130,6 +133,56 @@ export default function HomeScreen() {
     loadUserData();
     startAnimations();
   }, []);
+
+  const fetchUnreadCount = useCallback(async () => {
+    if (isFetchingUnreadRef.current) {
+      return;
+    }
+
+    isFetchingUnreadRef.current = true;
+    try {
+      const response = await notificationAPI.getUnreadCount();
+      const rawCount =
+        response?.data?.unreadCount ?? response?.unreadCount ?? null;
+
+      if (typeof rawCount === "number" && Number.isFinite(rawCount)) {
+        setUnreadCount(rawCount);
+      } else {
+        setUnreadCount(0);
+      }
+    } catch (error: any) {
+      const status = error?.response?.status;
+      if (status === 401 || status === 403) {
+        console.warn('Unread notification count access denied');
+        setUnreadCount(0);
+        return;
+      }
+      if (status === 404) {
+        console.warn('Unread notification endpoint not found');
+        setUnreadCount(0);
+        return;
+      }
+      console.error("Failed to load unread notifications count", error);
+    } finally {
+      isFetchingUnreadRef.current = false;
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+      fetchUnreadCount();
+      const interval = setInterval(() => {
+        if (isActive) {
+          fetchUnreadCount();
+        }
+      }, 60000);
+      return () => {
+        isActive = false;
+        clearInterval(interval);
+      };
+    }, [fetchUnreadCount])
+  );
 
   const startAnimations = () => {
     Animated.parallel([
@@ -311,12 +364,15 @@ export default function HomeScreen() {
   };
 
   // --- Dynamic suggestion list positioning ---
-  const onInputLayout = (event: any, type: 'from' | 'to') => {
+
+  const onInputLayout = (event: LayoutChangeEvent, type: 'from' | 'to') => {
+
     const { y, height } = event.nativeEvent.layout;
+    const statusBarOffset = StatusBar.currentHeight ?? 0;
     if (type === 'from') {
-      setFromInputLayout({ y, height });
+      setFromInputLayout({ y: y - statusBarOffset, height });
     } else {
-      setToInputLayout({ y, height });
+      setToInputLayout({ y: y - statusBarOffset, height });
     }
   };
 
@@ -418,6 +474,13 @@ export default function HomeScreen() {
             >
               <View style={styles.iconBackgroundEnhanced}>
                 <Ionicons name="notifications-outline" size={24} color="#FFFFFF" />
+                {unreadCount > 0 && (
+                  <View style={styles.notificationBadge}>
+                    <Text style={styles.notificationBadgeText}>
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </Text>
+                  </View>
+                )}
               </View>
             </TouchableOpacity>
             <TouchableOpacity
@@ -490,7 +553,7 @@ export default function HomeScreen() {
               style={styles.inputGroup} // Removed zIndex/elevation from inputGroup, not needed here
             >
               <LinearGradient
-                colors={[AppColors.primaryMuted, "rgba(0, 86, 179, 0.05)"]}
+                colors={["rgba(0, 86, 179, 0.03)", "rgba(0, 86, 179, 0.02)"]}
                 style={styles.inputGradient}
               >
                 <Ionicons
@@ -501,7 +564,7 @@ export default function HomeScreen() {
                 <View style={{ flex: 1 }}>
                   <TextInput
                     ref={fromInputRef}
-                    placeholder="From (e.g., Colombo)"
+                    placeholder="From (Enter start location)"
                     style={styles.input}
                     placeholderTextColor="#154dadff"
                     value={from}
@@ -509,8 +572,11 @@ export default function HomeScreen() {
                     onFocus={() => {
                         setShowFromSuggestions(true);
                         // Measure layout on focus, ensuring it's recent
-                        fromInputRef.current?.measureInWindow((x, y, width, height) => {
-                            setFromInputLayout({ y: y - (StatusBar.currentHeight || 0), height: height }); // Adjust for StatusBar if translucent is false
+
+            fromInputRef.current?.measureInWindow((x, y, width, height) => {
+              const statusBarOffset = StatusBar.currentHeight ?? 0;
+              setFromInputLayout({ y: y - statusBarOffset, height: height }); // Adjust for StatusBar if translucent is false
+
                         });
                     }}
                     onBlur={() => {
@@ -540,7 +606,7 @@ export default function HomeScreen() {
               style={styles.inputGroup} // Removed zIndex/elevation from inputGroup
             >
               <LinearGradient
-                colors={[AppColors.primaryMuted, "rgba(0, 86, 179, 0.05)"]}
+                colors={["rgba(0, 86, 179, 0.03)", "rgba(0, 86, 179, 0.02)"]}
                 style={styles.inputGradient}
               >
                 <Ionicons
@@ -551,7 +617,7 @@ export default function HomeScreen() {
                 <View style={{ flex: 1 }}>
                   <TextInput
                     ref={toInputRef}
-                    placeholder="To (e.g., Kandy)"
+                    placeholder="To (Enter destination)"
                     style={styles.input}
                     placeholderTextColor="#154dadff"
                     value={to}
@@ -559,8 +625,11 @@ export default function HomeScreen() {
                     onFocus={() => {
                         setShowToSuggestions(true);
                         // Measure layout on focus, ensuring it's recent
-                        toInputRef.current?.measureInWindow((x, y, width, height) => {
-                            setToInputLayout({ y: y - (StatusBar.currentHeight || 0), height: height }); // Adjust for StatusBar if translucent is false
+
+            toInputRef.current?.measureInWindow((x, y, width, height) => {
+              const statusBarOffset = StatusBar.currentHeight ?? 0;
+              setToInputLayout({ y: y - statusBarOffset, height: height }); // Adjust for StatusBar if translucent is false
+
                         });
                     }}
                     onBlur={() => {
@@ -624,7 +693,7 @@ export default function HomeScreen() {
                 style={styles.quickActionCard}
                 onPress={() => {
                   if (action.title === "Live Tracking") {
-                    navigation.navigate("BusTracker");
+                    navigation.navigate("BusTracking");
                   } else if (action.title === "Bus Occupancy") {
                     navigation.navigate("BusOccupancy");
                   } else if (action.title === "Emergency Alert") {
@@ -759,6 +828,25 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.3)",
+  },
+  notificationBadge: {
+    position: "absolute",
+    top: -2,
+    right: -2,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: "#F97316",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 4,
+    borderWidth: 1,
+    borderColor: "#ffffff",
+  },
+  notificationBadgeText: {
+    color: "#ffffff",
+    fontSize: 10,
+    fontWeight: "700",
   },
   welcomeBanner: {
     flexDirection: "row",

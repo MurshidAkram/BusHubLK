@@ -1,5 +1,6 @@
 
 const Emergency = require('../models/emergencyModel');
+const DailyAssignment = require('../models/DailyAssignmentModel');
 const pool = require('../config/db'); 
 
 const createEmergencyReport = async (req, res) => {
@@ -10,6 +11,35 @@ const createEmergencyReport = async (req, res) => {
   }
   if (!incidentType || !location || !location.latitude || !location.longitude) {
     return res.status(400).json({ message: 'Incident type and location are required.' });
+  }
+
+  let assignmentId = null;
+  let busId = null;
+
+  try {
+    const assignments = await DailyAssignment.getByDriverId(driver_id);
+    if (Array.isArray(assignments) && assignments.length > 0) {
+      const todayStr = new Date().toISOString().slice(0, 10);
+
+      const normalizeDate = (value) => {
+        if (!value) return null;
+        try {
+          return new Date(value).toISOString().slice(0, 10);
+        } catch (err) {
+          return null;
+        }
+      };
+
+      const todaysAssignment = assignments.find((assignment) => normalizeDate(assignment.assignment_date) === todayStr);
+      const relevantAssignment = todaysAssignment || assignments[0];
+
+      if (relevantAssignment) {
+        assignmentId = relevantAssignment.assignment_id ?? null;
+        busId = relevantAssignment.bus_id ?? null;
+      }
+    }
+  } catch (assignmentErr) {
+    console.warn('Unable to resolve driver assignment for emergency report:', assignmentErr);
   }
 
   const client = await pool.connect();
@@ -25,6 +55,8 @@ const createEmergencyReport = async (req, res) => {
       description,
       latitude: location.latitude,
       longitude: location.longitude,
+      assignment_id: assignmentId,
+      bus_id: busId,
     };
     const newReport = await Emergency.createReport(reportData, client);
 

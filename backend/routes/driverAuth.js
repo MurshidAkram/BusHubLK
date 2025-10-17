@@ -1,6 +1,6 @@
 const express = require('express');
 const { body } = require('express-validator');
-const { driverLogin, getDriverProfile, updateDriverProfile, getDriverAssignedBuses } = require('../controllers/driverAuthController');
+const { driverLogin, driverLogout, getDriverProfile, updateDriverProfile, getDriverAssignedBuses } = require('../controllers/driverAuthController');
 
 // Import the correct auth middleware function
 const { authenticateJWT } = require('../middlewares/authMiddleware');
@@ -19,6 +19,11 @@ router.post('/login', [
     .isLength({ min: 1 })
     .withMessage('Password is required')
 ], driverLogin);
+
+// @route   POST /api/driver/logout
+// @desc    Driver logout (blacklist token)
+// @access  Private (Driver only)
+router.post('/logout', authenticateJWT, driverLogout);
 
 // @route   GET /api/driver/profile
 // @desc    Get driver profile
