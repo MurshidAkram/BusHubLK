@@ -1,6 +1,26 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_BASE_URL } from "../config/api";
 
+// Global session expiration handler - will be set by SessionProvider
+let sessionExpiredHandler: (() => void) | null = null;
+
+export const setSessionExpiredHandler = (handler: () => void) => {
+  sessionExpiredHandler = handler;
+};
+
+// Helper function to check if response indicates session expiration
+const handleApiResponse = async (response: Response) => {
+  // Check for 403 (Forbidden) which indicates expired/invalid token
+  if (response.status === 403) {
+    console.log('🔒 Session expired (403) - triggering handler');
+    if (sessionExpiredHandler) {
+      sessionExpiredHandler();
+    }
+    throw new Error('Session expired');
+  }
+  return response;
+};
+
 // Driver-specific API functions
 export const driverAPI = {
   // Driver login
@@ -46,6 +66,7 @@ export const driverAPI = {
         Authorization: `Bearer ${token}`,
       },
     });
+    await handleApiResponse(response);
     return response.json();
   },
 
@@ -166,6 +187,7 @@ export const driverAPI = {
         Authorization: `Bearer ${token}`,
       },
     });
+    await handleApiResponse(response);
     return response.json();
   },
 
@@ -179,6 +201,8 @@ export const driverAPI = {
         Authorization: `Bearer ${token}`,
       },
     });
+    
+    await handleApiResponse(response);
     
     if (!response.ok) {
       throw new Error(`Failed to fetch routes: ${response.status}`);
@@ -199,6 +223,7 @@ export const driverAPI = {
         Authorization: `Bearer ${token}`,
       },
     });
+    await handleApiResponse(response);
     return response.json();
   },
 
@@ -246,6 +271,7 @@ export const driverAPI = {
         Authorization: `Bearer ${token}`,
       },
     });
+    await handleApiResponse(response);
     return response.json();
   },
 

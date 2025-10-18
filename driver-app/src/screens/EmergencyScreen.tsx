@@ -24,21 +24,25 @@ import { driverAPI } from '../services/api';
 import AppHeader from '../components/AppHeader';
 
 const AppColors = {
-  background: '#F8F9FA',
+  background: '#F8FAFF',
   card: '#FFFFFF',
   primary: '#0056b3',
+  primaryDark: '#003d82',
   primaryLight: '#0076e3',
-  text: '#212529',
-  textSecondary: '#6C757D',
-  border: '#DEE2E6',
+  primaryMuted: 'rgba(0, 86, 179, 0.1)',
+  text: '#1F2937',
+  textSecondary: '#6B7280',
+  border: '#E5E7EB',
   activeBlue: '#E7F1FF',
-  accent: '#E9F2FF',
+  accent: '#F0F8FF',
   success: '#198754',
   red: '#EF4444',
   yellow: '#F59E0B',
   green: '#10B981',
   orange: '#F97316',
   purple: '#8B5CF6',
+  shadow: 'rgba(0, 0, 0, 0.1)',
+  inputBackground: '#FFFFFF',
 };
 
 interface BusInfo {
@@ -54,7 +58,7 @@ interface QuickIncident {
   color: string;
 }
 
-type IncidentType = 'Accident' | 'Medical' | 'Fire' | 'Breakdown' | 'Theft' | 'Hazard';
+type IncidentType = 'Accident' | 'Medical' | 'Fire' | 'Breakdown' | 'Theft' | 'Hazard' | 'Panic Alert';
 type EmergencyHistoryItem = HistoryItemProps['item'];
 type EmergencyScreenProps = { navigation: any };
 type IncidentButtonProps = {
@@ -101,7 +105,12 @@ const HistoryItem = ({ item, onPress }: HistoryItemProps) => {
 
   return (
     <Pressable style={({ pressed }) => [styles.historyItem, pressed && styles.historyItemPressed]} onPress={onPress}>
-      <LinearGradient colors={[AppColors.activeBlue, '#ffffff']} style={styles.historyIconContainer}>
+      <LinearGradient 
+        colors={['#E7F1FF', '#F8FAFF']} 
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.historyIconContainer}
+      >
         <MaterialCommunityIcons name={incidentIcon as keyof typeof MaterialCommunityIcons.glyphMap} size={28} color={AppColors.primary} />
       </LinearGradient>
       <View style={styles.historyDetails}>
@@ -271,10 +280,10 @@ const EmergencyScreen = ({ navigation }: EmergencyScreenProps) => {
   // Enhanced panic button functionality
   const handlePanicButton = async () => {
     setIsPanicMode(true);
-    setSelectedIncident('Accident');
+    setSelectedIncident('Panic Alert');
     setUrgencyLevel('critical');
     setDescription('🚨 PANIC BUTTON ACTIVATED - IMMEDIATE ASSISTANCE REQUIRED');
-    
+
     // IMMEDIATELY send panic alert (don't wait for countdown)
     Alert.alert(
       '🚨 PANIC ALERT SENT',
@@ -346,7 +355,7 @@ const EmergencyScreen = ({ navigation }: EmergencyScreenProps) => {
         driver_id: driverId,
         bus_id: currentAssignment?.bus_id || null,
         assignment_id: currentAssignment?.assignment_id || null,
-        incidentType: selectedIncident || 'Emergency',
+        incidentType: isPanic ? 'Panic Alert' : (selectedIncident || 'Emergency'),
         description: isPanic ? 
           `🚨 PANIC BUTTON ACTIVATED - IMMEDIATE ASSISTANCE REQUIRED\n\n${locationMessage}${busInfo ? `\n\n🚌 Bus: ${busInfo.busNumber}\n🗺️ Route: ${busInfo.routeNumber}\n👤 Driver: ${busInfo.driverName}` : ''}` :
           `${description || 'Emergency reported'}\n\n${locationMessage}${busInfo ? `\n\n🚌 Bus: ${busInfo.busNumber}\n🗺️ Route: ${busInfo.routeNumber}\n👤 Driver: ${busInfo.driverName}` : ''}`,
@@ -372,7 +381,16 @@ const EmergencyScreen = ({ navigation }: EmergencyScreenProps) => {
       });
 
       const newReport = await response.json();
+      console.log('📥 Received emergency report response:', JSON.stringify(newReport, null, 2));
+      
       if (!response.ok) throw new Error(newReport.message || 'Failed to submit emergency report.');
+      
+      if (!newReport.id) {
+        console.error('❌ Emergency report response missing ID!');
+        throw new Error('Server did not return a valid report ID.');
+      }
+      
+      console.log('✅ Emergency report created successfully with ID:', newReport.id);
       
       // Reset form
       setSelectedIncident(null);
@@ -388,7 +406,12 @@ const EmergencyScreen = ({ navigation }: EmergencyScreenProps) => {
         [
           {
             text: 'View Response',
-            onPress: () => navigation.replace('ChatScreen', { report: newReport })
+            onPress: async () => {
+              // Small delay to ensure backend transaction is fully committed
+              await new Promise(resolve => setTimeout(resolve, 500));
+              console.log('🔄 Navigating to ChatScreen with report:', newReport.id);
+              navigation.replace('ChatScreen', { report: newReport });
+            }
           }
         ]
       );
@@ -402,9 +425,11 @@ const EmergencyScreen = ({ navigation }: EmergencyScreenProps) => {
   const IncidentButton = ({ icon, text, isSelected, onPress }: IncidentButtonProps) => (
     <TouchableOpacity style={[styles.incidentButton, isSelected && styles.incidentButtonSelected]} onPress={onPress} activeOpacity={0.7}>
       <LinearGradient
-        colors={isSelected ? [AppColors.primary, AppColors.primaryLight] : [AppColors.card, AppColors.accent]}
+        colors={isSelected ? ['#0056b3', '#0076e3'] : ['#E7F1FF', '#F8FAFF']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
         style={styles.incidentButtonGradient}>
-        <MaterialCommunityIcons name={icon} size={48} color={isSelected ? AppColors.card : AppColors.primary} />
+        <MaterialCommunityIcons name={icon} size={48} color={isSelected ? '#ffffff' : '#0056b3'} />
         <Text style={[styles.incidentButtonText, isSelected && styles.incidentButtonTextSelected]}>{text}</Text>
       </LinearGradient>
     </TouchableOpacity>
@@ -422,7 +447,7 @@ const EmergencyScreen = ({ navigation }: EmergencyScreenProps) => {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.container}>
-          {/* Enhanced Panic Button */}
+          {/* Enhanced Panic Button with Blue Gradient */}
           <View style={styles.panicContainer}>
             <TouchableOpacity 
               style={[styles.panicButton, isPanicMode && styles.panicButtonActive]} 
@@ -430,7 +455,9 @@ const EmergencyScreen = ({ navigation }: EmergencyScreenProps) => {
               disabled={isSubmitting}
             >
               <LinearGradient
-                colors={isPanicMode ? [AppColors.red, '#DC2626'] : [AppColors.red, '#EF4444']}
+                colors={isPanicMode ? ['#DC2626', '#EF4444', '#F87171'] : ['#DC2626', '#EF4444']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
                 style={styles.panicButtonGradient}
               >
                 <MaterialCommunityIcons 
@@ -439,11 +466,11 @@ const EmergencyScreen = ({ navigation }: EmergencyScreenProps) => {
                   color="#ffffff" 
                 />
                 <Text style={styles.panicButtonText}>
-                  {countdown !== null ? `PANIC (${countdown}s)` : 'PANIC BUTTON'}
+                  {countdown !== null ? (<Text>PANIC ({countdown}s)</Text>) : (<Text>PANIC BUTTON</Text>)}
                 </Text>
                 {countdown !== null && (
                   <Text style={styles.panicSubText}>
-                    Auto-sending in {countdown}s
+                    <Text>Auto-sending in {countdown}s</Text>
                   </Text>
                 )}
               </LinearGradient>
@@ -471,15 +498,17 @@ const EmergencyScreen = ({ navigation }: EmergencyScreenProps) => {
               >
                 <LinearGradient
                   colors={selectedIncident === incident.text ? 
-                    [incident.color, incident.color + '90'] : 
-                    ['#ffffff', '#f8f9fa']
+                    ['#0056b3', '#0076e3'] : 
+                    ['#E7F1FF', '#F8FAFF']
                   }
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
                   style={styles.quickIncidentGradient}
                 >
                   <MaterialCommunityIcons 
                     name={incident.icon} 
                     size={32} 
-                    color={selectedIncident === incident.text ? '#ffffff' : incident.color} 
+                    color={selectedIncident === incident.text ? '#ffffff' : '#0056b3'} 
                   />
                   <Text style={[
                     styles.quickIncidentText,
@@ -496,38 +525,27 @@ const EmergencyScreen = ({ navigation }: EmergencyScreenProps) => {
           <Text style={styles.sectionTitle}>Urgency Level</Text>
           <View style={styles.urgencyContainer}>
             {[
-              { level: 'low', label: 'Low', color: AppColors.green, icon: 'information' },
-              { level: 'medium', label: 'Medium', color: AppColors.yellow, icon: 'alert' },
-              { level: 'high', label: 'High', color: AppColors.orange, icon: 'alert-circle' },
-              { level: 'critical', label: 'Critical', color: AppColors.red, icon: 'alarm-light' }
-            ].map(({ level, label, color, icon }) => (
+              { level: 'low', label: 'Low', icon: 'information' },
+              { level: 'medium', label: 'Medium', icon: 'alert' },
+              { level: 'high', label: 'High', icon: 'alert-circle' },
+              { level: 'critical', label: 'Critical', icon: 'alarm-light' }
+            ].map(({ level, label, icon }) => (
               <TouchableOpacity
                 key={level}
                 style={[
                   styles.urgencyButton,
-                  urgencyLevel === level && styles.urgencyButtonSelected,
-                  { borderColor: color }
+                  urgencyLevel === level && styles.urgencyButtonSelected
                 ]}
                 onPress={() => setUrgencyLevel(level as any)}
               >
                 <MaterialCommunityIcons 
                   name={icon as any} 
                   size={20} 
-                  color={urgencyLevel === level ? '#ffffff' : color} 
+                  color='#0056b3'
                 />
-                <Text style={[
-                  styles.urgencyText,
-                  urgencyLevel === level && styles.urgencyTextSelected,
-                  { color: urgencyLevel === level ? '#ffffff' : color }
-                ]}>
+                <Text style={styles.urgencyText}>
                   {label}
                 </Text>
-                {urgencyLevel === level && (
-                  <LinearGradient
-                    colors={[color, color + '90']}
-                    style={styles.urgencyButtonBackground}
-                  />
-                )}
               </TouchableOpacity>
             ))}
           </View>
@@ -536,28 +554,28 @@ const EmergencyScreen = ({ navigation }: EmergencyScreenProps) => {
           {busInfo && busInfo.busNumber && (
             <View style={styles.busInfoContainer}>
               <Text style={styles.sectionTitle}>Vehicle Information</Text>
-              <LinearGradient colors={[AppColors.accent, '#ffffff']} style={styles.busInfoBox}>
+              <LinearGradient 
+                colors={['#E7F1FF', '#F8FAFF']} 
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.busInfoBox}
+              >
                 <View style={styles.busInfoRow}>
                   <MaterialCommunityIcons name="bus" size={20} color={AppColors.primary} />
                   <Text style={styles.busInfoText}>
-
-                    Bus: {busInfo?.busNumber || 'Unknown'}
-
+                    <Text>Bus: {busInfo?.busNumber || 'Unknown'}</Text>
                   </Text>
                 </View>
                 <View style={styles.busInfoRow}>
                   <MaterialCommunityIcons name="map-marker-path" size={20} color={AppColors.primary} />
                   <Text style={styles.busInfoText}>
-
-                    Route: {busInfo?.routeNumber || 'Unknown'}
-
+                    <Text>Route: {busInfo?.routeNumber || 'Unknown'}</Text>
                   </Text>
                 </View>
                 <View style={styles.busInfoRow}>
                   <MaterialCommunityIcons name="account" size={20} color={AppColors.primary} />
                   <Text style={styles.busInfoText}>
-                    Driver: {busInfo?.driverName || 'Unknown Driver'}
-
+                    <Text>Driver: {busInfo?.driverName || 'Unknown Driver'}</Text>
                   </Text>
                 </View>
               </LinearGradient>
@@ -576,7 +594,12 @@ const EmergencyScreen = ({ navigation }: EmergencyScreenProps) => {
             onBlur={() => setIsInputFocused(false)}
           />
           <Text style={styles.sectionTitle}>Enhanced Location Status</Text>
-          <LinearGradient colors={[AppColors.accent, '#ffffff']} style={styles.locationBox}>
+          <LinearGradient 
+            colors={['#E7F1FF', '#F8FAFF']} 
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.locationBox}
+          >
             {isLocationTracking ? (
               <>
                 <ActivityIndicator color={AppColors.yellow} />
@@ -613,7 +636,9 @@ const EmergencyScreen = ({ navigation }: EmergencyScreenProps) => {
           </LinearGradient>
           <TouchableOpacity style={styles.submitButtonWrapper} onPress={() => handleSubmit(false)} disabled={isSubmitting}>
             <LinearGradient
-              colors={isSubmitting ? ['#CED4DA', '#ADB5BD'] : [AppColors.primary, AppColors.primaryLight]}
+              colors={isSubmitting ? ['#CED4DA', '#ADB5BD'] : ['#0056b3', '#0076e3']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
               style={styles.submitButton}>
               {isSubmitting ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.submitButtonText}>Send Emergency Report</Text>}
             </LinearGradient>
@@ -626,14 +651,28 @@ const EmergencyScreen = ({ navigation }: EmergencyScreenProps) => {
 
   const renderHistory = () => {
     if (isLoadingHistory) {
-  return <ActivityIndicator size="large" color={AppColors.primary} style={styles.loader} />;
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={AppColors.primary} />
+          <Text style={styles.loadingText}>Loading history...</Text>
+        </View>
+      );
     }
     if (history.length === 0) {
       return (
-        <View style={styles.emptyContainer}>
-          <Ionicons name="receipt-outline" size={64} color="#d1d5db" />
-          <Text style={styles.emptyText}>No Past Reports Found</Text>
-          <Text style={styles.emptySubText}>New reports you submit will appear here.</Text>
+        <View style={styles.emptyStateWrapper}>
+          <LinearGradient
+            colors={['rgba(0, 86, 179, 0.03)', 'rgba(240, 248, 255, 0.4)', 'transparent']}
+            style={styles.emptyGradient}
+          >
+            <View style={styles.emptyIconContainer}>
+              <Ionicons name="receipt-outline" size={56} color={AppColors.primary} />
+            </View>
+            <Text style={styles.emptyText}>No Past Reports Found</Text>
+            <Text style={styles.emptySubText}>
+              Emergency reports you submit will appear here for tracking and reference.
+            </Text>
+          </LinearGradient>
         </View>
       );
     }
@@ -659,24 +698,43 @@ const EmergencyScreen = ({ navigation }: EmergencyScreenProps) => {
         onBackPress={() => navigation.goBack()}
       />
       
-      {/* Tab Container */}
-      <View style={styles.tabContainer}>
-        <TouchableOpacity style={[styles.tab, activeTab === 'new' && styles.tabActive]} onPress={() => setActiveTab('new')} activeOpacity={0.7}>
-          <Text style={[styles.tabText, activeTab === 'new' && styles.tabTextActive]}>New Report</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'history' && styles.tabActive]}
-          onPress={() => {
-            setActiveTab('history');
-            if (driverId) {
-              fetchHistory(driverId);
-            }
-          }}
-          activeOpacity={0.7}
-        >
-          <Text style={[styles.tabText, activeTab === 'history' && styles.tabTextActive]}>History</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Enhanced Tab Container with Gradient */}
+      <LinearGradient
+        colors={['rgba(0, 86, 179, 0.02)', 'transparent']}
+        style={styles.tabContainerWrapper}
+      >
+        <View style={styles.tabContainer}>
+          <TouchableOpacity 
+            style={[styles.tab, activeTab === 'new' && styles.tabActive]} 
+            onPress={() => setActiveTab('new')} 
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons 
+              name="alert-circle-outline" 
+              size={18} 
+              color={activeTab === 'new' ? AppColors.primary : AppColors.textSecondary} 
+            />
+            <Text style={[styles.tabText, activeTab === 'new' && styles.tabTextActive]}>New Report</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'history' && styles.tabActive]}
+            onPress={() => {
+              setActiveTab('history');
+              if (driverId) {
+                fetchHistory(driverId);
+              }
+            }}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons 
+              name="history" 
+              size={18} 
+              color={activeTab === 'history' ? AppColors.primary : AppColors.textSecondary} 
+            />
+            <Text style={[styles.tabText, activeTab === 'history' && styles.tabTextActive]}>History</Text>
+          </TouchableOpacity>
+        </View>
+      </LinearGradient>
       
       {/* Content */}
       <View style={styles.content}>
@@ -687,7 +745,10 @@ const EmergencyScreen = ({ navigation }: EmergencyScreenProps) => {
 };
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: AppColors.background },
+  safeArea: { 
+    flex: 1, 
+    backgroundColor: AppColors.background,
+  },
   header: {
     paddingTop: Platform.OS === 'android' ? 40 : 60,
     paddingBottom: 24,
@@ -706,169 +767,386 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   content: { flex: 1 },
+  
+  // Enhanced Tab Container with Gradient
+  tabContainerWrapper: {
+    paddingTop: 4,
+  },
   tabContainer: {
     flexDirection: 'row',
-    padding: 8,
-    marginHorizontal: 24,
-    marginVertical: 16,
+    padding: 6,
+    marginHorizontal: 16,
+    marginVertical: 8,
     backgroundColor: AppColors.card,
-    borderRadius: 99,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: AppColors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
+    borderColor: 'rgba(229, 231, 235, 0.6)',
+    ...Platform.select({
+      android: {
+        elevation: 3,
+      },
+      ios: {
+        shadowColor: AppColors.shadow,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+    }),
   },
-  tab: { flex: 1, paddingVertical: 12, borderRadius: 99, alignItems: 'center' },
+  tab: { 
+    flex: 1, 
+    paddingVertical: 12, 
+    borderRadius: 10, 
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
+  },
   tabActive: {
     backgroundColor: AppColors.activeBlue,
-    shadowColor: AppColors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
-    elevation: 4,
+    ...Platform.select({
+      android: {
+        elevation: 2,
+      },
+      ios: {
+        shadowColor: AppColors.primary,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
+      },
+    }),
   },
-  tabText: { fontSize: 15, fontWeight: '600', color: AppColors.textSecondary },
-  tabTextActive: { color: AppColors.primary, fontWeight: '700' },
+  tabText: { 
+    fontSize: 14, 
+    fontWeight: '600', 
+    color: AppColors.textSecondary,
+  },
+  tabTextActive: { 
+    color: AppColors.primary, 
+    fontWeight: '700',
+  },
   flexOne: { flex: 1 },
   formContent: { paddingBottom: 40 },
-  container: { paddingHorizontal: 24 },
-  sectionTitle: { fontSize: 18, fontWeight: '600', color: AppColors.text, marginBottom: 12, marginTop: 12 },
+  container: { paddingHorizontal: 16 },
+  
+  sectionTitle: { 
+    fontSize: 17, 
+    fontWeight: '700', 
+    color: AppColors.text, 
+    marginBottom: 14, 
+    marginTop: 16,
+    letterSpacing: 0.2,
+  },
+  
   incidentGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 12 },
   incidentButton: {
     width: '30%',
-    borderRadius: 16,
+    borderRadius: 14,
     marginBottom: 12,
     overflow: 'hidden',
   },
   incidentButtonGradient: {
     paddingVertical: 20,
     alignItems: 'center',
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: AppColors.border,
+    borderColor: 'rgba(229, 231, 235, 0.4)',
   },
-  incidentButtonSelected: { borderColor: AppColors.primary },
-  incidentButtonText: { marginTop: 8, color: AppColors.text, fontWeight: '600', fontSize: 13, textAlign: 'center' },
-  incidentButtonTextSelected: { color: AppColors.card },
+  incidentButtonSelected: { 
+    borderColor: AppColors.primary,
+    borderWidth: 2,
+  },
+  incidentButtonText: { 
+    marginTop: 8, 
+    color: AppColors.text, 
+    fontWeight: '600', 
+    fontSize: 13, 
+    textAlign: 'center',
+  },
+  incidentButtonTextSelected: { 
+    color: AppColors.card,
+    fontWeight: '700',
+  },
+  
   input: {
-    backgroundColor: AppColors.card,
+    backgroundColor: AppColors.inputBackground,
     color: AppColors.text,
-    borderRadius: 16,
+    borderRadius: 14,
     padding: 16,
     fontSize: 15,
-    height: 90,
+    height: 100,
     textAlignVertical: 'top',
     borderWidth: 1,
-    borderColor: AppColors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
-    elevation: 2,
+    borderColor: 'rgba(229, 231, 235, 0.6)',
+    ...Platform.select({
+      android: {
+        elevation: 2,
+      },
+      ios: {
+        shadowColor: AppColors.shadow,
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+      },
+    }),
   },
   inputFocused: {
     borderColor: AppColors.primary,
-    shadowColor: AppColors.primary,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.25,
-    shadowRadius: 5,
-    elevation: 4,
+    ...Platform.select({
+      android: {
+        elevation: 4,
+      },
+      ios: {
+        shadowColor: AppColors.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+      },
+    }),
   },
   locationBox: {
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 14,
+    padding: 18,
     flexDirection: 'row',
     alignItems: 'flex-start',
     borderWidth: 1,
-    borderColor: '#c4e2ff',
+    borderColor: 'rgba(196, 226, 255, 0.6)',
     marginTop: 8,
-    backgroundColor: AppColors.accent,
+    ...Platform.select({
+      android: {
+        elevation: 2,
+      },
+      ios: {
+        shadowColor: AppColors.shadow,
+        shadowOpacity: 0.08,
+        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 2 },
+      },
+    }),
   },
   locationDetails: {
     flex: 1,
-    marginLeft: 8,
+    marginLeft: 12,
   },
   locationText: { 
     fontSize: 15, 
     fontWeight: '600',
+    letterSpacing: 0.2,
   },
   locationSubText: {
-    fontSize: 12,
+    fontSize: 13,
     color: AppColors.textSecondary,
-    marginTop: 4,
+    marginTop: 6,
     fontWeight: '500',
+    lineHeight: 18,
   },
+  
   submitButtonWrapper: {
-    marginVertical: 20,
-    borderRadius: 16,
-    shadowColor: AppColors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 6,
+    marginVertical: 24,
+    marginHorizontal: 4,
+    borderRadius: 14,
+    overflow: 'hidden',
+    ...Platform.select({
+      android: {
+        elevation: 6,
+      },
+      ios: {
+        shadowColor: AppColors.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+    }),
   },
-  submitButton: { paddingVertical: 18, borderRadius: 16, alignItems: 'center' },
-  submitButtonText: { color: AppColors.card, fontSize: 16, fontWeight: '700', letterSpacing: 0.5 },
+  submitButton: { 
+    paddingVertical: 18, 
+    borderRadius: 14, 
+    alignItems: 'center',
+  },
+  submitButtonText: { 
+    color: AppColors.card, 
+    fontSize: 16, 
+    fontWeight: '700', 
+    letterSpacing: 0.5,
+  },
   bottomSpacer: { height: 32 },
   loader: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  historyList: { paddingHorizontal: 24, paddingTop: 8 },
+  historyList: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 24 },
+  
   historyItem: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: AppColors.card,
-    padding: 16,
-    borderRadius: 16,
+    padding: 18,
+    borderRadius: 14,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: AppColors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 3,
+    borderColor: 'rgba(229, 231, 235, 0.6)',
+    ...Platform.select({
+      android: {
+        elevation: 3,
+      },
+      ios: {
+        shadowColor: AppColors.shadow,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 4,
+      },
+    }),
   },
-  historyItemPressed: { transform: [{ scale: 0.98 }], backgroundColor: AppColors.activeBlue },
+  historyItemPressed: { 
+    transform: [{ scale: 0.98 }], 
+    backgroundColor: AppColors.activeBlue,
+  },
   historyIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 14,
   },
   historyDetails: { flex: 1 },
-  historyTitle: { fontSize: 16, fontWeight: '700', color: AppColors.text },
-  historyStatus: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
-  historyStatusText: { marginLeft: 6, fontSize: 13, fontWeight: '600' },
+  historyTitle: { 
+    fontSize: 16, 
+    fontWeight: '700', 
+    color: AppColors.text,
+    letterSpacing: 0.2,
+  },
+  historyStatus: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    marginTop: 6,
+  },
+  historyStatusText: { 
+    marginLeft: 6, 
+    fontSize: 13, 
+    fontWeight: '600',
+  },
   historyActions: { alignItems: 'flex-end' },
-  historyDate: { fontSize: 12, color: AppColors.textSecondary, marginBottom: 4 },
-  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
-  emptyText: { fontSize: 20, fontWeight: '600', color: AppColors.text, marginTop: 16 },
-  emptySubText: { fontSize: 14, color: AppColors.textSecondary, marginTop: 4, textAlign: 'center' },
+  historyDate: { 
+    fontSize: 12, 
+    color: AppColors.textSecondary, 
+    marginBottom: 6,
+    fontWeight: '500',
+  },
+  
+  // Enhanced Loading and Empty States
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  
+  loadingText: {
+    fontSize: 16,
+    color: AppColors.textSecondary,
+    marginTop: 16,
+    fontWeight: '500',
+  },
+  
+  emptyStateWrapper: {
+    flex: 1,
+    marginHorizontal: 16,
+    marginTop: 20,
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(229, 231, 235, 0.4)',
+    ...Platform.select({
+      android: {
+        elevation: 2,
+      },
+      ios: {
+        shadowColor: AppColors.shadow,
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 3 },
+      },
+    }),
+  },
+  
+  emptyGradient: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 80,
+    paddingHorizontal: 32,
+  },
+  
+  emptyIconContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: AppColors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+    ...Platform.select({
+      android: {
+        elevation: 2,
+      },
+      ios: {
+        shadowColor: AppColors.primary,
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 4 },
+      },
+    }),
+  },
+  
+  emptyContainer: { 
+    flex: 1, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    paddingHorizontal: 32,
+    paddingVertical: 60,
+  },
+  emptyText: { 
+    fontSize: 22, 
+    fontWeight: '700', 
+    color: AppColors.text, 
+    marginTop: 20,
+    letterSpacing: 0.3,
+    textAlign: 'center',
+  },
+  emptySubText: { 
+    fontSize: 15, 
+    color: AppColors.textSecondary, 
+    marginTop: 12, 
+    textAlign: 'center',
+    lineHeight: 22,
+    fontWeight: '500',
+    paddingHorizontal: 16,
+  },
   
   // Enhanced Panic Button Styles
   panicContainer: {
-    marginVertical: 16,
+    marginVertical: 20,
+    marginHorizontal: 4,
     alignItems: 'center',
   },
   panicButton: {
-    width: '80%',
-    borderRadius: 20,
+    width: '85%',
+    borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: AppColors.red,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 8,
+    ...Platform.select({
+      android: {
+        elevation: 8,
+      },
+      ios: {
+        shadowColor: AppColors.red,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.35,
+        shadowRadius: 12,
+      },
+    }),
   },
   panicButtonActive: {
-    transform: [{ scale: 0.95 }],
+    transform: [{ scale: 0.96 }],
   },
   panicButtonGradient: {
-    paddingVertical: 20,
+    paddingVertical: 22,
     paddingHorizontal: 24,
     alignItems: 'center',
     justifyContent: 'center',
@@ -877,15 +1155,15 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 18,
     fontWeight: '800',
-    letterSpacing: 1,
+    letterSpacing: 1.2,
     marginTop: 8,
   },
   panicSubText: {
     color: '#ffffff',
     fontSize: 14,
     fontWeight: '600',
-    marginTop: 4,
-    opacity: 0.9,
+    marginTop: 6,
+    opacity: 0.95,
   },
 
   // Quick Incident Styles
@@ -893,31 +1171,55 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 20,
+    gap: 10,
   },
   quickIncidentButton: {
-    width: '32%',
-    borderRadius: 12,
+    flex: 1,
+    borderRadius: 14,
     overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: AppColors.border,
+    borderWidth: 1.5,
+    borderColor: 'rgba(229, 231, 235, 0.6)',
+    ...Platform.select({
+      android: {
+        elevation: 2,
+      },
+      ios: {
+        shadowColor: AppColors.shadow,
+        shadowOpacity: 0.06,
+        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 2 },
+      },
+    }),
   },
   quickIncidentButtonSelected: {
     borderColor: AppColors.primary,
-    transform: [{ scale: 0.98 }],
+    borderWidth: 2,
+    ...Platform.select({
+      android: {
+        elevation: 4,
+      },
+      ios: {
+        shadowColor: AppColors.primary,
+        shadowOpacity: 0.2,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 3 },
+      },
+    }),
   },
   quickIncidentGradient: {
-    paddingVertical: 16,
-    paddingHorizontal: 12,
+    paddingVertical: 18,
+    paddingHorizontal: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 90,
+    minHeight: 100,
   },
   quickIncidentText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
     textAlign: 'center',
-    marginTop: 8,
+    marginTop: 10,
     color: AppColors.text,
+    letterSpacing: 0.2,
   },
   quickIncidentTextSelected: {
     color: '#ffffff',
@@ -929,21 +1231,45 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 20,
+    gap: 8,
   },
   urgencyButton: {
     flex: 1,
-    marginHorizontal: 4,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 6,
     borderRadius: 12,
-    borderWidth: 2,
+    borderWidth: 1.5,
+    borderColor: '#B8D4F1',
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative',
-    overflow: 'hidden',
+    backgroundColor: '#E7F1FF',
+    ...Platform.select({
+      android: {
+        elevation: 1,
+      },
+      ios: {
+        shadowColor: AppColors.shadow,
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        shadowOffset: { width: 0, height: 1 },
+      },
+    }),
   },
   urgencyButtonSelected: {
-    borderColor: 'transparent',
+    borderColor: '#0056b3',
+    borderWidth: 2.5,
+    backgroundColor: '#D0E4F8',
+    ...Platform.select({
+      android: {
+        elevation: 3,
+      },
+      ios: {
+        shadowColor: AppColors.primary,
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 2 },
+      },
+    }),
   },
   urgencyButtonBackground: {
     position: 'absolute',
@@ -953,10 +1279,12 @@ const styles = StyleSheet.create({
     bottom: 0,
   },
   urgencyText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
-    marginTop: 4,
+    marginTop: 6,
     textAlign: 'center',
+    color: '#0056b3',
+    letterSpacing: 0.2,
   },
   urgencyTextSelected: {
     color: '#ffffff',
@@ -968,22 +1296,34 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   busInfoBox: {
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 14,
+    padding: 18,
     borderWidth: 1,
-    borderColor: AppColors.border,
+    borderColor: 'rgba(229, 231, 235, 0.6)',
+    ...Platform.select({
+      android: {
+        elevation: 2,
+      },
+      ios: {
+        shadowColor: AppColors.shadow,
+        shadowOpacity: 0.08,
+        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 2 },
+      },
+    }),
   },
   busInfoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   busInfoText: {
-    marginLeft: 12,
+    marginLeft: 14,
     fontSize: 15,
     fontWeight: '500',
     color: AppColors.text,
     flex: 1,
+    letterSpacing: 0.2,
   },
 });
 

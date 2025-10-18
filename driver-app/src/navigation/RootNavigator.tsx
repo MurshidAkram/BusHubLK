@@ -6,11 +6,12 @@ import ForgotPasswordScreen from "../screens/ForgotPasswordScreen";
 import ResetPasswordScreen from "../screens/ResetPasswordScreen";
 import NotificationScreen from "../screens/NotificationScreen";
 import TabNavigator from "./TabNavigator";
-import { storageAPI } from "../services/api";
+import { storageAPI, setSessionExpiredHandler } from "../services/api";
 import { deepLinkService } from "../services/deepLinkHandler";
 import { locationService } from "../services/locationService";
 import { DriverProvider } from "../context/DriverContext";
 import { NotificationProvider } from "../context/NotificationContext";
+import { SessionProvider } from "../context/SessionContext";
 
 const Stack = createStackNavigator();
 
@@ -168,6 +169,19 @@ export default function RootNavigator() {
     }
   }, [navigationRef.current]);
 
+  // Handle session expiration
+  const handleSessionExpired = useCallback(async () => {
+    console.log("🔒 Session expired - logging out user");
+    await storageAPI.clearStorage();
+    locationService.stopLocationTracking();
+    setIsAuthenticated(false);
+  }, []);
+
+  // Set up session expiration handler
+  useEffect(() => {
+    setSessionExpiredHandler(handleSessionExpired);
+  }, [handleSessionExpired]);
+
   // Show nothing until app is initialized
   if (!isInitialized) {
     console.log("⏳ Driver app not initialized yet...");
@@ -175,59 +189,61 @@ export default function RootNavigator() {
   }
 
   return (
-    <DriverProvider>
-      <NotificationProvider>
-        <NavigationContainer ref={navigationRef}>
-          <Stack.Navigator screenOptions={{ headerShown: false }}>
-            {isAuthenticated ? (
-              <>
-                <Stack.Screen
-                  name="Main"
-                  component={TabNavigator}
-                  key="main-screen"
-                />
-                <Stack.Screen
-                  name="Notifications"
-                  component={NotificationScreen}
-                  key="notifications-screen"
-                />
-                <Stack.Screen
-                  name="ForgotPassword"
-                  component={ForgotPasswordScreen}
-                  key="forgot-password-screen"
-                  options={{
-                    title: "Change Password",
-                    headerShown: true,
-                  }}
-                />
-                <Stack.Screen
-                  name="ResetPassword"
-                  component={ResetPasswordScreen}
-                  key="reset-password-screen"
-                />
-              </>
-            ) : (
-              <>
-                <Stack.Screen
-                  name="Login"
-                  component={DriverLoginScreen}
-                  key="login-screen"
-                />
-                <Stack.Screen
-                  name="ForgotPassword"
-                  component={ForgotPasswordScreen}
-                  key="forgot-password-screen"
-                />
-                <Stack.Screen
-                  name="ResetPassword"
-                  component={ResetPasswordScreen}
-                  key="reset-password-screen"
-                />
-              </>
-            )}
-          </Stack.Navigator>
-        </NavigationContainer>
-      </NotificationProvider>
-    </DriverProvider>
+    <SessionProvider onSessionExpired={handleSessionExpired}>
+      <DriverProvider>
+        <NotificationProvider>
+          <NavigationContainer ref={navigationRef}>
+            <Stack.Navigator screenOptions={{ headerShown: false }}>
+              {isAuthenticated ? (
+                <>
+                  <Stack.Screen
+                    name="Main"
+                    component={TabNavigator}
+                    key="main-screen"
+                  />
+                  <Stack.Screen
+                    name="Notifications"
+                    component={NotificationScreen}
+                    key="notifications-screen"
+                  />
+                  <Stack.Screen
+                    name="ForgotPassword"
+                    component={ForgotPasswordScreen}
+                    key="forgot-password-screen"
+                    options={{
+                      title: "Change Password",
+                      headerShown: true,
+                    }}
+                  />
+                  <Stack.Screen
+                    name="ResetPassword"
+                    component={ResetPasswordScreen}
+                    key="reset-password-screen"
+                  />
+                </>
+              ) : (
+                <>
+                  <Stack.Screen
+                    name="Login"
+                    component={DriverLoginScreen}
+                    key="login-screen"
+                  />
+                  <Stack.Screen
+                    name="ForgotPassword"
+                    component={ForgotPasswordScreen}
+                    key="forgot-password-screen"
+                  />
+                  <Stack.Screen
+                    name="ResetPassword"
+                    component={ResetPasswordScreen}
+                    key="reset-password-screen"
+                  />
+                </>
+              )}
+            </Stack.Navigator>
+          </NavigationContainer>
+        </NotificationProvider>
+      </DriverProvider>
+    </SessionProvider>
   );
 }

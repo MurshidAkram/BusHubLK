@@ -13,7 +13,7 @@ import {
   Platform,
   Dimensions,
 } from "react-native";
-import { conditionReportAPI, fetchBuses, storageAPI } from "../services/api";
+import { conditionReportAPI, fetchBuses, storageAPI, driverAPI } from "../services/api";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
@@ -50,11 +50,39 @@ const ConditionReportForm = () => {
         return;
       }
 
-      // Fetch buses using your API service
-      const busData = await fetchBuses();
-      setBuses(busData);
-      if (busData.length > 0) {
-        setSelectedBus(busData[0].bus_id.toString());
+      // Fetch current day's assignment to get assigned bus
+      try {
+        const assignment = await driverAPI.getDailyAssignment(userData.driver_id.toString());
+        if (assignment && !assignment.error && assignment.bus_id) {
+          // Create a bus object from the assignment data
+          const assignedBus = {
+            bus_id: assignment.bus_id,
+            registration_number: assignment.bus_registration || assignment.registration_number || assignment.bus_number || `Bus ${assignment.bus_id}`,
+            manufacturer: assignment.bus_manufacturer || assignment.manufacturer || 'TATA',
+            model: assignment.bus_model || assignment.model || 'Starbus',
+            status: 'Active',
+            class: assignment.bus_class || assignment.class || 'Standard'
+          };
+
+          setBuses([assignedBus]);
+          setSelectedBus(assignedBus.bus_id.toString());
+        } else {
+          // Fallback: Fetch all buses if no current assignment
+          console.log('⚠️ No current assignment found, fetching all buses');
+          const busData = await fetchBuses();
+          setBuses(busData);
+          if (busData.length > 0) {
+            setSelectedBus(busData[0].bus_id.toString());
+          }
+        }
+      } catch (assignmentError) {
+        console.error("❌ Error fetching assignment:", assignmentError);
+        // Fallback: Fetch all buses if assignment fetch fails
+        const busData = await fetchBuses();
+        setBuses(busData);
+        if (busData.length > 0) {
+          setSelectedBus(busData[0].bus_id.toString());
+        }
       }
     } catch (error) {
       console.error("❌ Error initializing form:", error);
