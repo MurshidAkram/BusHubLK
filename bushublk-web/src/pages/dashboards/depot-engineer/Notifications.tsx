@@ -50,6 +50,11 @@ const SOURCE_LABEL: Record<NotificationSourceType, string> = {
 	direct_message: 'Direct Message'
 };
 
+const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/+$/, '');
+const buildDepotEngineerNotificationsUrl = () => `${API_BASE_URL}/api/depot-engineer/notifications`;
+const buildDepotEngineerMarkReadUrl = () => `${API_BASE_URL}/api/depot-engineer/notifications/mark-read`;
+const buildDepotEngineerMarkAllReadUrl = () => `${API_BASE_URL}/api/depot-engineer/notifications/mark-all-read`;
+
 const Notifications: React.FC = () => {
 		const appContext = useContext(AppContext);
 		const token = appContext?.token || null;
@@ -87,7 +92,7 @@ const Notifications: React.FC = () => {
 		setError(null);
 
 		try {
-			const response = await axios.get('http://localhost:5000/api/depot-engineer/notifications', {
+			const response = await axios.get(buildDepotEngineerNotificationsUrl(), {
 				headers: {
 					Authorization: `Bearer ${token}`
 				},
@@ -117,7 +122,7 @@ const Notifications: React.FC = () => {
 
 		try {
 			const response = await axios.post(
-				'http://localhost:5000/api/depot-engineer/notifications/mark-read',
+				buildDepotEngineerMarkReadUrl(),
 				{
 					sourceType: notification.source_type,
 					sourceId: notification.source_id
@@ -148,7 +153,7 @@ const Notifications: React.FC = () => {
 
 		try {
 			const response = await axios.post(
-				'http://localhost:5000/api/depot-engineer/notifications/mark-all-read',
+				buildDepotEngineerMarkAllReadUrl(),
 				{},
 				{
 					headers: {
