@@ -96,22 +96,35 @@ const getDepotNotifications = async (req, res) => {
 
     const lostFoundPromise = db.query(
       `SELECT l.report_id,
+              INITCAP(l.report_type) AS report_type,
               l.incident_date,
               l.incident_time,
               l.route_number,
               l.item_description,
               l.item_category,
-              l.contact_phone,
-              l.created_at,
-              u.first_name,
-              u.last_name
+              l.approximate_location,
+              COALESCE(pu.email, l.contact_email) AS contact_email,
+              COALESCE(pu.phone, l.contact_phone) AS contact_phone,
+              COALESCE(CONCAT(pu.first_name, ' ', pu.last_name), SPLIT_PART(COALESCE(pu.email, l.contact_email), '@', 1), 'Passenger') AS passenger_name,
+        CASE 
+    WHEN l.status = 'active' THEN 'Pending'
+    WHEN l.status = 'resolved' THEN 'Resolved'
+    WHEN l.status = 'expired' THEN 'Expired'
+    WHEN l.status = 'deleted' THEN 'Deleted'
+    ELSE INITCAP(l.status)
+        END AS status,
+              l.created_at
          FROM lost_found_reports l
-         JOIN users u ON l.passenger_id = u.user_id
-        WHERE l.handed_to_depot_id = $1
-          AND NOT l.report_id = ANY($2::int[])
+         LEFT JOIN passengers p ON l.passenger_id = p.passenger_id
+         LEFT JOIN users pu ON p.passenger_id = pu.user_id
+        WHERE (
+                l.handed_to_depot_id = $1
+             OR (l.handed_to_depot_id IS NULL AND l.region_id = $2)
+          )
+          AND NOT l.report_id = ANY($3::int[])
         ORDER BY l.created_at DESC
-        LIMIT 20`,
-      [depotId, readLostFoundIds]
+        LIMIT 50`,
+      [depotId, regionId, readLostFoundIds]
     );
 
     const announcementsPromise = db.query(
@@ -212,10 +225,15 @@ const getDepotNotifications = async (req, res) => {
         priority: 'low',
         created_at: row.created_at || row.incident_date,
         read: false,
-        person_name: `${row.first_name} ${row.last_name}`.trim(),
+        person_name: row.passenger_name,
         contact: row.contact_phone,
+        contact_email: row.contact_email,
         route_number: row.route_number,
+        report_type: row.report_type,
+        description: row.item_description,
         item_category: row.item_category,
+        approximate_location: row.approximate_location,
+        status: row.status,
         incident_date: row.incident_date,
         incident_time: row.incident_time
       });
