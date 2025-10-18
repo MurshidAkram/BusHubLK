@@ -55,7 +55,7 @@ const DailyOperations: React.FC = () => {
       try {
         setIsLoading(true);
         setError('');
-        const routesRes = await fetch('http://localhost:5000/api/routes/', {
+        const routesRes = await fetch(`${import.meta.env.VITE_API_URL}/api/routes/`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (!routesRes.ok) throw new Error('Failed to fetch routes');
@@ -82,7 +82,7 @@ const DailyOperations: React.FC = () => {
       setError('');
       try {
         const res = await fetch(
-          `http://localhost:5000/api/assignments/route/${selectedRouteId}/daily-schedule?date=${assignmentDate}`,
+          `${import.meta.env.VITE_API_URL}/api/assignments/route/${selectedRouteId}/daily-schedule?date=${assignmentDate}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         if (!res.ok) throw new Error('Failed to fetch daily schedule');
@@ -114,7 +114,7 @@ const DailyOperations: React.FC = () => {
       try {
         // Buses
         const busesRes = await fetch(
-          `http://localhost:5000/api/assignments/available-buses?depot_id=${user.depot_id}&date=${assignmentDate}`,
+          `${import.meta.env.VITE_API_URL}/api/assignments/available-buses?depot_id=${user.depot_id}&date=${assignmentDate}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         const busesData = await busesRes.json();
@@ -122,7 +122,7 @@ const DailyOperations: React.FC = () => {
 
         // Drivers
         const driversRes = await fetch(
-          `http://localhost:5000/api/assignments/available-drivers?depot_id=${user.depot_id}&date=${assignmentDate}`,
+          `${import.meta.env.VITE_API_URL}/api/assignments/available-drivers?depot_id=${user.depot_id}&date=${assignmentDate}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         const driversData = await driversRes.json();
@@ -130,7 +130,7 @@ const DailyOperations: React.FC = () => {
 
         // Conductors
         const conductorsRes = await fetch(
-          `http://localhost:5000/api/assignments/available-conductors?depot_id=${user.depot_id}&date=${assignmentDate}`,
+          `${import.meta.env.VITE_API_URL}/api/assignments/available-conductors?depot_id=${user.depot_id}&date=${assignmentDate}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         const conductorsData = await conductorsRes.json();
@@ -199,7 +199,7 @@ const DailyOperations: React.FC = () => {
       // If assignment exists, update it
       if (modalSlot?.assignment) {
         const response = await fetch(
-          `http://localhost:5000/api/assignments/assign/${modalSlot.assignment.assignment_id}`,
+          `${import.meta.env.VITE_API_URL}/api/assignments/assign/${modalSlot.assignment.assignment_id}`,
           {
             method: 'PUT',
             headers: {
@@ -218,7 +218,7 @@ const DailyOperations: React.FC = () => {
       } else {
         // Assign from template (create a new assignment for the selected date)
         const response = await fetch(
-          `http://localhost:5000/api/assignments/assign-from-template/${modalSlot?.id}`,
+          `${import.meta.env.VITE_API_URL}/api/assignments/assign-from-template/${modalSlot?.id}`,
           {
             method: 'POST',
             headers: {
@@ -259,7 +259,7 @@ const DailyOperations: React.FC = () => {
     try {
       setIsLoading(true);
       const response = await fetch(
-        `http://localhost:5000/api/assignments/soft-delete/${assignmentId}`,
+        `${import.meta.env.VITE_API_URL}/api/assignments/soft-delete/${assignmentId}`,
         {
           method: 'PUT',
           headers: { Authorization: `Bearer ${token}` }
@@ -313,7 +313,7 @@ const DailyOperations: React.FC = () => {
       setIsLoading(true);
       setError('');
       const res = await fetch(
-        `http://localhost:5000/api/assignments/route/${selectedRouteId}/templates/${editSlot?.id}`,
+        `${import.meta.env.VITE_API_URL}/api/assignments/route/${selectedRouteId}/templates/${editSlot?.id}`,
         {
           method: 'PUT',
           headers: {
@@ -357,7 +357,7 @@ const DailyOperations: React.FC = () => {
       setIsLoading(true);
       setError('');
       const res = await fetch(
-        `http://localhost:5000/api/assignments/soft-delete/${slotId}`,
+        `${import.meta.env.VITE_API_URL}/api/assignments/soft-delete/${slotId}`,
         {
           method: 'PUT',
           headers: { Authorization: `Bearer ${token}` }
@@ -404,7 +404,7 @@ const DailyOperations: React.FC = () => {
       try {
         // Buses
         const busesRes = await fetch(
-          `http://localhost:5000/api/assignments/available-buses?depot_id=${user.depot_id}&date=${assignmentDate}`,
+          `${import.meta.env.VITE_API_URL}/api/assignments/available-buses?depot_id=${user.depot_id}&date=${assignmentDate}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         const busesData = await busesRes.json();
@@ -412,7 +412,7 @@ const DailyOperations: React.FC = () => {
 
         // Drivers
         const driversRes = await fetch(
-          `http://localhost:5000/api/assignments/available-drivers?depot_id=${user.depot_id}&date=${assignmentDate}`,
+          `${import.meta.env.VITE_API_URL}/api/assignments/available-drivers?depot_id=${user.depot_id}&date=${assignmentDate}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         const driversData = await driversRes.json();
@@ -420,7 +420,7 @@ const DailyOperations: React.FC = () => {
 
         // Conductors
         const conductorsRes = await fetch(
-          `http://localhost:5000/api/assignments/available-conductors?depot_id=${user.depot_id}&date=${assignmentDate}`,
+          `${import.meta.env.VITE_API_URL}/api/assignments/available-conductors?depot_id=${user.depot_id}&date=${assignmentDate}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         const conductorsData = await conductorsRes.json();
@@ -568,7 +568,7 @@ const DailyOperations: React.FC = () => {
                 try {
                   setIsLoading(true);
                   setError('');
-                  const res = await fetch(`http://localhost:5000/api/assignments/route/${selectedRouteId}/templates`, {
+                  const res = await fetch(`${import.meta.env.VITE_API_URL}/api/assignments/route/${selectedRouteId}/templates`, {
                     method: 'POST',
                     headers: {
                       'Content-Type': 'application/json',

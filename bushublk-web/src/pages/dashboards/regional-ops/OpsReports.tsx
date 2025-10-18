@@ -25,6 +25,9 @@ interface DepotReportApi {
   conductorOnBreak?: number;
 }
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE_URL = `${API_URL}/api`;
+
 const CREW_COLORS = ['#10b981', '#f59e42', '#6366f1', '#f87171'];
 
 const SAMPLE: DepotReportApi[] = [
@@ -49,7 +52,7 @@ const OpsReports: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
-        const res = await axios.get(`http://localhost:5000/api/regional-dashboard/region/${regionId}/overview`, {
+        const res = await axios.get(`${API_BASE_URL}/regional-dashboard/region/${regionId}/overview`, {
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         });
 

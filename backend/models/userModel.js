@@ -49,6 +49,11 @@ class User {
         idColumn: 'depot_engineer_id',
         fields: ['depot_id', 'region_id']
       },
+      regional_operations: {
+        tableName: 'regional_operations_officers',
+        idColumn: 'roo_id',
+        fields: ['region_id']
+      },
       regional_tech: {
         tableName: 'regional_technical_officers',
         idColumn: 'rto_id',

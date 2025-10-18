@@ -7,6 +7,92 @@ function formatTimeIso(dt) {
 
 console.log('regionaloperationsDashboardController loaded');
 
+const getOfficerRegionId = async (userId) => {
+  const result = await db.query(
+    'SELECT region_id FROM regional_operations_officers WHERE roo_id = $1 LIMIT 1',
+    [userId]
+  );
+  return result.rows?.[0]?.region_id || null;
+};
+
+exports.getOfficerDepots = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const regionId = await getOfficerRegionId(userId);
+
+    if (!regionId) {
+      return res.status(404).json({ success: false, error: 'Region not assigned to this officer' });
+    }
+
+    const depotsRes = await db.query(
+      `SELECT d.depot_id,
+              d.depot_name,
+              d.region_id,
+              COUNT(r.route_id) AS route_count
+         FROM depots d
+         LEFT JOIN routes r ON r.depot_id = d.depot_id AND r.is_active = TRUE
+        WHERE d.region_id = $1
+        GROUP BY d.depot_id, d.depot_name, d.region_id
+        ORDER BY d.depot_name`,
+      [regionId]
+    );
+
+    const depots = depotsRes.rows.map(row => ({
+      depot_id: row.depot_id,
+      depot_name: row.depot_name,
+      region_id: row.region_id,
+      route_count: Number(row.route_count || 0)
+    }));
+
+    return res.json({ success: true, region_id: regionId, depots });
+  } catch (error) {
+    console.error('getOfficerDepots error:', error);
+    return res.status(500).json({ success: false, error: 'Failed to fetch depots for officer' });
+  }
+};
+
+exports.getDepotRoutesForOfficer = async (req, res) => {
+  try {
+    const depotId = Number(req.params.depot_id);
+    if (!depotId) {
+      return res.status(400).json({ success: false, error: 'Valid depot_id is required' });
+    }
+
+    const userId = req.user.userId;
+    const regionId = await getOfficerRegionId(userId);
+    if (!regionId) {
+      return res.status(404).json({ success: false, error: 'Region not assigned to this officer' });
+    }
+
+    const depotCheck = await db.query(
+      'SELECT depot_id FROM depots WHERE depot_id = $1 AND region_id = $2 LIMIT 1',
+      [depotId, regionId]
+    );
+
+    if (!depotCheck.rows.length) {
+      return res.status(403).json({ success: false, error: 'Depot not accessible for this officer' });
+    }
+
+    const routesRes = await db.query(
+      `SELECT route_id, route_number, route_name, depot_id
+         FROM routes
+        WHERE depot_id = $1 AND is_active = TRUE
+        ORDER BY route_number`,
+      [depotId]
+    );
+
+    return res.json({
+      success: true,
+      depot_id: depotId,
+      region_id: regionId,
+      routes: routesRes.rows
+    });
+  } catch (error) {
+    console.error('getDepotRoutesForOfficer error:', error);
+    return res.status(500).json({ success: false, error: 'Failed to fetch routes for depot' });
+  }
+};
+
 exports.getRegionOverview = async (req, res) => {
   console.log('getRegionOverview called region:', req.params.region_id);
   const regionId = Number(req.params.region_id);

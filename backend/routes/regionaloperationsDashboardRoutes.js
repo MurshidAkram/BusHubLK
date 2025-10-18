@@ -3,6 +3,10 @@ const router = express.Router();
 const regionalController = require('../controllers/regionaloperationsDashboardController');
 const { authenticateJWT, authorizeRegionalOfficer } = require('../middlewares/authMiddleware');
 
+// Officer-specific depots and routes
+router.get('/me/depots', authenticateJWT, authorizeRegionalOfficer, regionalController.getOfficerDepots);
+router.get('/me/depots/:depot_id/routes', authenticateJWT, authorizeRegionalOfficer, regionalController.getDepotRoutesForOfficer);
+
 // Protect this route so only authenticated regional officers (or allowed management roles) can access
 router.get('/region/:region_id/overview', authenticateJWT, authorizeRegionalOfficer, regionalController.getRegionOverview);
 

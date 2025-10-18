@@ -3,6 +3,8 @@ import axios from 'axios';
 import { AppContext } from '../../../context/AppContext';
 import { Eye, Clock, MapPin, Bus, Route, Calendar, ChevronDown, X } from 'lucide-react';
 
+const API_BASE_URL = `${import.meta.env.VITE_API_URL}/api`;
+
 interface BusTripSummary {
   trip_id: number;
   bus_id: number;
@@ -43,7 +45,7 @@ const BusScheduleTable = () => {
   useEffect(() => {
     if (!token || !user || !selectedDate) return;
     setLoading(true);
-    axios.get(`http://localhost:5000/api/live-summary/depot/${user.depot_id}?date=${selectedDate}`, {
+  axios.get(`${API_BASE_URL}/live-summary/depot/${user.depot_id}?date=${selectedDate}`, {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(res => {

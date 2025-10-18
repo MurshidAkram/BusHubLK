@@ -11,6 +11,9 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE_URL = `${API_URL}/api`;
+
 interface DepotReport {
   depot: string;
   region: string;
@@ -74,7 +77,7 @@ const OpsReports = () => {
       setLoading(true);
       setFetchError(null);
       try {
-        const res = await axios.get('http://localhost:5000/api/dgm-operations-dashboard/overview', {
+  const res = await axios.get(`${API_BASE_URL}/dgm-operations-dashboard/overview`, {
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
           params: {
             depotsLimit: 1000, // fetch many; UI does local filtering

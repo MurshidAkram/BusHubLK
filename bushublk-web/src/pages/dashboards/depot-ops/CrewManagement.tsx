@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { CheckCircle, AlertCircle, Clock, RotateCw, Search, X } from 'lucide-react';
 
+const API_BASE_URL = `${import.meta.env.VITE_API_URL}/api`;
+
 type CrewStatus = 'On Duty' | 'On Break';
 
 interface CrewMember {
@@ -34,7 +36,7 @@ const CrewManagement = () => {
         const token = localStorage.getItem('token'); // Or get it from your auth context
 
         const res = await fetch(
-          `http://localhost:5000/api/crew?depot_id=${depotId}&region_id=${regionId}`,
+          `${API_BASE_URL}/crew?depot_id=${depotId}&region_id=${regionId}`,
           {
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -80,7 +82,7 @@ const CrewManagement = () => {
     if (selectedMember) {
       try {
         const token = localStorage.getItem('token');
-        const res = await fetch('http://localhost:5000/api/crew/status', {
+  const res = await fetch(`${API_BASE_URL}/crew/status`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',

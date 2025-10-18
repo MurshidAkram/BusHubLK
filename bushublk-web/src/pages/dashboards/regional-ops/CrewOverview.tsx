@@ -13,6 +13,9 @@ interface CrewMember {
   depot: string;
 }
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE_URL = `${API_URL}/api`;
+
 const CrewOverview = () => {
   const appContext = useContext(AppContext); // <-- get context safely
   const token = appContext?.token;
@@ -32,7 +35,7 @@ const CrewOverview = () => {
     const fetchDepotsAndCrew = async () => {
       setIsLoading(true);
       // Fetch depots
-      const depotsRes = await fetch(`http://localhost:5000/api/depots?region_id=${regionId}`, {
+  const depotsRes = await fetch(`${API_BASE_URL}/depots?region_id=${regionId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const depotsData = await depotsRes.json();
@@ -41,7 +44,7 @@ const CrewOverview = () => {
 
       // Fetch all crews in parallel
       const crewPromises = filteredDepots.map((depot: { depot_id: any; depot_name: any; }) =>
-        fetch(`http://localhost:5000/api/crew?depot_id=${depot.depot_id}&region_id=${regionId}`, {
+  fetch(`${API_BASE_URL}/crew?depot_id=${depot.depot_id}&region_id=${regionId}`, {
           headers: { Authorization: `Bearer ${token}` }
         })
           .then(res => res.json())
@@ -69,7 +72,7 @@ const CrewOverview = () => {
 
     const fetchCrewForDepot = async () => {
       setIsLoading(true);
-      const res = await fetch(`http://localhost:5000/api/crew?depot_id=${filterDepot}&region_id=${regionId}`, {
+  const res = await fetch(`${API_BASE_URL}/crew?depot_id=${filterDepot}&region_id=${regionId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();

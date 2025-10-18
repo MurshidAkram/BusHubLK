@@ -1,782 +1,339 @@
-import React, { useState } from 'react';
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState
+} from 'react';
+import axios from 'axios';
+import { AppContext } from '../../../context/AppContext';
 
-const ScheduleOversight = () => {
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE_URL = `${API_URL}/api`;
+const REGIONAL_API_BASE = `${API_BASE_URL}/regional-dashboard`;
+const ASSIGNMENTS_API_BASE = `${API_BASE_URL}/assignments`;
+
+const getTodayDateString = () => {
+  const now = new Date();
+  const localTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+  return localTime.toISOString().slice(0, 10);
+};
+
+const ScheduleOversight: React.FC = () => {
+  const appContext = useContext(AppContext);
+  const token = appContext?.token ?? localStorage.getItem('bushublk_token') ?? '';
+
+  const todayDate = useMemo(() => getTodayDateString(), []);
+
+  const [depots, setDepots] = useState<Depot[]>([]);
+  const [depotsLoading, setDepotsLoading] = useState(false);
+  const [depotsError, setDepotsError] = useState<string | null>(null);
+  const [officerRegionId, setOfficerRegionId] = useState<number | null>(null);
+  const [totalRegionRoutes, setTotalRegionRoutes] = useState<number>(0);
+
+  const [routes, setRoutes] = useState<RouteItem[]>([]);
+  const [routesLoading, setRoutesLoading] = useState(false);
+  const [routesError, setRoutesError] = useState<string | null>(null);
+
+  const [schedule, setSchedule] = useState<ScheduleSlot[]>([]);
+  const [scheduleLoading, setScheduleLoading] = useState(false);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
+
+  const [selectedDate, setSelectedDate] = useState<string>(todayDate);
+  const [selectedDepot, setSelectedDepot] = useState<Depot | null>(null);
   const [selectedRouteId, setSelectedRouteId] = useState<number | null>(null);
-  const [selectedRoute, setSelectedRoute] = useState<Route | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string>(() => {
-    const today = new Date();
-    return today.toISOString().slice(0, 10);
-  });
-  const [selectedDepot, setSelectedDepot] = useState<string | null>(null);
   const [view, setView] = useState<'depots' | 'routes'>('depots');
 
-  // Enhanced mock data for depots with addresses
-  const mockDepots: Depot[] = [
-    { 
-      id: 1, 
-      name: 'Main Depot', 
-      address: '123 Central Avenue, Downtown', 
-      phone: '+1 (555) 123-4567',
-      capacity: 50,
-      manager: 'Robert Johnson'
-    },
-    { 
-      id: 2, 
-      name: 'North Depot', 
-      address: '456 Northern Blvd, Uptown', 
-      phone: '+1 (555) 234-5678',
-      capacity: 35,
-      manager: 'Sarah Williams'
-    },
-    { 
-      id: 3, 
-      name: 'South Depot', 
-      address: '789 Southern Parkway, Riverside', 
-      phone: '+1 (555) 345-6789',
-      capacity: 40,
-      manager: 'Michael Chen'
-    },
-    { 
-      id: 4, 
-      name: 'East Depot', 
-      address: '101 Eastern Road, Hilltop', 
-      phone: '+1 (555) 456-7890',
-      capacity: 30,
-      manager: 'Emily Davis'
-    },
-    { 
-      id: 5, 
-      name: 'West Depot', 
-      address: '202 Western Avenue, Lakeside', 
-      phone: '+1 (555) 567-8901',
-      capacity: 45,
-      manager: 'James Wilson'
-    },
-    { 
-      id: 6, 
-      name: 'Central Depot', 
-      address: '303 Midtown Street, Central District', 
-      phone: '+1 (555) 678-9012',
-      capacity: 55,
-      manager: 'Lisa Brown'
-    },
-    { 
-      id: 7, 
-      name: 'Harbor Depot', 
-      address: '404 Port Road, Bay Area', 
-      phone: '+1 (555) 789-0123',
-      capacity: 25,
-      manager: 'David Miller'
-    },
-    { 
-      id: 8, 
-      name: 'Airport Depot', 
-      address: '505 Terminal Way, Airport Zone', 
-      phone: '+1 (555) 890-1234',
-      capacity: 20,
-      manager: 'Maria Garcia'
+  const authHeaders = useMemo(() => (
+    token ? { Authorization: `Bearer ${token}` } : undefined
+  ), [token]);
+
+  const fetchDepots = useCallback(async () => {
+    if (!token) {
+      setDepotsError('Authentication required to load depots.');
+      setDepots([]);
+      setOfficerRegionId(null);
+      setTotalRegionRoutes(0);
+      return;
     }
-  ];
 
-  // Mock data for routes
-  const mockRoutes: Route[] = [
-    { route_id: 1, route_number: '101', route_name: 'Downtown Express', depot: 'Main Depot' },
-    { route_id: 2, route_number: '102', route_name: 'North Line', depot: 'North Depot' },
-    { route_id: 3, route_number: '103', route_name: 'South Line', depot: 'South Depot' },
-    { route_id: 4, route_number: '104', route_name: 'East-West Connector', depot: 'East Depot' },
-    { route_id: 5, route_number: '105', route_name: 'University Shuttle', depot: 'West Depot' },
-    { route_id: 6, route_number: '106', route_name: 'Airport Express', depot: 'Main Depot' },
-    { route_id: 7, route_number: '107', route_name: 'City Circle', depot: 'Main Depot' },
-    { route_id: 8, route_number: '108', route_name: 'Industrial Zone', depot: 'East Depot' },
-    { route_id: 9, route_number: '109', route_name: 'Beach Front', depot: 'South Depot' },
-    { route_id: 10, route_number: '110', route_name: 'Mountain View', depot: 'North Depot' },
-    { route_id: 11, route_number: '201', route_name: 'Business District', depot: 'Central Depot' },
-    { route_id: 12, route_number: '202', route_name: 'Harbor Shuttle', depot: 'Harbor Depot' },
-    { route_id: 13, route_number: '203', route_name: 'Airport Link', depot: 'Airport Depot' },
-    { route_id: 14, route_number: '204', route_name: 'Tech Park Express', depot: 'Central Depot' },
-    { route_id: 15, route_number: '205', route_name: 'Night Owl', depot: 'Main Depot' },
-  ];
+    setDepotsLoading(true);
+    setDepotsError(null);
+    try {
+      const response = await axios.get(`${REGIONAL_API_BASE}/me/depots`, {
+        headers: authHeaders
+      });
 
-  // Mock data for buses
-  const mockBuses = [
-    { bus_id: 101, bus_registration: 'BUS-001', bus_type: 'AC Coach', capacity: 50, depot: 'Main Depot' },
-    { bus_id: 102, bus_registration: 'BUS-002', bus_type: 'Non-AC', capacity: 45, depot: 'North Depot' },
-    { bus_id: 103, bus_registration: 'BUS-003', bus_type: 'AC Coach', capacity: 50, depot: 'South Depot' },
-    { bus_id: 104, bus_registration: 'BUS-004', bus_type: 'Electric', capacity: 40, depot: 'East Depot' },
-    { bus_id: 105, bus_registration: 'BUS-005', bus_type: 'Luxury Coach', capacity: 35, depot: 'West Depot' },
-    { bus_id: 106, bus_registration: 'BUS-006', bus_type: 'Double Decker', capacity: 80, depot: 'Main Depot' },
-    { bus_id: 107, bus_registration: 'BUS-007', bus_type: 'Mini Bus', capacity: 25, depot: 'North Depot' },
-    { bus_id: 108, bus_registration: 'BUS-008', bus_type: 'AC Coach', capacity: 50, depot: 'South Depot' },
-    { bus_id: 109, bus_registration: 'BUS-009', bus_type: 'Electric', capacity: 40, depot: 'East Depot' },
-    { bus_id: 110, bus_registration: 'BUS-010', bus_type: 'Non-AC', capacity: 45, depot: 'West Depot' },
-  ];
+      const depotsData: Depot[] = response.data?.depots ?? [];
+      const regionIdFromApi: number | null = response.data?.region_id ?? null;
 
-  // Mock data for crew members
-  const mockCrew = [
-    { id: 1, name: 'John Smith', role: 'Driver', license: 'DL-001', contact: '555-0101' },
-    { id: 2, name: 'Sarah Johnson', role: 'Conductor', license: 'CD-001', contact: '555-0102' },
-    { id: 3, name: 'Mike Chen', role: 'Driver', license: 'DL-002', contact: '555-0103' },
-    { id: 4, name: 'Emily Davis', role: 'Conductor', license: 'CD-002', contact: '555-0104' },
-    { id: 5, name: 'Robert Wilson', role: 'Driver', license: 'DL-003', contact: '555-0105' },
-    { id: 6, name: 'Lisa Brown', role: 'Conductor', license: 'CD-003', contact: '555-0106' },
-    { id: 7, name: 'David Miller', role: 'Driver', license: 'DL-004', contact: '555-0107' },
-    { id: 8, name: 'Maria Garcia', role: 'Conductor', license: 'CD-004', contact: '555-0108' },
-    { id: 9, name: 'James Taylor', role: 'Driver', license: 'DL-005', contact: '555-0109' },
-    { id: 10, name: 'Jennifer Lee', role: 'Conductor', license: 'CD-005', contact: '555-0110' },
-  ];
-
-  // Comprehensive mock data for time slots with different dates and statuses
-  const mockTimeSlots: Record<string, Record<number, TimeSlot[]>> = {
-    // Today's assignments
-    '2024-01-15': {
-      1: [
-        {
-          id: 1,
-          start: '06:00',
-          end: '10:00',
-          assignment: {
-            assignment_id: 1,
-            bus_id: 101,
-            bus_registration: 'BUS-001',
-            bus_type: 'AC Coach',
-            driver_id: 1,
-            driver_name: 'John Smith',
-            conductor_id: 2,
-            conductor_name: 'Sarah Johnson',
-            status: 'Scheduled',
-            shift_start_time: '06:00',
-            shift_end_time: '10:00',
-            assignment_date: '2024-01-15'
-          }
-        },
-        {
-          id: 2,
-          start: '10:00',
-          end: '14:00',
-          assignment: {
-            assignment_id: 2,
-            bus_id: 102,
-            bus_registration: 'BUS-002',
-            bus_type: 'Non-AC',
-            driver_id: 3,
-            driver_name: 'Mike Chen',
-            conductor_id: 4,
-            conductor_name: 'Emily Davis',
-            status: 'Ongoing',
-            shift_start_time: '10:00',
-            shift_end_time: '14:00',
-            assignment_date: '2024-01-15'
-          }
-        },
-        {
-          id: 3,
-          start: '14:00',
-          end: '18:00',
-          assignment: null // Not scheduled
-        },
-        {
-          id: 4,
-          start: '18:00',
-          end: '22:00',
-          assignment: {
-            assignment_id: 3,
-            bus_id: 106,
-            bus_registration: 'BUS-006',
-            bus_type: 'Double Decker',
-            driver_id: 9,
-            driver_name: 'James Taylor',
-            conductor_id: 10,
-            conductor_name: 'Jennifer Lee',
-            status: 'Scheduled',
-            shift_start_time: '18:00',
-            shift_end_time: '22:00',
-            assignment_date: '2024-01-15'
-          }
-        }
-      ],
-      2: [
-        {
-          id: 5,
-          start: '07:00',
-          end: '12:00',
-          assignment: {
-            assignment_id: 4,
-            bus_id: 103,
-            bus_registration: 'BUS-003',
-            bus_type: 'AC Coach',
-            driver_id: 5,
-            driver_name: 'Robert Wilson',
-            conductor_id: 6,
-            conductor_name: 'Lisa Brown',
-            status: 'Ongoing',
-            shift_start_time: '07:00',
-            shift_end_time: '12:00',
-            assignment_date: '2024-01-15'
-          }
-        },
-        {
-          id: 6,
-          start: '12:00',
-          end: '17:00',
-          assignment: {
-            assignment_id: 5,
-            bus_id: 107,
-            bus_registration: 'BUS-007',
-            bus_type: 'Mini Bus',
-            driver_id: 7,
-            driver_name: 'David Miller',
-            conductor_id: 8,
-            conductor_name: 'Maria Garcia',
-            status: 'Scheduled',
-            shift_start_time: '12:00',
-            shift_end_time: '17:00',
-            assignment_date: '2024-01-15'
-          }
-        }
-      ],
-      3: [
-        {
-          id: 7,
-          start: '05:30',
-          end: '09:30',
-          assignment: {
-            assignment_id: 6,
-            bus_id: 104,
-            bus_registration: 'BUS-004',
-            bus_type: 'Electric',
-            driver_id: 1,
-            driver_name: 'John Smith',
-            conductor_id: 10,
-            conductor_name: 'Jennifer Lee',
-            status: 'Completed',
-            shift_start_time: '05:30',
-            shift_end_time: '09:30',
-            assignment_date: '2024-01-15'
-          }
-        },
-        {
-          id: 8,
-          start: '09:30',
-          end: '13:30',
-          assignment: null // Not scheduled
-        },
-        {
-          id: 9,
-          start: '13:30',
-          end: '17:30',
-          assignment: {
-            assignment_id: 7,
-            bus_id: 108,
-            bus_registration: 'BUS-008',
-            bus_type: 'AC Coach',
-            driver_id: 5,
-            driver_name: 'Robert Wilson',
-            conductor_id: 4,
-            conductor_name: 'Emily Davis',
-            status: 'Scheduled',
-            shift_start_time: '13:30',
-            shift_end_time: '17:30',
-            assignment_date: '2024-01-15'
-          }
-        }
-      ],
-      4: [
-        {
-          id: 10,
-          start: '08:00',
-          end: '12:00',
-          assignment: {
-            assignment_id: 8,
-            bus_id: 105,
-            bus_registration: 'BUS-005',
-            bus_type: 'Luxury Coach',
-            driver_id: 3,
-            driver_name: 'Mike Chen',
-            conductor_id: 2,
-            conductor_name: 'Sarah Johnson',
-            status: 'Ongoing',
-            shift_start_time: '08:00',
-            shift_end_time: '12:00',
-            assignment_date: '2024-01-15'
-          }
-        },
-        {
-          id: 11,
-          start: '12:00',
-          end: '16:00',
-          assignment: {
-            assignment_id: 9,
-            bus_id: 109,
-            bus_registration: 'BUS-009',
-            bus_type: 'Electric',
-            driver_id: 7,
-            driver_name: 'David Miller',
-            conductor_id: 6,
-            conductor_name: 'Lisa Brown',
-            status: 'Scheduled',
-            shift_start_time: '12:00',
-            shift_end_time: '16:00',
-            assignment_date: '2024-01-15'
-          }
-        }
-      ],
-      5: [
-        {
-          id: 12,
-          start: '07:30',
-          end: '11:30',
-          assignment: {
-            assignment_id: 10,
-            bus_id: 110,
-            bus_registration: 'BUS-010',
-            bus_type: 'Non-AC',
-            driver_id: 9,
-            driver_name: 'James Taylor',
-            conductor_id: 8,
-            conductor_name: 'Maria Garcia',
-            status: 'Completed',
-            shift_start_time: '07:30',
-            shift_end_time: '11:30',
-            assignment_date: '2024-01-15'
-          }
-        },
-        {
-          id: 13,
-          start: '11:30',
-          end: '15:30',
-          assignment: null // Not scheduled
-        },
-        {
-          id: 14,
-          start: '15:30',
-          end: '19:30',
-          assignment: {
-            assignment_id: 11,
-            bus_id: 101,
-            bus_registration: 'BUS-001',
-            bus_type: 'AC Coach',
-            driver_id: 1,
-            driver_name: 'John Smith',
-            conductor_id: 10,
-            conductor_name: 'Jennifer Lee',
-            status: 'Scheduled',
-            shift_start_time: '15:30',
-            shift_end_time: '19:30',
-            assignment_date: '2024-01-15'
-          }
-        }
-      ],
-      6: [
-        {
-          id: 15,
-          start: '04:00',
-          end: '08:00',
-          assignment: {
-            assignment_id: 12,
-            bus_id: 106,
-            bus_registration: 'BUS-006',
-            bus_type: 'Double Decker',
-            driver_id: 5,
-            driver_name: 'Robert Wilson',
-            conductor_id: 2,
-            conductor_name: 'Sarah Johnson',
-            status: 'Completed',
-            shift_start_time: '04:00',
-            shift_end_time: '08:00',
-            assignment_date: '2024-01-15'
-          }
-        },
-        {
-          id: 16,
-          start: '08:00',
-          end: '12:00',
-          assignment: {
-            assignment_id: 13,
-            bus_id: 104,
-            bus_registration: 'BUS-004',
-            bus_type: 'Electric',
-            driver_id: 3,
-            driver_name: 'Mike Chen',
-            conductor_id: 6,
-            conductor_name: 'Lisa Brown',
-            status: 'Ongoing',
-            shift_start_time: '08:00',
-            shift_end_time: '12:00',
-            assignment_date: '2024-01-15'
-          }
-        },
-        {
-          id: 17,
-          start: '12:00',
-          end: '16:00',
-          assignment: {
-            assignment_id: 14,
-            bus_id: 102,
-            bus_registration: 'BUS-002',
-            bus_type: 'Non-AC',
-            driver_id: 7,
-            driver_name: 'David Miller',
-            conductor_id: 4,
-            conductor_name: 'Emily Davis',
-            status: 'Scheduled',
-            shift_start_time: '12:00',
-            shift_end_time: '16:00',
-            assignment_date: '2024-01-15'
-          }
-        }
-      ]
-    },
-    // Yesterday's assignments
-    '2024-01-14': {
-      1: [
-        {
-          id: 18,
-          start: '06:00',
-          end: '10:00',
-          assignment: {
-            assignment_id: 15,
-            bus_id: 101,
-            bus_registration: 'BUS-001',
-            bus_type: 'AC Coach',
-            driver_id: 1,
-            driver_name: 'John Smith',
-            conductor_id: 2,
-            conductor_name: 'Sarah Johnson',
-            status: 'Completed',
-            shift_start_time: '06:00',
-            shift_end_time: '10:00',
-            assignment_date: '2024-01-14'
-          }
-        },
-        {
-          id: 19,
-          start: '10:00',
-          end: '14:00',
-          assignment: null // Not assigned
-        },
-        {
-          id: 20,
-          start: '14:00',
-          end: '18:00',
-          assignment: {
-            assignment_id: 16,
-            bus_id: 106,
-            bus_registration: 'BUS-006',
-            bus_type: 'Double Decker',
-            driver_id: 9,
-            driver_name: 'James Taylor',
-            conductor_id: 10,
-            conductor_name: 'Jennifer Lee',
-            status: 'Completed',
-            shift_start_time: '14:00',
-            shift_end_time: '18:00',
-            assignment_date: '2024-01-14'
-          }
-        }
-      ],
-      3: [
-        {
-          id: 21,
-          start: '08:00',
-          end: '16:00',
-          assignment: {
-            assignment_id: 17,
-            bus_id: 104,
-            bus_registration: 'BUS-004',
-            bus_type: 'Electric',
-            driver_id: 7,
-            driver_name: 'David Miller',
-            conductor_id: 8,
-            conductor_name: 'Maria Garcia',
-            status: 'Completed',
-            shift_start_time: '08:00',
-            shift_end_time: '16:00',
-            assignment_date: '2024-01-14'
-          }
-        }
-      ],
-      7: [
-        {
-          id: 22,
-          start: '09:00',
-          end: '13:00',
-          assignment: {
-            assignment_id: 18,
-            bus_id: 108,
-            bus_registration: 'BUS-008',
-            bus_type: 'AC Coach',
-            driver_id: 5,
-            driver_name: 'Robert Wilson',
-            conductor_id: 6,
-            conductor_name: 'Lisa Brown',
-            status: 'Completed',
-            shift_start_time: '09:00',
-            shift_end_time: '13:00',
-            assignment_date: '2024-01-14'
-          }
-        },
-        {
-          id: 23,
-          start: '13:00',
-          end: '17:00',
-          assignment: {
-            assignment_id: 19,
-            bus_id: 103,
-            bus_registration: 'BUS-003',
-            bus_type: 'AC Coach',
-            driver_id: 3,
-            driver_name: 'Mike Chen',
-            conductor_id: 4,
-            conductor_name: 'Emily Davis',
-            status: 'Completed',
-            shift_start_time: '13:00',
-            shift_end_time: '17:00',
-            assignment_date: '2024-01-14'
-          }
-        }
-      ]
-    },
-    // Tomorrow's assignments
-    '2024-01-16': {
-      1: [
-        {
-          id: 24,
-          start: '06:00',
-          end: '10:00',
-          assignment: {
-            assignment_id: 20,
-            bus_id: 101,
-            bus_registration: 'BUS-001',
-            bus_type: 'AC Coach',
-            driver_id: 1,
-            driver_name: 'John Smith',
-            conductor_id: 2,
-            conductor_name: 'Sarah Johnson',
-            status: 'Scheduled',
-            shift_start_time: '06:00',
-            shift_end_time: '10:00',
-            assignment_date: '2024-01-16'
-          }
-        },
-        {
-          id: 25,
-          start: '10:00',
-          end: '14:00',
-          assignment: {
-            assignment_id: 21,
-            bus_id: 102,
-            bus_registration: 'BUS-002',
-            bus_type: 'Non-AC',
-            driver_id: 3,
-            driver_name: 'Mike Chen',
-            conductor_id: 4,
-            conductor_name: 'Emily Davis',
-            status: 'Scheduled',
-            shift_start_time: '10:00',
-            shift_end_time: '14:00',
-            assignment_date: '2024-01-16'
-          }
-        }
-      ],
-      4: [
-        {
-          id: 26,
-          start: '09:00',
-          end: '15:00',
-          assignment: {
-            assignment_id: 22,
-            bus_id: 105,
-            bus_registration: 'BUS-005',
-            bus_type: 'Luxury Coach',
-            driver_id: 3,
-            driver_name: 'Mike Chen',
-            conductor_id: 4,
-            conductor_name: 'Emily Davis',
-            status: 'Scheduled',
-            shift_start_time: '09:00',
-            shift_end_time: '15:00',
-            assignment_date: '2024-01-16'
-          }
-        }
-      ],
-      8: [
-        {
-          id: 27,
-          start: '07:00',
-          end: '11:00',
-          assignment: {
-            assignment_id: 23,
-            bus_id: 107,
-            bus_registration: 'BUS-007',
-            bus_type: 'Mini Bus',
-            driver_id: 7,
-            driver_name: 'David Miller',
-            conductor_id: 8,
-            conductor_name: 'Maria Garcia',
-            status: 'Scheduled',
-            shift_start_time: '07:00',
-            shift_end_time: '11:00',
-            assignment_date: '2024-01-16'
-          }
-        },
-        {
-          id: 28,
-          start: '11:00',
-          end: '15:00',
-          assignment: null // Not scheduled
-        }
-      ],
-      9: [
-        {
-          id: 29,
-          start: '08:30',
-          end: '12:30',
-          assignment: {
-            assignment_id: 24,
-            bus_id: 109,
-            bus_registration: 'BUS-009',
-            bus_type: 'Electric',
-            driver_id: 9,
-            driver_name: 'James Taylor',
-            conductor_id: 10,
-            conductor_name: 'Jennifer Lee',
-            status: 'Scheduled',
-            shift_start_time: '08:30',
-            shift_end_time: '12:30',
-            assignment_date: '2024-01-16'
-          }
-        },
-        {
-          id: 30,
-          start: '12:30',
-          end: '16:30',
-          assignment: {
-            assignment_id: 25,
-            bus_id: 110,
-            bus_registration: 'BUS-010',
-            bus_type: 'Non-AC',
-            driver_id: 1,
-            driver_name: 'John Smith',
-            conductor_id: 2,
-            conductor_name: 'Sarah Johnson',
-            status: 'Scheduled',
-            shift_start_time: '12:30',
-            shift_end_time: '16:30',
-            assignment_date: '2024-01-16'
-          }
-        }
-      ]
+      setOfficerRegionId(regionIdFromApi);
+      setDepots(depotsData);
+      setTotalRegionRoutes(
+        depotsData.reduce((sum, depot) => sum + (depot.route_count || 0), 0)
+      );
+    } catch (error: any) {
+      setDepotsError(
+        error?.response?.data?.error || 'Unable to load depots for your region.'
+      );
+      setDepots([]);
+      setTotalRegionRoutes(0);
+    } finally {
+      setDepotsLoading(false);
     }
-  };
+  }, [authHeaders, token]);
 
-  // Filter routes by selected depot
-  const filteredRoutes = selectedDepot 
-    ? mockRoutes.filter(route => route.depot === selectedDepot)
-    : [];
+  const fetchRoutesForDepot = useCallback(async (depotId: number) => {
+    if (!token) {
+      setRoutesError('Authentication required to load routes.');
+      setRoutes([]);
+      return;
+    }
 
-  // Get time slots for selected route and date
-  const timeSlots = selectedRouteId && mockTimeSlots[selectedDate] 
-    ? mockTimeSlots[selectedDate][selectedRouteId] || []
-    : [];
+    setRoutesLoading(true);
+    setRoutesError(null);
+    try {
+      const response = await axios.get(`${REGIONAL_API_BASE}/me/depots/${depotId}/routes`, {
+        headers: authHeaders
+      });
+      const data: RouteItem[] = response.data?.routes ?? [];
+      setRoutes(data);
+    } catch (error: any) {
+      setRoutesError(
+        error?.response?.data?.error || 'Unable to load routes for this depot.'
+      );
+      setRoutes([]);
+    } finally {
+      setRoutesLoading(false);
+    }
+  }, [authHeaders, token]);
 
-  function formatTime12h(time: string) {
-    const [h, m] = time.split(':');
-    const hour = parseInt(h, 10);
-    const minute = parseInt(m, 10);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const hour12 = hour % 12 === 0 ? 12 : hour % 12;
-    return `${hour12}:${minute.toString().padStart(2, '0')} ${ampm}`;
-  }
+  const fetchSchedule = useCallback(async (routeId: number, date: string) => {
+    setScheduleLoading(true);
+    setScheduleError(null);
+    try {
+      const response = await axios.get(
+        `${ASSIGNMENTS_API_BASE}/route/${routeId}/daily-schedule`,
+        {
+          params: { date },
+          headers: authHeaders
+        }
+      );
+      const data: ScheduleSlot[] = response.data?.schedule ?? [];
+      setSchedule(data);
+    } catch (error: any) {
+      console.error('Failed to fetch schedule', error);
+      setScheduleError(
+        error?.response?.data?.error || 'Unable to load schedule for this route.'
+      );
+      setSchedule([]);
+    } finally {
+      setScheduleLoading(false);
+    }
+  }, [authHeaders]);
 
-  function formatDisplayDate(dateString: string) {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    });
-  }
+  useEffect(() => {
+    fetchDepots();
+  }, [fetchDepots]);
 
-  const handleDepotSelect = (depotName: string) => {
-    setSelectedDepot(depotName);
+  useEffect(() => {
+    if (!selectedRouteId) {
+      setSchedule([]);
+      setScheduleError(null);
+      return;
+    }
+    fetchSchedule(selectedRouteId, selectedDate);
+  }, [selectedRouteId, selectedDate, fetchSchedule]);
+
+  const handleDepotSelect = (depot: Depot) => {
+    setSelectedDepot(depot);
     setView('routes');
     setSelectedRouteId(null);
-    setSelectedRoute(null);
+    setSchedule([]);
+    setRoutes([]);
+    fetchRoutesForDepot(depot.depot_id);
   };
 
   const handleRouteSelect = (routeId: number) => {
     setSelectedRouteId(routeId);
-    setSelectedRoute(mockRoutes.find(route => route.route_id === routeId) || null);
   };
+
+  const handleDateChange = useCallback((value: string) => {
+    if (!value) {
+      setSelectedDate(todayDate);
+      return;
+    }
+    if (value > todayDate) {
+      setSelectedDate(todayDate);
+      return;
+    }
+    setSelectedDate(value);
+  }, [todayDate]);
 
   const handleBackToDepots = () => {
     setView('depots');
     setSelectedDepot(null);
     setSelectedRouteId(null);
-    setSelectedRoute(null);
+    setSchedule([]);
+    setRoutes([]);
+    setRoutesError(null);
   };
 
-  const handleBackToRoutes = () => {
-    setSelectedRouteId(null);
-    setSelectedRoute(null);
+  const selectedRoute = useMemo(() => {
+    if (!selectedRouteId) {
+      return null;
+    }
+    return routes.find(route => route.route_id === selectedRouteId) ?? null;
+  }, [routes, selectedRouteId]);
+
+  const assignedSlots = useMemo(
+    () => schedule.filter(slot => !!slot.assignment),
+    [schedule]
+  );
+
+  const unassignedCount = Math.max(schedule.length - assignedSlots.length, 0);
+
+  const uniqueBuses = useMemo(() => {
+    const ids = new Set<number>();
+    schedule.forEach(slot => {
+      if (slot.assignment?.bus_id) {
+        ids.add(slot.assignment.bus_id);
+      }
+    });
+    return ids.size;
+  }, [schedule]);
+
+  const uniqueCrew = useMemo(() => {
+    const ids = new Set<string>();
+    schedule.forEach(slot => {
+      const assignment = slot.assignment;
+      if (assignment?.driver_id) {
+        ids.add(`driver-${assignment.driver_id}`);
+      }
+      if (assignment?.conductor_id) {
+        ids.add(`conductor-${assignment.conductor_id}`);
+      }
+    });
+    return ids.size;
+  }, [schedule]);
+
+  const formatTime12h = (time: string) => {
+    if (!time) return '--';
+    const [hourStr, minuteStr] = time.split(':');
+    const hour = parseInt(hourStr, 10);
+    const minute = parseInt(minuteStr ?? '0', 10);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+    return `${hour12}:${minute.toString().padStart(2, '0')} ${ampm}`;
   };
+
+  const sanitizeTime = (time: string) => {
+    if (!time) return '';
+    const [hourStr, minuteStr] = time.split(':');
+    return `${hourStr}:${(minuteStr ?? '0').padStart(2, '0')}`;
+  };
+
+  const formatDisplayDate = (dateString: string) => {
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) {
+      return dateString;
+    }
+    return date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  const depotSummary = (
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+      <div className="bg-white rounded-2xl p-6 shadow border border-gray-200">
+        <div className="text-sm text-gray-500">Depots in this Region </div>
+        <div className="text-3xl font-bold text-gray-900 mt-2">{depots.length}</div>
+      </div>
+      <div className="bg-white rounded-2xl p-6 shadow border border-gray-200">
+        <div className="text-sm text-gray-500">Routes in this Region</div>
+        <div className="text-3xl font-bold text-gray-900 mt-2">{selectedDepot ? routes.length : totalRegionRoutes}</div>
+      </div>
+      <div className="bg-white rounded-2xl p-6 shadow border border-gray-200">
+        <div className="text-sm text-gray-500">Selected Date</div>
+        <div className="text-lg font-semibold text-gray-900 mt-2">
+          {formatDisplayDate(selectedDate)}
+        </div>
+      </div>
+      <div className="bg-white rounded-2xl p-6 shadow border border-gray-200">
+        <div className="text-sm text-gray-500">Last Refreshed</div>
+        <div className="text-lg font-semibold text-gray-900 mt-2">
+          {new Date().toLocaleTimeString()}
+        </div>
+      </div>
+    </div>
+  );
+
+  const routeSummary = (
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+      <div className="bg-white rounded-2xl p-6 shadow border border-gray-200">
+        <div className="text-sm text-gray-500">Total Slots</div>
+        <div className="text-3xl font-bold text-gray-900 mt-2">{schedule.length}</div>
+      </div>
+      <div className="bg-white rounded-2xl p-6 shadow border border-gray-200">
+        <div className="text-sm text-gray-500">Assigned Slots</div>
+        <div className="text-3xl font-bold text-gray-900 mt-2">{assignedSlots.length}</div>
+      </div>
+      <div className="bg-white rounded-2xl p-6 shadow border border-gray-200">
+        <div className="text-sm text-gray-500">Unassigned Slots</div>
+        <div className="text-3xl font-bold text-gray-900 mt-2">{unassignedCount}</div>
+      </div>
+      <div className="bg-white rounded-2xl p-6 shadow border border-gray-200">
+        <div className="text-sm text-gray-500">Unique Crew</div>
+        <div className="text-lg font-semibold text-gray-900 mt-2">
+          {uniqueBuses} buses • {uniqueCrew} crew
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
+      <div className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div>
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center py-6">
+            <div className="mb-4 lg:mb-0">
               <h1 className="text-3xl font-bold text-gray-900">Bus Schedule Oversight</h1>
-              <p className="text-gray-600 mt-1">Manage and monitor bus routes and schedules</p>
+              <p className="text-gray-600 mt-2">
+                Monitor depot activity and align daily assignments with route.
+              </p>
             </div>
-            <div className="text-right">
-              <div className="text-lg font-semibold text-gray-900">
+            <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-200">
+              <div className="text-lg font-semibold text-gray-900 text-center">
                 {formatDisplayDate(selectedDate)}
               </div>
               <input
                 type="date"
                 value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="mt-2 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                onChange={(e) => handleDateChange(e.target.value)}
+                max={todayDate}
+                className="mt-2 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full"
               />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Breadcrumb */}
-        <div className="mb-6">
+        <div className="mb-8">
           <nav className="flex" aria-label="Breadcrumb">
             <ol className="flex items-center space-x-4">
               <li>
                 <button
                   onClick={handleBackToDepots}
-                  className="text-gray-400 hover:text-gray-500"
+                  className="text-gray-400 hover:text-gray-500 transition-colors"
                 >
                   <svg className="flex-shrink-0 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                     <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
                   </svg>
                 </button>
-              </li>
-              <li>
-                <div className="flex items-center">
-                  <svg className="flex-shrink-0 h-5 w-5 text-gray-300" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M5.555 17.776l8-16 .894.448-8 16-.894-.448z" />
-                  </svg>
-                  {view === 'routes' && (
-                    <button
-                      onClick={handleBackToDepots}
-                      className="ml-4 text-sm font-medium text-gray-500 hover:text-gray-700"
-                    >
-                      Depots
-                    </button>
-                  )}
-                </div>
               </li>
               {view === 'routes' && selectedDepot && (
                 <li>
@@ -784,7 +341,7 @@ const ScheduleOversight = () => {
                     <svg className="flex-shrink-0 h-5 w-5 text-gray-300" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20">
                       <path d="M5.555 17.776l8-16 .894.448-8 16-.894-.448z" />
                     </svg>
-                    <span className="ml-4 text-sm font-medium text-gray-500">{selectedDepot}</span>
+                    <span className="ml-4 text-sm font-medium text-gray-500">{selectedDepot.depot_name}</span>
                   </div>
                 </li>
               )}
@@ -792,228 +349,219 @@ const ScheduleOversight = () => {
           </nav>
         </div>
 
-        {/* Depot Cards View */}
         {view === 'depots' && (
           <div>
-            <div className="mb-8">
-              <h2 className="text-2xl font-bold text-gray-900">Bus Depots</h2>
-              <p className="text-gray-600 mt-2">Select a depot to view its routes and schedules</p>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {mockDepots.map((depot) => (
-                <div
-                  key={depot.id}
-                  onClick={() => handleDepotSelect(depot.name)}
-                  className="bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer border border-gray-200 hover:border-blue-300 overflow-hidden"
-                >
-                  <div className="p-6">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex-1">
-                        <h3 className="text-xl font-bold text-gray-900 mb-2">{depot.name}</h3>
-                        <div className="space-y-2">
-                          <div className="flex items-center text-sm text-gray-600">
-                            <svg className="flex-shrink-0 h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                              <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-                            </svg>
-                            <span className="truncate">{depot.address}</span>
-                          </div>
-                          <div className="flex items-center text-sm text-gray-600">
-                            <svg className="flex-shrink-0 h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                              <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
-                            </svg>
-                            {depot.phone}
-                          </div>
-                          <div className="flex items-center text-sm text-gray-600">
-                            <svg className="flex-shrink-0 h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                              <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                            </svg>
-                            Manager: {depot.manager}
-                          </div>
-                          <div className="flex items-center text-sm text-gray-600">
-                            <svg className="flex-shrink-0 h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                              <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
-                              <path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1v-1a1 1 0 011-1h2a1 1 0 011 1v1a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H19a1 1 0 001-1V5a1 1 0 00-1-1H3z" />
-                            </svg>
-                            Capacity: {depot.capacity} buses
-                          </div>
-                        </div>
-                      </div>
-                      <div className="ml-4">
-                        <div className="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">
-                          {mockRoutes.filter(route => route.depot === depot.name).length} routes
-                        </div>
-                      </div>
-                    </div>
-                    <div className="mt-4 flex items-center justify-between">
-                      <span className="text-blue-600 text-sm font-medium hover:text-blue-800 transition-colors">
-                        View routes →
+            {depotSummary}
+            {depotsLoading && (
+              <div className="text-gray-500">Loading depots…</div>
+            )}
+            {depotsError && (
+              <div className="text-red-600">{depotsError}</div>
+            )}
+            {!depotsLoading && !depotsError && !depots.length && (
+              <div className="text-gray-500">No depots available for your region.</div>
+            )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {depots.map((depot) => {
+                const isActiveDepot = selectedDepot && selectedDepot.depot_id === depot.depot_id;
+                const routeBadge = isActiveDepot
+                  ? `${routes.length} routes`
+                  : `${depot.route_count ?? 0} routes`;
+                return (
+                  <button
+                    key={depot.depot_id}
+                    onClick={() => handleDepotSelect(depot)}
+                    className="text-left bg-white rounded-2xl shadow border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all p-6"
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-xl font-semibold text-gray-900">{depot.depot_name}</h3>
+                      <span className={`px-3 py-1 rounded-full text-sm border ${isActiveDepot ? 'bg-blue-100 text-blue-800 border-blue-200' : 'bg-blue-50 text-blue-700 border-blue-200'}`}>
+                        {routeBadge}
                       </span>
                     </div>
-                  </div>
-                </div>
-              ))}
+                 
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
 
-        {/* Routes and Schedule View */}
-        {view === 'routes' && (
-          <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-            <div className="flex flex-col md:flex-row gap-0">
-              {/* Routes List - Left Panel */}
-              <div className="md:w-1/4 bg-gradient-to-b from-blue-25 to-indigo-25 border-r border-gray-200">
-                <div className="p-5 sticky top-0 bg-gradient-to-r from-blue-600 to-indigo-700 text-white">
+        {view === 'routes' && selectedDepot && (
+          <div className="bg-white rounded-2xl shadow border border-gray-200 overflow-hidden">
+            <div className="flex flex-col lg:flex-row min-h-[560px]">
+              <div className="lg:w-1/4 border-r border-gray-200 bg-gray-50">
+                <div className="p-6 bg-white border-b border-gray-200">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h2 className="text-xl font-bold">{selectedDepot} Routes</h2>
-                      <p className="text-blue-100 text-sm mt-1">
-                        {filteredRoutes.length} route{filteredRoutes.length !== 1 ? 's' : ''} available
+                      <h2 className="text-lg font-semibold text-gray-900">{selectedDepot.depot_name}</h2>
+                      <p className="text-sm text-gray-500 mt-1">
+                        {routes.length} route{routes.length === 1 ? '' : 's'}
                       </p>
                     </div>
                     <button
                       onClick={handleBackToDepots}
-                      className="text-blue-100 hover:text-white transition-colors"
+                      className="text-sm text-blue-600 hover:text-blue-800"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M9.707 14.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 1.414L7.414 9H15a1 1 0 110 2H7.414l2.293 2.293a1 1 0 010 1.414z" clipRule="evenodd" />
-                      </svg>
+                      Back
                     </button>
                   </div>
                 </div>
-                <ul className="p-3 max-h-[calc(100vh-300px)] overflow-y-auto">
-                  {filteredRoutes.map(route => (
-                    <li
+                <div className="p-4 space-y-3 overflow-y-auto max-h-[calc(100vh-260px)]">
+                  {routesLoading && <div className="text-gray-500">Loading routes…</div>}
+                  {routesError && <div className="text-red-600">{routesError}</div>}
+                  {!routesLoading && !routesError && !routes.length && (
+                    <div className="text-gray-500 text-sm">No routes available for this depot.</div>
+                  )}
+                  {routes.map(route => (
+                    <button
                       key={route.route_id}
-                      className={`p-3 mb-2 rounded-lg transition-all duration-200 cursor-pointer flex items-start
-                        ${selectedRouteId === route.route_id
-                          ? 'bg-white shadow-md border-l-4 border-blue-500'
-                          : 'hover:bg-blue-100'}`}
                       onClick={() => handleRouteSelect(route.route_id)}
+                      className={`w-full text-left p-4 rounded-xl border transition-all
+                        ${selectedRouteId === route.route_id ? 'border-blue-500 bg-white shadow' : 'border-gray-200 bg-white hover:border-blue-300'}`}
                     >
-                      <div className="flex-1">
-                        <div className="font-semibold text-gray-800">Route {route.route_number}</div>
-                        <div className="text-sm text-gray-600 mt-1">{route.route_name}</div>
+                      <div className="flex items-center justify-between">
+                        <span className="px-2 py-1 rounded text-xs font-semibold bg-blue-100 text-blue-700">
+                          {route.route_number}
+                        </span>
+                        {selectedRouteId === route.route_id && (
+                          <span className="text-xs text-green-600 font-medium">Active</span>
+                        )}
                       </div>
-                      {selectedRouteId === route.route_id && (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-500 mt-1" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                        </svg>
-                      )}
-                    </li>
+                      <div className="mt-2 text-sm font-semibold text-gray-900">
+                        {route.route_name}
+                      </div>
+                    </button>
                   ))}
-                </ul>
+                </div>
               </div>
 
-              {/* Main Content Area - Right Panel */}
-              <div className="md:w-3/4">
+              <div className="lg:w-3/4 bg-white">
                 {selectedRoute ? (
-                  <div className="p-6">
-                    <div className="flex justify-between items-center mb-6">
+                  <div className="p-8">
+                    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6">
                       <div>
-                        <h2 className="text-2xl font-bold text-gray-800">
-                          Schedule for Route {selectedRoute.route_number}
+                        <h2 className="text-2xl font-bold text-gray-900">
+                          Route {selectedRoute.route_number}: {selectedRoute.route_name}
                         </h2>
-                        <p className="text-gray-600">{selectedRoute.route_name} • {selectedRoute.depot}</p>
+                        <p className="text-sm text-gray-500 mt-1">
+                          Depot {selectedDepot.depot_name}
+                        </p>
                       </div>
-                      <button
-                        onClick={handleBackToRoutes}
-                        className="text-gray-500 hover:text-gray-700 transition-colors"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M9.707 14.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 1.414L7.414 9H15a1 1 0 110 2H7.414l2.293 2.293a1 1 0 010 1.414z" clipRule="evenodd" />
-                        </svg>
-                      </button>
+                      <div className="text-sm text-gray-500">
+                        Viewing assignments for {formatDisplayDate(selectedDate)}
+                      </div>
                     </div>
 
-                    {/* Timetable */}
-                    <div className="overflow-hidden rounded-lg border border-gray-200 shadow-sm">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-100">
-                          <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Time Slot</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Bus</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Crew</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Status</th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                          {timeSlots.length > 0 ? (
-                            timeSlots
-                              .slice()
-                              .sort((a, b) => a.start.localeCompare(b.start))
-                              .map(slot => (
-                                <tr key={slot.id} className="hover:bg-gray-50 transition-colors">
-                                  <td className="px-6 py-4 whitespace-nowrap">
-                                    <div className="font-medium text-gray-900">
-                                      {formatTime12h(slot.start)} - {formatTime12h(slot.end)}
-                                    </div>
-                                  </td>
-                                  {/* Bus */}
-                                  <td className="px-6 py-4">
-                                    {slot.assignment ? (
-                                      <div>
-                                        <div className="font-medium text-gray-900">{slot.assignment.bus_registration}</div>
-                                        <div className="text-sm text-gray-500">{slot.assignment.bus_type}</div>
-                                      </div>
-                                    ) : (
-                                      <span className="bg-red-100 text-red-800 px-2.5 py-0.5 rounded-full text-xs font-medium">Not assigned</span>
-                                    )}
-                                  </td>
-                                  {/* Crew */}
-                                  <td className="px-6 py-4">
-                                    {slot.assignment ? (
-                                      <div>
-                                        <div className="text-sm text-gray-900">
-                                          <span className="font-medium">Driver:</span> {slot.assignment.driver_name}
+                    {routeSummary}
+
+                    {scheduleLoading && (
+                      <div className="text-gray-500">Loading schedule…</div>
+                    )}
+                    {scheduleError && (
+                      <div className="text-red-600 mb-4">{scheduleError}</div>
+                    )}
+
+                    {!scheduleLoading && !scheduleError && (
+                      <div className="border border-gray-200 rounded-2xl overflow-hidden">
+                        <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
+                          <h3 className="text-lg font-semibold text-gray-900">Daily Schedule</h3>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-100">
+                              <tr>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                  Time Slot
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                  Bus Details
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                  Crew Assignment
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                  Status
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                              {schedule.length ? (
+                                schedule
+                                  .slice()
+                                  .sort((a, b) => sanitizeTime(a.shift_start_time).localeCompare(sanitizeTime(b.shift_start_time)))
+                                  .map(slot => (
+                                    <tr key={slot.assignment_id} className="hover:bg-blue-50 transition-colors">
+                                      <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="font-semibold text-gray-900">
+                                          {formatTime12h(sanitizeTime(slot.shift_start_time))} – {formatTime12h(sanitizeTime(slot.shift_end_time))}
                                         </div>
-                                        <div className="text-sm text-gray-600">
-                                          <span className="font-medium">Conductor:</span> {slot.assignment.conductor_name}
-                                        </div>
-                                      </div>
-                                    ) : (
-                                      <span className="bg-red-100 text-red-800 px-2.5 py-0.5 rounded-full text-xs font-medium">Not assigned</span>
-                                    )}
-                                  </td>
-                                  {/* Status */}
-                                  <td className="px-6 py-4 whitespace-nowrap">
-                                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium 
-                                      ${slot.assignment?.status === 'Scheduled' ? 'bg-blue-100 text-blue-800' :
-                                        slot.assignment?.status === 'Ongoing' ? 'bg-yellow-100 text-yellow-800' :
-                                        slot.assignment?.status === 'Completed' ? 'bg-green-100 text-green-800' :
-                                        slot.assignment?.status === 'Cancelled' ? 'bg-red-100 text-red-800' :
-                                        'bg-gray-100 text-gray-800'}`}>
-                                      {slot.assignment?.status || 'Not scheduled'}
-                                    </span>
+                                      </td>
+                                      <td className="px-6 py-4">
+                                        {slot.assignment ? (
+                                          <div>
+                                            <div className="font-semibold text-gray-900">
+                                              {slot.assignment.bus_registration ?? 'Bus not set'}
+                                            </div>
+                                            <div className="text-sm text-gray-500">
+                                           Class   {slot.assignment.bus_type ?? 'Type not available'}
+                                            </div>
+                                          </div>
+                                        ) : (
+                                          <span className="text-sm text-red-600 font-medium">Not assigned</span>
+                                        )}
+                                      </td>
+                                      <td className="px-6 py-4">
+                                        {slot.assignment ? (
+                                          <div className="space-y-2">
+                                            <div>
+                                              <div className="text-sm font-semibold text-gray-900">
+                                                {slot.assignment.driver_name ?? 'Driver not assigned'}
+                                              </div>
+                                              <div className="text-xs text-gray-500">Driver</div>
+                                            </div>
+                                            <div>
+                                              <div className="text-sm font-semibold text-gray-900">
+                                                {slot.assignment.conductor_name ?? 'Conductor not assigned'}
+                                              </div>
+                                              <div className="text-xs text-gray-500">Conductor</div>
+                                            </div>
+                                          </div>
+                                        ) : (
+                                          <span className="text-sm text-red-600 font-medium">Not assigned</span>
+                                        )}
+                                      </td>
+                                      <td className="px-6 py-4 whitespace-nowrap">
+                                        {slot.assignment ? (
+                                          <span className="px-4 py-2 rounded-full text-xs font-semibold border border-blue-200 text-blue-700 bg-blue-50">
+                                            {slot.assignment.status ?? 'Scheduled'}
+                                          </span>
+                                        ) : (
+                                          <span className="px-4 py-2 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-gray-50">
+                                            Not scheduled
+                                          </span>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  ))
+                              ) : (
+                                <tr>
+                                  <td colSpan={4} className="px-6 py-12 text-center text-gray-500">
+                                    No slots configured for this route.
                                   </td>
                                 </tr>
-                              ))
-                          ) : (
-                            <tr>
-                              <td colSpan={4} className="px-6 py-8 text-center">
-                                <div className="text-gray-500">
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                  </svg>
-                                  No assignments found for this route on {formatDisplayDate(selectedDate)}
-                                </div>
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center justify-center h-full py-24 px-4 text-center">
-                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-full p-6 mb-6">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <h3 className="text-xl font-bold text-gray-900 mb-2">Select a Route</h3>
-                    <p className="text-gray-600 max-w-md">
-                      Choose a route from the left panel to view its daily schedule for {selectedDepot}
+                  <div className="flex flex-col items-center justify-center h-full py-24 px-4 text-center text-gray-600">
+                    <h3 className="text-xl font-semibold text-gray-900 mb-3">Select a route</h3>
+                    <p className="max-w-md">
+                      Choose a route from the list to view scheduled live assignments for the selected date.
                     </p>
                   </div>
                 )}
@@ -1026,42 +574,41 @@ const ScheduleOversight = () => {
   );
 };
 
-interface TimeSlot {
-  id: number;
-  start: string;
-  end: string;
-  assignment: Assignment | null;
+interface Depot {
+  depot_id: number;
+  depot_name: string;
+  region_id?: number;
+  route_count?: number;
+}
+
+interface RouteItem {
+  route_id: number;
+  route_number: string;
+  route_name: string;
+  depot_id: number;
+  depot_name?: string;
 }
 
 interface Assignment {
   assignment_id: number;
-  bus_id: number;
-  bus_registration: string;
-  bus_type: string;
-  driver_id: number;
-  driver_name: string;
-  conductor_id: number;
-  conductor_name: string;
-  status: 'Scheduled' | 'Cancelled' | 'Ongoing' | 'Completed';
+  bus_id: number | null;
+  bus_registration: string | null;
+  bus_type: string | null;
+  driver_id: number | null;
+  driver_name: string | null;
+  conductor_id: number | null;
+  conductor_name: string | null;
+  status: string | null;
   shift_start_time: string;
   shift_end_time: string;
   assignment_date: string;
 }
 
-interface Route {
-  route_id: number;
-  route_number: string;
-  route_name: string;
-  depot: string;
-}
-
-interface Depot {
-  id: number;
-  name: string;
-  address: string;
-  phone: string;
-  capacity: number;
-  manager: string;
+interface ScheduleSlot {
+  assignment_id: number;
+  shift_start_time: string;
+  shift_end_time: string;
+  assignment: Assignment | null;
 }
 
 export default ScheduleOversight;

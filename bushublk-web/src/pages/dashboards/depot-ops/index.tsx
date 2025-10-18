@@ -61,7 +61,7 @@ const DepotOperationsManagerDashboard = () => {
     if (!user || !token) return;
     setLoading(true);
     axios.get(
-      `http://localhost:5000/api/crew?depot_id=${user.depot_id}`,
+      `${import.meta.env.VITE_API_URL}/api/crew?depot_id=${user.depot_id}`,
       {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -90,7 +90,7 @@ const DepotOperationsManagerDashboard = () => {
   useEffect(() => {
     if (!user || !token) return;
     setScheduleLoading(true);
-    axios.get(`http://localhost:5000/api/live-summary/depot/${user.depot_id}`, {
+    axios.get(`${import.meta.env.VITE_API_URL}/api/live-summary/depot/${user.depot_id}`, {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(res => {
@@ -106,7 +106,7 @@ const DepotOperationsManagerDashboard = () => {
   useEffect(() => {
     if (!user || !token) return;
     setBusStatsLoading(true);
-    axios.get(`http://localhost:5000/api/bus-stats/depot/${user.depot_id}/bus-stats?period=monthly`, {
+    axios.get(`${import.meta.env.VITE_API_URL}/api/bus-stats/depot/${user.depot_id}/bus-stats?period=monthly`, {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(res => {
@@ -121,7 +121,7 @@ const DepotOperationsManagerDashboard = () => {
 
   useEffect(() => {
     if (!user || !token) return;
-    axios.get(`/api/depot-dashboard/bus-health/${user.depot_id}`, {
+    axios.get(`${import.meta.env.VITE_API_URL}/api/depot-dashboard/bus-health/${user.depot_id}`, {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(res => {
@@ -138,7 +138,7 @@ const DepotOperationsManagerDashboard = () => {
 //bus status 
   useEffect(() => {
     if (!user || !token) return;
-    axios.get(`http://localhost:5000/api/depot-ops-dashboard/depot/${user.depot_id}/fleet-status`, {
+    axios.get(`${import.meta.env.VITE_API_URL}/api/depot-ops-dashboard/depot/${user.depot_id}/fleet-status`, {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(res => {

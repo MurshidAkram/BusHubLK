@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { CheckCircle, AlertTriangle, X, Calendar, Filter, Download, Eye } from 'lucide-react';
 
-// API Configuration
-const API_BASE_URL = 'http://localhost:5000';
+// API Configuration derived from Vite env (adds `/api` once here)
+const API_BASE_URL = `${import.meta.env.VITE_API_URL}/api`;
 
 interface LostFoundReport {
   report_id: number;
@@ -43,6 +43,40 @@ interface Statistics {
   resolved_reports: number;
   pending_reports: number;
 }
+
+const sanitizeReporterName = (report: LostFoundReport) => {
+  const invalidTokens = new Set([
+    '',
+    'null',
+    '[null]',
+    'undefined',
+    'n/a',
+    'na',
+    '-',
+    'none',
+    'passenger'
+  ]);
+
+  const rawName = (report.passenger_name ?? '').trim();
+  if (rawName && !invalidTokens.has(rawName.toLowerCase())) {
+    return rawName;
+  }
+
+  const contactEmail = (report.contact_email ?? '').trim();
+  if (contactEmail) {
+    const prefix = contactEmail.split('@')[0]?.trim();
+    if (prefix && !invalidTokens.has(prefix.toLowerCase())) {
+      return prefix;
+    }
+  }
+
+  const contactPhone = (report.contact_phone ?? '').trim();
+  if (contactPhone && !invalidTokens.has(contactPhone.toLowerCase())) {
+    return contactPhone;
+  }
+
+  return 'Not provided';
+};
 
 const IncidentManagement = () => {
   // State Management
@@ -98,7 +132,7 @@ const IncidentManagement = () => {
       if (statusFilter !== 'All') queryParams.append('status', statusFilter);
       if (dateFilter) queryParams.append('date', dateFilter);
 
-      const response = await fetch(`${API_BASE_URL}/api/incident-management/reports?${queryParams}`);
+  const response = await fetch(`${API_BASE_URL}/incident-management/reports?${queryParams}`);
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -139,7 +173,7 @@ const IncidentManagement = () => {
       const queryParams = new URLSearchParams();
       if (dateFilter) queryParams.append('date', dateFilter);
 
-      const response = await fetch(`${API_BASE_URL}/api/incident-management/statistics?${queryParams}`);
+  const response = await fetch(`${API_BASE_URL}/incident-management/statistics?${queryParams}`);
       
       if (!response.ok) {
         console.warn('Failed to fetch statistics, using defaults');
@@ -159,7 +193,7 @@ const IncidentManagement = () => {
   const fetchAvailableCategories = useCallback(async () => {
     try {
       console.log('📦 Fetching available categories...');
-      const response = await fetch(`${API_BASE_URL}/api/incident-management/categories`);
+  const response = await fetch(`${API_BASE_URL}/incident-management/categories`);
       
       if (!response.ok) {
         console.warn('Failed to fetch categories, using defaults');
@@ -181,7 +215,7 @@ const IncidentManagement = () => {
   const handleResolveReport = async (reportId: number) => {
     try {
       console.log('🔄 Resolving report:', reportId);
-      const response = await fetch(`${API_BASE_URL}/api/incident-management/reports/${reportId}/resolve`, {
+  const response = await fetch(`${API_BASE_URL}/incident-management/reports/${reportId}/resolve`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -223,7 +257,7 @@ const IncidentManagement = () => {
       if (statusFilter !== 'All') queryParams.append('status', statusFilter);
       if (dateFilter) queryParams.append('date', dateFilter);
 
-      const response = await fetch(`${API_BASE_URL}/api/incident-management/export/csv?${queryParams}`);
+  const response = await fetch(`${API_BASE_URL}/incident-management/export/csv?${queryParams}`);
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -543,7 +577,7 @@ const IncidentManagement = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{report.passenger_name}</div>
+                      <div className="text-sm font-medium text-gray-900">{sanitizeReporterName(report)}</div>
                       <div className="text-xs text-gray-500">{report.contact_phone}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -695,7 +729,7 @@ const IncidentManagement = () => {
                     <div className="space-y-4">
                       <div>
                         <label className="text-sm font-medium text-gray-500">Name</label>
-                        <p className="text-sm text-gray-900 mt-1 font-medium">{selectedReport.passenger_name}</p>
+                        <p className="text-sm text-gray-900 mt-1 font-medium">{sanitizeReporterName(selectedReport)}</p>
                       </div>
                       <div>
                         <label className="text-sm font-medium text-gray-500">Email</label>
@@ -774,7 +808,7 @@ const IncidentManagement = () => {
                     // build full src: if startsWith http use as-is, otherwise prepend API_BASE_URL
                     const src = cleaned.startsWith('http')
                       ? cleaned
-                      : `${API_BASE_URL}${cleaned.startsWith('/') ? '' : '/'}${cleaned}`;
+                      : `${import.meta.env.VITE_API_URL}${cleaned.startsWith('/') ? '' : '/'}${cleaned}`;
 
                     return (
                       <div className="bg-gray-50 rounded-xl p-6">

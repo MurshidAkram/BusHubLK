@@ -77,6 +77,9 @@ interface AppContextType {
   token: string | null;
 }
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE_URL = `${API_URL}/api`;
+
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: string | null }> {
   constructor(props: { children: React.ReactNode }) {
     super(props);
@@ -148,7 +151,7 @@ const FleetManagement: React.FC = () => {
       if (!token) return 'N/A';
       const today = new Date().toISOString().slice(0, 10);
       const response = await axios.get(
-        `http://localhost:5000/api/buses/bus/${busId}/current-route`,
+        `${API_BASE_URL}/buses/bus/${busId}/current-route`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -174,14 +177,14 @@ const FleetManagement: React.FC = () => {
         return;
       }
 
-      let apiUrl = 'http://localhost:5000/api/depot-engineer/buses';
+      let apiUrl = `${API_BASE_URL}/depot-engineer/buses`;
       if (context?.user?.role === 'depot_manager' || context?.user?.role === 'depot_operations') {
         if (!context?.user?.depot_id) {
           setError('Depot ID is required for this user role.');
           setLoading(false);
           return;
         }
-        apiUrl = `http://localhost:5000/api/buses/depot/${context.user.depot_id}`;
+        apiUrl = `${API_BASE_URL}/buses/depot/${context.user.depot_id}`;
       }
       
       console.log('Fetching from:', apiUrl);
@@ -278,7 +281,7 @@ const FleetManagement: React.FC = () => {
     // If you already fetch fleetStatus in a parent page, remove this block.
     const fetchFleet = async () => {
       try {
-        const res = await axios.get(`http://localhost:5000/api/depot-ops-dashboard/depot/${context?.user?.depot_id}/fleet-status`, {
+  const res = await axios.get(`${API_BASE_URL}/depot-ops-dashboard/depot/${context?.user?.depot_id}/fleet-status`, {
           headers: token ? { Authorization: `Bearer ${token}` } : undefined
         });
         const d = res.data || {};

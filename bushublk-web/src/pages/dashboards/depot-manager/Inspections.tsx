@@ -33,6 +33,9 @@ const getStatusBadge = (status: StatusType): string => {
   }
 };
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE_URL = `${API_URL}/api`;
+
 const DepotInspections: React.FC = () => {
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -55,7 +58,7 @@ const DepotInspections: React.FC = () => {
         }
 
         // Depot managers can see all inspections in their depot
-        const response = await fetch('http://localhost:5000/api/inspections/depot-manager', {
+  const response = await fetch(`${API_BASE_URL}/inspections/depot-manager`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${context.token}`,

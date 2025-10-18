@@ -16,6 +16,9 @@ type Notification = {
   text?: string;
 };
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE_URL = `${API_URL}/api`;
+
 const Notifications = () => {
   const appContext = useContext(AppContext);
   const depotId = appContext?.user?.depot_id;
@@ -24,7 +27,7 @@ const Notifications = () => {
 
   useEffect(() => {
     if (!depotId || !token) return;
-    fetch(`http://localhost:5000/api/depot-manager/${depotId}/notifications`, {
+  fetch(`${API_BASE_URL}/depot-manager/${depotId}/notifications`, {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(res => res.json())
@@ -32,7 +35,7 @@ const Notifications = () => {
   }, [depotId, token]);
 
   const markAsRead = async (notif: Notification) => {
-    await fetch(`http://localhost:5000/api/depot-manager/${depotId}/notifications/read`, {
+  await fetch(`${API_BASE_URL}/depot-manager/${depotId}/notifications/read`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -47,7 +50,7 @@ const Notifications = () => {
   };
 
   const deleteNotification = async (id: any, type: any) => {
-    await fetch(`http://localhost:5000/api/depot-manager/${depotId}/notifications/read`, {
+  await fetch(`${API_BASE_URL}/depot-manager/${depotId}/notifications/read`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

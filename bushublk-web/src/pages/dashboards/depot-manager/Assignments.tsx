@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AppContext } from '../../../context/AppContext';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE_URL = `${API_URL}/api`;
+
 const Assignments = () => {
   const appContext = useContext(AppContext);
   const user = appContext?.user;
@@ -22,7 +25,7 @@ const Assignments = () => {
       try {
         setIsLoading(true);
         setError('');
-        const routesRes = await fetch('http://localhost:5000/api/routes/', {
+  const routesRes = await fetch(`${API_BASE_URL}/routes/`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (!routesRes.ok) throw new Error('Failed to fetch routes');
@@ -47,7 +50,7 @@ const Assignments = () => {
       setError('');
       try {
         const res = await fetch(
-          `http://localhost:5000/api/assignments/route/${selectedRouteId}/daily-schedule?date=${assignmentDate}`,
+          `${API_BASE_URL}/assignments/route/${selectedRouteId}/daily-schedule?date=${assignmentDate}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         if (!res.ok) throw new Error('Failed to fetch daily schedule');

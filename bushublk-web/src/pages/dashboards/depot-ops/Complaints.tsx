@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
-// API base URLs
-const API_BASE_URL = 'http://localhost:5000/api';
-const SERVER_BASE_URL = 'http://localhost:5000';
+// API base URLs sourced from Vite configuration
+const API_BASE_URL = `${import.meta.env.VITE_API_URL}/api`;
+const SERVER_BASE_URL = import.meta.env.VITE_API_URL;
 
 // The interface for our component's state (using camelCase)
 interface Complaint {
@@ -55,16 +55,6 @@ const Complaints: React.FC = () => {
   const [filterType, setFilterType] = useState<string>('All');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
-  const [user, setUser] = useState<any>(null);
-
-  // Add effect to load user data
-  useEffect(() => {
-    const userData = localStorage.getItem('bushublk_user');
-    if (userData) {
-      setUser(JSON.parse(userData));
-    }
-  }, []);
-
   // --- Data Fetching Logic ---
   useEffect(() => {
     const fetchComplaints = async () => {
@@ -95,7 +85,7 @@ const Complaints: React.FC = () => {
         console.log('Available tokens:', possibleTokens.length);
         console.log('Using token:', activeToken ? 'Yes' : 'No');
         
-        const response = await axios.get('http://localhost:5000/api/complaints', {
+  const response = await axios.get(`${API_BASE_URL}/complaints`, {
           headers: {
             'Authorization': activeToken ? `Bearer ${activeToken}` : '',
             'Content-Type': 'application/json'
@@ -194,7 +184,7 @@ const Complaints: React.FC = () => {
   const handleStatusChange = async (id: string, newStatus: 'Pending' | 'In Progress' | 'Resolved') => {
     try {
         // Make API call to update the status on the backend
-        await axios.put(`http://localhost:5000/api/complaints/${id}/status`, { 
+  await axios.put(`${API_BASE_URL}/complaints/${id}/status`, { 
           status: newStatus 
         }, {
           headers: {
@@ -532,7 +522,7 @@ const Complaints: React.FC = () => {
                   <div className="flex items-center justify-between mb-3">
                     <label className="block text-sm font-medium text-gray-700">Attached Evidence</label>
                     <a
-                      href={`http://localhost:5000${selectedComplaint.attachment}`}
+                      href={`${SERVER_BASE_URL}${selectedComplaint.attachment}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors duration-200"
@@ -542,7 +532,7 @@ const Complaints: React.FC = () => {
                   </div>
                   <div className="relative bg-white rounded-lg overflow-hidden shadow-lg border border-gray-200">
                     <img
-                      src={`http://localhost:5000${selectedComplaint.attachment}`}
+                      src={`${SERVER_BASE_URL}${selectedComplaint.attachment}`}
                       alt="Complaint evidence"
                       className="w-full h-auto object-contain"
                       onError={(e) => {

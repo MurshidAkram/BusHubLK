@@ -9,6 +9,8 @@ import {
 } from 'react-icons/hi';
 import axios from 'axios';
 import { AppContext } from '../../../context/AppContext';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE_URL = `${API_URL}/api`;
 
 const DepotManagerDashboard = () => {
   const appContext = useContext(AppContext);
@@ -23,7 +25,7 @@ const DepotManagerDashboard = () => {
 
   useEffect(() => {
     if (!user || !token) return;
-    axios.get(`http://localhost:5000/api/depot-dashboard/depot/${user.depot_id}/metrics`, {
+    axios.get(`${API_BASE_URL}/depot-dashboard/depot/${user.depot_id}/metrics`, {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(res => setMetrics(res.data.data))
@@ -32,7 +34,7 @@ const DepotManagerDashboard = () => {
 
   useEffect(() => {
     if (!user || !token) return;
-    axios.get(`http://localhost:5000/api/depot-dashboard/depot/${user.depot_id}/fleet-status`, {
+    axios.get(`${API_BASE_URL}/depot-dashboard/depot/${user.depot_id}/fleet-status`, {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(res => setFleetStatus(res.data.data))
@@ -41,7 +43,7 @@ const DepotManagerDashboard = () => {
 
   useEffect(() => {
     if (!user || !token) return;
-    axios.get(`http://localhost:5000/api/depot-dashboard/depot/${user.depot_id}/spare-parts-details`, {
+    axios.get(`${API_BASE_URL}/depot-dashboard/depot/${user.depot_id}/spare-parts-details`, {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(res => setSparePartsDetails(res.data.data ?? []))
@@ -50,7 +52,7 @@ const DepotManagerDashboard = () => {
 
   useEffect(() => {
     if (!user || !token) return;
-    axios.get(`http://localhost:5000/api/depot-dashboard/depot/${user.depot_id}/todays-schedule`, {
+    axios.get(`${API_BASE_URL}/depot-dashboard/depot/${user.depot_id}/todays-schedule`, {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(res => setTodaysSchedule(res.data.data ?? []))
@@ -59,7 +61,7 @@ const DepotManagerDashboard = () => {
 
   useEffect(() => {
     if (!user || !token) return;
-    axios.get(`http://localhost:5000/api/depot-dashboard/depot/${user.depot_id}/spare-parts-summary`, {
+    axios.get(`${API_BASE_URL}/depot-dashboard/depot/${user.depot_id}/spare-parts-summary`, {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(res => setSparePartsSummary(res.data.data ?? []))
@@ -68,7 +70,7 @@ const DepotManagerDashboard = () => {
 
   useEffect(() => {
     if (!user || !token) return;
-    axios.get(`http://localhost:5000/api/depot-dashboard/depot/${user.depot_id}/recent-activities`, {
+    axios.get(`${API_BASE_URL}/depot-dashboard/depot/${user.depot_id}/recent-activities`, {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(res => setRecentActivities(res.data.data))

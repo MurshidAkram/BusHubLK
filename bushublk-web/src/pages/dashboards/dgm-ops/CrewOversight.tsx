@@ -23,6 +23,9 @@ interface CrewMember {
   depot?: string;   // depot name for display
 }
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE_URL = `${API_URL}/api`;
+
 const CrewOversight = () => {
   const appContext = useContext(AppContext);
   const token = appContext?.token;
@@ -38,7 +41,7 @@ const CrewOversight = () => {
   // Fetch regions on mount
   useEffect(() => {
     if (!token) return;
-    fetch('http://localhost:5000/api/regions', {
+  fetch(`${API_BASE_URL}/regions`, {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(res => res.json())
@@ -48,7 +51,7 @@ const CrewOversight = () => {
   // Fetch all depots on mount (for mapping)
   useEffect(() => {
     if (!token) return;
-    fetch('http://localhost:5000/api/depots', {
+  fetch(`${API_BASE_URL}/depots`, {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(res => res.json())
@@ -58,7 +61,7 @@ const CrewOversight = () => {
   // Fetch depots for dropdown (filtered by region)
   useEffect(() => {
     if (!token) return;
-    let url = 'http://localhost:5000/api/depots';
+  let url = `${API_BASE_URL}/depots`;
     if (selectedRegionId) {
       url += `?region_id=${selectedRegionId}`;
     }
@@ -72,7 +75,7 @@ const CrewOversight = () => {
   // Fetch crew on page load, region change, depot change
   useEffect(() => {
     if (!token) return;
-    let url = 'http://localhost:5000/api/crew';
+  let url = `${API_BASE_URL}/crew`;
     const params: string[] = [];
     if (selectedRegionId) params.push(`region_id=${selectedRegionId}`);
     if (selectedDepotId) params.push(`depot_id=${selectedDepotId}`);

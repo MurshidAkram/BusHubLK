@@ -13,6 +13,9 @@ import {
   HiOfficeBuilding, HiTruck, HiUsers, HiChartBar, HiExclamationCircle
 } from 'react-icons/hi';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE_URL = `${API_URL}/api`;
+
 const CREW_COLORS = ['#10b981', '#f59e42', '#6366f1', '#f87171'];
 
 type FleetStats = {
@@ -75,7 +78,7 @@ const RegionalOperationsOfficerDashboard = (): JSX.Element => {
       setLoading(true);
       setError(null);
       try {
-        const overviewRes = await axios.get(`http://localhost:5000/api/regional-dashboard/region/${regionId}/overview`, {
+  const overviewRes = await axios.get(`${API_BASE_URL}/regional-dashboard/region/${regionId}/overview`, {
           headers: { Authorization: `Bearer ${token}` }
         });
 

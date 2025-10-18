@@ -2,6 +2,9 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend } from 'recharts';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE_URL = `${API_URL}/api`;
+
 const DGMOperationsDashboard = () => {
   const token = localStorage.getItem('bushublk_token') || '';
   const [loading, setLoading] = useState(false);
@@ -22,7 +25,7 @@ const DGMOperationsDashboard = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.get(`http://localhost:5000/api/dgm-operations-dashboard/overview`, {
+  const res = await axios.get(`${API_BASE_URL}/dgm-operations-dashboard/overview`, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         params: {
           depotsLimit: DEPUTS_PAGE_SIZE,
