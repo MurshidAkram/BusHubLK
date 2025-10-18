@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { HiSearch, HiFilter, HiX, HiChevronLeft, HiChevronRight } from 'react-icons/hi';
+import { HiSearch, HiX, HiChevronLeft, HiChevronRight } from 'react-icons/hi';
 import { AppContext } from '../../../context/AppContext';
 import axios, { AxiosError } from 'axios';
 
@@ -12,15 +12,9 @@ interface Bus {
   model: string;
   year: number;
   mileage: string;
-  status: 'Active' | 'In Service' | 'Maintenance' | 'Out of Service';
+  status: 'Active'  | 'Maintenance' | 'Out of Service';
   depot_name?: string;
   region_name?: string;
-}
-
-interface Filters {
-  status: string;
-  class: string;
-  depot: string;
 }
 
 interface AppContextType {
@@ -35,13 +29,14 @@ interface BusResponse {
   bus?: Bus;
 }
 
-interface PartCondition {
-  part_name: string;
-  checked: boolean;
-}
+type SeverityLevel = 'low' | 'medium' | 'high';
 
-interface PartCheckingData {
-  main_parts: PartCondition[];
+interface PartCondition {
+  part_key: string;
+  part_name: string;
+  hasIssue: boolean;
+  notes: string;
+  severity: SeverityLevel;
 }
 
 const Busavailability = () => {
@@ -49,30 +44,31 @@ const Busavailability = () => {
 
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const [showFilters, setShowFilters] = useState<boolean>(false);
-  const [filters, setFilters] = useState<Filters>({
-    status: '',
-    class: '',
-    depot: '',
-  });
+  const [statusFilter, setStatusFilter] = useState<string>('');
   const [buses, setBuses] = useState<Bus[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState<boolean>(false);
   const [selectedBus, setSelectedBus] = useState<Bus | null>(null);
   const [editedStatus, setEditedStatus] = useState<Bus['status']>('Active');
-  const [partCheckingData, setPartCheckingData] = useState<PartCheckingData>({
-    main_parts: [
-      { part_name: 'Engine', checked: false },
-      { part_name: 'Brakes', checked: false },
-      { part_name: 'Tires', checked: false },
-      { part_name: 'Windows', checked: false },
-      { part_name: 'Doors', checked: false },
-      { part_name: 'Lights', checked: false },
-      { part_name: 'Turn Signals', checked: false },
-      { part_name: 'Fire Extinguisher', checked: false }
-    ]
-  });
+  const PART_DEFINITIONS: PartCondition[] = [
+    { part_key: 'engine', part_name: 'Engine', hasIssue: false, notes: '', severity: 'medium' },
+    { part_key: 'brakes', part_name: 'Brakes', hasIssue: false, notes: '', severity: 'medium' },
+    { part_key: 'tires', part_name: 'Tires', hasIssue: false, notes: '', severity: 'medium' },
+    { part_key: 'windows', part_name: 'Windows', hasIssue: false, notes: '', severity: 'medium' },
+    { part_key: 'doors', part_name: 'Doors', hasIssue: false, notes: '', severity: 'medium' },
+    { part_key: 'headlights', part_name: 'Head Lights', hasIssue: false, notes: '', severity: 'medium' },
+    { part_key: 'signallights', part_name: 'Signal Lights', hasIssue: false, notes: '', severity: 'medium' }
+  ];
+
+  const severityOptions: Array<{ value: SeverityLevel; label: string }> = [
+    { value: 'low', label: 'Low' },
+    { value: 'medium', label: 'Medium' },
+    { value: 'high', label: 'High' }
+  ];
+
+  const [partConditions, setPartConditions] = useState<PartCondition[]>(PART_DEFINITIONS);
 
   const itemsPerPage = 10;
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -145,29 +141,16 @@ const Busavailability = () => {
     setCurrentPage(1);
   };
 
-  const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFilters({ ...filters, [e.target.name]: e.target.value });
-    setCurrentPage(1);
-  };
-
-  const clearFilters = () => {
-    setFilters({ status: '', class: '', depot: '' });
-    setCurrentPage(1);
-  };
-
   const filteredBuses = buses.filter(bus => {
-    const matchesSearch = searchTerm === '' ||
-      bus.registration_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      bus.manufacturer.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      bus.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      bus.depot_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      bus.region_name?.toLowerCase().includes(searchTerm.toLowerCase());
+    const term = searchTerm.toLowerCase();
+    const matchesSearch = term === '' ||
+      bus.registration_number.toLowerCase().includes(term) ||
+      bus.class.toLowerCase().includes(term) ||
+      bus.status.toLowerCase().includes(term);
 
-    const matchesStatus = filters.status === '' || bus.status === filters.status;
-    const matchesClass = filters.class === '' || bus.class.toLowerCase().includes(filters.class.toLowerCase());
-    const matchesDepot = filters.depot === '' || bus.depot_id === filters.depot;
+    const matchesStatus = statusFilter === '' || bus.status === statusFilter;
 
-    return matchesSearch && matchesStatus && matchesClass && matchesDepot;
+    return matchesSearch && matchesStatus;
   });
 
   const totalPages = Math.ceil(filteredBuses.length / itemsPerPage);
@@ -182,12 +165,15 @@ const Busavailability = () => {
   const handleEditClick = (bus: Bus) => {
     setSelectedBus(bus);
     setEditedStatus(bus.status);
+    setPartConditions(PART_DEFINITIONS.map((part) => ({ ...part })));
+    setSuccessMessage(null);
     setShowEditModal(true);
   };
 
   const handleCancelEdit = () => {
     setShowEditModal(false);
     setSelectedBus(null);
+    setPartConditions(PART_DEFINITIONS.map((part) => ({ ...part })));
   };
 
   const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -195,13 +181,39 @@ const Busavailability = () => {
     setEditedStatus(newStatus);
   };
 
-  const updatePartCondition = (partIndex: number, checked: boolean) => {
-    setPartCheckingData(prev => ({
-      ...prev,
-      main_parts: prev.main_parts.map((part, index) => 
-        index === partIndex ? { ...part, checked } : part
+  const updatePartIssue = (partIndex: number, hasIssue: boolean) => {
+    setPartConditions((prev) =>
+      prev.map((part, index) =>
+        index === partIndex
+          ? {
+              ...part,
+              hasIssue,
+              notes: hasIssue ? part.notes : '',
+              severity: hasIssue ? part.severity : 'medium'
+            }
+          : part
       )
-    }));
+    );
+  };
+
+  const updatePartNotes = (partIndex: number, value: string) => {
+    setPartConditions((prev) =>
+      prev.map((part, index) =>
+        index === partIndex
+          ? { ...part, notes: value }
+          : part
+      )
+    );
+  };
+
+  const updatePartSeverity = (partIndex: number, value: SeverityLevel) => {
+    setPartConditions((prev) =>
+      prev.map((part, index) =>
+        index === partIndex
+          ? { ...part, severity: value }
+          : part
+      )
+    );
   };
 
   const handleSaveChanges = async () => {
@@ -210,60 +222,102 @@ const Busavailability = () => {
     try {
       setLoading(true);
       setError(null);
+      setSuccessMessage(null);
       
-      // Prepare part checking flags for database
-      const partCheckingFlags = {
-        // Main parts flags
-        engine: partCheckingData.main_parts[0]?.checked || false,
-        brakes: partCheckingData.main_parts[1]?.checked || false,
-        tires: partCheckingData.main_parts[2]?.checked || false,
-        windows: partCheckingData.main_parts[3]?.checked || false,
-        doors: partCheckingData.main_parts[4]?.checked || false,
-        lights: partCheckingData.main_parts[5]?.checked || false,
-        turn_signals: partCheckingData.main_parts[6]?.checked || false,
-        fire_extinguisher: partCheckingData.main_parts[7]?.checked || false,
-        
-        // Part checking metadata
-        checking_date: new Date().toISOString(),
-        checker_id: context?.user?.userId
-      };
+      const trimmedConditions = partConditions.map((part) => ({
+        ...part,
+        notes: part.notes.trim()
+      }));
+
+      const missingDescriptions = trimmedConditions.filter(
+        (part) => part.hasIssue && part.notes.length === 0
+      );
+
+      if (missingDescriptions.length > 0) {
+        setError(
+          `Please provide a description for: ${missingDescriptions
+            .map((part) => part.part_name)
+            .join(', ')}`
+        );
+        return;
+      }
+
+      const partPayload = trimmedConditions.map((part) => ({
+        key: part.part_key,
+        hasIssue: part.hasIssue,
+        notes: part.hasIssue ? part.notes : null,
+        severity: part.hasIssue && part.severity ? part.severity.trim().toLowerCase() as SeverityLevel : null
+      }));
+      console.log('Submitting part payload:', partPayload);
 
       const response = await axios.put<BusResponse>(
         `http://localhost:5000/api/depot-engineer/buses/${selectedBus.bus_id}/status`,
-        { 
+        {
           status: editedStatus,
-          part_checking_data: partCheckingFlags
+          part_checking_data: {
+            statusAfterCheck: editedStatus,
+            parts: partPayload
+          }
         },
         {
           headers: {
-            Authorization: `Bearer ${token}`,
-          },
+            Authorization: `Bearer ${token}`
+          }
         }
       );
-      
+
       if (response.data.success && response.data.bus) {
-          setBuses(prevBuses =>
-              prevBuses.map(bus =>
-                  bus.bus_id === selectedBus.bus_id ? { ...bus, status: editedStatus } : bus
-              )
-          );
-          setShowEditModal(false);
-          setSelectedBus(null);
-          // Reset part checking data for next check
-          setPartCheckingData({
-            main_parts: [
-              { part_name: 'Engine', checked: false },
-              { part_name: 'Brakes', checked: false },
-              { part_name: 'Tires', checked: false },
-              { part_name: 'Windows', checked: false },
-              { part_name: 'Doors', checked: false },
-              { part_name: 'Lights', checked: false },
-              { part_name: 'Turn Signals', checked: false },
-              { part_name: 'Fire Extinguisher', checked: false }
-            ]
-          });
+        setBuses((prevBuses) =>
+          prevBuses.map((bus) =>
+            bus.bus_id === selectedBus.bus_id ? { ...bus, status: editedStatus } : bus
+          )
+        );
+        setShowEditModal(false);
+        setSelectedBus(null);
+        // Reset part checking data for next check
+        setPartConditions(PART_DEFINITIONS.map((part) => ({ ...part })));
+
+        const autoSchedule = (response.data as any)?.automatic_service_schedule;
+        const baseMessage = response.data.message || 'Bus status updated successfully.';
+
+        if (autoSchedule?.triggered) {
+          const summary = autoSchedule.summary || {};
+          const parts: string[] = [];
+
+          if (summary.created) {
+            const plural = summary.created === 1 ? 'task' : 'tasks';
+            const dateText = autoSchedule.scheduled_date ? ` on ${autoSchedule.scheduled_date}` : '';
+            parts.push(`${summary.created} new follow-up ${plural} scheduled${dateText}`);
+          }
+
+          if (summary.existing) {
+            const plural = summary.existing === 1 ? 'task was' : 'tasks were';
+            parts.push(`${summary.existing} existing follow-up ${plural} already scheduled`);
+          }
+
+          if (summary.failed) {
+            const plural = summary.failed === 1 ? 'task' : 'tasks';
+            parts.push(`${summary.failed} automatic follow-up ${plural} failed to schedule`);
+          }
+
+          const detail = parts.length > 0 ? ` (${parts.join(' | ')})` : '';
+          setSuccessMessage(`${baseMessage}${detail}`);
+        } else if (autoSchedule?.error) {
+          setSuccessMessage(baseMessage);
+        } else if (autoSchedule?.updated) {
+          const scheduledDate = autoSchedule.scheduled_date ? ` (scheduled for ${autoSchedule.scheduled_date})` : '';
+          setSuccessMessage(baseMessage || `Bus status updated and the existing follow-up service was refreshed${scheduledDate}.`);
+        } else if (autoSchedule?.created) {
+          const scheduledDate = autoSchedule.scheduled_date ? ` (scheduled for ${autoSchedule.scheduled_date})` : '';
+          setSuccessMessage(baseMessage || `Bus status updated and follow-up service created${scheduledDate}.`);
+        } else if (autoSchedule) {
+          const scheduledDate = autoSchedule.scheduled_date ? ` on ${autoSchedule.scheduled_date}` : '';
+          setSuccessMessage(baseMessage || `Bus status updated. Existing follow-up service detected${scheduledDate}.`);
+        } else {
+          setSuccessMessage(baseMessage);
+        }
       } else {
-          setError('Failed to update bus status: ' + (response.data.message || 'Unknown error.'));
+        setError('Failed to update bus status: ' + (response.data.message || 'Unknown error.'));
       }
     } catch (err) {
       const axiosError = err as AxiosError;
@@ -291,11 +345,17 @@ const Busavailability = () => {
     <div className="container mx-auto p-6 bg-white rounded-lg shadow-md">
       <h2 className="text-3xl font-bold text-gray-800 mb-6">Bus Availability </h2>
 
+      {successMessage && (
+        <div className="mb-4 rounded-md bg-green-50 border border-green-200 p-4 text-green-700 text-sm">
+          {successMessage}
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row justify-between items-center mb-6 space-y-4 md:space-y-0 md:space-x-4">
-        <div className="relative w-full md:w-1/3">
+        <div className="relative w-full md:w-1/2 lg:w-1/3">
           <input
             type="text"
-            placeholder="Search by registration, manufacturer, model, depot or region..."
+            placeholder="Search by registration number, class, or status..."
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             value={searchTerm}
             onChange={handleSearchChange}
@@ -303,74 +363,27 @@ const Busavailability = () => {
           <HiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
         </div>
 
-        <div className="flex space-x-4">
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        <div className="w-full md:w-1/3 lg:w-1/4">
+          <label htmlFor="statusFilter" className="block text-sm font-medium text-gray-700 mb-1">
+            Status
+          </label>
+          <select
+            id="statusFilter"
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
           >
-            <HiFilter className="mr-2" />
-            Filters
-          </button>
+            <option value="">All Statuses</option>
+            <option value="Active">Active</option>
+            {/* <option value="In Service">In Service</option> */}
+            <option value="Maintenance">Maintenance</option>
+            <option value="Out of Service">Out of Service</option>
+          </select>
         </div>
       </div>
-
-      {showFilters && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 p-6 bg-white border border-gray-200 rounded-lg shadow-sm">
-          <div className="space-y-2">
-            <label htmlFor="status" className="text-sm font-medium text-gray-700 flex items-center">
-              <span className="bg-blue-100 text-blue-800 p-1 rounded mr-2">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
-                </svg>
-              </span>
-              Status
-            </label>
-            <select
-              id="status"
-              name="status"
-              value={filters.status}
-              onChange={handleFilterChange}
-              className="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 transition duration-150 ease-in-out"
-            >
-              <option value="">All Statuses</option>
-              <option value="Active" className="text-green-600">Active</option>
-              <option value="In Service" className="text-blue-600">In Service</option>
-              <option value="Maintenance" className="text-yellow-600">Maintenance</option>
-              <option value="Out of Service" className="text-red-600">Out of Service</option>
-            </select>
-          </div>
-
-          <div className="space-y-2">
-            <label htmlFor="class" className="text-sm font-medium text-gray-700 flex items-center">
-              <span className="bg-purple-100 text-purple-800 p-1 rounded mr-2">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z" />
-                </svg>
-              </span>
-              Class
-            </label>
-            <input
-              type="text"
-              id="class"
-              name="class"
-              value={filters.class}
-              onChange={handleFilterChange}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 transition duration-150 ease-in-out"
-              placeholder="e.g., Luxury, Standard"
-            />
-          </div>
-
-          <div className="md:col-span-3 flex justify-end pt-2">
-            <button
-              onClick={clearFilters}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition duration-150 ease-in-out"
-            >
-              <HiX className="mr-2" />
-              Clear All Filters
-            </button>
-          </div>
-        </div>
-      )}
 
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
@@ -385,9 +398,9 @@ const Busavailability = () => {
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Model
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              {/* <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Mileage
-              </th>
+              </th> */}
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Status
               </th>
@@ -403,11 +416,11 @@ const Busavailability = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{bus.registration_number}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{bus.class}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{bus.manufacturer} {bus.model}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{bus.mileage}</td>
+                  {/* <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{bus.mileage}</td> */}
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                       bus.status === 'Active' ? 'bg-green-100 text-green-800' :
-                      bus.status === 'In Service' ? 'bg-blue-100 text-blue-800' :
+                      // bus.status === 'In Service' ? 'bg-blue-100 text-blue-800' :
                       bus.status === 'Maintenance' ? 'bg-yellow-100 text-yellow-800' :
                       'bg-red-100 text-red-800'
                     }`}>
@@ -482,7 +495,7 @@ const Busavailability = () => {
                   <p className="text-sm"><span className="font-medium">Current Status:</span> 
                     <span className={`ml-2 px-2 py-1 rounded-full text-xs ${
                       selectedBus.status === 'Active' ? 'bg-green-100 text-green-800' :
-                      selectedBus.status === 'In Service' ? 'bg-blue-100 text-blue-800' :
+                      // selectedBus.status === 'In Service' ? 'bg-blue-100 text-blue-800' :
                       selectedBus.status === 'Maintenance' ? 'bg-yellow-100 text-yellow-800' :
                       'bg-red-100 text-red-800'
                     }`}>
@@ -501,7 +514,7 @@ const Busavailability = () => {
                     className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="Active">Active - Ready for Service</option>
-                    <option value="In Service">In Service - Currently Operating</option>
+                    {/* <option value="In Service">In Service - Currently Operating</option> */}
                     <option value="Maintenance">Maintenance - Requires Repair/Service</option>
                     <option value="Out of Service">Out of Service - Not Available</option>
                   </select>
@@ -511,10 +524,10 @@ const Busavailability = () => {
               {/* Part Checking Checklist - Always visible for depot engineers */}
               <div className="bg-blue-50 p-4 rounded-lg">
                 <h4 className="font-semibold text-lg mb-3 flex items-center">
-                  🔧 Daily Part Checking 
+                  🔧 Daily Part Findings 
                   <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                    {partCheckingData.main_parts.filter(part => part.checked).length}/
-                    {partCheckingData.main_parts.length} Checked
+                    {partConditions.filter(part => part.hasIssue).length}/
+                    {partConditions.length} Issues Logged
                   </span>
                 </h4>
                 
@@ -524,18 +537,49 @@ const Busavailability = () => {
                   <div className="bg-white p-3 rounded border">
                     <h5 className="font-medium text-blue-600 mb-3"> Main Bus Components</h5>
                     <div className="grid grid-cols-2 gap-2">
-                      {partCheckingData.main_parts.map((part, index) => (
-                        <div key={index} className="flex items-center space-x-2 mb-2 p-2 rounded">
-                          <input
-                            type="checkbox"
-                            checked={part.checked}
-                            onChange={(e) => updatePartCondition(index, e.target.checked)}
-                            className="rounded"
-                          />
-                          <span className="text-sm">
-                            {part.part_name}
-                            {part.checked ? ' ✓' : ''}
-                          </span>
+                      {partConditions.map((part, index) => (
+                        <div key={part.part_key} className="space-y-2 border rounded-md p-3 bg-gray-50">
+                          <label className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              checked={part.hasIssue}
+                              onChange={(e) => updatePartIssue(index, e.target.checked)}
+                              className="rounded"
+                            />
+                            <span className="text-sm font-medium text-gray-700">
+                              {part.part_name}
+                            </span>
+                          </label>
+                          {part.hasIssue && (
+                            <>
+                              <label className="block text-xs font-medium text-blue-700">
+                                Severity
+                              </label>
+                              <select
+                                value={part.severity}
+                                onChange={(e) => updatePartSeverity(index, e.target.value as SeverityLevel)}
+                                className="w-full text-sm border border-blue-200 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2"
+                              >
+                                {severityOptions.map((option) => (
+                                  <option key={option.value} value={option.value}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                              <textarea
+                                value={part.notes}
+                                onChange={(e) => updatePartNotes(index, e.target.value)}
+                                placeholder="Describe the issue found for this part"
+                                className="w-full text-sm border border-blue-200 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                rows={3}
+                              />
+                            </>
+                          )}
+                          {!part.hasIssue && (
+                            <p className="text-xs text-gray-500">
+                              No issues logged.
+                            </p>
+                          )}
                         </div>
                       ))}
                     </div>

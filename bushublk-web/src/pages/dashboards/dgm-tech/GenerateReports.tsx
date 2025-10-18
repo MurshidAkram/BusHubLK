@@ -840,7 +840,7 @@ const GenerateReports = () => {
         {/* Header */}
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-800">Maintenance Compliance Reports</h1>
-          <p className="text-gray-600">Generate detailed maintenance reports based on fleet monitoring and service history data</p>
+          {/* <p className="text-gray-600">Generate detailed maintenance reports based on fleet monitoring and service history data</p> */}
         </div>
 
         {/* Report Type Selection Cards */}
@@ -853,7 +853,7 @@ const GenerateReports = () => {
                   <FaFileExport className="text-xl text-blue-600" />
                 </div>
                 <div className="ml-4">
-                  <h3 className="text-lg font-semibold text-gray-800">Maintenance Compliance Report</h3>
+                  {/* <h3 className="text-lg font-semibold text-gray-800">Maintenance Compliance Report</h3> */}
                   <p className="text-sm text-gray-600">Generate detailed maintenance reports for regions or specific depots</p>
                 </div>
               </div>
@@ -874,10 +874,7 @@ const GenerateReports = () => {
         {/* Report Configuration */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
           <div className="p-6">
-            <h2 className="text-lg font-semibold text-gray-800 mb-6 flex items-center">
-              <FaFilter className="mr-2 text-blue-600" />
-              Configure Maintenance Report
-            </h2>
+            
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {/* Region Selection - Always visible */}
@@ -898,9 +895,9 @@ const GenerateReports = () => {
                     </option>
                   ))}
                 </select>
-                {!filters.region && (
+                {/* {!filters.region && (
                   <p className="text-xs text-red-500 mt-1">Region selection is required</p>
-                )}
+                )} */}
               </div>
 
               {/* Depot Selection - Only show when region is selected */}

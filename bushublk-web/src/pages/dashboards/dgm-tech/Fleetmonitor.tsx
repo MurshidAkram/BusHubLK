@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { HiEye, HiFilter, HiSearch, HiX } from 'react-icons/hi';
+import { HiEye, HiSearch, HiX } from 'react-icons/hi';
 
 interface Bus {
   bus_id: number;
@@ -73,7 +73,6 @@ const FleetMonitor = () => {
   const [error, setError] = useState<string>('');
   const [selectedBus, setSelectedBus] = useState<Bus | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [showFilters, setShowFilters] = useState<boolean>(false);
 
   useEffect(() => {
     fetchRegionsAndDepots();
@@ -303,7 +302,6 @@ const FleetMonitor = () => {
                 </div>
                 
                 <div className="flex items-center space-x-3">
-                  {/* Search */}
                   <div className="relative">
                     <HiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                     <input
@@ -314,50 +312,35 @@ const FleetMonitor = () => {
                       className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm w-48"
                     />
                   </div>
-                  
-                  {/* Filter Button */}
+
+                  <div className="flex items-center space-x-2">
+                    <label htmlFor="status-filter" className="text-sm font-medium text-gray-700">Status</label>
+                    <select
+                      id="status-filter"
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                      className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm"
+                    >
+                      <option value="">All Status</option>
+                      <option value="Active">Active</option>
+                      {/* <option value="In Service">In Service</option> */}
+                      <option value="Maintenance">Maintenance</option>
+                      <option value="Out of Service">Out of Service</option>
+                      {/* <option value="Retired">Retired</option> */}
+                    </select>
+                  </div>
+
                   <button
-                    onClick={() => setShowFilters(!showFilters)}
-                    className="flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+                    onClick={() => {
+                      setStatusFilter('');
+                      setSearchTerm('');
+                    }}
+                    className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800"
                   >
-                    <HiFilter className="h-4 w-4" />
-                    <span>Filter</span>
+                    Clear Filters
                   </button>
                 </div>
               </div>
-              
-              {/* Filters */}
-              {showFilters && (
-                <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                  <div className="flex items-center space-x-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                      <select
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
-                        className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm"
-                      >
-                        <option value="">All Status</option>
-                        <option value="Active">Active</option>
-                        <option value="In Service">In Service</option>
-                        <option value="Maintenance">Maintenance</option>
-                        <option value="Out of Service">Out of Service</option>
-                        <option value="Retired">Retired</option>
-                      </select>
-                    </div>
-                    
-                    <button
-                      onClick={() => {
-                        setStatusFilter('');
-                        setSearchTerm('');
-                      }}
-                      className="mt-6 px-3 py-2 text-sm text-gray-600 hover:text-gray-800"
-                    >
-                      Clear Filters
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
 
             {filteredBuses.length > 0 ? (
@@ -374,9 +357,9 @@ const FleetMonitor = () => {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Status
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Mileage
-                      </th>
+                      </th> */}
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Actions
                       </th>
@@ -397,10 +380,10 @@ const FleetMonitor = () => {
                             {bus.status}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {/* <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           <div>{bus.mileage?.toLocaleString()} km</div>
                          
-                        </td>
+                        </td> */}
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           <button
                             onClick={() => handleViewBus(bus)}
@@ -471,10 +454,10 @@ const FleetMonitor = () => {
                 <p className="mt-1 text-sm text-gray-900">{selectedBus.class}</p>
               </div>
               
-              <div>
+              {/* <div>
                 <label className="block text-sm font-medium text-gray-700">Mileage</label>
                 <p className="mt-1 text-sm text-gray-900">{selectedBus.mileage?.toLocaleString()} km</p>
-              </div>
+              </div> */}
               
               <div>
                 <label className="block text-sm font-medium text-gray-700">Purchase Date</label>

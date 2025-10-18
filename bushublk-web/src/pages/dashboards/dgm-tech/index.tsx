@@ -1,19 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { 
   FaBus, FaCheckCircle, FaTools, FaExclamationTriangle, 
-  FaFlag, FaFileExport, FaSearch 
+  FaFlag, FaBullhorn, FaComments, FaEnvelopeOpenText, FaClock
 } from 'react-icons/fa';
-import { useNavigate } from 'react-router-dom';
-
-interface StatusBadgeProps {
-  status: string;
-  color: 'primary' | 'success' | 'warning' | 'danger';
-}
-
-interface StatusIndicatorProps {
-  status: string;
-  type: 'active' | 'maintenance' | 'inactive';
-}
+import { AppContext } from '../../../context/AppContext';
 
 interface DashboardSummary {
   total_regions: number;
@@ -28,23 +18,42 @@ interface DashboardSummary {
   total_incidents: number;
 }
 
-interface RegionData {
-  region_id: number;
-  region_name: string;
-  bus_count: number;
-  depot_count: number;
-  maintenance_count: number;
+interface ChannelParticipant {
+  user_id: string;
+  first_name: string;
+  last_name: string;
+  role: string;
+}
+
+interface CommunicationChannel {
+  channel_id: string;
+  channel_type: string;
+  channel_name?: string;
+  participants?: ChannelParticipant[];
+  last_message?: {
+    message_text: string;
+    sender_name: string;
+    created_at: string;
+  };
+  unread_count: number;
+}
+
+interface AppContextType {
+  token?: string | null;
 }
 
 const MaintenanceDashboard = () => {
+  const appContext = useContext(AppContext) as AppContextType | null;
+  const token = appContext?.token ?? null;
   const [dashboardData, setDashboardData] = useState<DashboardSummary | null>(null);
-  const [regionData, setRegionData] = useState<RegionData[]>([]);
   const [serviceHistoryCount, setServiceHistoryCount] = useState<number>(0);
   const [partsUsageCount, setPartsUsageCount] = useState<number>(0);
   const [inspectionCount, setInspectionCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const navigate = useNavigate();
+  const [communityChannels, setCommunityChannels] = useState<CommunicationChannel[]>([]);
+  const [communityLoading, setCommunityLoading] = useState<boolean>(false);
+  const [communityError, setCommunityError] = useState<string | null>(null);
 
   // Fetch dashboard summary data
   useEffect(() => {
@@ -69,28 +78,6 @@ const MaintenanceDashboard = () => {
         setLoading(false);
       }
     };
-
-    const fetchRegionData = async () => {
-      try {
-        const response = await fetch('http://localhost:5000/api/dgm-technical/regions');
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        
-        const result = await response.json();
-        if (result.success) {
-          setRegionData(result.data);
-        } else {
-          throw new Error(result.message || 'Failed to fetch region data');
-        }
-      } catch (err) {
-        console.error('Error fetching region data:', err);
-        setRegionData([
-          { region_id: 1, region_name: 'Northern Region', bus_count: 756, depot_count: 3, maintenance_count: 45 },
-          { region_id: 2, region_name: 'Eastern Region', bus_count: 662, depot_count: 4, maintenance_count: 38 },
-          { region_id: 3, region_name: 'Western Region', bus_count: 474, depot_count: 2, maintenance_count: 29 }
-        ]);
-      }
-    };
-
     const fetchServiceHistoryCount = async () => {
       try {
         const queryParams = new URLSearchParams({
@@ -161,11 +148,50 @@ const MaintenanceDashboard = () => {
     };
 
     fetchDashboardData();
-    fetchRegionData();
     fetchServiceHistoryCount();
     fetchPartsUsageCount();
     fetchInspectionCount();
   }, []);
+
+  useEffect(() => {
+    const fetchCommunityChannels = async () => {
+      if (!token) {
+        setCommunityLoading(false);
+        setCommunityError(null);
+        return;
+      }
+
+      try {
+        setCommunityLoading(true);
+        const response = await fetch('http://localhost:5000/api/communication/channels', {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (data.success) {
+          setCommunityChannels(Array.isArray(data.channels) ? data.channels : []);
+          setCommunityError(null);
+        } else {
+          throw new Error(data.message || 'Failed to fetch community data');
+        }
+      } catch (err) {
+        console.error('Error fetching community hub data:', err);
+        setCommunityChannels([]);
+        setCommunityError('Community hub alerts are temporarily unavailable.');
+      } finally {
+        setCommunityLoading(false);
+      }
+    };
+
+    fetchCommunityChannels();
+  }, [token]);
 
   // Chart for Service, Parts Usage & Inspections
   const ServicePartsInspectionChart = () => {
@@ -253,6 +279,74 @@ const MaintenanceDashboard = () => {
   };
 
   // Loading state
+  const getChannelDisplayName = (channel: CommunicationChannel): string => {
+    if (channel.channel_name) {
+      return channel.channel_name;
+    }
+
+    const participant = channel.participants?.[0];
+    if (participant) {
+      return `${participant.first_name} ${participant.last_name}`.trim();
+    }
+
+    return 'Direct Conversation';
+  };
+
+  const getChannelRole = (channel: CommunicationChannel): string => {
+    const participant = channel.participants?.[0];
+    return participant?.role || '';
+  };
+
+  const formatRoleName = (role: string): string => (
+    role
+      ?.split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ') || 'Team Member'
+  );
+
+  const formatTimeAgo = (dateString?: string): string => {
+    if (!dateString) {
+      return 'No recent updates';
+    }
+
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) {
+      return 'No recent updates';
+    }
+
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+
+    if (diffMins < 1) return 'just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays < 7) return `${diffDays}d ago`;
+
+    return date.toLocaleDateString();
+  };
+
+  const directChannels = communityChannels.filter(channel => channel.channel_type === 'direct');
+  const announcementChannels = communityChannels.filter(channel => channel.channel_type === 'announcement');
+  const unreadCount = communityChannels.reduce((total, channel) => total + (channel.unread_count || 0), 0);
+  const topUnreadChannels = directChannels
+    .filter(channel => channel.unread_count > 0)
+    .sort((a, b) => b.unread_count - a.unread_count)
+    .slice(0, 3);
+
+  const recentAnnouncements = announcementChannels
+    .filter(channel => channel.last_message?.created_at)
+    .sort((a, b) => {
+      const aDate = new Date(a.last_message?.created_at || '').getTime();
+      const bDate = new Date(b.last_message?.created_at || '').getTime();
+      return bDate - aDate;
+    })
+    .slice(0, 2);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 p-6 flex items-center justify-center">
@@ -295,7 +389,7 @@ const MaintenanceDashboard = () => {
         {/* Total Buses */}
         <SummaryCard title="Total Buses" value={dashboardData?.total_buses} icon={<FaBus className="text-gray-500" />} color="text-gray-600" />
         {/* In Service */}
-        <SummaryCard title="In Service" value={dashboardData?.buses_active} icon={<FaCheckCircle className="text-green-500" />} color="text-green-600" />
+        {/* <SummaryCard title="In Service" value={dashboardData?.buses_active} icon={<FaCheckCircle className="text-green-500" />} color="text-green-600" /> */}
         {/* Under Maintenance */}
         <SummaryCard title="Under Maintenance" value={dashboardData?.buses_in_maintenance} icon={<FaTools className="text-yellow-500" />} color="text-yellow-600" subtitle="Not available for service" />
         {/* Out of Service */}
@@ -314,29 +408,122 @@ const MaintenanceDashboard = () => {
 
       {/* Critical Alerts and Quick Actions */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        {/* Quick Actions */}
+        {/* Community Hub Overview */}
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-  <div className="p-4 border-b border-gray-200 flex justify-between items-center">
-    <h3 className="font-semibold text-gray-800">Quick Actions</h3>
-    <FaFlag className="text-gray-500" />
-  </div>
-  <div className="p-4 space-y-3">
-    {/* Smaller width, taller height */}
-    <button 
-      onClick={() => navigate('/dgm-technical/GenerateReports')} 
-      className="w-full flex items-center px-4 py-6 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
-    >
-      <FaFileExport className="mr-3" /> Generate Monthly Report
-    </button>
+          <div className="p-4 border-b border-gray-200 flex justify-between items-center">
+            <h3 className="font-semibold text-gray-800">Community Hub Alerts</h3>
+            <FaBullhorn className="text-gray-500" />
+          </div>
+          <div className="p-4 space-y-4">
+            {communityLoading ? (
+              <div className="flex items-center justify-center py-8 text-sm text-gray-500 gap-2">
+                <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
+                <span>Loading community signals...</span>
+              </div>
+            ) : (
+              <>
+                {communityError && (
+                  <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-md p-3">
+                    {communityError}
+                  </div>
+                )}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+                  <div className="flex items-center gap-3 bg-gray-50 rounded-md p-3">
+                    <div className="p-2 rounded-full bg-blue-100 text-blue-600">
+                      <FaComments />
+                    </div>
+                    <div>
+                      <p className="text-gray-500 text-xs uppercase tracking-wide">Active Conversations</p>
+                      <p className="text-lg font-semibold text-gray-800">{directChannels.length.toLocaleString()}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 bg-gray-50 rounded-md p-3">
+                    <div className="p-2 rounded-full bg-indigo-100 text-indigo-600">
+                      <FaEnvelopeOpenText />
+                    </div>
+                    <div>
+                      <p className="text-gray-500 text-xs uppercase tracking-wide">Unread Messages</p>
+                      <p className="text-lg font-semibold text-gray-800">{unreadCount.toLocaleString()}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 bg-gray-50 rounded-md p-3">
+                    <div className="p-2 rounded-full bg-orange-100 text-orange-600">
+                      <FaBullhorn />
+                    </div>
+                    <div>
+                      <p className="text-gray-500 text-xs uppercase tracking-wide">Active Broadcasts</p>
+                      <p className="text-lg font-semibold text-gray-800">{announcementChannels.length.toLocaleString()}</p>
+                    </div>
+                  </div>
+                </div>
 
-    <button 
-      onClick={() => navigate('/dgm-technical/Servicehistoryexplorer')} 
-      className="w-full flex items-center px-4 py-6 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 transition-colors"
-    >
-      <FaSearch className="mr-3" /> Audit Service Records
-    </button>
-  </div>
-</div>
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-700 mb-3">Priority Follow-ups</h4>
+                  {topUnreadChannels.length > 0 ? (
+                    <ul className="space-y-2">
+                      {topUnreadChannels.map(channel => (
+                        <li key={channel.channel_id} className="flex items-start justify-between bg-gray-50 rounded-md px-3 py-2">
+                          <div className="pr-3">
+                            <p className="text-sm font-medium text-gray-800">{getChannelDisplayName(channel)}</p>
+                            <p className="text-xs text-gray-500">
+                              {formatRoleName(getChannelRole(channel))}
+                              {channel.last_message?.created_at ? ` • ${formatTimeAgo(channel.last_message.created_at)}` : ''}
+                            </p>
+                            {channel.last_message?.message_text && (
+                              <p className="text-xs text-gray-600 mt-1 truncate max-w-xs">
+                                {channel.last_message.message_text}
+                              </p>
+                            )}
+                          </div>
+                          <span className="flex items-center gap-1 text-xs font-semibold text-blue-700 bg-blue-100 px-2.5 py-1 rounded-full">
+                            <FaEnvelopeOpenText className="text-blue-500" />
+                            {channel.unread_count}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-gray-500 bg-gray-50 rounded-md px-3 py-2">
+                      No unread conversations waiting on your response.
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-700 mb-3">Latest Broadcasts</h4>
+                  {recentAnnouncements.length > 0 ? (
+                    <ul className="space-y-2">
+                      {recentAnnouncements.map(channel => (
+                        <li key={channel.channel_id} className="bg-orange-50 rounded-md px-3 py-2 border border-orange-100">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <p className="text-sm font-medium text-orange-800">
+                                {getChannelDisplayName(channel)}
+                              </p>
+                              {channel.last_message?.message_text && (
+                                <p className="text-xs text-orange-700 mt-1 truncate max-w-xs">
+                                  {channel.last_message.message_text}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex items-center text-xs text-orange-600 gap-1">
+                              <FaClock />
+                              <span>{formatTimeAgo(channel.last_message?.created_at)}</span>
+                            </div>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-gray-500 bg-orange-50 rounded-md px-3 py-2 border border-orange-100">
+                      No network announcements have been shared yet.
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
 
         {/* Operations Overview Chart */}
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">

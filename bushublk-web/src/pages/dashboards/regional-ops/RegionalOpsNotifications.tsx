@@ -1,17 +1,28 @@
 import React, { useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { HiOutlineBell, HiOutlineClipboardList, HiOutlineCheckCircle, HiOutlineExclamationCircle } from 'react-icons/hi';
+import {
+  HiOutlineBell,
+  HiOutlineExclamationCircle,
+  HiOutlineClipboardList,
+  HiOutlineCheckCircle
+} from 'react-icons/hi';
 import { AppContext } from '../../../context/AppContext';
 
-type NotificationSourceType = 'announcement' | 'direct_message';
-type NotificationPriority = 'high' | 'medium' | 'low';
+type NotificationSourceType = 'emergency_escalated' | 'manager_chat' | 'announcement' | 'direct_message';
 
-interface DGMTechnicalNotification {
+type NotificationPriority = 'critical' | 'high' | 'medium' | 'low';
+
+interface RegionalOpsNotification {
   source_type: NotificationSourceType;
   source_id: number;
   created_at: string;
   title: string;
   message: string;
   status: string;
+  bus_id: number | null;
+  registration_number: string | null;
+  driver_id: number | null;
+  depot_id: number | null;
+  region_id: number | null;
   priority: NotificationPriority;
   meta?: Record<string, unknown> | null;
   read_at: string | null;
@@ -20,25 +31,29 @@ interface DGMTechnicalNotification {
 
 type FetchState = 'idle' | 'loading' | 'error' | 'success';
 
-const API_BASE_URL = 'http://localhost:5000/api/dgm-technical/notifications';
-const ALLOWED_ROLE_KEYS = new Set(['dgm_technical']);
+const API_BASE_URL = 'http://localhost:5000/api/regional-operations/notifications';
+
+const ALLOWED_ROLE_KEYS = new Set(['regional_operations', 'regional_operations_officer']);
 
 const PRIORITY_BADGE: Record<NotificationPriority, string> = {
-  high: 'bg-red-100 text-red-700',
-  medium: 'bg-indigo-100 text-indigo-700',
+  critical: 'bg-red-100 text-red-700',
+  high: 'bg-orange-100 text-orange-700',
+  medium: 'bg-blue-100 text-blue-700',
   low: 'bg-gray-100 text-gray-600'
 };
 
 const SOURCE_LABEL: Record<NotificationSourceType, string> = {
+  emergency_escalated: 'Escalated Emergency',
+  manager_chat: 'Depot Manager',
   announcement: 'Announcement',
   direct_message: 'Direct Message'
 };
 
-const Dgmtech_notification: React.FC = () => {
+const RegionalOpsNotifications: React.FC = () => {
   const appContext = useContext(AppContext);
   const token = appContext?.token || null;
   const user = appContext?.user;
-  const [notifications, setNotifications] = useState<DGMTechnicalNotification[]>([]);
+  const [notifications, setNotifications] = useState<RegionalOpsNotification[]>([]);
   const [fetchState, setFetchState] = useState<FetchState>('idle');
   const [error, setError] = useState<string | null>(null);
 
@@ -60,8 +75,8 @@ const Dgmtech_notification: React.FC = () => {
   };
 
   const refreshGlobalCount = () => {
-    if (typeof window !== 'undefined' && typeof window.refreshNotificationCount === 'function') {
-      window.refreshNotificationCount();
+    if (typeof window !== 'undefined' && typeof (window as any).refreshNotificationCount === 'function') {
+      (window as any).refreshNotificationCount();
     }
   };
 
@@ -99,7 +114,7 @@ const Dgmtech_notification: React.FC = () => {
   }, [token]);
 
   const markAsRead = useCallback(
-    async (notification: DGMTechnicalNotification) => {
+    async (notification: RegionalOpsNotification) => {
       if (!token || notification.is_read) return;
 
       try {
@@ -171,7 +186,7 @@ const Dgmtech_notification: React.FC = () => {
     }
 
     if (!roleKey || !ALLOWED_ROLE_KEYS.has(roleKey)) {
-      setError('Notifications are only available for DGM Technical users.');
+      setError('Notifications are only available for regional operations officers.');
       setFetchState('error');
       return;
     }
@@ -190,9 +205,11 @@ const Dgmtech_notification: React.FC = () => {
           <div className="space-y-1">
             <h1 className="text-2xl font-semibold text-gray-900 flex items-center gap-2">
               <HiOutlineBell className="text-indigo-600" />
-              DGM Technical Notifications
+              Regional Operations Notifications
             </h1>
-            <p className="text-sm text-gray-600">Updates from leadership and regional teams tailored for DGM Technical.</p>
+            <p className="text-sm text-gray-600">
+              Real-time escalations, announcements, and coordination updates for your region.
+            </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <div className="bg-white border border-gray-200 rounded-full px-4 py-1 text-sm text-gray-600">
@@ -228,67 +245,72 @@ const Dgmtech_notification: React.FC = () => {
           <section className="bg-white rounded-lg shadow-sm p-8 text-center text-gray-500">
             <HiOutlineClipboardList className="mx-auto text-3xl mb-2 text-gray-400" />
             <p className="font-medium">No notifications to display.</p>
-            <p className="text-sm">All caught up! Check back later for new messages or announcements.</p>
+            <p className="text-sm">All caught up! Check back later for new activity.</p>
           </section>
         )}
 
         {fetchState === 'success' && notifications.length > 0 && (
           <div className="space-y-4">
-            {notifications.map((notification) => (
-              <article
-                key={`${notification.source_type}-${notification.source_id}`}
-                className={`bg-white rounded-lg border ${
-                  notification.is_read ? 'border-gray-200' : 'border-indigo-200'
-                } shadow-sm p-5 transition-all`}
-              >
-                <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                          PRIORITY_BADGE[notification.priority] || PRIORITY_BADGE.medium
+            {notifications.map((notification) => {
+              const depotName =
+                notification.meta &&
+                typeof notification.meta === 'object' &&
+                notification.meta !== null &&
+                'depotName' in notification.meta
+                  ? String((notification.meta as Record<string, unknown>).depotName)
+                  : null;
+
+              return (
+                <article
+                  key={`${notification.source_type}-${notification.source_id}`}
+                  className={`bg-white rounded-lg border ${
+                    notification.is_read ? 'border-gray-200' : 'border-indigo-200'
+                  } shadow-sm p-5 transition-all`}
+                >
+                  <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                            PRIORITY_BADGE[notification.priority] || PRIORITY_BADGE.medium
+                          }`}
+                        >
+                          {notification.priority.toUpperCase()}
+                        </span>
+                        <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-600 text-xs font-medium">
+                          {SOURCE_LABEL[notification.source_type] || notification.source_type}
+                        </span>
+                        {!notification.is_read && (
+                          <span className="px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 text-xs font-medium">New</span>
+                        )}
+                      </div>
+                      <h2 className="text-lg font-semibold text-gray-900">{notification.title}</h2>
+                      <p className="text-sm text-gray-700 whitespace-pre-line">{notification.message}</p>
+
+                      <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
+                        <span>Received: {formatDate(notification.created_at)}</span>
+                        {notification.registration_number && <span>Bus: {notification.registration_number}</span>}
+                        {notification.status && <span>Status: {notification.status}</span>}
+                        {depotName && <span>Depot: {depotName}</span>}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 md:flex-col md:items-end">
+                      <button
+                        onClick={() => markAsRead(notification)}
+                        disabled={notification.is_read}
+                        className={`px-4 py-2 rounded-md text-sm font-medium ${
+                          notification.is_read
+                            ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
+                            : 'bg-indigo-600 text-white hover:bg-indigo-700'
                         }`}
                       >
-                        {notification.priority.toUpperCase()}
-                      </span>
-                      <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-600 text-xs font-medium">
-                        {SOURCE_LABEL[notification.source_type] || notification.source_type}
-                      </span>
-                      {!notification.is_read && (
-                        <span className="px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 text-xs font-medium">New</span>
-                      )}
-                    </div>
-                    <h2 className="text-lg font-semibold text-gray-900">{notification.title}</h2>
-                    <p className="text-sm text-gray-700 whitespace-pre-line">{notification.message}</p>
-
-                    <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
-                      <span>Received: {formatDate(notification.created_at)}</span>
-                      {notification.meta && typeof notification.meta === 'object' && notification.meta !== null && 'senderRole' in notification.meta && (
-                        <span>
-                          From: {String((notification.meta as Record<string, unknown>).senderName || '')}
-                          {String((notification.meta as Record<string, unknown>).senderRole || '')
-                            ? ` (${String((notification.meta as Record<string, unknown>).senderRole || '')})`
-                            : ''}
-                        </span>
-                      )}
+                        {notification.is_read ? 'Read' : 'Mark as Read'}
+                      </button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 md:flex-col md:items-end">
-                    <button
-                      onClick={() => markAsRead(notification)}
-                      disabled={notification.is_read}
-                      className={`px-4 py-2 rounded-md text-sm font-medium ${
-                        notification.is_read
-                          ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
-                          : 'bg-indigo-600 text-white hover:bg-indigo-700'
-                      }`}
-                    >
-                      {notification.is_read ? 'Read' : 'Mark as Read'}
-                    </button>
-                  </div>
-                </div>
-              </article>
-            ))}
+                </article>
+              );
+            })}
           </div>
         )}
       </div>
@@ -296,4 +318,4 @@ const Dgmtech_notification: React.FC = () => {
   );
 };
 
-export default Dgmtech_notification;
+export default RegionalOpsNotifications;

@@ -14,6 +14,7 @@ type BusFromAPI = {
   class: string;
   manufacturer: string;
   purchase_date: string;
+  updated_at?: string;
 };
 
 // Extended type with dummy data
@@ -29,12 +30,13 @@ type Bus = BusFromAPI & {
   serviceHistory: ServiceHistory[];
   partChanges: PartChange[];
   alerts: Alert[];
+  maintenanceDurationLabel?: string | null;
 };
 
 type ServiceHistory = {
   date: string;
   type: string;
-  description: string;
+  status: string;
 };
 
 type PartChange = {
@@ -95,6 +97,50 @@ const Busmanagement: React.FC = () => {
     return date.toLocaleDateString('en-GB');
   };
 
+  const computeMaintenanceDurationLabel = (updatedAt?: string | null): string | null => {
+    if (!updatedAt) {
+      return null;
+    }
+
+    const updatedDate = new Date(updatedAt);
+    if (Number.isNaN(updatedDate.getTime())) {
+      return null;
+    }
+
+    const now = new Date();
+    const diffMs = now.getTime() - updatedDate.getTime();
+
+    if (diffMs <= 0) {
+      return null;
+    }
+
+    const totalMinutes = Math.floor(diffMs / (1000 * 60));
+    const totalHours = Math.floor(totalMinutes / 60);
+    const totalDays = Math.floor(totalHours / 24);
+
+    const parts: string[] = [];
+
+    if (totalDays > 0) {
+      parts.push(`${totalDays} ${totalDays === 1 ? 'day' : 'days'}`);
+    }
+
+    const remainingHours = totalHours - totalDays * 24;
+    if (remainingHours > 0) {
+      parts.push(`${remainingHours} ${remainingHours === 1 ? 'hour' : 'hours'}`);
+    }
+
+    if (parts.length === 0) {
+      const remainingMinutes = totalMinutes % 60;
+      if (remainingMinutes > 0) {
+        parts.push(`${remainingMinutes} ${remainingMinutes === 1 ? 'minute' : 'minutes'}`);
+      } else {
+        parts.push('less than a minute');
+      }
+    }
+
+    return parts.slice(0, 2).join(' ');
+  };
+
   const fetchServiceHistoryForBus = async (busId: string): Promise<ServiceHistory[]> => {
     try {
       const response = await axios.get(
@@ -110,11 +156,16 @@ const Busmanagement: React.FC = () => {
         ? response.data.schedules
         : [];
 
-      return schedules.map((schedule: any) => ({
-        date: formatDate(schedule.completed_date || schedule.scheduled_date),
-        type: schedule.service_type || 'Service',
-        description: schedule.status || 'Scheduled service',
-      }));
+      return schedules.map((schedule: any) => {
+        const rawDate = schedule.completed_date || schedule.scheduled_date;
+        const normalisedStatus = (schedule.calculated_status || schedule.status || '').trim();
+
+        return {
+          date: formatDate(rawDate),
+          type: schedule.service_type || 'Service',
+          status: normalisedStatus || 'Scheduled service',
+        };
+      });
     } catch (err) {
       const axiosError = err as AxiosError;
       console.error(`Failed to fetch service history for bus ${busId}:`, axiosError.message);
@@ -191,7 +242,14 @@ const Busmanagement: React.FC = () => {
             ]);
 
             const mostRecentService = serviceHistory[0]?.date || 'N/A';
-            const nextService = serviceHistory.find((item) => item.description?.toLowerCase().includes('pending'))?.date;
+            const nextService = serviceHistory.find((item) => {
+              const statusLabel = item.status.toLowerCase();
+              return statusLabel.includes('pending') || statusLabel.includes('due');
+            })?.date;
+
+            const maintenanceDurationLabel = bus.status === 'Maintenance'
+              ? computeMaintenanceDurationLabel(bus.updated_at)
+              : null;
 
             const derived: Bus = {
               ...bus,
@@ -205,7 +263,15 @@ const Busmanagement: React.FC = () => {
               conductor: 'Jane Smith',
               serviceHistory,
               partChanges,
-              alerts: bus.status === 'Maintenance' ? [{ type: 'error', message: 'Under maintenance - ETA 2 days' }] : [],
+              alerts: bus.status === 'Maintenance'
+                ? [{
+                    type: 'error',
+                    message: maintenanceDurationLabel
+                      ? `Under maintenance for ${maintenanceDurationLabel}`
+                      : 'Under maintenance',
+                  }]
+                : [],
+              maintenanceDurationLabel,
             };
 
             return derived;
@@ -311,7 +377,7 @@ const Busmanagement: React.FC = () => {
         <div className="bg-white rounded-lg shadow-sm p-6 grid grid-cols-1 md:grid-cols-5 gap-6">
           <StatCard label="Total Buses" value={fleetStats.total} color="text-blue-600" />
           <StatCard label="Active" value={fleetStats.active} color="text-green-600" />
-          <StatCard label="In Service" value={fleetStats.inService} color="text-blue-600" />
+          {/* <StatCard label="In Service" value={fleetStats.inService} color="text-blue-600" /> */}
           <StatCard label="Maintenance" value={fleetStats.maintenance} color="text-yellow-600" />
          
         </div>
@@ -334,7 +400,7 @@ const Busmanagement: React.FC = () => {
               >
                 <option value="All">All Status</option>
                 <option value="Active">Active</option>
-                <option value="In Service">In Service</option>
+                {/* <option value="In Service">In Service</option> */}
                 <option value="Maintenance">Maintenance</option>
                 <option value="Out of Service">Out of Service</option>
               </select>
@@ -370,7 +436,7 @@ const Busmanagement: React.FC = () => {
                   </div>
                 )}
 
-                <div className="space-y-2 mb-4 text-sm text-gray-600">
+                {/* <div className="space-y-2 mb-4 text-sm text-gray-600">
                   <div className="flex items-center">
                     <span className="mr-2">📍</span>
                     {bus.location || 'N/A'}
@@ -380,7 +446,7 @@ const Busmanagement: React.FC = () => {
                     Route: {bus.currentRoute || 'N/A'}
                   </div>
                  
-                </div>
+                </div> */}
 
                 
 
@@ -426,15 +492,15 @@ const Busmanagement: React.FC = () => {
                   ]} />
 
                   <DetailsSection title="Performance" data={[
-                    ['Total Mileage', `${selectedBus.mileage?.toLocaleString() || 0} km`],
+                    // ['Total Mileage', `${selectedBus.mileage?.toLocaleString() || 0} km`],
                     ['Last Service', selectedBus.lastService || 'N/A'],
-                    ['Next Service', selectedBus.nextService || 'N/A'],
+                    // ['Next Service', selectedBus.nextService || 'N/A'],
                     ['Status', <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(selectedBus.status)}`}>{selectedBus.status}</span>],
                   ]} />
                 </div>
 
                 <TableSection title="🔧 Service History" columns={['Date', 'Type', 'Status']} rows={
-                  selectedBus.serviceHistory.map(item => [item.date, item.type, item.description])
+                  selectedBus.serviceHistory.map(item => [item.date, item.type, item.status])
                 } />
 
                 <TableSection title="⚙ Recent Part Changes" columns={['Date', 'Part', 'Quantity']} rows={

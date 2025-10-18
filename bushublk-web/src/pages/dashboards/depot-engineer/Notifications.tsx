@@ -4,7 +4,14 @@ import { HiOutlineBell, HiOutlineShieldExclamation, HiOutlineCheckCircle } from 
 import { AxiosError } from 'axios';
 import axios from 'axios';
 
-type NotificationSourceType = 'bus_condition_report' | 'emergency_report' | 'emergency_message' | 'inspection' | 'manager_chat';
+type NotificationSourceType =
+	| 'bus_condition_report'
+	| 'emergency_report'
+	| 'emergency_message'
+	| 'inspection'
+	| 'manager_chat'
+	| 'announcement'
+	| 'direct_message';
 
 type DepotEngineerNotification = {
 	source_type: NotificationSourceType;
@@ -38,7 +45,9 @@ const SOURCE_LABEL: Record<NotificationSourceType, string> = {
 	emergency_report: 'Emergency Report',
 	emergency_message: 'Emergency Message',
 	inspection: 'Inspection',
-	manager_chat: 'Manager Chat'
+	manager_chat: 'Manager Chat',
+	announcement: 'Announcement',
+	direct_message: 'Direct Message'
 };
 
 const Notifications: React.FC = () => {

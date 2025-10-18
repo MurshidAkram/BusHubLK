@@ -8,7 +8,9 @@ import {
   HiEye,
   HiArrowRight,
   HiFire,
-  HiHeart
+  HiHeart,
+  HiLightningBolt,
+  HiShieldCheck
 } from 'react-icons/hi';
 import { useState, useEffect, useContext } from 'react';
 import type { ReactElement } from 'react';
@@ -36,6 +38,7 @@ interface EmergencyReport {
   depot: string;
   busId?: string;
   assignmentId?: string;
+  createdAt?: string | null;
 }
 
 interface EmergencyReportResponse {
@@ -109,20 +112,59 @@ const DepotEngineerDashboard = () => {
   const getEmergencyColor = (type: EmergencyReport['type']) => {
     const normalizedType = type?.toLowerCase?.() || '';
     switch (normalizedType) {
-      case 'fire': return 'bg-red-50 border-red-200';
-      case 'medical': return 'bg-blue-50 border-blue-200';
-      case 'mechanical': return 'bg-orange-50 border-orange-200';
-      default: return 'bg-gray-50 border-gray-200';
+      case 'fire':
+        return 'bg-red-50 border-red-200';
+      case 'medical':
+        return 'bg-blue-50 border-blue-200';
+      case 'mechanical':
+      case 'engine':
+        return 'bg-orange-50 border-orange-200';
+      case 'electrical':
+      case 'power':
+        return 'bg-yellow-50 border-yellow-200';
+      case 'accident':
+      case 'collision':
+      case 'crash':
+        return 'bg-amber-50 border-amber-200';
+      case 'security':
+      case 'threat':
+        return 'bg-purple-50 border-purple-200';
+      case 'weather':
+      case 'flood':
+      case 'storm':
+        return 'bg-indigo-50 border-indigo-200';
+      default:
+        return 'bg-blue-50 border-blue-200';
     }
   };
 
   const getEmergencyIcon = (type: EmergencyReport['type']) => {
     const normalizedType = type?.toLowerCase?.() || '';
     switch (normalizedType) {
-      case 'fire': return <HiFire className="w-5 h-5 text-red-600" />;
-      case 'medical': return <HiHeart className="w-5 h-5 text-blue-600" />;
-      case 'mechanical': return <HiCog className="w-5 h-5 text-orange-600" />;
-      default: return <HiExclamationCircle className="w-5 h-5 text-gray-600" />;
+      case 'fire':
+        return <HiFire className="w-5 h-5 text-red-600" />;
+      case 'medical':
+        return <HiHeart className="w-5 h-5 text-blue-600" />;
+      case 'breakdown':
+      case 'mechanical':
+      case 'engine':
+        return <HiCog className="w-5 h-5 text-orange-600" />;
+      case 'electrical':
+      case 'power':
+        return <HiLightningBolt className="w-5 h-5 text-yellow-600" />;
+      case 'accident':
+      case 'collision':
+      case 'crash':
+        return <HiTruck className="w-5 h-5 text-amber-600" />;
+      case 'security':
+      case 'threat':
+        return <HiShieldCheck className="w-5 h-5 text-purple-600" />;
+      case 'weather':
+      case 'flood':
+      case 'storm':
+        return <HiExclamationCircle className="w-5 h-5 text-indigo-600" />;
+      default:
+        return <HiExclamationCircle className="w-5 h-5 text-blue-600" />;
     }
   };
 
@@ -131,11 +173,31 @@ const DepotEngineerDashboard = () => {
       case 'Active': return 'bg-green-100 text-green-800';
       case 'Maintenance': return 'bg-yellow-100 text-yellow-800';
       case 'Pending Review': return 'bg-blue-100 text-blue-800';
+      case 'new': return 'bg-red-100 text-red-800';
       case 'pending': return 'bg-yellow-100 text-yellow-800';
       case 'in-progress': return 'bg-blue-100 text-blue-800';
       case 'resolved': return 'bg-green-100 text-green-800';
       default: return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  const isSameLocalDay = (timestamp?: string | null): boolean => {
+    if (!timestamp) {
+      return false;
+    }
+
+    const sanitized = typeof timestamp === 'string' ? timestamp.replace(' ', 'T') : timestamp;
+    const parsed = new Date(sanitized ?? '');
+    if (Number.isNaN(parsed.getTime())) {
+      return false;
+    }
+
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const endOfDay = new Date(startOfDay);
+    endOfDay.setDate(endOfDay.getDate() + 1);
+
+    return parsed >= startOfDay && parsed < endOfDay;
   };
 
   const fetchBuses = async () => {
@@ -280,22 +342,42 @@ const DepotEngineerDashboard = () => {
       }
 
       const normalizedType = String(report.incident_type || 'mechanical').toLowerCase();
-      const normalizedStatus = String(report.status || 'pending').toLowerCase();
+      const normalizedStatus = String(report.status || 'pending').toLowerCase().trim();
       const resolvedStatus = statusOverride || normalizedStatus;
 
       const id = normalizeId(report.id) || `${busId}-${assignmentId}`;
+      const createdAtRaw = report.created_at
+        || report.createdAt
+        || report.created_time
+        || report.createdAtTime
+        || report.created_date
+        || report.createdDate
+        || report.created_datetime
+        || report.createdDatetime
+        || report.reported_at
+        || report.report_time
+        || null;
+
+      let createdAtNormalized: string | null = null;
+      if (createdAtRaw) {
+        const parsed = new Date(String(createdAtRaw).replace(' ', 'T'));
+        if (!Number.isNaN(parsed.getTime())) {
+          createdAtNormalized = parsed.toISOString();
+        }
+      }
 
       return {
         id,
         depotid: normalizeId(report.depot_id) || '',
         busNumber: report.vehicle_registration || report.registration_number || `Bus-${busId}`,
-        type: normalizedType,
-        reason: report.description || 'No description provided',
-        status: resolvedStatus,
+  type: normalizedType,
+  reason: report.description || 'No description provided',
+  status: resolvedStatus,
         region: report.region_name || 'Unknown Region',
         depot: report.depot_name || 'Unknown Depot',
         busId,
-        assignmentId
+        assignmentId,
+        createdAt: createdAtNormalized
       };
     };
 
@@ -325,34 +407,33 @@ const DepotEngineerDashboard = () => {
           console.log('📋 All reports with their status:', allReports.map((r: any) => ({ id: r.id, status: r.status, incident_type: r.incident_type })));
         }
         
-        const pendingReports = allReports.filter((report: any) => report.status?.toString() === 'Pending');
-        const mappedPending: EmergencyReport[] = pendingReports
-          .map((report: any): EmergencyReport | null => toEmergencyReport(report, 'pending'))
-          .filter((report: EmergencyReport | null): report is EmergencyReport => report !== null);
-
-        setEmergencyReports(mappedPending);
-
-        // Map all reports and retain only those with required identifiers for analytics
         const mappedAll: EmergencyReport[] = (allReports as any[])
           .map((report: any): EmergencyReport | null => toEmergencyReport(report))
           .filter((report: EmergencyReport | null): report is EmergencyReport => report !== null);
 
         setAllEmergencyReports(mappedAll);
-        
-        // Update stats with new and pending report counts
-        const newCount = allReports.filter((report: any) => {
-          const status = report.status?.toString().toLowerCase();
-          const mapped = toEmergencyReport(report);
-          return status === 'new' && mapped?.busId && mapped?.assignmentId;
-        }).length;
+
+        const newReports: EmergencyReport[] = mappedAll.filter((report) => (report.status || '').toLowerCase() === 'new');
+        const uniqueNewReports = Array.from(newReports.reduce((acc, report) => {
+          if (!acc.has(report.id)) {
+            acc.set(report.id, report);
+          }
+          return acc;
+        }, new Map<string, EmergencyReport>()).values());
+        const newReportsToday = uniqueNewReports.filter((report) => isSameLocalDay(report.createdAt));
+        setEmergencyReports(newReportsToday);
+
+        const totalAssignedCount = mappedAll.length;
+        const newAssignedCountToday = newReportsToday.length;
+
         setStats(prevStats => ({
           ...prevStats,
-          EmergencyReports: newCount,
-          criticalIssues: mappedPending.length
+          EmergencyReports: totalAssignedCount,
+          criticalIssues: newAssignedCountToday
         }));
         
-        console.log('✅ Emergency reports fetched successfully:', mappedPending.length, 'pending with IDs out of', allReports.length, 'total');
-        console.log('📈 Total NEW reports:', newCount);
+        console.log('✅ Emergency reports fetched successfully:', newAssignedCountToday, 'new today with IDs out of', allReports.length, 'total');
+        console.log('📈 Total assigned reports:', totalAssignedCount);
       } else {
         console.error('❌ Failed to fetch emergency reports:', response.data?.message);
         setEmergencyReports([]); // Set empty array if fetch fails
@@ -379,30 +460,32 @@ const DepotEngineerDashboard = () => {
           
           if (altResponse.data.success) {
             const allAltReports = altResponse.data.data || [];
-            const pendingAltReports = allAltReports.filter((report: any) => report.status?.toString().toLowerCase() === 'pending');
-
-            const mappedPendingAlt: EmergencyReport[] = pendingAltReports
-              .map((report: any): EmergencyReport | null => toEmergencyReport(report, 'pending'))
+            const mappedAllAlt: EmergencyReport[] = (allAltReports as any[])
+              .map((report: any): EmergencyReport | null => toEmergencyReport(report))
               .filter((report: EmergencyReport | null): report is EmergencyReport => report !== null);
 
-            setEmergencyReports(mappedPendingAlt);
-            setAllEmergencyReports(
-              (allAltReports as any[])
-                .map((report: any): EmergencyReport | null => toEmergencyReport(report))
-                .filter((report: EmergencyReport | null): report is EmergencyReport => report !== null)
-            );
+            setAllEmergencyReports(mappedAllAlt);
+
+            const newReportsAlt: EmergencyReport[] = mappedAllAlt.filter((report) => (report.status || '').toLowerCase() === 'new');
+            const uniqueNewReportsAlt = Array.from(newReportsAlt.reduce((acc, report) => {
+              if (!acc.has(report.id)) {
+                acc.set(report.id, report);
+              }
+              return acc;
+            }, new Map<string, EmergencyReport>()).values());
+            const newReportsTodayAlt = uniqueNewReportsAlt.filter((report) => isSameLocalDay(report.createdAt));
+            setEmergencyReports(newReportsTodayAlt);
+
+            const totalAssignedCountAlt = mappedAllAlt.length;
+            const newAssignedCountAltToday = newReportsTodayAlt.length;
 
             setStats(prevStats => ({
               ...prevStats,
-              EmergencyReports: allAltReports.filter((report: any) => {
-                const status = report.status?.toString().toLowerCase();
-                const mapped = toEmergencyReport(report);
-                return status === 'new' && mapped?.busId && mapped?.assignmentId;
-              }).length,
-              criticalIssues: mappedPendingAlt.length
+              EmergencyReports: totalAssignedCountAlt,
+              criticalIssues: newAssignedCountAltToday
             }));
 
-            console.log('✅ Emergency reports loaded from alternative endpoint:', mappedPendingAlt.length);
+            console.log('✅ Emergency reports loaded from alternative endpoint:', newAssignedCountAltToday);
           }
         } catch (altErr) {
           console.error('❌ Alternative emergency endpoint also failed:', altErr);
@@ -775,7 +858,7 @@ const DepotEngineerDashboard = () => {
               <div>
                 <p className="text-gray-500 text-sm mb-1">Emergency Reports</p>
                 <p className="text-2xl font-bold text-gray-900">{stats.EmergencyReports}</p>
-                <p className="text-xs text-gray-500 mt-1">Active alerts</p>
+             
               </div>
               <div className="p-2 bg-red-50 rounded-lg">
                 <HiClock className="w-6 h-6 text-red-600" />
@@ -848,7 +931,7 @@ const DepotEngineerDashboard = () => {
           {/* Emergency Reports Section */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 flex-1">
             <div className="p-4 border-b border-gray-200 flex justify-between items-center">
-              <h3 className="text-lg font-semibold text-red-700">Emergency Reports</h3>
+              <h3 className="text-lg font-semibold text-red-700">Emergency Pending alerts</h3>
               <div className="flex items-center gap-2">
                
                 <button
@@ -876,8 +959,8 @@ const DepotEngineerDashboard = () => {
                     <div className="flex-grow min-w-0">
                       <div className="flex items-center gap-2">
                         {/* <span className="font-medium text-gray-900">#{report.id}</span> */}
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${getStatusBadge('pending')}`}>
-                          Pending
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${getStatusBadge('new')}`}>
+                          New
                         </span>
                       </div>
                       <div className="text-sm text-red-600 mt-1">
@@ -902,7 +985,7 @@ const DepotEngineerDashboard = () => {
               )) : (
                 <div className="text-center py-6 text-gred-500">
                   <HiCheckCircle className="w-8 h-8 mx-auto mb-2 text-red-400" />
-                  <p>No pending emergency reports</p>
+                  <p>No emergency reports for today.</p>
                  
                 </div>
               )}

@@ -152,7 +152,7 @@ const Regionservicemonitor: React.FC = () => {
                   <div className="text-sm text-gray-500 mt-1">Region: {depot.region_name}</div>
                   <div className="flex justify-between items-center mt-3 text-sm">
                     <span className="text-gray-600">Active: {formatNumber(depot.active)}</span>
-                    <span className="text-gray-600">In Service: {formatNumber(depot.in_service)}</span>
+                    {/* <span className="text-gray-600">In Service: {formatNumber(depot.in_service)}</span> */}
                   </div>
                   <div className="flex justify-between items-center mt-1 text-sm">
                     <span className="text-red-600">Out: {formatNumber(depot.out_of_service)}</span>
@@ -187,10 +187,10 @@ const Regionservicemonitor: React.FC = () => {
                 <div className="text-sm text-gray-600">Active</div>
                 <div className="text-xl font-bold text-green-600">{formatNumber(selectedDepot.active)}</div>
               </div>
-              <div className="bg-gray-50 rounded-lg p-4">
+              {/* <div className="bg-gray-50 rounded-lg p-4">
                 <div className="text-sm text-gray-600">In Service</div>
                 <div className="text-xl font-bold text-blue-600">{formatNumber(selectedDepot.in_service)}</div>
-              </div>
+              </div> */}
               <div className="bg-gray-50 rounded-lg p-4">
                 <div className="text-sm text-gray-600">Out of Service</div>
                 <div className="text-xl font-bold text-red-600">{formatNumber(selectedDepot.out_of_service)}</div>
@@ -221,7 +221,7 @@ const Regionservicemonitor: React.FC = () => {
                         <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Model</th>
                         <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Year</th>
                         <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Status</th>
-                        <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Mileage</th>
+                        {/* <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Mileage</th> */}
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -244,9 +244,9 @@ const Regionservicemonitor: React.FC = () => {
                               {bus.status}
                             </span>
                           </td>
-                          <td className="px-4 py-2 text-sm text-gray-600">
+                          {/* <td className="px-4 py-2 text-sm text-gray-600">
                             {bus.mileage ? `${formatNumber(bus.mileage)} km` : '—'}
-                          </td>
+                          </td> */}
                         </tr>
                       ))}
                     </tbody>

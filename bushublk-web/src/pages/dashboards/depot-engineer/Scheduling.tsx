@@ -60,9 +60,8 @@ interface DailyChecklist {
   tires: boolean | null;
   windows: boolean | null;
   doors: boolean | null;
-  lights: boolean | null;
-  turn_signals: boolean | null;
-  fire_extinguisher: boolean | null;
+  headlights: boolean | null;
+  signallights: boolean | null;
   status_after_check: string | null;
   created_at?: string;
   updated_at?: string;
@@ -70,6 +69,14 @@ interface DailyChecklist {
   last_name?: string;
   registration_number?: string;
   missed_parts?: string[];
+  missed_part_details?: ChecklistPartDetail[];
+}
+
+interface ChecklistPartDetail {
+  key?: string;
+  label: string;
+  notes: string | null;
+  severity: string | null;
 }
 
 interface Stats {
@@ -99,7 +106,7 @@ const STATUS_PRIORITY: Record<string, number> = {
   'Completed': 6
 };
 
-type ChecklistPartKey = 'engine' | 'brakes' | 'tires' | 'windows' | 'doors' | 'lights' | 'turn_signals' | 'fire_extinguisher';
+type ChecklistPartKey = 'engine' | 'brakes' | 'tires' | 'windows' | 'doors' | 'headlights' | 'signallights';
 
 const CHECKLIST_PARTS: Array<{ key: ChecklistPartKey; label: string }> = [
   { key: 'engine', label: 'Engine' },
@@ -107,9 +114,8 @@ const CHECKLIST_PARTS: Array<{ key: ChecklistPartKey; label: string }> = [
   { key: 'tires', label: 'Tires' },
   { key: 'windows', label: 'Windows' },
   { key: 'doors', label: 'Doors' },
-  { key: 'lights', label: 'Lights' },
-  { key: 'turn_signals', label: 'Turn Signals' },
-  { key: 'fire_extinguisher', label: 'Fire Extinguisher' }
+  { key: 'headlights', label: 'Head Lights' },
+  { key: 'signallights', label: 'Signal Lights' }
 ];
 
 const isChecklistPartPassed = (value: unknown): boolean => {
@@ -123,6 +129,26 @@ const isChecklistPartPassed = (value: unknown): boolean => {
     return value === 1;
   }
   return false;
+};
+
+const getSeverityBadgeClasses = (severity: string | null): string => {
+  switch (severity) {
+    case 'high':
+      return 'bg-red-100 text-red-700';
+    case 'medium':
+      return 'bg-yellow-100 text-yellow-700';
+    case 'low':
+      return 'bg-green-100 text-green-700';
+    default:
+      return 'bg-gray-100 text-gray-700';
+  }
+};
+
+const formatSeverityLabel = (severity: string | null): string => {
+  if (!severity) {
+    return 'Not specified';
+  }
+  return severity.charAt(0).toUpperCase() + severity.slice(1);
 };
 
 const ServiceScheduleApp: React.FC = () => {
@@ -176,13 +202,17 @@ const ServiceScheduleApp: React.FC = () => {
           return false;
         }
 
-        const status = service.calculated_status || service.status;
+        const status = (service.calculated_status || service.status || '').trim();
         return status !== 'Completed' && status !== 'Cancelled';
       });
 
       return !hasActiveSchedule;
     });
   }, [maintenanceBuses, services]);
+
+  const maintenanceAlertBusIds = React.useMemo(() => {
+    return new Set(maintenanceAlertBuses.map((bus) => bus.bus_id));
+  }, [maintenanceAlertBuses]);
 
   // Debug: Log user context
   useEffect(() => {
@@ -326,7 +356,7 @@ const ServiceScheduleApp: React.FC = () => {
         console.log('All buses from API:', buses);
         console.log('Total buses received:', buses.length);
 
-        const maintenanceOnly = buses.filter(bus => bus.status?.toLowerCase() === 'maintenance');
+  const maintenanceOnly = buses.filter((bus) => (bus.status || '').trim().toLowerCase() === 'maintenance');
         console.log('Filtered maintenance buses:', maintenanceOnly);
 
         setAllBuses(buses);
@@ -755,14 +785,15 @@ const ServiceScheduleApp: React.FC = () => {
   }, [services]);
 
   const maintenanceChecklistIssues = React.useMemo(() => {
-    if (!dailyChecklists.length) {
-      return [] as Array<{ checklist: DailyChecklist; missedParts: string[] }>;
+    if (!dailyChecklists.length || !maintenanceBuses.length) {
+      return [] as Array<{ checklist: DailyChecklist; parts: ChecklistPartDetail[] }>;
     }
 
+    const maintenanceBusIds = new Set(maintenanceBuses.map((bus) => bus.bus_id));
     const latestChecklistByBus = new Map<number, DailyChecklist>();
 
     dailyChecklists.forEach((checklist) => {
-      if (!checklist.bus_id) {
+      if (!checklist.bus_id || !maintenanceBusIds.has(checklist.bus_id)) {
         return;
       }
 
@@ -776,24 +807,41 @@ const ServiceScheduleApp: React.FC = () => {
     });
 
     const issues = Array.from(latestChecklistByBus.values()).map((checklist) => {
-      const missedParts = Array.isArray(checklist.missed_parts) && checklist.missed_parts.length > 0
-        ? checklist.missed_parts
-        : CHECKLIST_PARTS
-          .filter(({ key }) => !isChecklistPartPassed(checklist[key]))
-          .map(({ label }) => label);
+      let parts: ChecklistPartDetail[] = [];
+
+      if (Array.isArray(checklist.missed_part_details) && checklist.missed_part_details.length > 0) {
+        parts = checklist.missed_part_details.map((detail) => ({
+          key: detail.key,
+          label: detail.label || detail.key || 'Unknown part',
+          notes: detail.notes ?? null,
+          severity: detail.severity ?? null,
+        }));
+      } else {
+        const fallbackParts = Array.isArray(checklist.missed_parts) && checklist.missed_parts.length > 0
+          ? checklist.missed_parts
+          : CHECKLIST_PARTS
+            .filter(({ key }) => !isChecklistPartPassed(checklist[key]))
+            .map(({ label }) => label);
+
+        parts = fallbackParts.map((label) => ({
+          label,
+          notes: null,
+          severity: null,
+        }));
+      }
 
       return {
         checklist,
-        missedParts,
+        parts: parts.filter((part) => part.label),
       };
-    }).filter(({ missedParts }) => missedParts.length > 0);
+    }).filter(({ parts }) => parts.length > 0);
 
     return issues.sort((a, b) => {
       const busA = a.checklist.registration_number || busLookup.get(a.checklist.bus_id)?.registration_number || String(a.checklist.bus_id);
       const busB = b.checklist.registration_number || busLookup.get(b.checklist.bus_id)?.registration_number || String(b.checklist.bus_id);
       return busA.localeCompare(busB);
     });
-  }, [dailyChecklists, busLookup]);
+  }, [dailyChecklists, maintenanceBuses, busLookup]);
 
   // Helper function to get bus details by ID
   const getBusDetails = (busId: string | number) => {
@@ -843,6 +891,52 @@ const ServiceScheduleApp: React.FC = () => {
     return dateString;
   };
 
+
+const extractIssueDescription = (serviceType: string): string => {
+  if (!serviceType) {
+    return '';
+  }
+
+  const autoMatch = serviceType.match(/auto follow-up[^-]*-\s*(.+)$/i);
+  if (autoMatch?.[1]) {
+    return autoMatch[1].trim();
+  }
+
+  const notesMatch = serviceType.match(/Notes?\s*:\s*(.+)$/i);
+  if (notesMatch?.[1]) {
+    return notesMatch[1].trim();
+  }
+
+  const descMatch = serviceType.match(/Description\s*:\s*(.+)$/i);
+  if (descMatch?.[1]) {
+    return descMatch[1].trim();
+  }
+
+  const pipeSegments = serviceType
+    .split('|')
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+  if (pipeSegments.length >= 2) {
+    return pipeSegments[pipeSegments.length - 1];
+  }
+
+  const hyphenSegments = serviceType
+    .split(' - ')
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+  if (hyphenSegments.length >= 2) {
+    return hyphenSegments[hyphenSegments.length - 1];
+  }
+
+  return serviceType.trim();
+};
+
+  const viewingStatus = viewingService
+    ? (viewingService.calculated_status || viewingService.status || 'Unknown').trim()
+    : '';
+
+  const viewingStatusBadge = getStatusColor(viewingStatus || '');
+  const viewingStatusIcon = getStatusIcon(viewingStatus || '');
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto flex flex-col h-full">
@@ -902,98 +996,97 @@ const ServiceScheduleApp: React.FC = () => {
           </div>
         )}
 
-        {maintenanceAlertBuses.length > 0 && (
+        {maintenanceBuses.length > 0 && (
           <div className="mb-6 space-y-3">
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div className="bg-sky-50 border border-sky-200 rounded-lg p-4">
               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div className="flex items-start gap-3">
                   <div className="mt-1">
-                    <FaExclamationTriangle className="text-yellow-500" />
+                    <FaExclamationTriangle className="text-sky-500" />
                   </div>
                   <div>
-                    <h2 className="text-sm font-semibold text-yellow-700">
+                    <h2 className="text-sm font-semibold text-sky-800">
                       Maintenance buses awaiting schedules
                     </h2>
-                    <p className="text-sm text-yellow-600 mt-1">
-                      {maintenanceAlertBuses.length} {maintenanceAlertBuses.length === 1 ? 'bus is' : 'buses are'} currently in maintenance without an upcoming service. Review and schedule them to keep work on track.
+                    <p className="text-sm text-sky-700 mt-1">
+                      {maintenanceBuses.length} {maintenanceBuses.length === 1 ? 'bus is' : 'buses are'} currently in maintenance.{' '}
+                      {maintenanceAlertBuses.length > 0
+                        ? `${maintenanceAlertBuses.length} ${maintenanceAlertBuses.length === 1 ? 'does' : 'do'} not have an upcoming service.`
+                        : 'All have upcoming services scheduled.'}
                     </p>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      {maintenanceAlertBuses.map((bus) => (
+                      {maintenanceBuses.map((bus) => {
+                        const lacksSchedule = maintenanceAlertBusIds.has(bus.bus_id);
+                        return (
                         <button
                           key={bus.bus_id}
                           onClick={() => openNewScheduleForBus(bus)}
-                          className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-md text-sm font-medium hover:bg-yellow-200 transition-colors"
+                          className="px-3 py-1 rounded-md text-xs font-semibold transition-colors border bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                          title={lacksSchedule ? 'No upcoming service scheduled' : 'Upcoming service already scheduled'}
                         >
                           {bus.registration_number}
                         </button>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
                 <button
                   onClick={() => setShowMaintenanceChecklist((prev) => !prev)}
-                  className="self-start inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-yellow-700 border border-yellow-300 rounded-md hover:bg-yellow-100 transition-colors"
+                  className="self-start inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-sky-700 border border-sky-300 rounded-md hover:bg-sky-100 transition-colors"
                 >
-                  {showMaintenanceChecklist ? 'Hide maintenance checklist' : `Show maintenance checklist (${maintenanceChecklistIssues.length})`}
+                  {showMaintenanceChecklist ? 'Hide maintenance issues table' : `View maintenance issues table (${maintenanceChecklistIssues.length})`}
                 </button>
               </div>
-            </div>
-          </div>
-        )}
 
-        {maintenanceChecklistIssues.length > 0 && (
-          <div className="mb-6">
-            <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-              <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-800">Maintenance Part Checklist</h2>
-                </div>
-                {maintenanceAlertBuses.length === 0 && (
-                  <button
-                    onClick={() => setShowMaintenanceChecklist((prev) => !prev)}
-                    className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700"
-                  >
-                    {showMaintenanceChecklist ? 'Hide checklist' : `Show checklist (${maintenanceChecklistIssues.length})`}
-                  </button>
-                )}
-              </div>
               {showMaintenanceChecklist && (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Bus</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Last Checked</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Needs Attention</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-100">
-                      {maintenanceChecklistIssues.map(({ checklist, missedParts }) => {
-                        const busName = checklist.registration_number
-                          || busLookup.get(checklist.bus_id)?.registration_number
-                          || getBusDetails(checklist.bus_id);
+                <div className="mt-4 bg-white border border-sky-100 rounded-lg p-4 overflow-x-auto shadow-sm">
+                  {maintenanceChecklistIssues.length > 0 ? (
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th scope="col" className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Bus</th>
+                          <th scope="col" className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Last Checked</th>
+                          <th scope="col" className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Issues Logged</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {maintenanceChecklistIssues.map(({ checklist, parts }) => {
+                          const busName = checklist.registration_number
+                            || busLookup.get(checklist.bus_id)?.registration_number
+                            || getBusDetails(checklist.bus_id);
 
-                        return (
-                          <tr key={checklist.checklist_id}>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{busName}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDateForDisplay(checklist.check_date)}</td>
-                            <td className="px-6 py-4">
-                              <div className="flex flex-wrap gap-2">
-                                {missedParts.map(part => (
-                                  <span
-                                    key={part}
-                                    className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700"
-                                  >
-                                    {part}
-                                  </span>
-                                ))}
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                          return (
+                            <tr key={checklist.checklist_id} className="bg-white">
+                              <td className="px-4 py-3 text-sm font-semibold text-gray-800">{busName}</td>
+                              <td className="px-4 py-3 text-sm text-gray-600">{formatDateForDisplay(checklist.check_date)}</td>
+                              <td className="px-4 py-3">
+                                <div className="space-y-3">
+                                  {parts.map((part, index) => (
+                                    <div key={`${part.key || part.label}-${index}`} className="border border-gray-200 rounded-md p-3 bg-gray-50">
+                                      <div className="flex flex-wrap items-center justify-between gap-2">
+                                        <span className="text-sm font-semibold text-gray-800">{part.label}</span>
+                                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getSeverityBadgeClasses(part.severity)}`}>
+                                          Severity: {formatSeverityLabel(part.severity)}
+                                        </span>
+                                      </div>
+                                      <p className="mt-2 text-sm text-gray-700">
+                                        <span className="font-medium text-gray-800">Description:</span> {part.notes || 'No description provided.'}
+                                      </p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div className="text-sm text-gray-600">
+                      No maintenance issues recorded for buses currently in maintenance.
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1180,13 +1273,13 @@ const ServiceScheduleApp: React.FC = () => {
                               <div
                                 key={idx}
                                 className={`text-xs px-2 py-1 rounded-md truncate ${statusColor} cursor-pointer`}
-                                title={`${service.service_type} - ${status}`}
+                                title={`${extractIssueDescription(service.service_type)} - ${status}`}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleViewService(service);
                                 }}
                               >
-                                <div className="font-medium">{service.service_type}</div>
+                                <div className="font-medium">{extractIssueDescription(service.service_type)}</div>
                                 <div className="text-xs opacity-75">Bus {getBusDetails(service.bus_id)}</div>
                               </div>
                             );
@@ -1263,7 +1356,7 @@ const ServiceScheduleApp: React.FC = () => {
                     
                     return (
                     <tr key={service.id} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="py-4 px-4 text-gray-900">{service.service_type}</td>
+                      <td className="py-4 px-4 text-gray-900" title={service.service_type}>{extractIssueDescription(service.service_type)}</td>
                       <td className="py-4 px-4 text-gray-900">{service.registration_number || getBusDetails(service.bus_id)}</td>
                       <td className="py-4 px-4 text-gray-900">{formatDateForDisplay(service.scheduled_date)}</td>
                       <td className="py-4 px-4">
@@ -1487,16 +1580,16 @@ const ServiceScheduleApp: React.FC = () => {
             <div className="bg-white rounded-lg p-6 w-full max-w-md">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold text-gray-900">Service Details</h3>
-                <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1">
-                  <FaCheckCircle size={10} />
-                  Completed
+                <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${viewingStatusBadge}`}>
+                  {viewingStatusIcon}
+                  {viewingStatus || 'Unknown'}
                 </span>
               </div>
               
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-500 mb-1">Service Type</label>
-                  <p className="text-gray-900 font-medium">{viewingService.service_type}</p>
+                  <p className="text-gray-900 font-medium">{extractIssueDescription(viewingService.service_type)}</p>
                 </div>
 
                 <div>

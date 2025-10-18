@@ -59,6 +59,7 @@ import DepotEscalateissues from './pages/dashboards/depot-engineer/DepotEscalate
 import Depotcommunityhub from './pages/dashboards/depot-engineer/communicationHub'
 import Depotinspection from './pages/dashboards/depot-engineer/DepotInspection'
 import DepotEngineerNotifications from './pages/dashboards/depot-engineer/Notifications'
+import DepotGenerateReports from './pages/dashboards/depot-engineer/Generate_reports'
 
 
 
@@ -70,6 +71,7 @@ import Inspectionschedular from './pages/dashboards/regional-tech/Inspectionsche
 import Rtoissuetracker from './pages/dashboards/regional-tech/Rtoissuetracker'
 import Regioncommunityhub from './pages/dashboards/regional-tech/communicationHub'  
 import RTONotifications from './pages/dashboards/regional-tech/RTONotifications'
+import RegionalGenerateReports from './pages/dashboards/regional-tech/Generate_reports'
 
 
 // Regional Operations Officer Components
@@ -82,6 +84,7 @@ import CrewOverview from './pages/dashboards/regional-ops/CrewOverview'
 import IncidentTracking from './pages/dashboards/regional-ops/IncidentTracking'
 import CommCenter from './pages/dashboards/regional-ops/communicationHub'
 import OpsReports from './pages/dashboards/regional-ops/OpsReports'
+import RegionalOpsNotifications from './pages/dashboards/regional-ops/RegionalOpsNotifications'
 
 // DGM Operations Components
 import DGMOperationsSidebarContent from './components/dgm-ops/DGMOperationsSidebarContent'
@@ -223,6 +226,7 @@ const App = () => {
           <Route path="Autoforwardbusstatus" element={<Autoforwardbusstatus />} />
           <Route path="DepotEscalateissues" element={<DepotEscalateissues />} />
           <Route path="Depotcommunityhub" element={<Depotcommunityhub />} />
+          <Route path="Depotreports" element={<DepotGenerateReports />} />
           {/* Add individual pages later */}
         </Route>
         </Route>
@@ -237,6 +241,7 @@ const App = () => {
           <Route path="Rtoissuetracker" element={<Rtoissuetracker />} />
           <Route path="Regioncommunityhub" element={<Regioncommunityhub />} />
           <Route path="notifications" element={<RTONotifications />} />
+          <Route path="Regionreports" element={<RegionalGenerateReports />} />
           {/* Add individual pages later */}
         </Route>
         </Route>
@@ -251,6 +256,7 @@ const App = () => {
     <Route path="crew-overview" element={<CrewOverview />} />
     <Route path="incident-tracking" element={<IncidentTracking />} />
     <Route path="communication-hub" element={<CommCenter />} />
+  <Route path="notifications" element={<RegionalOpsNotifications />} />
     <Route path="ops-reports" element={<OpsReports />} />
     
             {/* Add individual pages later */}

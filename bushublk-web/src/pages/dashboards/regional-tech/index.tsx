@@ -74,8 +74,7 @@ const MaintenanceDashboard = () => {
           const transformedData = [
             { status: 'Active', count: parseInt(data.buses_active) || 0 },
             { status: 'Maintenance', count: parseInt(data.buses_in_maintenance) || 0 },
-            { status: 'Out of Service', count: parseInt(data.buses_out_of_service) || 0 },
-            { status: 'In Service', count: parseInt(data.total_buses) - parseInt(data.buses_active) - parseInt(data.buses_in_maintenance) - parseInt(data.buses_out_of_service) || 0 }
+            { status: 'Out of Service', count: parseInt(data.buses_out_of_service) || 0 }
           ];
           setBusStatusData(transformedData);
         } else {
@@ -105,8 +104,8 @@ const MaintenanceDashboard = () => {
         setBusStatusData([
           { status: 'Active', count: 579 },
           { status: 'Maintenance', count: 62 },
-          { status: 'Out of Service', count: 27 },
-          { status: 'In Service', count: 211 }
+          { status: 'Out of Service', count: 27 }
+          // { status: 'In Service', count: 211 }
         ]);
         setTotalDepots(18); // fallback
       } finally {
@@ -223,8 +222,7 @@ const MaintenanceDashboard = () => {
     const statusColors: { [key: string]: string } = {
       'Active': '#10B981', // Green
       'Maintenance': '#F59E0B', // Amber
-      'Out of Service': '#EF4444', // Red
-      'In Service': '#3B82F6', // Blue
+      'Out of Service': '#EF4444'
     };
     
     const chartData = Object.entries(overallBusStatus).map(([status, count]) => ({
@@ -344,11 +342,10 @@ const MaintenanceDashboard = () => {
     // Define all possible incident types with their colors (matching mobile app)
     const allIncidentTypes = {
       'Accident': { color: '#EF4444', label: 'Accident' },
-      'Medical': { color: '#059669', label: 'Medical' },
+  
       'Fire': { color: '#DC2626', label: 'Fire' },
-      'Breakdown': { color: '#F59E0B', label: 'Breakdown' },
-      'Theft': { color: '#9333EA', label: 'Theft' },
-      'Hazard': { color: '#D97706', label: 'Hazard' }
+      'Breakdown': { color: '#F59E0B', label: 'Breakdown' }
+
     };
 
     // Create chart data ensuring all incident types are included
@@ -360,54 +357,91 @@ const MaintenanceDashboard = () => {
     })).sort((a, b) => b.count - a.count); // Sort by count descending
 
     const maxCount = Math.max(...chartData.map(item => item.count), 1);
+    const totalIncidents = chartData.reduce((sum, item) => sum + item.count, 0);
+    const gridSteps = Array.from({ length: 4 }, (_, index) => index + 1);
+    const topIncident = chartData.find(item => item.count > 0);
     const [hoveredBar, setHoveredBar] = useState<{label: string, count: number, x: number, y: number} | null>(null);
 
     return (
-      <div className="w-full h-64 relative">
-        <div className="flex items-end justify-between h-48 px-4">
-          {chartData.map((item, index) => (
-            <div key={index} className="flex flex-col items-center flex-1 max-w-[120px] min-w-[80px]">
-              <div 
-                className="relative cursor-pointer transition-all duration-200 hover:opacity-80 rounded-t w-full"
-                style={{
-                  height: `${item.count > 0 ? (item.count / maxCount) * 160 : 8}px`,
-                  backgroundColor: item.count > 0 ? item.color : '#E5E7EB',
-                  minHeight: '8px',
-                  border: item.count === 0 ? '1px dashed #9CA3AF' : 'none'
-                }}
-                onMouseEnter={(e) => {
-                  setHoveredBar({
-                    label: item.label,
-                    count: item.count,
-                    x: e.clientX,
-                    y: e.clientY
-                  });
-                }}
-                onMouseMove={(e) => {
-                  setHoveredBar(prev => prev ? {
-                    ...prev,
-                    x: e.clientX,
-                    y: e.clientY
-                  } : null);
-                }}
-                onMouseLeave={() => setHoveredBar(null)}
-              >
-                {/* Count at top of each column */}
-                <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 text-sm font-semibold text-gray-700">
-                  {item.count}
-                </div>
-              </div>
-              <div className="mt-3 text-sm text-gray-700 text-center font-medium">
-                {item.label}
-              </div>
-            </div>
-          ))}
+      <div className="relative w-full space-y-5">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-blue-500">Total escalated incidents</p>
+            <p className="text-3xl font-semibold text-gray-900">{totalIncidents}</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600">
+            {topIncident ? (
+              <span className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-white/70 px-3 py-1 shadow-sm">
+                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: topIncident.color }}></span>
+                {topIncident.label} leading with {topIncident.count}
+              </span>
+            ) : (
+              <span className="rounded-full border border-gray-200 bg-white px-3 py-1 shadow-sm">No escalated incidents recorded</span>
+            )}
+          </div>
         </div>
 
-        {/* Tooltip */}
+        <div className="relative h-64 rounded-2xl border border-blue-100 bg-gradient-to-br from-sky-50 via-white to-sky-100 px-8 pt-8 pb-12 shadow-inner">
+          <div className="pointer-events-none absolute inset-x-8 top-10 bottom-14 flex flex-col justify-between">
+            {gridSteps.map(step => (
+              <div key={step} className="h-px w-full bg-blue-100/80"></div>
+            ))}
+          </div>
+
+          <div className="relative flex h-full items-end justify-between gap-6">
+            {chartData.map((item, index) => (
+              <div key={index} className="flex flex-1 min-w-[80px] max-w-[120px] flex-col items-center">
+                <div
+                  className="relative w-full cursor-pointer overflow-hidden rounded-t-lg border border-blue-200/70 bg-white/80 shadow-lg transition-transform duration-200 hover:-translate-y-1"
+                  style={{
+                    height: `${item.count > 0 ? Math.max((item.count / maxCount) * 170, 16) : 10}px`,
+                    background: item.count > 0 ? `linear-gradient(180deg, ${item.color} 0%, ${item.color}CC 60%, ${item.color}99 100%)` : '#F3F4F6'
+                  }}
+                  onMouseEnter={(e) => {
+                    setHoveredBar({
+                      label: item.label,
+                      count: item.count,
+                      x: e.clientX,
+                      y: e.clientY
+                    });
+                  }}
+                  onMouseMove={(e) => {
+                    setHoveredBar(prev => prev ? {
+                      ...prev,
+                      x: e.clientX,
+                      y: e.clientY
+                    } : null);
+                  }}
+                  onMouseLeave={() => setHoveredBar(null)}
+                >
+                  <div className="absolute -top-7 left-1/2 -translate-x-1/2 text-sm font-semibold text-gray-700">
+                    {item.count}
+                  </div>
+                  {item.count === 0 && (
+                    <div className="absolute inset-0 flex items-center justify-center text-xs font-medium text-gray-400">
+                      None
+                    </div>
+                  )}
+                </div>
+                <div className="mt-4 text-sm font-medium text-gray-700 text-center">
+                  {item.label}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {totalIncidents === 0 && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+              <div className="rounded-full border border-blue-100 bg-white/80 px-4 py-2 text-sm font-medium text-blue-600 shadow-sm">
+                Great news! No escalated incidents have been reported.
+              </div>
+            </div>
+          )}
+        </div>
+
         {hoveredBar && (
           <div 
-            className="fixed z-50 bg-gray-900 text-white px-3 py-2 rounded-lg shadow-lg pointer-events-none"
+            className="fixed z-50 rounded-lg bg-gray-900 px-3 py-2 text-white shadow-lg pointer-events-none"
             style={{
               left: hoveredBar.x + 10,
               top: hoveredBar.y - 40,
@@ -418,18 +452,6 @@ const MaintenanceDashboard = () => {
             <div className="text-xs">{hoveredBar.count} incidents</div>
           </div>
         )}
-
-        {/* Legend for zero vs non-zero values */}
-        <div className="absolute bottom-2 right-2 flex items-center space-x-4 text-xs text-gray-500">
-          <div className="flex items-center">
-            <div className="w-3 h-3 bg-blue-500 rounded mr-1"></div>
-            <span>Has incidents</span>
-          </div>
-          <div className="flex items-center">
-            <div className="w-3 h-3 bg-gray-200 border border-dashed border-gray-400 rounded mr-1"></div>
-            <span>No incidents</span>
-          </div>
-        </div>
       </div>
     );
   };
