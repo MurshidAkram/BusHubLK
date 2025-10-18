@@ -515,7 +515,7 @@ const IncidentManagement = () => {
                     Item Category
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Passenger Info
+                    Reporter Info
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     Status
@@ -530,7 +530,7 @@ const IncidentManagement = () => {
                   <tr key={report.report_id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <div className="font-medium text-gray-900">{formatDate(report.incident_date)}</div>
-                      <div className="text-xs text-gray-400">{report.incident_time}</div>
+                    
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex px-3 py-1 text-xs font-medium rounded-full ${getTypeColor(report.report_type)}`}>
@@ -691,7 +691,7 @@ const IncidentManagement = () => {
                   </div>
 
                   <div className="bg-gray-50 rounded-xl p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Passenger Information</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Reporter Information</h3>
                     <div className="space-y-4">
                       <div>
                         <label className="text-sm font-medium text-gray-500">Name</label>
@@ -708,21 +708,41 @@ const IncidentManagement = () => {
                     </div>
                   </div>
 
-                  {selectedReport.driver_name && selectedReport.driver_name !== 'N/A' && (
-                    <div className="bg-gray-50 rounded-xl p-6">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Driver Information</h3>
-                      <div className="space-y-4">
-                        <div>
-                          <label className="text-sm font-medium text-gray-500">Name</label>
-                          <p className="text-sm text-gray-900 mt-1 font-medium">{selectedReport.driver_name}</p>
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium text-gray-500">Phone</label>
-                          <p className="text-sm text-gray-900 mt-1 font-medium">{selectedReport.driver_phone}</p>
+                  {(() => {
+                    if (!selectedReport) return null;
+                    // If backend provides driver_id use it as the primary signal
+                    const hasDriverId = (selectedReport as any).driver_id !== undefined && (selectedReport as any).driver_id !== null;
+
+                    // Fallback: validate driver_name / driver_phone strings
+                    const rawName = typeof selectedReport.driver_name === 'string' ? selectedReport.driver_name.trim() : '';
+                    const rawPhone = typeof selectedReport.driver_phone === 'string' ? selectedReport.driver_phone.trim() : '';
+                    const invalids = ['', 'null', '[null]', 'undefined', 'n/a', 'na', '-', 'none'];
+                    const validName = rawName && !invalids.includes(rawName.toLowerCase());
+                    const validPhone = rawPhone && !invalids.includes(rawPhone.toLowerCase());
+
+                    // If there's no driver_id and neither name nor phone is valid => hide block
+                    if (!hasDriverId && !validName && !validPhone) return null;
+
+                    return (
+                      <div className="bg-gray-50 rounded-xl p-6">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Driver Information (item handed to depot)</h3>
+                        <div className="space-y-4">
+                          {validName && (
+                            <div>
+                              <label className="text-sm font-medium text-gray-500">Name</label>
+                              <p className="text-sm text-gray-900 mt-1 font-medium">{rawName}</p>
+                            </div>
+                          )}
+                          {validPhone && (
+                            <div>
+                              <label className="text-sm font-medium text-gray-500">Phone</label>
+                              <p className="text-sm text-gray-900 mt-1 font-medium">{rawPhone}</p>
+                            </div>
+                          )}
                         </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
 
                 {/* Right Column - Item Information and Image */}
