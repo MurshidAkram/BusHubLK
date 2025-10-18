@@ -62,6 +62,14 @@ interface RouteSuggestion {
   end_location?: string;
 }
 
+interface BusRouteSuggestion {
+  bus_route_id?: number;
+  route_number?: string;
+  route_name?: string;
+  registration_number?: string;
+  bus_registration?: string;
+}
+
 export default function ComplaintsScreen() {
   const navigation = useNavigation<ComplaintsScreenNavigationProp>();
 
@@ -83,9 +91,9 @@ export default function ComplaintsScreen() {
   const [complaintTypeOpen, setComplaintTypeOpen] = useState(false);
   const [complaintTypeValue, setComplaintTypeValue] = useState<string | null>(null);
   const [complaintTypeItems, setComplaintTypeItems] = useState([
-    { label: "Staff Conduct (Driver/Conductor)", value: "staff_conduct" },
+    { label: "Staff Behavior/Act (Driver/Conductor)", value: "staff_conduct" },
     { label: "Reckless Driving", value: "reckless_driving" },
-    { label: "Bus Not Stopping", value: "not_stopping" },
+    { label: "Bus Not Stopping on a halt", value: "not_stopping" },
     { label: "Ticketing Issue", value: "ticketing_issue" },
     { label: "Bus Condition", value: "bus_condition" },
     { label: "Harassment", value: "harassment" },
@@ -106,10 +114,17 @@ export default function ComplaintsScreen() {
   const [isValidRoute, setIsValidRoute] = useState(false);
   const routeSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const [busSuggestions, setBusSuggestions] = useState<BusRouteSuggestion[]>([]);
+  const [isBusLoading, setIsBusLoading] = useState(false);
+  const busSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   React.useEffect(() => {
     return () => {
       if (routeSearchTimeout.current) {
         clearTimeout(routeSearchTimeout.current);
+      }
+      if (busSearchTimeout.current) {
+        clearTimeout(busSearchTimeout.current);
       }
     };
   }, []);
@@ -254,6 +269,48 @@ export default function ComplaintsScreen() {
   }, []);
 
 
+  const fetchBusSuggestions = useCallback(async (query: string) => {
+    const trimmed = query.trim();
+    if (!trimmed) {
+      setBusSuggestions([]);
+      return;
+    }
+
+    try {
+      setIsBusLoading(true);
+
+      // Use the type parameter to search only buses
+      const response = await complaintAPI.searchBusRoutes(trimmed, 'bus');
+      const matches: any[] = Array.isArray(response?.data) ? response.data : [];
+
+      setBusSuggestions(matches.slice(0, 8));
+    } catch (error) {
+      console.error("Error searching buses:", error);
+    } finally {
+      setIsBusLoading(false);
+    }
+  }, []);
+
+  const scheduleBusSearch = useCallback((value: string) => {
+    if (busSearchTimeout.current) {
+      clearTimeout(busSearchTimeout.current);
+    }
+    busSearchTimeout.current = setTimeout(() => {
+      fetchBusSuggestions(value);
+    }, 350);
+  }, [fetchBusSuggestions]);
+
+  const handleBusInputChange = useCallback((value: string) => {
+    setBusNumber(value);
+    scheduleBusSearch(value);
+  }, [scheduleBusSearch]);
+
+  const handleBusFocus = useCallback(() => {
+    if (busNumber.trim()) {
+      fetchBusSuggestions(busNumber);
+    }
+  }, [fetchBusSuggestions, busNumber]);
+
   const handleBusBlur = useCallback(() => {
     if (busSearchTimeout.current) {
       clearTimeout(busSearchTimeout.current);
@@ -262,19 +319,21 @@ export default function ComplaintsScreen() {
     setTimeout(() => setBusSuggestions([]), 150);
   }, []);
 
-  const handleSelectSuggestion = useCallback((suggestion: BusRouteSuggestion, mode: "route" | "bus") => {
+  const handleSelectSuggestion = useCallback((suggestion: RouteSuggestion | BusRouteSuggestion, mode: "route" | "bus") => {
     const derivedRoute = suggestion.route_number ?? "";
-    const derivedBus = suggestion.registration_number ?? suggestion.bus_registration ?? "";
+    const derivedBus = (suggestion as BusRouteSuggestion).registration_number ?? (suggestion as BusRouteSuggestion).bus_registration ?? "";
 
     if (mode === "route") {
       // Only set route number when selecting from route suggestions
       if (derivedRoute) {
         setRouteNumber(derivedRoute);
+        setIsValidRoute(true);
       }
     } else {
       // Set both route and bus when selecting from bus suggestions
       if (derivedRoute) {
         setRouteNumber(derivedRoute);
+        setIsValidRoute(true);
       }
       if (derivedBus) {
         setBusNumber(derivedBus);
@@ -283,6 +342,7 @@ export default function ComplaintsScreen() {
 
 
     setRouteSuggestions([]);
+    setBusSuggestions([]);
     Keyboard.dismiss();
   }, []);
 
@@ -509,7 +569,7 @@ export default function ComplaintsScreen() {
                     ) : (
 
                       routeSuggestions.map((suggestion, index) => {
-                        const suggestionKey = `route-sugg-${suggestion.bus_route_id ?? index}-${index}`;
+                        const suggestionKey = `route-sugg-${suggestion.route_id ?? index}-${index}`;
                         const isLast = index === routeSuggestions.length - 1;
                         return (
                           <TouchableOpacity
@@ -539,7 +599,9 @@ export default function ComplaintsScreen() {
                     style={styles.inputText}
                     placeholder="e.g.ND-1234"
                     value={busNumber}
-                    onChangeText={setBusNumber}
+                    onChangeText={handleBusInputChange}
+                    onFocus={handleBusFocus}
+                    onBlur={handleBusBlur}
                     autoCapitalize="characters"
                   />
                 </View>

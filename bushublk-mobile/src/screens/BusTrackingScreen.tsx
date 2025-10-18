@@ -410,25 +410,38 @@ const fetchRoutes = async () => {
     return filtered;
   }, [busLocations, selectedRoute, searchQuery, enhanceBusesWithOccupancyData]);
 
-  // Update map region when filtered buses change
+  // Update map region when filtered buses change (only in normal view)
   useEffect(() => {
-    if (filteredBuses.length > 0 && userLocation) {
+    if (filteredBuses.length > 0 && userLocation && !isFullScreenMap) {
+      // Only adjust region if we have buses and user location, and not in full screen
       const latitudes = [userLocation.latitude, ...filteredBuses.map(bus => bus.latitude)];
       const longitudes = [userLocation.longitude, ...filteredBuses.map(bus => bus.longitude)];
       const minLat = Math.min(...latitudes);
       const maxLat = Math.max(...latitudes);
       const minLng = Math.min(...longitudes);
       const maxLng = Math.max(...longitudes);
-      const region = {
+
+      // Calculate new region
+      const newRegion = {
         latitude: (minLat + maxLat) / 2,
         longitude: (minLng + maxLng) / 2,
         latitudeDelta: Math.max((maxLat - minLat) * 1.5, 0.05),
         longitudeDelta: Math.max((maxLng - minLng) * 1.5, 0.05),
       };
-      setMapRegion(region);
-      mapRef.current?.animateToRegion(region, 1000);
+
+      // Only update if the region has actually changed significantly
+      const regionChanged = Math.abs(newRegion.latitude - mapRegion.latitude) > 0.001 ||
+                           Math.abs(newRegion.longitude - mapRegion.longitude) > 0.001 ||
+                           Math.abs(newRegion.latitudeDelta - mapRegion.latitudeDelta) > 0.01 ||
+                           Math.abs(newRegion.longitudeDelta - mapRegion.longitudeDelta) > 0.01;
+
+      if (regionChanged) {
+        console.log('🔄 Adjusting map region to fit buses and user location');
+        setMapRegion(newRegion);
+        mapRef.current?.animateToRegion(newRegion, 1000);
+      }
     }
-  }, [filteredBuses, userLocation]);
+  }, [filteredBuses, userLocation, isFullScreenMap, mapRegion]);
 
   const selectRoute = useCallback((routeNumber: string) => {
     setSelectedRoute(prev => prev === routeNumber ? null : routeNumber);
@@ -466,7 +479,12 @@ const fetchRoutes = async () => {
   }, [filteredBuses, userLocation]);
 
   const toggleFullScreenMap = useCallback(() => {
-    setIsFullScreenMap(prev => !prev);
+    setIsFullScreenMap(prev => {
+      const newValue = !prev;
+      // When entering full screen, don't auto-adjust map region
+      // When exiting full screen, the useEffect will handle region adjustment
+      return newValue;
+    });
   }, []);
 
   // Calculate dynamic distance from passenger to bus
