@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import {
     Text,
     View,
@@ -793,9 +794,10 @@ const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
             >
                 <View style={styles.header}>
                     <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-                        <Text style={styles.backButtonText}>←</Text>
+                        <Ionicons name="arrow-back-outline" size={24} color="white" />
                     </TouchableOpacity>
                     <Text style={styles.pageHeaderTitle}>Emergency Alert</Text>
+                    <View style={{ width: 40 }} />
                 </View>
             </LinearGradient>
             <View style={styles.tabBar}>
@@ -827,6 +829,8 @@ const styles = StyleSheet.create({
     content: { flex: 1, paddingHorizontal: 16 },
     headerGradient: {
         paddingTop: Platform.OS === 'ios' ? 0 : 8,
+        paddingVertical: 16,
+        paddingHorizontal: 16,
         ...Platform.select({
             android: {
                 elevation: 8,
@@ -840,31 +844,24 @@ const styles = StyleSheet.create({
         }),
     },
     header: { 
-        paddingVertical: 16, 
-        paddingHorizontal: 16, 
         backgroundColor: 'transparent',
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
-        position: 'relative',
+        justifyContent: 'space-between',
     },
     pageHeaderTitle: { 
-        fontSize: 24, 
+        fontSize: 22, 
         fontWeight: 'bold', 
-        color: '#FFFFFF', 
+        color: 'white',
+        flex: 1,
         textAlign: 'center',
     },
     backButton: { 
-        position: 'absolute', 
-        left: 16, 
-        zIndex: 1, 
         padding: 8,
-        alignSelf: 'center',
-    },
-    backButtonText: { 
-        fontSize: 24, 
-        color: '#FFFFFF', 
-        fontWeight: 'bold',
+        width: 40,
+        height: 40,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     tabBar: { 
         flexDirection: 'row', 

@@ -14,9 +14,6 @@ import {
   Keyboard,
   Dimensions,
   Animated,
-  findNodeHandle,
-  UIManager,
-  LayoutChangeEvent,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -124,8 +121,6 @@ export default function HomeScreen() {
   // For dynamic suggestion list positioning
   const fromInputRef = useRef<TextInput>(null);
   const toInputRef = useRef<TextInput>(null);
-  const [fromInputLayout, setFromInputLayout] = useState<{ y: number, height: number } | null>(null);
-  const [toInputLayout, setToInputLayout] = useState<{ y: number, height: number } | null>(null);
 
 
   // Load user data on component mount
@@ -363,20 +358,7 @@ export default function HomeScreen() {
     }
   };
 
-  // --- Dynamic suggestion list positioning ---
-
-  const onInputLayout = (event: LayoutChangeEvent, type: 'from' | 'to') => {
-
-    const { y, height } = event.nativeEvent.layout;
-    const statusBarOffset = StatusBar.currentHeight ?? 0;
-    if (type === 'from') {
-      setFromInputLayout({ y: y - statusBarOffset, height });
-    } else {
-      setToInputLayout({ y: y - statusBarOffset, height });
-    }
-  };
-
-  // Helper to render suggestion list absolutely outside the card
+  // Helper to render suggestion list inline below the input field
   const renderSuggestionList = (type: "from" | "to") => {
     const show =
       type === "from"
@@ -385,31 +367,11 @@ export default function HomeScreen() {
     const suggestions = type === "from" ? fromSuggestions : toSuggestions;
     const selectSuggestion =
       type === "from" ? selectFromSuggestion : selectToSuggestion;
-    
-    const layout = type === 'from' ? fromInputLayout : toInputLayout;
 
-    if (!show || !layout) return null;
-
-    // Calculate `top` position more reliably using layout info
-    // `layout.y` is the y-coordinate of the input relative to its parent (ScrollView)
-    // We add the height of the input + a small margin for spacing.
-    const topPosition = layout.y + layout.height + 8; // 8 is just a small visual offset
+    if (!show) return null;
 
     return (
-      <View
-        style={[
-          styles.suggestionBoxEnhanced,
-          {
-            position: "absolute",
-            top: topPosition,
-            left: 20, // Align with the contentContainer padding
-            right: 20, // Align with the contentContainer padding
-          },
-        ]}
-        // This is crucial to allow taps to pass through to suggestions
-        // and to ensure the box itself doesn't block underlying taps when not visible
-        pointerEvents={show ? "auto" : "none"} // 'auto' when visible, 'none' when hidden
-      >
+      <View style={styles.suggestionBoxEnhanced}>
         <ScrollView
           keyboardShouldPersistTaps="handled"
           style={styles.suggestionScrollView}
@@ -438,31 +400,31 @@ export default function HomeScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
-      {/* Enhanced Background */}
-      <LinearGradient
-        colors={["rgba(0, 86, 179, 0.05)", "rgba(0, 118, 227, 0.05)"]}
-        style={styles.backgroundGradient}
-      />
+    <LinearGradient
+      colors={['#F8FAFF', '#E3F2FD', '#BBDEFB']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.gradientBackground}
+    >
+      <SafeAreaView style={styles.container} edges={["top"]}>
+        <Image
+          source={require("../../assets/logowithoutbg_blue.png")}
+          style={styles.backgroundImage}
+        />
 
-      <Image
-        source={require("../../assets/logowithoutbg_blue.png")} // Ensure this path is correct
-        style={styles.backgroundImage}
-      />
+        <StatusBar
+          barStyle="light-content"
+          backgroundColor="#0056b3"
+          translucent={false}
+        />
 
-      <StatusBar
-        barStyle="light-content"
-        backgroundColor={AppColors.primary} // Explicitly set for Android
-        translucent={false}
-      />
-
-      {/* --- ENHANCED HEADER --- */}
-      <LinearGradient
-        colors={[AppColors.primary, AppColors.primaryLight]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.header}
-      >
+        {/* --- ENHANCED HEADER --- */}
+        <LinearGradient
+          colors={['#0056b3', '#1976d2', '#42a5f5']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.header}
+        >
         <View style={styles.headerContent}>
           <View style={styles.titleContainer}>
             <Text style={styles.headerTitle}>BusHubLK</Text>
@@ -495,10 +457,6 @@ export default function HomeScreen() {
         </View>
       </LinearGradient>
 
-      {/* Render suggestion lists absolutely above ScrollView, but outside of its flow */}
-      {renderSuggestionList("from")}
-      {renderSuggestionList("to")}
-
       <ScrollView
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
@@ -517,7 +475,7 @@ export default function HomeScreen() {
             style={styles.welcomeBanner}
           >
             <View style={styles.welcomeIconContainer}>
-              <Ionicons name="bus-outline" size={32} color="#fff" />
+              <Ionicons name="bus-outline" size={28} color="#fff" />
             </View>
             <View style={styles.welcomeTextContainer}>
               <Text style={styles.welcomeTitle}>
@@ -534,24 +492,22 @@ export default function HomeScreen() {
         <Animated.View
           style={[
             { opacity: fadeAnim, transform: [{ scale: scaleAnim }] },
-            // Removed zIndex/elevation from this Animated.View, let the suggestion box manage its own layering.
           ]}
         >
-          <LinearGradient
-            colors={["#a2c2f6ff", "#F8FAFF"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.journeyCard}
-          >
+          <View style={styles.journeyCardWrapper}>
+            <LinearGradient
+              colors={['#FFFFFF', '#F8FAFF']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.journeyCard}
+            >
             <View style={styles.journeyHeader}>
-              <Ionicons name="map-outline" size={24} color={AppColors.primary} />
+              <Ionicons name="map-outline" size={22} color={AppColors.primary} />
               <Text style={styles.journeyTitle}>Plan Your Journey</Text>
             </View>
 
             {/* FROM */}
-            <View
-              style={styles.inputGroup} // Removed zIndex/elevation from inputGroup, not needed here
-            >
+            <View style={{ marginBottom: 14 }}>
               <LinearGradient
                 colors={["rgba(0, 86, 179, 0.03)", "rgba(0, 86, 179, 0.02)"]}
                 style={styles.inputGradient}
@@ -570,14 +526,7 @@ export default function HomeScreen() {
                     value={from}
                     onChangeText={handleFromChange}
                     onFocus={() => {
-                        setShowFromSuggestions(true);
-                        // Measure layout on focus, ensuring it's recent
-
-            fromInputRef.current?.measureInWindow((x, y, width, height) => {
-              const statusBarOffset = StatusBar.currentHeight ?? 0;
-              setFromInputLayout({ y: y - statusBarOffset, height: height }); // Adjust for StatusBar if translucent is false
-
-                        });
+                      setShowFromSuggestions(true);
                     }}
                     onBlur={() => {
                       setTimeout(() => setShowFromSuggestions(false), 200);
@@ -599,12 +548,11 @@ export default function HomeScreen() {
                   )}
                 </View>
               </LinearGradient>
+              {renderSuggestionList("from")}
             </View>
 
             {/* TO */}
-            <View
-              style={styles.inputGroup} // Removed zIndex/elevation from inputGroup
-            >
+            <View style={{ marginBottom: 14 }}>
               <LinearGradient
                 colors={["rgba(0, 86, 179, 0.03)", "rgba(0, 86, 179, 0.02)"]}
                 style={styles.inputGradient}
@@ -623,14 +571,7 @@ export default function HomeScreen() {
                     value={to}
                     onChangeText={handleToChange}
                     onFocus={() => {
-                        setShowToSuggestions(true);
-                        // Measure layout on focus, ensuring it's recent
-
-            toInputRef.current?.measureInWindow((x, y, width, height) => {
-              const statusBarOffset = StatusBar.currentHeight ?? 0;
-              setToInputLayout({ y: y - statusBarOffset, height: height }); // Adjust for StatusBar if translucent is false
-
-                        });
+                      setShowToSuggestions(true);
                     }}
                     onBlur={() => {
                       setTimeout(() => setShowToSuggestions(false), 200);
@@ -652,6 +593,7 @@ export default function HomeScreen() {
                   )}
                 </View>
               </LinearGradient>
+              {renderSuggestionList("to")}
             </View>
 
             <TouchableOpacity
@@ -678,12 +620,11 @@ export default function HomeScreen() {
                 <Text style={styles.searchButtonText}>Find Routes</Text>
               </LinearGradient>
             </TouchableOpacity>
-          </LinearGradient>
+            </LinearGradient>
+          </View>
         </Animated.View>
 
-
-
-        {/* --- Quick Actions Section (UNCHANGED) --- */}
+        {/* --- Quick Actions Section --- */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.quickActionGrid}>
@@ -705,7 +646,7 @@ export default function HomeScreen() {
                 <View style={styles.quickActionIconContainer}>
                   <Ionicons
                     name={action.icon}
-                    size={26}
+                    size={24}
                     color={AppColors.primary}
                   />
                 </View>
@@ -732,28 +673,25 @@ export default function HomeScreen() {
                 }}
                 activeOpacity={0.8}
               >
-                <Ionicons name={service.icon} size={28} color={AppColors.primary} />
+                <Ionicons name={service.icon} size={26} color={AppColors.primary} />
                 <Text style={styles.serviceCardText}>{service.title}</Text>
               </TouchableOpacity>
             ))}
           </View>
         </View>
       </ScrollView>
-    </SafeAreaView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
+  gradientBackground: {
+    flex: 1,
+  },
   container: {
     flex: 1,
-    backgroundColor: AppColors.background,
-  },
-  backgroundGradient: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    backgroundColor: 'transparent',
   },
   backgroundImage: {
     position: "absolute",
@@ -765,13 +703,14 @@ const styles = StyleSheet.create({
     resizeMode: "contain",
   },
   contentContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 30,
-    paddingTop: 20,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    paddingTop: 12,
   },
   header: {
-    paddingHorizontal: 20,
-    paddingVertical: 16, // Slightly increased padding for better Android look
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 16,
     ...Platform.select({
       android: {
         elevation: 8,
@@ -788,28 +727,25 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    minHeight: 44,
+    minHeight: 40,
   },
   titleContainer: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 12,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.2)",
+    borderColor: "rgba(255, 255, 255, 0.25)",
   },
   headerTitle: {
     color: "#FFFFFF",
-    fontSize: 23, // Adjusted font size slightly
-    fontWeight: "600",
-    letterSpacing: 0.6,
+    fontSize: 20,
+    fontWeight: "700",
+    letterSpacing: 0.5,
     includeFontPadding: false,
     textAlignVertical: "center",
-    textShadowColor: "rgba(0, 0, 0, 0.3)",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
   },
   headerIcons: {
     flexDirection: "row",
@@ -851,94 +787,102 @@ const styles = StyleSheet.create({
   welcomeBanner: {
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: 20,
-    padding: 20, // Reverted to 20, was 18. Seems better for both.
-    marginBottom: 24,
-    ...Platform.select({
-      android: {
-        elevation: 4,
-      },
-      ios: {
-        shadowColor: "#000",
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-        shadowOffset: { width: 0, height: 4 },
-      },
-    }),
-  },
-  welcomeIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 16,
-  },
-  welcomeTextContainer: {
-    flex: 1,
-  },
-  welcomeTitle: {
-    color: "#fff",
-    fontSize: 19, // Slightly larger
-    fontWeight: "700",
-    marginBottom: 4,
-  },
-  welcomeSubtitle: {
-    color: "rgba(255, 255, 255, 0.9)",
-    fontSize: 15, // Slightly larger
-    fontWeight: "500",
-  },
-  section: {
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 20, // Slightly larger
-    fontWeight: "700",
-    color: AppColors.primary,
-    textAlign: "center",
-    lineHeight: 26, // Adjusted line height
-    includeFontPadding: false,
-  },
-  journeyCard: {
-    padding: 24,
-    borderRadius: 24,
-    marginBottom: 28,
-    overflow: "visible", // Crucial for suggestions
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 14,
     ...Platform.select({
       android: {
         elevation: 6,
       },
       ios: {
         shadowColor: "#000",
-        shadowOpacity: 0.08,
+        shadowOpacity: 0.15,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 4 },
+      },
+    }),
+  },
+  welcomeIconContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 14,
+  },
+  welcomeTextContainer: {
+    flex: 1,
+  },
+  welcomeTitle: {
+    color: "#fff",
+    fontSize: 17,
+    fontWeight: "700",
+    marginBottom: 3,
+  },
+  welcomeSubtitle: {
+    color: "rgba(255, 255, 255, 0.9)",
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  section: {
+    marginBottom: 14,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: AppColors.primary,
+    textAlign: "center",
+    lineHeight: 24,
+    includeFontPadding: false,
+    marginBottom: 10,
+  },
+  journeyCardWrapper: {
+    marginBottom: 14,
+    borderRadius: 20,
+    overflow: "visible",
+    ...Platform.select({
+      android: {
+        elevation: 6,
+      },
+      ios: {
+        shadowColor: "#000",
+        shadowOpacity: 0.1,
         shadowRadius: 12,
         shadowOffset: { width: 0, height: 6 },
       },
     }),
   },
+  journeyCard: {
+    padding: 18,
+    borderRadius: 20,
+    overflow: "visible",
+  },
   journeyHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 20,
+    marginBottom: 16,
   },
   journeyTitle: {
-    fontSize: 19, // Slightly larger
+    fontSize: 17,
     fontWeight: "700",
     color: AppColors.primary,
     marginLeft: 8,
   },
   inputGroup: {
-    marginBottom: 16,
+    marginBottom: 14,
     borderRadius: 16,
   },
   inputGradient: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
-    minHeight: 52, // Ensures consistent height
+    minHeight: 50,
     borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 86, 179, 0.1)',
   },
   inputIcon: {
     marginRight: 12,
@@ -946,12 +890,12 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
     color: AppColors.text,
     fontWeight: "500",
-    paddingVertical: Platform.OS === 'ios' ? 16 : 14, // Retain small platform difference if needed
-    paddingHorizontal: 0, // Ensure no extra horizontal padding from RN default
-    paddingRight: 40, // Space for clear icon
+    paddingVertical: Platform.OS === 'ios' ? 14 : 12,
+    paddingHorizontal: 0,
+    paddingRight: 38,
   },
   clearIcon: {
     position: "absolute",
@@ -961,19 +905,25 @@ const styles = StyleSheet.create({
     zIndex: 1000,
   },
   suggestionBoxEnhanced: {
-    backgroundColor: "#fff",
-    borderColor: AppColors.border,
+    backgroundColor: "#FFFFFF",
+    borderColor: 'rgba(0, 86, 179, 0.15)',
     borderWidth: 1,
-    borderRadius: 14,
-    maxHeight: 150, // Keep max height for scrollability
-    zIndex: 1000, // High zIndex for iOS
-    elevation: 1000, // High elevation for Android
+    borderRadius: 16,
+    maxHeight: 150,
+    marginTop: 8,
     paddingVertical: 4,
     paddingHorizontal: 0,
-    shadowColor: '#0056b3',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.10,
-    shadowRadius: 8,
+    ...Platform.select({
+      android: {
+        elevation: 8,
+      },
+      ios: {
+        shadowColor: '#0056b3',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.12,
+        shadowRadius: 10,
+      },
+    }),
   },
   suggestionScrollView: {
     maxHeight: 140, // Adjust this if the parent maxHeight is not enough
@@ -981,11 +931,11 @@ const styles = StyleSheet.create({
   suggestionItemEnhanced: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 10, // Increased padding
-    paddingHorizontal: 16, // Increased padding
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#d6e6fa',
-    backgroundColor: "#f7fbff",
+    borderBottomColor: 'rgba(0, 86, 179, 0.08)',
+    backgroundColor: "transparent",
   },
   suggestionText: {
     fontSize: 15, // Unified font size for readability
@@ -995,67 +945,76 @@ const styles = StyleSheet.create({
   },
   searchButton: {
     borderRadius: 16,
-    marginTop: 8,
+    marginTop: 6,
     overflow: "hidden",
   },
   searchButtonGradient: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 16,
+    paddingVertical: 15,
   },
   searchButtonText: {
     color: "#FFFFFF",
-    fontSize: 17, // Slightly larger
+    fontSize: 16,
     fontWeight: "600",
   },
   quickActionGrid: {
-    top: 10,
     flexDirection: "row",
     justifyContent: "space-between",
     flexWrap: "wrap",
-    gap: 8, // Increased gap for better spacing
-    marginHorizontal: -4, // Counteract gap
+    gap: 8,
+    marginHorizontal: -4,
   },
   quickActionCard: {
-    width: "30%", // Adjusted width to accommodate gap
-    aspectRatio: 1, // Keep it square
+    width: "30.5%",
+    aspectRatio: 0.95,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: AppColors.card,
+    backgroundColor: '#FFFFFF',
     borderRadius: 18,
-    paddingHorizontal: 5,
+    paddingHorizontal: 6,
     paddingVertical: 10,
     borderWidth: 1,
-    borderColor: AppColors.border,
-    marginBottom: 10,
+    borderColor: 'rgba(0, 86, 179, 0.1)',
     ...Platform.select({
       android: {
-        elevation: 1,
+        elevation: 3,
       },
       ios: {
         shadowColor: "#000",
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
-        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.08,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 3 },
       },
     }),
   },
   quickActionIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: AppColors.primaryMuted,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: '#E7F1FF',
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 8,
+    ...Platform.select({
+      android: {
+        elevation: 2,
+      },
+      ios: {
+        shadowColor: AppColors.primary,
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 2 },
+      },
+    }),
   },
   cardText: {
-    fontSize: 12, // Standardized
-    fontWeight: "500",
+    fontSize: 12,
+    fontWeight: "600",
     color: AppColors.textSecondary,
     textAlign: "center",
-    lineHeight: 16, // Adjusted line height
+    lineHeight: 15,
     includeFontPadding: false,
   },
   busCard: {
@@ -1125,7 +1084,6 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
   },
   serviceGrid: {
-    top: 10,
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
@@ -1134,31 +1092,30 @@ const styles = StyleSheet.create({
     width: "48%",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 20, // Slightly more padding
-    marginBottom: 12,
-    backgroundColor: AppColors.card,
+    paddingVertical: 20,
+    backgroundColor: '#FFFFFF',
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: AppColors.border,
+    borderColor: 'rgba(0, 86, 179, 0.1)',
     ...Platform.select({
       android: {
-        elevation: 1,
+        elevation: 3,
       },
       ios: {
         shadowColor: "#000",
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
-        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.08,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 3 },
       },
     }),
   },
   serviceCardText: {
-    fontSize: 12, // Standardized
-    fontWeight: "500",
+    fontSize: 12,
+    fontWeight: "600",
     color: AppColors.textSecondary,
     textAlign: "center",
     marginTop: 10,
-    lineHeight: 16, // Adjusted line height
+    lineHeight: 15,
     includeFontPadding: false,
   },
 });

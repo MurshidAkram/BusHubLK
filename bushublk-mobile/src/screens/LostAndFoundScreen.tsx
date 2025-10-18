@@ -1110,8 +1110,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
             </View>
             
             <Text style={styles.itemTitle}>
-              {report.item_category ? (report.item_category.charAt(0).toUpperCase() + report.item_category.slice(1)) : 'UNKNOWN'} - {report.item_description ? report.item_description.substring(0, 50) : 'No description'}
-              {report.item_description && report.item_description.length > 50 ? '...' : ''}
+              {report.item_category ? (report.item_category.charAt(0).toUpperCase() + report.item_category.slice(1)) : 'UNKNOWN'}
             </Text>
             <Text style={styles.itemDescription}>
               {/* Clean up driver report descriptions by removing the driver info suffix */}
@@ -1125,9 +1124,10 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
               <View style={styles.detailRow}>
                 <Ionicons name="location-outline" size={18} color={AppColors.textSecondary} />
                 <Text style={styles.detailText}>
-                  {report.approximate_location || 'Location not specified'} 
-                  {report.route_number && ` - Route ${report.route_number}`}
-                  {report.route_name && ` (${report.route_name})`}
+                  {report.route_number && report.route_name 
+                    ? `Route ${report.route_number} (${report.route_name})` 
+                    : report.approximate_location || 'Location not specified'
+                  }
                 </Text>
               </View>
               <View style={styles.detailRow}>
@@ -1275,8 +1275,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
             </View>
             
             <Text style={styles.itemTitle}>
-              {report.item_category ? (report.item_category.charAt(0).toUpperCase() + report.item_category.slice(1)) : 'UNKNOWN'} - {report.item_description ? report.item_description.substring(0, 50) : 'No description'}
-              {report.item_description && report.item_description.length > 50 ? '...' : ''}
+              {report.item_category ? (report.item_category.charAt(0).toUpperCase() + report.item_category.slice(1)) : 'UNKNOWN'}
             </Text>
             <Text style={styles.itemDescription}>
               {/* Clean up driver report descriptions by removing the driver info suffix */}
@@ -1290,9 +1289,10 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
               <View style={styles.detailRow}>
                 <Ionicons name="location-outline" size={18} color={AppColors.textSecondary} />
                 <Text style={styles.detailText}>
-                  {report.approximate_location || 'Location not specified'} 
-                  {report.route_number && ` - Route ${report.route_number}`}
-                  {report.route_name && ` (${report.route_name})`}
+                  {report.route_number && report.route_name 
+                    ? `Route ${report.route_number} (${report.route_name})` 
+                    : report.approximate_location || 'Location not specified'
+                  }
                 </Text>
               </View>
               <View style={styles.detailRow}>
@@ -4194,6 +4194,4 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: AppColors.text,
   },
-
-
 });
