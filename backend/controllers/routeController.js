@@ -88,28 +88,55 @@ const findRoutesBetweenStops = async (req, res) => {
       });
     }
 
-    // Find routes that contain both stops
+    // Find routes that contain both stops - INCLUDING REVERSE DIRECTION (return trips)
+    // Search in both directions:
+    // 1. Forward: from_order < to_order (normal direction)
+    // 2. Reverse: from_order > to_order (return trip direction)
+    // Each route (identified by route_number) may have different stop counts and fares
+    // Example: Route 138 (22 stops) and Route 120 (15 stops) both go Pettah→Kirulapone
     const result = await db.query(
-      `SELECT DISTINCT r.route_id, r.route_number, r.route_name, 
+      `SELECT DISTINCT ON (r.route_number, 
+                           CASE WHEN from_stop.stop_order < to_stop.stop_order THEN 'forward' ELSE 'reverse' END)
+              r.route_id, r.route_number, r.route_name, 
               r.start_location, r.end_location, r.distance_km, 
               r.estimated_duration_minutes,
               from_stop.stop_order as from_order,
-              to_stop.stop_order as to_order
+              to_stop.stop_order as to_order,
+              CASE 
+                WHEN from_stop.stop_order < to_stop.stop_order THEN 'forward'
+                ELSE 'reverse'
+              END as direction
        FROM routes r
        INNER JOIN route_stops from_stop ON r.route_number = from_stop.route_number 
        INNER JOIN route_stops to_stop ON r.route_number = to_stop.route_number
        WHERE LOWER(TRIM(from_stop.stop_name)) = LOWER(TRIM($1))
          AND LOWER(TRIM(to_stop.stop_name)) = LOWER(TRIM($2))
-         AND from_stop.stop_order < to_stop.stop_order
-       ORDER BY r.route_number`,
+         AND from_stop.stop_order != to_stop.stop_order
+       ORDER BY r.route_number, 
+                CASE WHEN from_stop.stop_order < to_stop.stop_order THEN 'forward' ELSE 'reverse' END,
+                r.route_id`,
       [from, to]
     );
 
-    console.log(`📊 Found ${result.rows.length} matching routes`);
+    console.log(`📊 Found ${result.rows.length} unique route(s) (including return trips)`);
+    
+    // Log route details for debugging
+    result.rows.forEach(route => {
+      const stopsCount = Math.abs(route.to_order - route.from_order) + 1;
+      console.log(`   - Route ${route.route_number} (${route.direction}): ${stopsCount} stops from "${from}" to "${to}"`);
+    });
 
     // Calculate fare for each route based on number of stops
+    // Handle both forward and reverse directions
+    // IMPORTANT: Each route number (138, 120, etc.) is processed independently
+    // Different routes may cover the same stops but with different paths/stop counts
     const routes = await Promise.all(result.rows.map(async (route) => {
-      const stopsCount = route.to_order - route.from_order + 1;
+      // Calculate stops count based on direction
+      // For both forward and reverse, the fare is based on the absolute distance between stops
+      const stopsCount = Math.abs(route.to_order - route.from_order) + 1;
+      const isReverse = route.direction === 'reverse';
+      
+      console.log(`� Calculating fare for Route ${route.route_number} (${route.direction}): ${from} → ${to}, ${stopsCount} stops`);
       
       // Get fare from bus_fares table based on number of stops
       let fare = null;
@@ -150,13 +177,15 @@ const findRoutesBetweenStops = async (req, res) => {
         end_location: route.end_location,
         total_distance_km: route.distance_km,
         estimated_duration_minutes: route.estimated_duration_minutes,
+        direction: route.direction, // 'forward' or 'reverse'
         journey: {
           from_stop: from,
           to_stop: to,
           from_order: route.from_order,
           to_order: route.to_order,
           stops_count: stopsCount,
-          fare: fare
+          fare: fare,
+          is_return_trip: isReverse
         }
       };
     }));
