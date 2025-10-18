@@ -553,7 +553,7 @@ export default function HomeScreen() {
               style={styles.inputGroup} // Removed zIndex/elevation from inputGroup, not needed here
             >
               <LinearGradient
-                colors={[AppColors.primaryMuted, "rgba(0, 86, 179, 0.05)"]}
+                colors={["rgba(0, 86, 179, 0.03)", "rgba(0, 86, 179, 0.02)"]}
                 style={styles.inputGradient}
               >
                 <Ionicons
@@ -564,7 +564,7 @@ export default function HomeScreen() {
                 <View style={{ flex: 1 }}>
                   <TextInput
                     ref={fromInputRef}
-                    placeholder="From (e.g., Colombo)"
+                    placeholder="From (Enter start location)"
                     style={styles.input}
                     placeholderTextColor="#154dadff"
                     value={from}
@@ -606,7 +606,7 @@ export default function HomeScreen() {
               style={styles.inputGroup} // Removed zIndex/elevation from inputGroup
             >
               <LinearGradient
-                colors={[AppColors.primaryMuted, "rgba(0, 86, 179, 0.05)"]}
+                colors={["rgba(0, 86, 179, 0.03)", "rgba(0, 86, 179, 0.02)"]}
                 style={styles.inputGradient}
               >
                 <Ionicons
@@ -617,7 +617,7 @@ export default function HomeScreen() {
                 <View style={{ flex: 1 }}>
                   <TextInput
                     ref={toInputRef}
-                    placeholder="To (e.g., Kandy)"
+                    placeholder="To (Enter destination)"
                     style={styles.input}
                     placeholderTextColor="#154dadff"
                     value={to}

@@ -536,8 +536,41 @@ const getDriverAssignedBuses = async (req, res) => {
   }
 };
 
+const driverLogout = async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    
+    if (!token) {
+      return res.status(400).json({ error: 'No token provided' });
+    }
+
+    // Decode token to get expiry
+    const decoded = jwt.decode(token);
+    if (!decoded || !decoded.exp) {
+      return res.status(400).json({ error: 'Invalid token format' });
+    }
+
+    // Convert JWT exp (seconds) to PostgreSQL timestamp
+    const expiresAt = new Date(decoded.exp * 1000);
+
+    // Add token to blacklist
+    await db.query(
+      `INSERT INTO token_blacklist (token, user_id, user_type, expires_at, reason) 
+       VALUES ($1, $2, 'driver', $3, 'logout')`,
+      [token, decoded.driver_id || decoded.userId, expiresAt]
+    );
+
+    console.log('✅ Driver token blacklisted successfully');
+    res.json({ success: true, message: 'Logged out successfully' });
+  } catch (err) {
+    console.error('❌ Driver logout error:', err);
+    res.status(500).json({ error: 'Server error during logout' });
+  }
+};
+
 module.exports = {
   driverLogin,
+  driverLogout,
   getDriverProfile,
   updateDriverProfile,
   getDriverAssignedBuses
