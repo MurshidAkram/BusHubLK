@@ -262,6 +262,15 @@ try {
   console.log('❌ notificationRoutes error:', error.message);
 }
 
+
+try {
+  const adminNotificationRoutes = require('./routes/adminNotificationRoutes');
+  app.use('/api/admin', adminNotificationRoutes);
+  console.log('✅ adminNotificationRoutes loaded');
+} catch (error) {
+  console.log('❌ adminNotificationRoutes error:', error.message);
+}
+
 try {
   const passengerNotificationRoutes = require('./routes/passengerNotificationRoutes');
   app.use('/api/passenger-notifications', passengerNotificationRoutes);
@@ -351,6 +360,14 @@ try {
   console.log('✅ dgmTechnicalRoutes loaded');
 } catch (error) {
   console.log('❌ dgmTechnicalRoutes error:', error.message);
+}
+
+try {
+  const dgmOperationsRoutes = require('./routes/dgmOperationsRoutes');
+  app.use('/api/dgm-operations', dgmOperationsRoutes);
+  console.log('✅ dgmOperationsRoutes loaded');
+} catch (error) {
+  console.log('❌ dgmOperationsRoutes error:', error.message);
 }
 
 try {

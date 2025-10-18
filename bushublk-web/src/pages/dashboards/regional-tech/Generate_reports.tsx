@@ -18,6 +18,9 @@ import {
 } from 'recharts'
 import { AppContext } from '../../../context/AppContext'
 
+const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/$/, '')
+const buildApiUrl = (path: string) => `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`
+
 type DepotSnapshot = {
   depot_id: number
   depot: string
@@ -182,10 +185,10 @@ const GenerateReports = () => {
 
     try {
       const [serviceResult, inspectionResult, emergencyResult, channelsResult] = await Promise.allSettled([
-        axios.get('http://localhost:5000/api/depots/service-monitor', { headers }),
-        axios.get('http://localhost:5000/api/inspections', { headers }),
-        axios.get('http://localhost:5000/api/rto', { headers }),
-        axios.get('http://localhost:5000/api/communication/channels', { headers }),
+        axios.get(buildApiUrl('/api/depots/service-monitor'), { headers }),
+        axios.get(buildApiUrl('/api/inspections'), { headers }),
+        axios.get(buildApiUrl('/api/rto'), { headers }),
+        axios.get(buildApiUrl('/api/communication/channels'), { headers }),
       ])
 
       if (serviceResult.status !== 'fulfilled') {
@@ -274,7 +277,7 @@ const GenerateReports = () => {
 
     const loadDepots = async () => {
       try {
-        const response = await axios.get('http://localhost:5000/api/inspections/depots', {
+  const response = await axios.get(buildApiUrl('/api/inspections/depots'), {
           headers,
         })
 

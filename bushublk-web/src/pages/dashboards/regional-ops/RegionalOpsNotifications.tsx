@@ -31,7 +31,7 @@ interface RegionalOpsNotification {
 
 type FetchState = 'idle' | 'loading' | 'error' | 'success';
 
-const API_BASE_URL = 'http://localhost:5000/api/regional-operations/notifications';
+const API_BASE_URL = `${(import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/$/, '')}/api/regional-operations/notifications`;
 
 const ALLOWED_ROLE_KEYS = new Set(['regional_operations', 'regional_operations_officer']);
 

@@ -3,6 +3,22 @@ import axios, { AxiosError } from 'axios';
 import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
 import { AppContext } from '../../../context/AppContext';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5000';
+
+const buildDepotEngineerBusesUrl = () => `${API_BASE_URL}/api/depot-engineer/buses`;
+
+const buildDepotBusesUrl = (depotId: string) => `${API_BASE_URL}/api/buses/depot/${depotId}`;
+
+const buildDepotEngineerSchedulesUrl = () => `${API_BASE_URL}/api/depot-engineer/service-schedules`;
+
+const buildLegacyServiceSchedulesUrl = () => `${API_BASE_URL}/api/service-schedules`;
+
+const buildDepotEmergencyUrl = () => `${API_BASE_URL}/api/depot/emergency`;
+
+const buildDepotEngineerSparePartsUrl = () => `${API_BASE_URL}/api/depot-engineer/spare-parts`;
+
+const buildDepotEngineerSparePartsUsageUrl = () => `${API_BASE_URL}/api/depot-engineer/spare-parts/usage-history`;
+
 type Bus = {
   bus_id: string;
   registration_number: string;
@@ -144,14 +160,14 @@ const GenerateReports: React.FC = () => {
     try {
       const headers = { Authorization: `Bearer ${token}` };
 
-      let busEndpoint = 'http://localhost:5000/api/depot-engineer/buses';
+      let busEndpoint = buildDepotEngineerBusesUrl();
       if (context?.user?.role === 'depot_manager' || context?.user?.role === 'depot_operations') {
         if (context?.user?.depot_id) {
-          busEndpoint = `http://localhost:5000/api/buses/depot/${context.user.depot_id}`;
+          busEndpoint = buildDepotBusesUrl(context.user.depot_id);
         }
       }
 
-      const scheduleEndpoint = 'http://localhost:5000/api/depot-engineer/service-schedules';
+      const scheduleEndpoint = buildDepotEngineerSchedulesUrl();
       const scheduleParams = {
         include_cancelled: true,
         ...(context?.user?.role && context.user.role !== 'depot_engineer' && context.user.depot_id
@@ -169,7 +185,7 @@ const GenerateReports: React.FC = () => {
           .catch((scheduleError: AxiosError) => {
             if (scheduleError.response?.status === 404) {
               console.warn('Service schedule endpoint returned 404, falling back to legacy route.');
-              return axios.get<ServiceScheduleResponse>('http://localhost:5000/api/service-schedules', {
+              return axios.get<ServiceScheduleResponse>(buildLegacyServiceSchedulesUrl(), {
                 headers,
                 params: scheduleParams,
               });
@@ -177,7 +193,7 @@ const GenerateReports: React.FC = () => {
             throw scheduleError;
           }),
         axios
-          .get<EmergencyResponse>('http://localhost:5000/api/depot/emergency', {
+          .get<EmergencyResponse>(buildDepotEmergencyUrl(), {
             headers,
             params: context?.user?.depot_id ? { depotId: context.user.depot_id } : undefined,
           })
@@ -227,11 +243,11 @@ const GenerateReports: React.FC = () => {
 
       const [partsResponse, usageResponse] = await Promise.all([
         axios.get<{ success: boolean; parts: SparePart[]; message?: string }>(
-          'http://localhost:5000/api/depot-engineer/spare-parts',
+          buildDepotEngineerSparePartsUrl(),
           { headers }
         ),
         axios.get<{ success: boolean; usageHistory: SparePartUsage[]; message?: string }>(
-          'http://localhost:5000/api/depot-engineer/spare-parts/usage-history',
+          buildDepotEngineerSparePartsUsageUrl(),
           {
             headers,
             params: {

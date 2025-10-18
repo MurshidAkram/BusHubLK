@@ -20,7 +20,7 @@ interface DGMTechnicalNotification {
 
 type FetchState = 'idle' | 'loading' | 'error' | 'success';
 
-const API_BASE_URL = 'http://localhost:5000/api/dgm-technical/notifications';
+const API_BASE_URL = `${(import.meta.env.VITE_API_URL).replace(/\/$/, '')}/api/dgm-technical/notifications`;
 const ALLOWED_ROLE_KEYS = new Set(['dgm_technical']);
 
 const PRIORITY_BADGE: Record<NotificationPriority, string> = {

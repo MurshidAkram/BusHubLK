@@ -151,6 +151,16 @@ const formatSeverityLabel = (severity: string | null): string => {
   return severity.charAt(0).toUpperCase() + severity.slice(1);
 };
 
+const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/+$/, '');
+const buildDepotEngineerServiceSchedulesUrl = () => `${API_BASE_URL}/api/depot-engineer/service-schedules`;
+const buildDepotEngineerServiceScheduleStatsUrl = () => `${API_BASE_URL}/api/depot-engineer/service-schedules/stats`;
+const buildDepotEngineerServiceScheduleByIdUrl = (id: number) => `${buildDepotEngineerServiceSchedulesUrl()}/${id}`;
+const buildDepotEngineerServiceScheduleStartUrl = (id: number) => `${buildDepotEngineerServiceScheduleByIdUrl(id)}/start`;
+const buildDepotEngineerServiceScheduleCompleteUrl = (id: number) => `${buildDepotEngineerServiceScheduleByIdUrl(id)}/complete`;
+const buildDepotEngineerServiceScheduleCancelUrl = (id: number) => `${buildDepotEngineerServiceScheduleByIdUrl(id)}/cancel`;
+const buildDepotEngineerBusesUrl = () => `${API_BASE_URL}/api/depot-engineer/buses`;
+const buildDepotEngineerDailyChecklistsUrl = () => `${API_BASE_URL}/api/depot-engineer/daily-checklists`;
+
 const ServiceScheduleApp: React.FC = () => {
   const context = useContext(AppContext) as AppContextType | null;
 
@@ -240,10 +250,11 @@ const ServiceScheduleApp: React.FC = () => {
 
       console.log('User role:', user?.role);
       console.log('User depot_id:', user?.depot_id);
-      console.log('Fetching services from:', 'http://localhost:5000/api/depot-engineer/service-schedules');
+      const servicesUrl = buildDepotEngineerServiceSchedulesUrl();
+      console.log('Fetching services from:', servicesUrl);
 
       const response = await axios.get(
-        'http://localhost:5000/api/depot-engineer/service-schedules',
+        servicesUrl,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -295,10 +306,11 @@ const ServiceScheduleApp: React.FC = () => {
 
       console.log('User role:', user?.role);
       console.log('User depot_id:', user?.depot_id);
-      console.log('Fetching stats from:', 'http://localhost:5000/api/depot-engineer/service-schedules/stats');
+      const statsUrl = buildDepotEngineerServiceScheduleStatsUrl();
+      console.log('Fetching stats from:', statsUrl);
 
       const response = await axios.get(
-        'http://localhost:5000/api/depot-engineer/service-schedules/stats',
+        statsUrl,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -338,8 +350,8 @@ const ServiceScheduleApp: React.FC = () => {
       console.log('User role:', user?.role);
       console.log('User depot_id:', user?.depot_id);
 
-      // Use the direct depot-engineer buses endpoint like other working components
-      const apiUrl = 'http://localhost:5000/api/depot-engineer/buses';
+  // Use the direct depot-engineer buses endpoint like other working components
+  const apiUrl = buildDepotEngineerBusesUrl();
       console.log('Fetching buses from:', apiUrl);
       
       const response = await axios.get(
@@ -379,7 +391,7 @@ const ServiceScheduleApp: React.FC = () => {
       if (!token) return;
 
       const response = await axios.get(
-        'http://localhost:5000/api/depot-engineer/daily-checklists',
+        buildDepotEngineerDailyChecklistsUrl(),
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -564,7 +576,7 @@ const ServiceScheduleApp: React.FC = () => {
     try {
       setLoading(true);
       const response = await axios.post(
-        'http://localhost:5000/api/depot-engineer/service-schedules',
+        buildDepotEngineerServiceSchedulesUrl(),
         newService,
         {
           headers: {
@@ -621,7 +633,7 @@ const ServiceScheduleApp: React.FC = () => {
     try {
       setLoading(true);
       const response = await axios.put(
-        `http://localhost:5000/api/depot-engineer/service-schedules/${editingService.id}`,
+        buildDepotEngineerServiceScheduleByIdUrl(editingService.id),
         {
           service_type: editingService.service_type,
           bus_id: editingService.bus_id,
@@ -659,7 +671,7 @@ const ServiceScheduleApp: React.FC = () => {
     try {
       setLoading(true);
       const response = await axios.patch(
-        `http://localhost:5000/api/depot-engineer/service-schedules/${id}/start`,
+        buildDepotEngineerServiceScheduleStartUrl(id),
         {},
         {
           headers: {
@@ -689,7 +701,7 @@ const ServiceScheduleApp: React.FC = () => {
     try {
       setLoading(true);
       const response = await axios.patch(
-        `http://localhost:5000/api/depot-engineer/service-schedules/${id}/complete`,
+        buildDepotEngineerServiceScheduleCompleteUrl(id),
         {},
         {
           headers: {
@@ -719,7 +731,7 @@ const ServiceScheduleApp: React.FC = () => {
     try {
       setLoading(true);
       const response = await axios.patch(
-        `http://localhost:5000/api/depot-engineer/service-schedules/${id}/cancel`,
+        buildDepotEngineerServiceScheduleCancelUrl(id),
         {},
         {
           headers: {

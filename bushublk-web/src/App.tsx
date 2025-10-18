@@ -20,6 +20,7 @@ import Employees from './pages/dashboards/admin/Employees'
 import BusManaging from './pages/dashboards/admin/BusManaging'
 import RoutesMngmnt from './pages/dashboards/admin/RoutesMngmnt'
 import CommunicationHub from './pages/dashboards/depot-manager/communicationHub'
+import AdminNotifications from './pages/dashboards/admin/Notifications'
 
 
 
@@ -94,6 +95,7 @@ import CommunicationCenter from './pages/dashboards/dgm-ops/CommunicationHub'
 import Feedback from './pages/dashboards/dgm-ops/Feedback'
 import ExecutiveSettings from './pages/dashboards/dgm-ops/ExecutiveSettings'
 import CrewOversight from './pages/dashboards/dgm-ops/CrewOversight'
+import DGMOperationsNotifications from './pages/dashboards/dgm-ops/Notification'
 
 // DGM Technical Components
 import DGMTechnicalSidebarContent from './components/dgm-tech/DGMTechnicalSidebarContent'
@@ -110,13 +112,12 @@ import Dgmtech_notification from './pages/dashboards/dgm-tech/Dgmtech_notificati
 import CEOSidebarContent from './components/ceo/CEOSidebarContent'
 import CEODashboard from './pages/dashboards/ceo/index'
 import DepotAndRegions from './pages/dashboards/admin/DepotAndRegions'
-import BusManagement from './pages/dashboards/admin/BusManaging'
 import RegionalOverviewPage from './pages/dashboards/ceo/RegionalOverview';
 import WorkforceAnalyticsPage from './pages/dashboards/ceo/Workforce';
 import DepotOverviewPage from './pages/dashboards/ceo/DepotOverview';
 import RoutePerformancePage from './pages/dashboards/ceo/RoutePerformance';
 import OperationalOverviewPage from './pages/dashboards/ceo/OperationalOverview';
-import AnnouncementCenterPage from './pages/dashboards/ceo/CommunicationHub';
+import AnnouncementCenterPage from './pages/dashboards/ceo/communicationHub';
 import AccidentBreakdownPage from './pages/dashboards/ceo/AccidentBreakdowns'
 //import Dgmcommunityhub from './pages/dashboards/dgm-tech/Dgmcommunityhub'
 //import Dgmtechnicalissue from './pages/dashboards/dgm-tech/Dgmtechnicalissue'
@@ -178,6 +179,7 @@ const App = () => {
     <Route path="buses" element={<BusManaging />} />
     <Route path="routes" element={<RoutesMngmnt />} />
       <Route path="communication-hub" element={<CommunicationHub />} />
+    <Route path="notifications" element={<AdminNotifications />} />
     {/* Add more admin routes as needed */}
   </Route>
 </Route>
@@ -272,6 +274,7 @@ const App = () => {
     <Route path="feedback" element={<Feedback />} />
     <Route path="executive-settings" element={<ExecutiveSettings />} />
      <Route path="crew-oversight" element={<CrewOversight />} />
+    <Route path="notifications" element={<DGMOperationsNotifications />} />
     {/* Add individual pages later */}
   </Route>
 </Route>
