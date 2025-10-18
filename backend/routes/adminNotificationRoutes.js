@@ -5,14 +5,14 @@ const adminNotificationController = require('../controllers/adminNotificationCon
 const router = express.Router();
 
 const ensureAdmin = (req, res, next) => {
-  if (req.user?.role !== 'admin') {
-    return res.status(403).json({
-      success: false,
-      message: 'Admin access required'
-    });
-  }
+    if (req.user?.role !== 'admin') {
+        return res.status(403).json({
+            success: false,
+            message: 'Admin access required'
+        });
+    }
 
-  next();
+    next();
 };
 
 router.get('/notifications', authenticateJWT, ensureAdmin, adminNotificationController.getNotifications);

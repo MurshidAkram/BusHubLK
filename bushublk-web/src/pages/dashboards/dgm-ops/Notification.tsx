@@ -5,7 +5,7 @@ import { AppContext } from '../../../context/AppContext';
 
 type NotificationSourceType = 'announcement' | 'direct_message';
 
-type AdminNotification = {
+type DGMOperationsNotification = {
   source_type: NotificationSourceType;
   source_id: number;
   created_at: string;
@@ -37,13 +37,23 @@ const SOURCE_LABEL: Record<NotificationSourceType, string> = {
   direct_message: 'Direct Message'
 };
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
-const AdminNotifications: React.FC = () => {
+const normalizeRole = (value: string | undefined) =>
+  value ? value.toLowerCase().replace(/\s+/g, '_').replace(/-/g, '_') : '';
+
+const formatRoleLabel = (value: string) =>
+  value
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+
+const Notification: React.FC = () => {
   const appContext = useContext(AppContext);
   const token = appContext?.token || null;
   const user = appContext?.user;
-  const [notifications, setNotifications] = useState<AdminNotification[]>([]);
+
+  const [notifications, setNotifications] = useState<DGMOperationsNotification[]>([]);
   const [state, setState] = useState<FetchState>('idle');
   const [error, setError] = useState<string | null>(null);
 
@@ -82,15 +92,18 @@ const AdminNotifications: React.FC = () => {
     setError(null);
 
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/admin/notifications`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        },
-        params: {
-          limit: 200,
-          includeRead: false
+      const response = await axios.get(
+        `${API_BASE_URL}/api/dgm-operations/notifications`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          },
+          params: {
+            limit: 200,
+            includeRead: false
+          }
         }
-      });
+      );
 
       if (response.data?.success) {
         setNotifications(response.data.notifications || []);
@@ -106,14 +119,14 @@ const AdminNotifications: React.FC = () => {
     }
   }, [token]);
 
-  const markAsRead = async (notification: AdminNotification) => {
+  const markAsRead = async (notification: DGMOperationsNotification) => {
     if (!token || notification.is_read) {
       return;
     }
 
     try {
       const response = await axios.post(
-        `${API_BASE_URL}/api/admin/notifications/mark-read`,
+        `${API_BASE_URL}/api/dgm-operations/notifications/mark-read`,
         {
           sourceType: notification.source_type,
           sourceId: notification.source_id
@@ -134,7 +147,7 @@ const AdminNotifications: React.FC = () => {
         refreshGlobalCount();
       }
     } catch (err) {
-      console.error('Failed to mark admin notification as read:', err);
+      console.error('Failed to mark DGM Operations notification as read:', err);
     }
   };
 
@@ -145,7 +158,7 @@ const AdminNotifications: React.FC = () => {
 
     try {
       const response = await axios.post(
-        `${API_BASE_URL}/api/admin/notifications/mark-all-read`,
+        `${API_BASE_URL}/api/dgm-operations/notifications/mark-all-read`,
         {},
         {
           headers: {
@@ -159,7 +172,7 @@ const AdminNotifications: React.FC = () => {
         refreshGlobalCount();
       }
     } catch (err) {
-      console.error('Failed to mark all admin notifications as read:', err);
+      console.error('Failed to mark all DGM Operations notifications as read:', err);
     }
   };
 
@@ -170,8 +183,8 @@ const AdminNotifications: React.FC = () => {
       return;
     }
 
-    if (user?.role?.toLowerCase() !== 'admin') {
-      setError('Notifications are only accessible to admin users.');
+    if (normalizeRole(user?.role) !== 'dgm_operations') {
+      setError('Notifications are only accessible to DGM Operations users.');
       setState('error');
       return;
     }
@@ -187,16 +200,16 @@ const AdminNotifications: React.FC = () => {
         <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold text-gray-900 flex items-center gap-2">
-              <HiOutlineBell className="text-blue-600" />
-              Admin Notifications
+              <HiOutlineBell className="text-indigo-600" />
+              DGM Operations Notifications
             </h1>
             <p className="text-sm text-gray-600">
-              Direct messages from leadership roles and network-wide announcements routed to administrators.
+              Announcements from executive leadership and high-priority messages sent directly by administrators.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <div className="bg-white border border-gray-200 rounded-full px-4 py-1 text-sm text-gray-600">
-              Unread: <span className="font-semibold text-blue-600">{unreadCount}</span>
+              Unread: <span className="font-semibold text-indigo-600">{unreadCount}</span>
             </div>
             <button
               onClick={markAllAsRead}
@@ -236,7 +249,7 @@ const AdminNotifications: React.FC = () => {
               <article
                 key={`${notification.source_type}-${notification.source_id}`}
                 className={`bg-white rounded-lg border ${
-                  notification.is_read ? 'border-gray-200' : 'border-blue-200'
+                  notification.is_read ? 'border-gray-200' : 'border-indigo-200'
                 } shadow-sm p-5 transition-all`}
               >
                 <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
@@ -253,7 +266,7 @@ const AdminNotifications: React.FC = () => {
                         {SOURCE_LABEL[notification.source_type] || notification.source_type}
                       </span>
                       {!notification.is_read && (
-                        <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">
+                        <span className="px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 text-xs font-medium">
                           New
                         </span>
                       )}
@@ -262,8 +275,18 @@ const AdminNotifications: React.FC = () => {
                     <p className="text-sm text-gray-700 whitespace-pre-line">{notification.message}</p>
                     <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
                       <span>Received: {formatDate(notification.created_at)}</span>
-                      {notification.registration_number && <span>Bus: {notification.registration_number}</span>}
-                      {notification.status && <span>Status: {notification.status}</span>}
+                      {(() => {
+                        const senderRole =
+                          notification.meta && typeof notification.meta === 'object'
+                            ? notification.meta.senderRole
+                            : null;
+                        return typeof senderRole === 'string' && senderRole.trim() !== '' ? (
+                        <span>
+                          From:{' '}
+                          {formatRoleLabel(senderRole)}
+                        </span>
+                        ) : null;
+                      })()}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 md:flex-col md:items-end">
@@ -273,7 +296,7 @@ const AdminNotifications: React.FC = () => {
                       className={`px-4 py-2 rounded-md text-sm font-medium ${
                         notification.is_read
                           ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
-                          : 'bg-blue-600 text-white hover:bg-blue-700'
+                          : 'bg-indigo-600 text-white hover:bg-indigo-700'
                       }`}
                     >
                       {notification.is_read ? 'Read' : 'Mark as Read'}
@@ -289,4 +312,4 @@ const AdminNotifications: React.FC = () => {
   );
 };
 
-export default AdminNotifications;
+export default Notification;

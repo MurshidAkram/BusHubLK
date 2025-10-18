@@ -68,6 +68,13 @@ const Navbar: React.FC = () => {
             'Content-Type': 'application/json',
           },
         });
+      } else if (roleKey === 'dgm_operations') {
+        response = await fetch('http://localhost:5000/api/dgm-operations/notifications/unread-count', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
       } else if (roleKey === 'dgm_technical') {
         response = await fetch('http://localhost:5000/api/dgm-technical/notifications/unread-count', {
           headers: {
@@ -172,6 +179,8 @@ const Navbar: React.FC = () => {
       navigate('/regional-operations-officer/notifications');
     } else if (roleKey === 'depot_operations') {
       navigate('/depot-operations-manager/notificationscenter');
+    } else if (roleKey === 'dgm_operations') {
+      navigate('/dgm-operations/notifications');
     } else {
       alert('Notifications feature is not yet implemented for your role.');
     }
@@ -213,8 +222,10 @@ const Navbar: React.FC = () => {
       case 'regional_operations_officer':
       case 'regionaloperationsofficer':
         return '/regional-operations-officer';
+      case 'dgm_technical':
       case 'dgm-technical':
         return '/dgm-technical';
+      case 'dgm_operations':
       case 'dgm-operations':
         return '/dgm-operations';
       case 'ceo':

@@ -1,31 +1,19 @@
 const pool = require('../config/db');
 
-const ALLOWED_ANNOUNCEMENT_ROLES = [
-    'ceo',
-    'dgm_technical',
-    'dgm_operations',
-    'depot_operations',
-    'depot_manager',
-    'regional_tech',
-    'regional_operations',
-    'depot_engineer'
-];
-
-const ALLOWED_DIRECT_MESSAGE_ROLES = [
-    'ceo',
-    'depot_engineer',
-    'dgm_technical',
-    'dgm_operations',
-    'depot_operations',
-    'depot_manager',
-    'regional_tech',
-    'regional_operations'
-];
-
-const ALLOWED_ANNOUNCEMENT_ROLES_SQL = ALLOWED_ANNOUNCEMENT_ROLES.map((role) => `'${role.replace(/'/g, "''")}'`).join(', ');
-const ALLOWED_DIRECT_MESSAGE_ROLES_SQL = ALLOWED_DIRECT_MESSAGE_ROLES.map((role) => `'${role.replace(/'/g, "''")}'`).join(', ');
-
 const VALID_SOURCE_TYPES = ['announcement', 'direct_message'];
+
+const normalizeRole = (role = '') => role.toString().toLowerCase().replace(/\s+/g, '_').replace(/-/g, '_');
+
+const toSqlRoleList = (roles) =>
+    Array.from(new Set((roles || []).map((role) => normalizeRole(role))))
+        .map((role) => `'${role.replace(/'/g, "''")}'`)
+        .join(', ');
+
+const ALLOWED_ANNOUNCEMENT_ROLES = ['ceo', 'dgm_technical'];
+const ALLOWED_DIRECT_MESSAGE_ROLES = ['ceo', 'regional_operations', 'regional operations officer', 'regional_operations_officer', 'admin'];
+
+const ALLOWED_ANNOUNCEMENT_ROLES_SQL = toSqlRoleList(ALLOWED_ANNOUNCEMENT_ROLES);
+const ALLOWED_DIRECT_MESSAGE_ROLES_SQL = toSqlRoleList(ALLOWED_DIRECT_MESSAGE_ROLES);
 
 const UNION_NOTIFICATIONS_CTE = `
   WITH union_notifications AS (
@@ -64,7 +52,7 @@ const UNION_NOTIFICATIONS_CTE = `
     JOIN users u ON m.sender_id = u.user_id
     JOIN roles r ON u.role_id = r.role_id
     WHERE c.channel_type = 'announcement'
-      AND LOWER(r.role_name) = ANY (ARRAY[${ALLOWED_ANNOUNCEMENT_ROLES_SQL}])
+      AND LOWER(REPLACE(REPLACE(r.role_name, ' ', '_'), '-', '_')) = ANY (ARRAY[${ALLOWED_ANNOUNCEMENT_ROLES_SQL}])
 
     UNION ALL
 
@@ -107,7 +95,7 @@ const UNION_NOTIFICATIONS_CTE = `
     JOIN roles r ON u.role_id = r.role_id
     WHERE c.channel_type = 'direct'
       AND m.sender_id <> $1
-      AND LOWER(r.role_name) = ANY (ARRAY[${ALLOWED_DIRECT_MESSAGE_ROLES_SQL}])
+      AND LOWER(REPLACE(REPLACE(r.role_name, ' ', '_'), '-', '_')) = ANY (ARRAY[${ALLOWED_DIRECT_MESSAGE_ROLES_SQL}])
       AND NOT EXISTS (
         SELECT 1
         FROM message_read_status mrs
@@ -119,7 +107,7 @@ const UNION_NOTIFICATIONS_CTE = `
 
 const validateSourceType = (sourceType) => VALID_SOURCE_TYPES.includes(sourceType);
 
-class AdminNotificationModel {
+class DGMOperationsNotificationModel {
     static async getNotifications({ userId, includeRead = false, limit = 100, offset = 0 }) {
         const safeLimit = Number.isFinite(Number(limit)) && Number(limit) > 0 ? Math.min(Number(limit), 200) : 100;
         const safeOffset = Number.isFinite(Number(offset)) && Number(offset) >= 0 ? Number(offset) : 0;
@@ -140,14 +128,14 @@ class AdminNotificationModel {
         un.region_id,
         un.priority,
         un.meta,
-        anr.read_at,
-        COALESCE(anr.is_read, false) AS is_read
+        dgonr.read_at,
+        COALESCE(dgonr.is_read, false) AS is_read
       FROM union_notifications un
-      LEFT JOIN admin_notifications_read anr
-        ON anr.user_id = $1
-       AND anr.source_type = un.source_type
-       AND anr.source_id = un.source_id
-      WHERE $2::boolean OR anr.id IS NULL
+      LEFT JOIN dgm_operations_notifications_read dgonr
+        ON dgonr.user_id = $1
+       AND dgonr.source_type = un.source_type
+       AND dgonr.source_id = un.source_id
+      WHERE $2::boolean OR dgonr.id IS NULL
       ORDER BY
         CASE
           WHEN un.source_type = 'direct_message' THEN 0
@@ -167,11 +155,11 @@ class AdminNotificationModel {
       ${UNION_NOTIFICATIONS_CTE}
       SELECT COUNT(*)::int AS count
       FROM union_notifications un
-      LEFT JOIN admin_notifications_read anr
-        ON anr.user_id = $1
-       AND anr.source_type = un.source_type
-       AND anr.source_id = un.source_id
-      WHERE anr.id IS NULL;
+      LEFT JOIN dgm_operations_notifications_read dgonr
+        ON dgonr.user_id = $1
+       AND dgonr.source_type = un.source_type
+       AND dgonr.source_id = un.source_id
+      WHERE dgonr.id IS NULL;
     `;
 
         const params = [userId];
@@ -187,7 +175,7 @@ class AdminNotificationModel {
         }
 
         const query = `
-      INSERT INTO admin_notifications_read (user_id, source_type, source_id, is_read, read_at)
+      INSERT INTO dgm_operations_notifications_read (user_id, source_type, source_id, is_read, read_at)
       VALUES ($1, $2, $3, TRUE, NOW())
       ON CONFLICT (user_id, source_type, source_id)
       DO UPDATE SET is_read = TRUE, read_at = NOW()
@@ -228,7 +216,7 @@ class AdminNotificationModel {
     static async markAllAsRead({ userId }) {
         const query = `
       ${UNION_NOTIFICATIONS_CTE}
-      INSERT INTO admin_notifications_read (user_id, source_type, source_id, is_read, read_at)
+      INSERT INTO dgm_operations_notifications_read (user_id, source_type, source_id, is_read, read_at)
       SELECT
         $1 AS user_id,
         un.source_type,
@@ -236,11 +224,11 @@ class AdminNotificationModel {
         TRUE AS is_read,
         NOW() AS read_at
       FROM union_notifications un
-      LEFT JOIN admin_notifications_read anr
-        ON anr.user_id = $1
-       AND anr.source_type = un.source_type
-       AND anr.source_id = un.source_id
-      WHERE anr.id IS NULL
+      LEFT JOIN dgm_operations_notifications_read dgonr
+        ON dgonr.user_id = $1
+       AND dgonr.source_type = un.source_type
+       AND dgonr.source_id = un.source_id
+      WHERE dgonr.id IS NULL
       RETURNING source_type, source_id;
     `;
 
@@ -282,4 +270,4 @@ class AdminNotificationModel {
     }
 }
 
-module.exports = AdminNotificationModel;
+module.exports = DGMOperationsNotificationModel;

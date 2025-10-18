@@ -1,37 +1,19 @@
-const AdminNotificationModel = require('../models/adminNotificationModel');
+const DGMOperationsNotificationModel = require('../models/dgmOperationsNotificationModel');
 
-const parseLimit = (value) => {
-    const numeric = Number(value);
-    if (!Number.isFinite(numeric) || numeric <= 0) {
-        return 100;
-    }
-    return Math.min(numeric, 200);
-};
-
-const parseOffset = (value) => {
-    const numeric = Number(value);
-    if (!Number.isFinite(numeric) || numeric < 0) {
-        return 0;
-    }
-    return numeric;
-};
-
-const handleError = (res, error, fallback) => {
-    console.error('Admin notification error:', error);
+const handleControllerError = (res, error, fallbackMessage) => {
+    console.error('DGM Operations notification error:', error);
     const status = error.statusCode || 500;
-    res.status(status).json({
-        success: false,
-        message: error.message || fallback
-    });
+    const message = error.message || fallbackMessage;
+    res.status(status).json({ success: false, message });
 };
 
 const getNotifications = async (req, res) => {
     try {
-        const limit = parseLimit(req.query.limit);
-        const offset = parseOffset(req.query.offset);
+        const limit = Number(req.query.limit) > 0 ? Math.min(Number(req.query.limit), 200) : 100;
+        const offset = Number(req.query.offset) >= 0 ? Number(req.query.offset) : 0;
         const includeRead = req.query.includeRead === 'true';
 
-        const notifications = await AdminNotificationModel.getNotifications({
+        const notifications = await DGMOperationsNotificationModel.getNotifications({
             userId: req.user.userId,
             includeRead,
             limit,
@@ -44,19 +26,19 @@ const getNotifications = async (req, res) => {
             notifications
         });
     } catch (error) {
-        handleError(res, error, 'Failed to fetch admin notifications');
+        handleControllerError(res, error, 'Failed to fetch DGM Operations notifications');
     }
 };
 
 const getUnreadCount = async (req, res) => {
     try {
-        const unreadCount = await AdminNotificationModel.getUnreadCount({
+        const unreadCount = await DGMOperationsNotificationModel.getUnreadCount({
             userId: req.user.userId
         });
 
         res.status(200).json({ success: true, unreadCount });
     } catch (error) {
-        handleError(res, error, 'Failed to fetch admin unread count');
+        handleControllerError(res, error, 'Failed to fetch DGM Operations unread count');
     }
 };
 
@@ -79,7 +61,7 @@ const markAsRead = async (req, res) => {
             });
         }
 
-        const record = await AdminNotificationModel.markAsRead({
+        const record = await DGMOperationsNotificationModel.markAsRead({
             userId: req.user.userId,
             sourceType,
             sourceId: numericSourceId
@@ -87,13 +69,13 @@ const markAsRead = async (req, res) => {
 
         res.status(200).json({ success: true, record });
     } catch (error) {
-        handleError(res, error, 'Failed to mark admin notification as read');
+        handleControllerError(res, error, 'Failed to mark DGM Operations notification as read');
     }
 };
 
 const markAllAsRead = async (req, res) => {
     try {
-        const updated = await AdminNotificationModel.markAllAsRead({
+        const updated = await DGMOperationsNotificationModel.markAllAsRead({
             userId: req.user.userId
         });
 
@@ -103,7 +85,7 @@ const markAllAsRead = async (req, res) => {
             updated
         });
     } catch (error) {
-        handleError(res, error, 'Failed to mark admin notifications as read');
+        handleControllerError(res, error, 'Failed to mark DGM Operations notifications as read');
     }
 };
 
