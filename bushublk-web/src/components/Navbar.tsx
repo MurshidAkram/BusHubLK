@@ -54,7 +54,14 @@ const Navbar: React.FC = () => {
 
     try {
       let response;
-      if (roleKey === 'depot_engineer') {
+      if (roleKey === 'admin') {
+        response = await fetch('http://localhost:5000/api/admin/notifications/unread-count', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+      } else if (roleKey === 'depot_engineer') {
         response = await fetch('http://localhost:5000/api/depot-engineer/notifications/unread-count', {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -111,6 +118,8 @@ const Navbar: React.FC = () => {
           count = data.notifications?.length || 0;
         } else if (roleKey === 'depot_manager') {
           count = Number.isFinite(Number(data.unreadCount)) ? Number(data.unreadCount) : 0;
+        } else if (roleKey === 'admin') {
+          count = Number.isFinite(Number(data.unreadCount)) ? Number(data.unreadCount) : 0;
         }
         setNotificationCount(count);
       } else {
@@ -149,7 +158,9 @@ const Navbar: React.FC = () => {
   // Handle notification click
   const handleNotificationClick = () => {
     console.log('User role:', userRoleLabel); // Debug log
-    if (roleKey === 'depot_engineer') {
+    if (roleKey === 'admin') {
+      navigate('/admin/notifications');
+    } else if (roleKey === 'depot_engineer') {
       navigate('/depot-engineer/notifications');
     } else if (roleKey === 'dgm_technical') {
       navigate('/dgm-technical/Dgmtech_notification');

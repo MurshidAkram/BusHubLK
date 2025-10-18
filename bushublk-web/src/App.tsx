@@ -20,6 +20,7 @@ import Employees from './pages/dashboards/admin/Employees'
 import BusManaging from './pages/dashboards/admin/BusManaging'
 import RoutesMngmnt from './pages/dashboards/admin/RoutesMngmnt'
 import CommunicationHub from './pages/dashboards/depot-manager/communicationHub'
+import AdminNotifications from './pages/dashboards/admin/Notifications'
 
 
 
@@ -178,6 +179,7 @@ const App = () => {
     <Route path="buses" element={<BusManaging />} />
     <Route path="routes" element={<RoutesMngmnt />} />
       <Route path="communication-hub" element={<CommunicationHub />} />
+    <Route path="notifications" element={<AdminNotifications />} />
     {/* Add more admin routes as needed */}
   </Route>
 </Route>

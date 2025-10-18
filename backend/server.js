@@ -263,6 +263,14 @@ try {
 }
 
 try {
+  const adminNotificationRoutes = require('./routes/adminNotificationRoutes');
+  app.use('/api/admin', adminNotificationRoutes);
+  console.log('✅ adminNotificationRoutes loaded');
+} catch (error) {
+  console.log('❌ adminNotificationRoutes error:', error.message);
+}
+
+try {
   const passengerNotificationRoutes = require('./routes/passengerNotificationRoutes');
   app.use('/api/passenger-notifications', passengerNotificationRoutes);
   console.log('✅ passengerNotificationRoutes loaded');

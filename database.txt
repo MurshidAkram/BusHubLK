@@ -1064,3 +1064,21 @@ CREATE INDEX idx_dgm_technical_notifications_read_user
 
 CREATE INDEX idx_dgm_technical_notifications_read_source
     ON dgm_technical_notifications_read (source_type, source_id);
+
+
+
+CREATE TABLE admin_notifications_read (
+    id SERIAL PRIMARY KEY,
+    user_id        INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    source_type    TEXT    NOT NULL,             -- 'announcement' | 'direct_message' | 'emergency_escalated'
+    source_id      BIGINT  NOT NULL,             
+    is_read        BOOLEAN NOT NULL DEFAULT TRUE,
+    read_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (user_id, source_type, source_id)
+);
+
+CREATE INDEX idx_admin_notifications_read_user
+    ON admin_notifications_read (user_id);
+
+CREATE INDEX idx_admin_notifications_read_source
+    ON admin_notifications_read (source_type, source_id);
