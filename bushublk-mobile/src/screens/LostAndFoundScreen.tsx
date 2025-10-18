@@ -82,6 +82,7 @@ interface Report {
   time_ago: string;
   first_name?: string;
   last_name?: string;
+  driver_name?: string;
   item_photo_url?: string;
   reward_offered?: number;
   approximate_location?: string;
@@ -95,6 +96,9 @@ interface Report {
   handover_date?: string;
   handover_notes?: string;
   depot_name?: string;
+  depot_contact_phone?: string;
+  driver_depot_name?: string;
+  driver_depot_phone?: string;
 }
 
 interface Route {
@@ -1177,7 +1181,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
                 <Text style={styles.contactName}>
                   <Text style={styles.contactLabel}>Contact: </Text>
                   {report.driver_id
-                    ? `Driver ${report.first_name || 'Unknown'}${report.last_name ? ` ${report.last_name.charAt(0)}.` : ''}`
+                    ? `${report.driver_name || 'Unknown'} (SLTB Driver)`
                     : (report.first_name ? `${report.first_name} ${report.last_name?.charAt(0) || ''}.` : 'Anonymous')
                   }
                 </Text>
@@ -1222,6 +1226,41 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
                       <Text style={styles.contactButtonText}>Email</Text>
                     </TouchableOpacity>
                   )}
+                </View>
+              )}
+
+              {/* Show depot collection message for driver reports */}
+              {report.driver_id && !report.handed_to_depot_id && (
+                <View style={styles.depotCollectionMessage}>
+                  <View style={styles.depotInfoRow}>
+                    <Ionicons name="business" size={20} color={AppColors.success} />
+                    <View style={styles.depotInfoTextContainer}>
+                      <Text style={styles.depotCollectionTitle}>Item Available at Depot</Text>
+                      {report.driver_depot_name && (
+                        <Text style={styles.depotCollectionText}>
+                          You can collect your item at <Text style={styles.depotNameBold}>{report.driver_depot_name}</Text>
+                        </Text>
+                      )}
+                      {!report.driver_depot_name && (
+                        <Text style={styles.depotCollectionText}>
+                          You can come and collect your item at the depot.
+                        </Text>
+                      )}
+                      {report.driver_depot_phone && (
+                        <TouchableOpacity
+                          style={styles.depotPhoneButton}
+                          onPress={() => {
+                            Linking.openURL(`tel:${report.driver_depot_phone}`);
+                          }}
+                        >
+                          <Ionicons name="call" size={16} color={AppColors.primary} />
+                          <Text style={styles.depotPhoneText}>
+                            Call Depot: {report.driver_depot_phone}
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </View>
                 </View>
               )}
             </View>
@@ -4124,6 +4163,63 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: AppColors.textSecondary,
     lineHeight: 20,
+  },
+
+  depotCollectionMessage: {
+    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.2)',
+  },
+
+  depotInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+
+  depotInfoTextContainer: {
+    flex: 1,
+  },
+
+  depotCollectionTitle: {
+    fontSize: 14,
+    color: AppColors.text,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+
+  depotCollectionText: {
+    fontSize: 13,
+    color: AppColors.textSecondary,
+    lineHeight: 18,
+    marginBottom: 6,
+  },
+
+  depotNameBold: {
+    fontWeight: '700',
+    color: AppColors.success,
+  },
+
+  depotPhoneButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: AppColors.primary + '15',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    gap: 6,
+    marginTop: 4,
+    alignSelf: 'flex-start',
+  },
+
+  depotPhoneText: {
+    fontSize: 13,
+    color: AppColors.primary,
+    fontWeight: '600',
   },
 
   // Modal styles
