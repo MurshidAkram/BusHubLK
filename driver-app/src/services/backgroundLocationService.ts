@@ -26,6 +26,9 @@ let lastUpdateTime: number | null = null;
 // Foreground tracking subscription for Expo Go
 let foregroundSubscription: Location.LocationSubscription | null = null;
 
+// Watchdog timer to detect stalled location updates
+let locationWatchdog: NodeJS.Timeout | null = null;
+
 interface LocationUpdate {
   latitude: number;
   longitude: number;
@@ -165,6 +168,19 @@ async function sendLocationUpdate(locationData: OfflineQueueItem): Promise<boole
     console.log('🔑 Auth token found, sending request...');
     console.log('🌐 API URL:', `${API_BASE_URL}/live-tracking/position`);
 
+    // Validate location data before creating payload
+    if (!locationData.busId || !locationData.routeId || !locationData.driverId) {
+      console.error('❌ Missing required fields in locationData:', {
+        hasBusId: !!locationData.busId,
+        hasRouteId: !!locationData.routeId,
+        hasDriverId: !!locationData.driverId,
+        busId: locationData.busId,
+        routeId: locationData.routeId,
+        driverId: locationData.driverId
+      });
+      return false;
+    }
+
     const payload = {
       driver_id: locationData.driverId,
       bus_id: locationData.busId,
@@ -176,7 +192,7 @@ async function sendLocationUpdate(locationData: OfflineQueueItem): Promise<boole
       accuracy: locationData.accuracy || 0,
     };
     
-    console.log('📦 Payload:', payload);
+    console.log('📦 Payload to send:', JSON.stringify(payload, null, 2));
 
     const response = await axios.post(
       `${API_BASE_URL}/live-tracking/position`,
@@ -325,6 +341,26 @@ export class BackgroundLocationService {
       // ========================================
       if (isExpoGo) {
         console.log('🎯 Using FOREGROUND tracking for Expo Go');
+        console.log('📋 [Expo Go] Assignment parameters:', { 
+          driverId, 
+          busId, 
+          routeId,
+          types: {
+            driverId: typeof driverId,
+            busId: typeof busId,
+            routeId: typeof routeId
+          }
+        });
+        
+        // Validate parameters
+        if (!driverId || !busId || !routeId) {
+          console.error('❌ [Expo Go] Invalid parameters provided to startTracking!');
+          Alert.alert(
+            'Tracking Error',
+            'Missing required information (Driver ID, Bus ID, or Route ID). Please try again.'
+          );
+          return false;
+        }
         
         // Stop any existing foreground subscription
         if (foregroundSubscription) {
@@ -335,12 +371,23 @@ export class BackgroundLocationService {
 
         // Start foreground location tracking
         console.log('🚀 Starting foreground location updates...');
+        
+        // iOS/Android optimized configuration for Expo Go
+        const locationOptions: Location.LocationOptions = {
+          accuracy: Location.Accuracy.High,
+          timeInterval: 5000, // Minimum time between updates (5 seconds)
+          distanceInterval: 0, // Set to 0 to get updates based on time only, not distance
+        };
+        
+        // Add iOS-specific options for better reliability
+        if (Platform.OS === 'ios') {
+          (locationOptions as any).mayShowUserSettingsDialog = true;
+        }
+        
+        console.log('📋 Location options:', locationOptions);
+        
         foregroundSubscription = await Location.watchPositionAsync(
-          {
-            accuracy: Location.Accuracy.High,
-            timeInterval: 5000, // Update every 5 seconds
-            distanceInterval: 10, // Update every 10 meters
-          },
+          locationOptions,
           async (location) => {
             try {
               console.log(`📍 Foreground location update: ${location.coords.latitude.toFixed(6)}, ${location.coords.longitude.toFixed(6)}`);
@@ -357,8 +404,49 @@ export class BackgroundLocationService {
               if (lastUpdateTime) {
                 const intervalSeconds = ((now - lastUpdateTime) / 1000).toFixed(1);
                 console.log(`⏱️ Update interval: ${intervalSeconds}s`);
+                
+                // Warn if interval is too large
+                if (parseFloat(intervalSeconds) > 15) {
+                  console.warn(`⚠️ [Expo Go] Large update gap: ${intervalSeconds}s - Location updates may be throttled`);
+                }
               }
               lastUpdateTime = now;
+              
+              // Reset watchdog timer - we got an update!
+              if (locationWatchdog) {
+                clearTimeout(locationWatchdog);
+              }
+              locationWatchdog = setTimeout(() => {
+                console.warn('⚠️ [Expo Go] No location updates for 30 seconds! Location tracking may have stopped.');
+                console.warn('💡 Try: 1) Check location permissions, 2) Restart the app, 3) Check if GPS is enabled');
+              }, 30000); // 30 seconds
+
+              // Validate assignment data before creating location update
+              console.log('🔍 [Expo Go] Validating assignment data:', { driverId, busId, routeId });
+              
+              if (!driverId || !busId || !routeId) {
+                console.error('❌ [Expo Go] Missing required assignment data!', { 
+                  driverId, 
+                  busId, 
+                  routeId,
+                  hasForegroundSub: !!foregroundSubscription 
+                });
+                
+                // Try to reload from AsyncStorage as fallback
+                try {
+                  const storedAssignment = await AsyncStorage.getItem(ACTIVE_ASSIGNMENT_KEY);
+                  if (storedAssignment) {
+                    const parsed = JSON.parse(storedAssignment);
+                    console.log('📦 [Expo Go] Reloaded assignment from storage:', parsed);
+                  } else {
+                    console.error('❌ [Expo Go] No assignment in AsyncStorage either!');
+                  }
+                } catch (e) {
+                  console.error('❌ [Expo Go] Failed to reload assignment:', e);
+                }
+                
+                return; // Skip this update
+              }
 
               const locationUpdate: OfflineQueueItem = {
                 latitude: location.coords.latitude,
@@ -371,6 +459,13 @@ export class BackgroundLocationService {
                 busId,
                 routeId,
               };
+
+              console.log('✅ [Expo Go] Location update prepared:', {
+                coords: `${location.coords.latitude.toFixed(6)}, ${location.coords.longitude.toFixed(6)}`,
+                driverId,
+                busId,
+                routeId
+              });
 
               // Try to send location update immediately
               const success = await sendLocationUpdate(locationUpdate);
@@ -389,10 +484,20 @@ export class BackgroundLocationService {
           }
         );
 
+        // Start watchdog timer to detect stalled updates
+        console.log('⏰ Starting location watchdog timer (30s)...');
+        if (locationWatchdog) {
+          clearTimeout(locationWatchdog);
+        }
+        locationWatchdog = setTimeout(() => {
+          console.warn('⚠️ [Expo Go] No location updates received for 30 seconds after starting tracking!');
+          console.warn('💡 Possible issues: 1) GPS not ready, 2) Permissions issue, 3) Device location services off');
+        }, 30000);
+
         console.log('✅ Foreground location tracking started successfully');
         Alert.alert(
           '✅ Tracking Started (Foreground)', 
-          'Your location is being tracked while the app is open.\n\n• Updates every 5 seconds or 10 meters\n• Keep app open for continuous tracking\n• For background tracking, use a standalone build\n\nPassengers can see your bus in real-time!',
+          'Your location is being tracked while the app is open.\n\n• Updates every 5 seconds (time-based)\n• Works even when stationary\n• Keep app open for continuous tracking\n• For background tracking, use a standalone build\n\nPassengers can see your bus in real-time!',
           [{ text: 'Got it!' }]
         );
         return true;
@@ -460,7 +565,7 @@ export class BackgroundLocationService {
       const locationConfig: any = {
         accuracy: Location.Accuracy.High,
         timeInterval: 5000, // Update every 5 seconds
-        distanceInterval: 10, // Update every 10 meters
+        distanceInterval: 0, // Set to 0 for time-based updates only (no distance requirement)
         pausesUpdatesAutomatically: false, // Keep tracking even when stationary
         foregroundService: {
           notificationTitle: '🚌 BusHub Driver - Tracking Active',
@@ -472,7 +577,7 @@ export class BackgroundLocationService {
       // Add iOS-specific settings only on iOS
       if (Platform.OS === 'ios') {
         locationConfig.deferredUpdatesInterval = 5000;
-        locationConfig.deferredUpdatesDistance = 10;
+        locationConfig.deferredUpdatesDistance = 0; // Time-based only
         locationConfig.activityType = Location.ActivityType.AutomotiveNavigation;
         locationConfig.showsBackgroundLocationIndicator = true;
       }
@@ -501,13 +606,14 @@ export class BackgroundLocationService {
         busId,
         routeId,
         accuracy: 'High',
-        interval: '5s / 10m',
+        interval: '5s (time-based only)',
+        distanceInterval: '0 (disabled)',
         foregroundService: true,
       });
       
       Alert.alert(
         '✅ Tracking Started', 
-        'Your location is now being tracked continuously.\n\n• Updates every 5 seconds or 10 meters\n• Works even when app is closed\n• Notification will show while tracking\n\nPassengers can now see your bus in real-time!',
+        'Your location is now being tracked continuously.\n\n• Updates every 5 seconds\n• Works even when bus is stationary\n• Works even when app is closed\n• Notification will show while tracking\n\nPassengers can now see your bus in real-time!',
         [{ text: 'Got it!' }]
       );
       return true;
@@ -548,6 +654,14 @@ export class BackgroundLocationService {
       // ========================================
       if (isExpoGo) {
         console.log('🛑 Stopping foreground subscription...');
+        
+        // Clear watchdog timer
+        if (locationWatchdog) {
+          clearTimeout(locationWatchdog);
+          locationWatchdog = null;
+          console.log('⏰ Watchdog timer cleared');
+        }
+        
         if (foregroundSubscription) {
           foregroundSubscription.remove();
           foregroundSubscription = null;

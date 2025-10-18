@@ -22,6 +22,12 @@ class LostFoundReport {
     this.created_at = data.created_at;
     this.updated_at = data.updated_at;
     this.expires_at = data.expires_at;
+    this.resolved_date = data.resolved_date;
+    // Depot handover fields
+    this.handed_to_depot_id = data.handed_to_depot_id;
+    this.handover_date = data.handover_date;
+    this.handover_notes = data.handover_notes;
+    this.handover_updated_by = data.handover_updated_by;
   }
 
   // Create a new report
@@ -85,22 +91,25 @@ class LostFoundReport {
   // Find all reports with optional filters
   static async findAll(filters = {}) {
     let query = `
-      SELECT 
+      SELECT
         r.*,
         p.first_name,
         p.last_name,
         rt.route_name,
         reg.region_name,
         d.depot_name,
+        r.handover_date,
+        r.handover_notes,
         CASE
-          WHEN r.created_at > NOW() - INTERVAL '1 hour' THEN 'An hour before'
+          WHEN r.created_at > NOW() - INTERVAL '1 minute' THEN 'Just now'
+          WHEN r.created_at > NOW() - INTERVAL '1 hour' THEN EXTRACT(MINUTE FROM NOW() - r.created_at) || ' minutes ago'
           WHEN r.created_at > NOW() - INTERVAL '1 day' THEN EXTRACT(HOUR FROM NOW() - r.created_at) || ' hours ago'
           ELSE EXTRACT(DAY FROM NOW() - r.created_at) || ' days ago'
         END as time_ago
       FROM lost_found_reports r
-      LEFT JOIN passengers pas ON r.passenger_id = pas.passenger_id 
+      LEFT JOIN passengers pas ON r.passenger_id = pas.passenger_id
       LEFT JOIN users p ON pas.passenger_id = p.user_id
-      LEFT JOIN routes rt ON r.route_number = rt.route_number       
+      LEFT JOIN routes rt ON r.route_number = rt.route_number
       LEFT JOIN regions reg ON r.region_id = reg.region_id
       LEFT JOIN depots d ON r.handed_to_depot_id = d.depot_id
       WHERE r.status = $1
@@ -168,6 +177,9 @@ class LostFoundReport {
       last_name: row.last_name,
       route_name: row.route_name,
       region_name: row.region_name,
+      depot_name: row.depot_name,
+      handover_date: row.handover_date,
+      handover_notes: row.handover_notes,
       time_ago: row.time_ago
     }));
   }

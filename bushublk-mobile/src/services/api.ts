@@ -6,7 +6,7 @@ import { busLiveTrackingAPI } from '../services/busLiveTrackingAPI';
 // Create axios instance
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  timeout: 15000, // Increased from 10s to 15s to handle slow queries
   headers: {
     'Content-Type': 'application/json',
   },
@@ -207,9 +207,9 @@ export const storageAPI = {
 export { busLiveTrackingAPI, API_BASE_URL };
 
 export const complaintAPI = {
-  searchBusRoutes: async (query: string) => {
+  searchBusRoutes: async (query: string, type: 'route' | 'bus' | 'all' = 'all') => {
     const response = await api.get('/api/complaints/bus-routes', {
-      params: { query },
+      params: { query, type },
     });
     return response.data;
   },

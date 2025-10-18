@@ -21,6 +21,10 @@ interface Region {
   region_name: string;
   created_at?: string;
   updated_at?: string;
+  rto_name?: string | null;
+  rto_phone?: string | null;
+  roo_name?: string | null;
+  roo_phone?: string | null;
 }
 
 interface Depot {
@@ -55,9 +59,7 @@ const DepotAndRegions = () => {
     name: '',
     region_id: '',
     address: '',
-    contact_phone: '',
-    latitude: '',
-    longitude: ''
+    contact_phone: ''
   });
 
   // Fetch data
@@ -125,9 +127,7 @@ const DepotAndRegions = () => {
       name: '',
       region_id: '',
       address: '',
-      contact_phone: '',
-      latitude: '',
-      longitude: ''
+      contact_phone: ''
     });
     setCurrentItem(null);
     setEditMode(false);
@@ -171,16 +171,6 @@ const DepotAndRegions = () => {
       } else if (!/^\+?[1-9]\d{1,14}$/.test(formData.contact_phone)) {
         errors.contact_phone = 'Invalid phone number format';
       }
-      if (!formData.latitude) {
-        errors.latitude = 'Latitude is required';
-      } else if (isNaN(Number(formData.latitude))) {
-        errors.latitude = 'Latitude must be a number';
-      }
-      if (!formData.longitude) {
-        errors.longitude = 'Longitude is required';
-      } else if (isNaN(Number(formData.longitude))) {
-        errors.longitude = 'Longitude must be a number';
-      }
     }
     
     setFormErrors(errors);
@@ -211,9 +201,7 @@ const DepotAndRegions = () => {
             depot_name: formData.name,
             region_id: formData.region_id,
             address: formData.address,
-            contact_phone: formData.contact_phone,
-            latitude: parseFloat(formData.latitude),
-            longitude: parseFloat(formData.longitude)
+            contact_phone: formData.contact_phone
           }
         : {
             region_name: formData.name
@@ -240,7 +228,7 @@ const DepotAndRegions = () => {
       if (activeTab === 'depots') {
         if (editMode) {
           setDepots(depots.map(d => 
-            d.depot_id === currentItem?.depot_id ? data.depot : d
+            d.depot_id === (currentItem as Depot)?.depot_id ? data.depot : d
           ));
         } else {
           setDepots([...depots, data.depot]);
@@ -274,9 +262,7 @@ const DepotAndRegions = () => {
         name: depot.depot_name,
         region_id: depot.region_id,
         address: depot.address,
-        contact_phone: depot.contact_phone,
-        latitude: depot.latitude.toString(),
-        longitude: depot.longitude.toString()
+        contact_phone: depot.contact_phone
       });
     } else {
       const region = item as Region;
@@ -284,9 +270,7 @@ const DepotAndRegions = () => {
         name: region.region_name,
         region_id: '',
         address: '',
-        contact_phone: '',
-        latitude: '',
-        longitude: ''
+        contact_phone: ''
       });
     }
   };
@@ -532,42 +516,6 @@ const DepotAndRegions = () => {
                       )}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Latitude *
-                        </label>
-                        <input
-                          type="number"
-                          name="latitude"
-                          value={formData.latitude}
-                          onChange={handleInputChange}
-                          step="any"
-                          className={`w-full px-3 py-2 border ${formErrors.latitude ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
-                          required
-                        />
-                        {formErrors.latitude && (
-                          <p className="mt-1 text-sm text-red-600">{formErrors.latitude}</p>
-                        )}
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Longitude *
-                        </label>
-                        <input
-                          type="number"
-                          name="longitude"
-                          value={formData.longitude}
-                          onChange={handleInputChange}
-                          step="any"
-                          className={`w-full px-3 py-2 border ${formErrors.longitude ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
-                          required
-                        />
-                        {formErrors.longitude && (
-                          <p className="mt-1 text-sm text-red-600">{formErrors.longitude}</p>
-                        )}
-                      </div>
-                    </div>
                   </>
                 )}
 
@@ -627,14 +575,16 @@ const DepotAndRegions = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {currentItems.length === 0 ? (
+                      {currentItems.length === 0 ? (
                       <tr>
                         <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
                           No depots found
                         </td>
                       </tr>
                     ) : (
-                      currentItems.map((depot) => (
+                      currentItems.map((item) => {
+                        const depot = item as Depot;
+                        return (
                         <tr key={depot.depot_id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
@@ -645,15 +595,11 @@ const DepotAndRegions = () => {
                                 <div className="text-sm font-medium text-gray-900">
                                   {depot.depot_name}
                                 </div>
-                                <div className="text-sm text-gray-500">
-                                  ID: {depot.depot_id}
-                                </div>
                               </div>
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-900">{depot.region_name}</div>
-                            <div className="text-sm text-gray-500">ID: {depot.region_id}</div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {depot.address}
@@ -683,7 +629,8 @@ const DepotAndRegions = () => {
                             </div>
                           </td>
                         </tr>
-                      ))
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
@@ -701,25 +648,24 @@ const DepotAndRegions = () => {
                         Depot Count
                       </th>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Created
+                        RTO (Name / Phone)
                       </th>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Updated
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
+                        RO (Name / Phone)
                       </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {currentItems.length === 0 ? (
+                      {currentItems.length === 0 ? (
                       <tr>
                         <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
                           No regions found
                         </td>
                       </tr>
                     ) : (
-                      currentItems.map((region) => (
+                      currentItems.map((item) => {
+                        const region = item as Region;
+                        return (
                         <tr key={region.region_id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
@@ -730,9 +676,6 @@ const DepotAndRegions = () => {
                                 <div className="text-sm font-medium text-gray-900">
                                   {region.region_name}
                                 </div>
-                                <div className="text-sm text-gray-500">
-                                  ID: {region.region_id}
-                                </div>
                               </div>
                             </div>
                           </td>
@@ -741,32 +684,21 @@ const DepotAndRegions = () => {
                               {depots.filter(d => d.region_id === region.region_id).length} depots
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {formatDate(region.created_at)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {formatDate(region.updated_at)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <div className="flex justify-end space-x-2">
-                              <button
-                                onClick={() => handleEdit(region)}
-                                className="text-blue-600 hover:text-blue-900"
-                                title="Edit"
-                              >
-                                <HiOutlinePencilAlt className="h-5 w-5" />
-                              </button>
-                              <button
-                                onClick={() => handleDelete(region.region_id)}
-                                className="text-red-600 hover:text-red-900"
-                                title="Delete"
-                              >
-                                <HiOutlineTrash className="h-5 w-5" />
-                              </button>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">
+                              {region.rto_name || '—'}
                             </div>
+                            <div className="text-sm text-gray-500">{region.rto_phone || ''}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">
+                              {region.roo_name || '—'}
+                            </div>
+                            <div className="text-sm text-gray-500">{region.roo_phone || ''}</div>
                           </td>
                         </tr>
-                      ))
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
