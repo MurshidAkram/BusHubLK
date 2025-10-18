@@ -267,6 +267,7 @@ const shouldTriggerCeoAnnouncementBroadcast = ({ channelId, senderId, channelCre
 
 module.exports = {
   hasNotifyCredentials,
+  sendSms,
   sendSmsToActivePassengers,
   shouldTriggerCeoAnnouncementBroadcast
 };

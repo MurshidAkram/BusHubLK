@@ -90,20 +90,41 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
 
   const fetchMessages = useCallback(async () => {
     try {
+      console.log(`🔍 Fetching messages for report ID: ${report.id}`);
       const token = await AsyncStorage.getItem("driverToken");
       const response = await fetch(`${API_BASE_URL}/emergency/${report.id}`, {
         method: "GET",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       });
-      if (!response.ok) throw new Error('Server responded with an error');
       
+      console.log(`📡 Response status: ${response.status}`);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("❌ Server error response:", response.status, errorText);
+        
+        if (response.status === 404) {
+          console.error(`❌ Report ID ${report.id} not found in database!`);
+          console.error('💡 This usually means the report was not committed or was rolled back.');
+        }
+        
+        throw new Error(`Server responded with status ${response.status}: ${errorText}`);
+      }
+
       const reportWithMessages = await response.json();
+      console.log("✅ Fetched report with messages:", JSON.stringify(reportWithMessages, null, 2));
+
       if (reportWithMessages && reportWithMessages.messages) {
         const normalizedMessages = reportWithMessages.messages.map((message: any) => normalizeMessage(message));
         setMessages(normalizedMessages);
+        console.log(`✅ Loaded ${normalizedMessages.length} messages`);
+      } else {
+        console.log("⚠️ No messages found in response");
+        setMessages([]);
       }
     } catch (error) {
-      console.error("Failed to fetch messages directly:", error);
+      console.error("❌ Failed to fetch messages directly:", error);
+      setMessages([]); // Clear messages on error
     }
   }, [report.id]);
 
