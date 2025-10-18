@@ -86,9 +86,12 @@ const Navbar: React.FC = () => {
         response = await fetch(`http://localhost:5000/api/depot/${depotId}/notifications`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-      } else if (roleKey === 'depot_manager' && depotId) {
-        response = await fetch(`http://localhost:5000/api/depot-manager/${depotId}/notifications`, {
-          headers: { Authorization: `Bearer ${token}` },
+      } else if (roleKey === 'depot_manager') {
+        response = await fetch('http://localhost:5000/api/depot-manager/notifications/unread-count', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
         });
       } else {
         response = await fetch('http://localhost:5000/api/notifications/unread-count', {
@@ -102,10 +105,13 @@ const Navbar: React.FC = () => {
       if (response.ok) {
         const data = await response.json();
         // Handle different response structures
-        const count =
-          roleKey === 'depot_operations' || roleKey === 'depot_manager'
-            ? data.notifications?.length || 0
-            : data.unreadCount || 0;
+        let count = data.unreadCount || 0;
+
+        if (roleKey === 'depot_operations') {
+          count = data.notifications?.length || 0;
+        } else if (roleKey === 'depot_manager') {
+          count = Number.isFinite(Number(data.unreadCount)) ? Number(data.unreadCount) : 0;
+        }
         setNotificationCount(count);
       } else {
         setNotificationCount(0);
