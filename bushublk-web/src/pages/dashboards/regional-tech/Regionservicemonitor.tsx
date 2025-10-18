@@ -2,6 +2,9 @@ import React, { useState, useEffect, useContext } from 'react';
 import { FaTimes } from 'react-icons/fa';
 import { AppContext } from '../../../context/AppContext';
 
+const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/$/, '');
+const buildApiUrl = (path: string) => `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
+
 interface BusDetail {
   bus_id: number;
   registration_number: string;
@@ -52,7 +55,7 @@ const Regionservicemonitor: React.FC = () => {
           return;
         }
 
-        const response = await fetch('http://localhost:5000/api/depots/service-monitor', {
+        const response = await fetch(buildApiUrl('/api/depots/service-monitor'), {
           headers: {
             Authorization: `Bearer ${token}`,
           },

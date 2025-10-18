@@ -13,6 +13,9 @@ import {
 import { HiUsers } from 'react-icons/hi';
 import { AppContext } from '../../../context/AppContext';
 
+const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/$/, '');
+const buildApiUrl = (path: string) => `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
+
 interface BusStatusData {
   status: string;
   count: number;
@@ -43,7 +46,7 @@ const MaintenanceDashboard = () => {
   
   // Inspection data states
   const [upcomingInspections, setUpcomingInspections] = useState<Inspection[]>([]);
-  const [completedInspections, setCompletedInspections] = useState<Inspection[]>([]);
+  const [, setCompletedInspections] = useState<Inspection[]>([]);
   const [inspectionCounts, setInspectionCounts] = useState({
     completed: 0,
     pending: 0
@@ -61,7 +64,7 @@ const MaintenanceDashboard = () => {
         if (!token) throw new Error('No authentication token found');
         
         // Fetch bus status summary
-        const response = await fetch('http://localhost:5000/api/dgm-technical/dashboard-summary', {
+        const response = await fetch(buildApiUrl('/api/dgm-technical/dashboard-summary'), {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -82,7 +85,7 @@ const MaintenanceDashboard = () => {
         }
         
         // Fetch depot count
-        const depotsRes = await fetch('http://localhost:5000/api/depots/service-monitor', {
+        const depotsRes = await fetch(buildApiUrl('/api/depots/service-monitor'), {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (depotsRes.ok) {
@@ -127,7 +130,7 @@ const MaintenanceDashboard = () => {
         let completedCount = 0;
 
         // Fetch upcoming inspections (pending)
-        const upcomingResponse = await fetch('http://localhost:5000/api/inspections/upcoming', { headers });
+  const upcomingResponse = await fetch(buildApiUrl('/api/inspections/upcoming'), { headers });
         if (upcomingResponse.ok) {
           const upcomingData = await upcomingResponse.json();
           upcoming = upcomingData.inspections || [];
@@ -135,7 +138,7 @@ const MaintenanceDashboard = () => {
         }
 
         // Fetch past inspections (completed within last month)
-        const pastResponse = await fetch('http://localhost:5000/api/inspections/past', { headers });
+  const pastResponse = await fetch(buildApiUrl('/api/inspections/past'), { headers });
         if (pastResponse.ok) {
           const pastData = await pastResponse.json();
           completed = pastData.inspections || [];
@@ -143,7 +146,7 @@ const MaintenanceDashboard = () => {
         }
 
         // Fetch total completed count from inspections table
-        const countResponse = await fetch('http://localhost:5000/api/inspections/status/Completed/count', { headers });
+  const countResponse = await fetch(buildApiUrl('/api/inspections/status/Completed/count'), { headers });
         if (countResponse.ok) {
           const countData = await countResponse.json();
           if (countData && countData.success) {
@@ -174,7 +177,7 @@ const MaintenanceDashboard = () => {
         if (!token) return;
 
         // Fetch RTO reports (emergency reports escalated to RTO)
-        const response = await fetch('http://localhost:5000/api/rto', {
+        const response = await fetch(buildApiUrl('/api/rto'), {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
