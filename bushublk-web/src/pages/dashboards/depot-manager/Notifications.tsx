@@ -45,6 +45,11 @@ const SOURCE_LABEL: Record<NotificationSourceType, string> = {
 	direct_message: 'Direct Message'
 };
 
+const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/+$/, '');
+const buildDepotManagerNotificationsUrl = () => `${API_BASE_URL}/api/depot-manager/notifications`;
+const buildDepotManagerMarkReadUrl = () => `${API_BASE_URL}/api/depot-manager/notifications/mark-read`;
+const buildDepotManagerMarkAllReadUrl = () => `${API_BASE_URL}/api/depot-manager/notifications/mark-all-read`;
+
 const Notifications: React.FC = () => {
 	const appContext = useContext(AppContext);
 	const token = appContext?.token || null;
@@ -85,7 +90,7 @@ const Notifications: React.FC = () => {
 		setError(null);
 
 		try {
-			const response = await axios.get('http://localhost:5000/api/depot-manager/notifications', {
+			const response = await axios.get(buildDepotManagerNotificationsUrl(), {
 				headers: {
 					Authorization: `Bearer ${token}`
 				},
@@ -114,7 +119,7 @@ const Notifications: React.FC = () => {
 
 		try {
 			const response = await axios.post(
-				'http://localhost:5000/api/depot-manager/notifications/mark-read',
+				buildDepotManagerMarkReadUrl(),
 				{
 					sourceType: notification.source_type,
 					sourceId: notification.source_id
@@ -144,7 +149,7 @@ const Notifications: React.FC = () => {
 
 		try {
 			const response = await axios.post(
-				'http://localhost:5000/api/depot-manager/notifications/mark-all-read',
+				buildDepotManagerMarkAllReadUrl(),
 				{},
 				{
 					headers: {
