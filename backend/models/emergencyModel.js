@@ -87,10 +87,10 @@ createReport: async (reportData, client = pool) => { // <-- Add client parameter
     return rows[0];
   },
 
-/**
-   * Finds the phone number of a Depot Engineer based on a driver's ID.
+  /**
+   * Finds the phone number of a Depot based on a driver's ID.
    * @param {number} driverId - The ID of the driver.
-   * @returns {Promise<Array<object>>} A promise that resolves to the query result.
+   * @returns {Promise<Array<object>>} A promise that resolves to the depot contact phone.
    */
   findDepotEngineerByDriverId: async (driverId) => {
     // First get the depot_id for the driver
@@ -115,23 +115,21 @@ createReport: async (reportData, client = pool) => { // <-- Add client parameter
         return [];
       }
 
-      const engineerQuery = {
+      // Fetch depot contact phone directly from depots table
+      const depotQuery = {
         text: `
-          SELECT u.phone
-          FROM users u
-          INNER JOIN depot_engineers de ON de.depot_engineer_id = u.user_id
-          WHERE de.depot_id = $1
-            AND u.role_id = 12
-            AND u.is_active = true
-          ORDER BY COALESCE(u.updated_at, u.created_at) DESC
-          LIMIT 1
+
+          SELECT contact_phone as phone
+          FROM depots
+          WHERE depot_id = $1
+            AND contact_phone IS NOT NULL
         `,
         values: [depotId]
       };
 
-      const engineerResult = await pool.query(engineerQuery);
-      console.log('[DEBUG] Engineer query result:', engineerResult.rows);
-      return engineerResult.rows;
+      const depotResult = await pool.query(depotQuery);
+      console.log('[DEBUG] Depot contact query result:', depotResult.rows);
+      return depotResult.rows;
       
     } catch (error) {
       console.error('[ERROR] Query error:', error);

@@ -242,11 +242,22 @@ const fetchRoutes = async () => {
       console.log('🔄 Fetching dynamic occupancy data for buses:', busIds);
       
       const response = await busOccupancyAPI.getAverageOccupancyLevels(busIds, 30); // 30-minute window
+      
+      console.log('📊 Raw occupancy API response:', JSON.stringify(response, null, 2));
+      console.log('📊 Occupancy data structure:', response.data);
+      
       setOccupancyData(response.data);
       
       console.log('✅ Updated occupancy data for buses:', Object.keys(response.data).length);
+      console.log('✅ Occupancy data keys:', Object.keys(response.data));
+      
+      // Log sample of occupancy data for debugging
+      Object.keys(response.data).forEach(busId => {
+        console.log(`Bus ${busId} occupancy:`, response.data[busId]);
+      });
     } catch (err: any) {
       console.error('❌ Error fetching occupancy data:', err.message);
+      console.error('❌ Full error:', err);
       // Don't show error to user as this is supplementary data
     }
   };
@@ -255,9 +266,20 @@ const fetchRoutes = async () => {
 
   // Merge dynamic occupancy data
   const enhanceBusesWithOccupancyData = useCallback((buses: BusLocation[]) => {
+    console.log('🔀 Merging occupancy data for buses...');
+    console.log('🔀 Available occupancy data keys:', Object.keys(occupancyData));
+    console.log('🔀 Bus IDs to merge:', buses.map(b => b.busId));
+    
     return buses.map(bus => {
       const dynamicData = occupancyData[bus.busId];
+      console.log(`🔀 Bus ${bus.busId} (${bus.registrationNumber}):`, {
+        hasData: !!dynamicData,
+        data: dynamicData,
+        level: dynamicData?.calculated_occupancy_level
+      });
+      
       if (dynamicData && dynamicData.calculated_occupancy_level !== 'unknown') {
+        console.log(`✅ Adding occupancy data to bus ${bus.busId}: ${dynamicData.calculated_occupancy_level}`);
         return {
           ...bus,
           dynamicOccupancy: {
@@ -275,6 +297,8 @@ const fetchRoutes = async () => {
             passengerFeedbackSummary: `${dynamicData.report_count} passenger report${dynamicData.report_count !== 1 ? 's' : ''} (${dynamicData.avg_confidence}% confidence)`
           }
         };
+      } else {
+        console.log(`❌ No valid occupancy data for bus ${bus.busId}`);
       }
       return bus;
     });
@@ -852,42 +876,58 @@ const fetchRoutes = async () => {
         </MapView>
 
         <View style={[styles.mapControls, isFullScreenMap && styles.fullScreenMapControls]}>
-          <TouchableOpacity
-            style={styles.mapControlButton}
-            onPress={() => {
-              console.log('🔄 Manual refresh triggered');
-              fetchBusLocations();
-              fetchOccupancyData();
-            }}
-          >
-            <Ionicons name="refresh" size={20} color={AppColors.primary} />
-            <Text style={styles.mapControlText}>Refresh</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.mapControlButton}
-            onPress={() => {
-              setSelectedRoute(null);
-              setSearchQuery('');
-            }}
-          >
-            <Ionicons name="filter-outline" size={20} color={AppColors.primary} />
-            <Text style={styles.mapControlText}>Reset</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.mapControlButton}
-            onPress={showAllBuses}
-          >
-            <Ionicons name="locate" size={20} color={AppColors.primary} />
-            <Text style={styles.mapControlText}>Fit All</Text>
-          </TouchableOpacity>
-          {isFullScreenMap && (
-            <TouchableOpacity
-              style={styles.mapControlButton}
-              onPress={() => getUserLocation()}
-            >
-              <Ionicons name="navigate" size={20} color={AppColors.primary} />
-              <Text style={styles.mapControlText}>My Location</Text>
-            </TouchableOpacity>
+          {!isFullScreenMap ? (
+            <>
+              <TouchableOpacity
+                style={styles.mapControlButton}
+                onPress={() => {
+                  console.log('🔄 Manual refresh triggered');
+                  fetchBusLocations();
+                  fetchOccupancyData();
+                }}
+              >
+                <Ionicons name="refresh" size={20} color={AppColors.primary} />
+                <Text style={styles.mapControlText}>Refresh</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.mapControlButton}
+                onPress={() => {
+                  setSelectedRoute(null);
+                  setSearchQuery('');
+                }}
+              >
+                <Ionicons name="filter-outline" size={20} color={AppColors.primary} />
+                <Text style={styles.mapControlText}>Reset</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.mapControlButton}
+                onPress={showAllBuses}
+              >
+                <Ionicons name="locate" size={20} color={AppColors.primary} />
+                <Text style={styles.mapControlText}>Fit All</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <TouchableOpacity
+                style={styles.mapControlButton}
+                onPress={() => {
+                  console.log('🔄 Manual refresh triggered');
+                  fetchBusLocations();
+                  fetchOccupancyData();
+                }}
+              >
+                <Ionicons name="refresh" size={20} color={AppColors.primary} />
+                <Text style={styles.mapControlText}>Refresh</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.mapControlButton}
+                onPress={() => getUserLocation()}
+              >
+                <Ionicons name="navigate" size={20} color={AppColors.primary} />
+                <Text style={styles.mapControlText}>My Location</Text>
+              </TouchableOpacity>
+            </>
           )}
         </View>
       </View>
@@ -941,60 +981,14 @@ const fetchRoutes = async () => {
         </LinearGradient>
       )}
 
-      {/* Full-screen map overlay with bus info */}
+      {/* Full-screen map - Shrink button */}
       {isFullScreenMap && (
-        <View style={styles.fullScreenOverlay}>
-          <View style={styles.fullScreenBusInfo}>
-            <Text style={styles.fullScreenTitle}>
-              Nearby Buses ({filteredBuses.length})
-            </Text>
-            {selectedRoute && (
-              <Text style={styles.fullScreenSubtitle}>
-                Filtered by Route {selectedRoute}
-              </Text>
-            )}
-            {selectedBus && (
-              <View style={styles.selectedBusInfo}>
-                <Text style={styles.selectedBusText}>
-                  Selected: {selectedBus.registrationNumber} (Route {selectedBus.routeNumber})
-                </Text>
-                {(() => {
-                  const occupancyDisplay = getOccupancyDisplayText(selectedBus);
-                  if (occupancyDisplay) {
-                    return (
-                      <>
-                        <Text style={[styles.selectedBusOccupancy, { color: occupancyDisplay.color }]}>
-                          {occupancyDisplay.overallCondition?.icon} {occupancyDisplay.overallCondition?.label || occupancyDisplay.text}
-                        </Text>
-                        <Text style={styles.selectedBusReliability}>
-                          📊 Based on passenger feedback
-                        </Text>
-                      </>
-                    );
-                  } else {
-                    return (
-                      <Text style={[styles.selectedBusOccupancy, { color: AppColors.textSecondary }]}>
-                        No occupancy data available
-                      </Text>
-                    );
-                  }
-                })()}
-              </View>
-            )}
-          </View>
-          <TouchableOpacity 
-            style={styles.fullScreenFilterButton}
-            onPress={() => {
-              // Quick access to clear filters
-              setSelectedRoute(null);
-              setSearchQuery('');
-              setSelectedBus(null);
-            }}
-          >
-            <Ionicons name="filter-outline" size={20} color="white" />
-            <Text style={styles.fullScreenFilterText}>Clear Filters</Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity 
+          style={styles.fullScreenShrinkButton}
+          onPress={toggleFullScreenMap}
+        >
+          <Ionicons name="contract-outline" size={24} color="white" />
+        </TouchableOpacity>
       )}
 
       <Modal
@@ -1549,29 +1543,28 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     zIndex: 20,
   },
-  fullScreenOverlay: {
+  fullScreenShrinkButton: {
     position: 'absolute',
     top: 16,
     left: 16,
-    right: 80, // Leave space for controls
+    backgroundColor: 'rgba(0, 86, 179, 0.95)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
     zIndex: 20,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
-  fullScreenBusInfo: {
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-  },
-  fullScreenTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+  fullScreenShrinkText: {
     color: 'white',
-    marginBottom: 4,
-  },
-  fullScreenSubtitle: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginBottom: 8,
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
   },
   selectedBusInfo: {
     marginTop: 8,
@@ -1588,22 +1581,6 @@ const styles = StyleSheet.create({
   selectedBusOccupancy: {
     fontSize: 14,
     color: 'rgba(255, 255, 255, 0.8)',
-  },
-  fullScreenFilterButton: {
-    backgroundColor: 'rgba(0, 86, 179, 0.9)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
-  },
-  fullScreenFilterText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 6,
   },
   // Enhanced Occupancy Styles
   occupancyMainRow: {

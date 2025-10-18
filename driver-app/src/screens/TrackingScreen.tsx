@@ -426,20 +426,13 @@ export default function TrackingScreen({ navigation }: any) {
                   styles.statusBadge,
                   { 
                     backgroundColor: assignmentData.status === 'active' ? AppColors.success : 
-                                   assignmentData.status === 'assigned' ? AppColors.warning : AppColors.textSecondary
+                                   assignmentData.status === 'assigned' || assignmentData.status === 'scheduled' ? AppColors.success : AppColors.textSecondary
                   }
                 ]}>
                   <Text style={styles.statusText}>
                     {assignmentData.status ? assignmentData.status.toUpperCase() : 'UNKNOWN'}
                   </Text>
                 </View>
-              </View>
-
-              <View style={styles.assignmentItem}>
-                <Text style={styles.assignmentLabel}>Route Details</Text>
-                <Text style={styles.assignmentSubValue}>
-                  {assignmentData.start_location} → {assignmentData.end_location}
-                </Text>
               </View>
 
               <View style={styles.assignmentItem}>
@@ -521,7 +514,7 @@ export default function TrackingScreen({ navigation }: any) {
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Bus ID:</Text>
             <Text style={styles.infoValue}>
-              {assignmentData ? `${assignmentData.bus_registration} (ID: ${assignmentData.bus_id})` : (trackingStatus.busId || 'N/A')}
+              {assignmentData ? assignmentData.bus_registration : (trackingStatus.busId || 'N/A')}
             </Text>
           </View>
 
@@ -563,39 +556,22 @@ export default function TrackingScreen({ navigation }: any) {
               <Text style={styles.cardTitle}>Current Location</Text>
             </View>
 
-            <View style={styles.locationGrid}>
-              <View style={styles.locationItem}>
-                <Text style={styles.locationLabel}>Latitude</Text>
-                <Text style={styles.locationValue}>
-                  {formatCoordinate(currentLocation.latitude)}
-                </Text>
-              </View>
-              
-              <View style={styles.locationItem}>
-                <Text style={styles.locationLabel}>Longitude</Text>
-                <Text style={styles.locationValue}>
-                  {formatCoordinate(currentLocation.longitude)}
-                </Text>
-              </View>
+            <View style={styles.locationNameContainer}>
+              <Text style={styles.locationName}>
+                {currentLocation.placeName || 'Fetching location...'}
+              </Text>
+            </View>
 
-              {currentLocation.accuracy && (
-                <View style={styles.locationItem}>
-                  <Text style={styles.locationLabel}>Accuracy</Text>
-                  <Text style={styles.locationValue}>
-                    {currentLocation.accuracy.toFixed(1)}m
-                  </Text>
-                </View>
-              )}
-
-              {currentLocation.speed && (
+            {currentLocation.speed && (
+              <View style={styles.locationGrid}>
                 <View style={styles.locationItem}>
                   <Text style={styles.locationLabel}>Speed</Text>
                   <Text style={styles.locationValue}>
                     {(currentLocation.speed * 3.6).toFixed(1)} km/h
                   </Text>
                 </View>
-              )}
-            </View>
+              </View>
+            )}
 
             <View style={styles.timestampRow}>
               <Text style={styles.timestampLabel}>Updated:</Text>
@@ -629,14 +605,6 @@ export default function TrackingScreen({ navigation }: any) {
                 <Text style={styles.historyLocation}>
                   {location.placeName || 'Unknown Location'}
                 </Text>
-                <Text style={styles.historyCoords}>
-                  {formatCoordinate(location.latitude)}, {formatCoordinate(location.longitude)}
-                </Text>
-                {location.accuracy && (
-                  <Text style={styles.historyAccuracy}>
-                    Accuracy: {location.accuracy.toFixed(1)}m
-                  </Text>
-                )}
               </View>
             ))}
           </View>
@@ -780,6 +748,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
+  locationNameContainer: {
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    backgroundColor: AppColors.primaryMuted,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  locationName: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: AppColors.text,
+    textAlign: "center",
+    lineHeight: 22,
+  },
   locationGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -835,22 +817,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: AppColors.textSecondary,
   },
-  historyCoords: {
-    fontSize: 11,
-    color: AppColors.textSecondary,
-    fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
-    marginTop: 2,
-  },
   historyLocation: {
-    fontSize: 14,
+    fontSize: 15,
     color: AppColors.text,
     fontWeight: "500",
-    marginBottom: 4,
-  },
-  historyAccuracy: {
-    fontSize: 12,
-    color: AppColors.textSecondary,
-    marginTop: 2,
+    marginTop: 4,
+    lineHeight: 20,
   },
   assignmentGrid: {
     flexDirection: "row",
