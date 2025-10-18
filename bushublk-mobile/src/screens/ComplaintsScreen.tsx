@@ -26,6 +26,7 @@ import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/dat
 import * as ImagePicker from "expo-image-picker";
 import DropDownPicker from "react-native-dropdown-picker";
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Location from 'expo-location';
 
 // --- Enhanced Color Palette (matching BusOccupancyScreen) ---
 const AppColors = {
@@ -99,6 +100,7 @@ export default function ComplaintsScreen() {
   const [routeNumber, setRouteNumber] = useState("");
   const [busNumber, setBusNumber] = useState("");
   const [location, setLocation] = useState("");
+  const [isLocationLoading, setIsLocationLoading] = useState(false);
   const [date, setDate] = useState(new Date());
   const [time, setTime] = useState(new Date());
   const [priority, setPriority] = useState("Medium");
@@ -157,6 +159,71 @@ export default function ComplaintsScreen() {
 
     if (!result.canceled) {
       setImage(result.assets[0].uri);
+    }
+  };
+
+  const fetchCurrentLocation = async () => {
+    try {
+      setIsLocationLoading(true);
+      
+      // Request location permissions
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permission Denied',
+          'Location permission is required to fetch your current location.'
+        );
+        return;
+      }
+
+      // Get current position
+      const currentLocation = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+
+      const { latitude, longitude } = currentLocation.coords;
+
+      // Reverse geocode to get address
+      const addressResults = await Location.reverseGeocodeAsync({
+        latitude,
+        longitude,
+      });
+
+      if (addressResults && addressResults.length > 0) {
+        const address = addressResults[0];
+        
+        // Build a readable address string
+        const addressParts = [
+          address.name,
+          address.street,
+          address.district,
+          address.city,
+          address.region,
+        ].filter(Boolean);
+
+        const formattedAddress = addressParts.length > 0 
+          ? addressParts.join(', ')
+          : `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+
+        setLocation(formattedAddress);
+        
+        Alert.alert(
+          'Location Fetched',
+          'Your current location has been added. You can edit it if needed.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        // Fallback to coordinates if geocoding fails
+        setLocation(`${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+      }
+    } catch (error) {
+      console.error('Error fetching location:', error);
+      Alert.alert(
+        'Location Error',
+        'Unable to fetch your current location. Please enter it manually.'
+      );
+    } finally {
+      setIsLocationLoading(false);
     }
   };
 
@@ -565,9 +632,34 @@ export default function ComplaintsScreen() {
 
           {/* --- CARD 2: TIME & PLACE --- */}
           <View style={styles.card}>
-            <View style={styles.cardHeaderContainer}><View style={styles.cardIconContainer}><Ionicons name="location" size={24} color={AppColors.indigo} /></View><View><Text style={styles.cardHeader}>Time & Place</Text><Text style={styles.cardSubheader}>When and where did this happen?</Text></View></View>
+            <View style={styles.cardHeaderContainer}>
+              <View style={styles.cardIconContainer}>
+                <Ionicons name="location" size={24} color={AppColors.indigo} />
+              </View>
+              <View>
+                <Text style={styles.cardHeader}>Time & Place</Text>
+                <Text style={styles.cardSubheader}>When and where did this happen?</Text>
+              </View>
+            </View>
             
-            <Text style={styles.label}>Location</Text>
+            <View style={styles.locationHeaderRow}>
+              <Text style={styles.label}>Location</Text>
+              <TouchableOpacity 
+                style={styles.fetchLocationButton} 
+                onPress={fetchCurrentLocation}
+                disabled={isLocationLoading}
+              >
+                {isLocationLoading ? (
+                  <ActivityIndicator size="small" color={AppColors.primary} />
+                ) : (
+                  <>
+                    <Ionicons name="navigate" size={16} color={AppColors.primary} />
+                    <Text style={styles.fetchLocationText}>Use Current</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+            
             <View style={styles.enhancedInputContainer}>
               <Ionicons name="location-outline" size={20} color={AppColors.indigo} style={styles.inputIcon} />
               <TextInput
@@ -575,19 +667,25 @@ export default function ComplaintsScreen() {
                 placeholder="e.g., Colombo Fort Bus Stand"
                 value={location}
                 onChangeText={setLocation}
+                editable={!isLocationLoading}
               />
             </View>
 
             <View style={styles.row}>
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Date</Text>
-                <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.enhancedInputContainer}><Ionicons name="calendar-outline" size={20} color={AppColors.indigo} style={styles.inputIcon} /><Text style={styles.inputText}>{date.toLocaleDateString()}</Text></TouchableOpacity>
+                <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.enhancedInputContainer}>
+                  <Ionicons name="calendar-outline" size={20} color={AppColors.indigo} style={styles.inputIcon} />
+                  <Text style={styles.inputText}>{date.toLocaleDateString()}</Text>
+                </TouchableOpacity>
               </View>
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Time</Text>
-                <TouchableOpacity onPress={() => setShowTimePicker(true)} style={styles.enhancedInputContainer}><Ionicons name="time-outline" size={20} color={AppColors.indigo} style={styles.inputIcon} /><Text style={styles.inputText}>{time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text></TouchableOpacity>
+                <TouchableOpacity onPress={() => setShowTimePicker(true)} style={styles.enhancedInputContainer}>
+                  <Ionicons name="time-outline" size={20} color={AppColors.indigo} style={styles.inputIcon} />
+                  <Text style={styles.inputText}>{time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+                </TouchableOpacity>
               </View>
-
             </View>
           </View>
 
@@ -889,6 +987,29 @@ const styles = StyleSheet.create({
     paddingVertical:6,
     borderRadius:12,
     overflow:'hidden'
+  },
+  locationHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+    marginTop: 16,
+  },
+  fetchLocationButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 86, 179, 0.08)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 86, 179, 0.2)',
+  },
+  fetchLocationText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: AppColors.primary,
   },
 
 });

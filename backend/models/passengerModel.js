@@ -67,7 +67,7 @@ const Passenger = {
     }
   },
 
-  // MODIFIED: getAlertsForPassenger - removed passenger_latitude and passenger_longitude from SELECT
+  // MODIFIED: getAlertsForPassenger - filter by status to show only active alerts
   getAlertsForPassenger: async (passengerId) => {
     const query = {
       text: `
@@ -75,11 +75,13 @@ const Passenger = {
             a.id,
             a.emergency_type,
             a.created_at,
-            -- Removed passenger_latitude and passenger_longitude from selection
-            d.depot_name -- Select depot_name from the joined depots table
+            a.status,
+            d.depot_name,
+            a.sms_sent_count,
+            a.email_sent_count
         FROM alerts a
-        LEFT JOIN depots d ON a.depot_id = d.depot_id -- Join with main depots table
-        WHERE a.passenger_id = $1
+        LEFT JOIN depots d ON a.depot_id = d.depot_id
+        WHERE a.passenger_id = $1 AND (a.status IS NULL OR a.status = 'active')
         ORDER BY a.created_at DESC
       `,
       values: [passengerId],
@@ -89,6 +91,26 @@ const Passenger = {
         return rows;
     } catch (err) {
         console.error('Error in Passenger.getAlertsForPassenger (model):', err.message);
+        throw err;
+    }
+  },
+
+  // NEW: clearAllAlerts - soft delete all alerts for a passenger
+  clearAllAlerts: async (passengerId) => {
+    const query = {
+      text: `
+        UPDATE alerts
+        SET status = 'deleted'
+        WHERE passenger_id = $1 AND (status IS NULL OR status = 'active')
+        RETURNING id
+      `,
+      values: [passengerId],
+    };
+    try {
+        const { rows } = await pool.query(query);
+        return rows.length; // Return count of cleared alerts
+    } catch (err) {
+        console.error('Error in Passenger.clearAllAlerts (model):', err.message);
         throw err;
     }
   },

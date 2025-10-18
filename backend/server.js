@@ -7,7 +7,7 @@ require('dotenv').config(); // Load environment variables at the very beginning
 const http = require('http');
 const { Server } = require('socket.io');
 const setupSocketIO = require('./utils/socketHandler');
-
+// Emergency SMS logging enabled
 const app = express();
 const PORT = process.env.PORT || 5000;
 
