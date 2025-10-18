@@ -95,9 +95,13 @@ class LostFoundReport {
         r.*,
         p.first_name,
         p.last_name,
+        COALESCE(CONCAT(drv.first_name, ' ', drv.last_name), 'Unknown') as driver_name,
         rt.route_name,
         reg.region_name,
         d.depot_name,
+        d.contact_phone as depot_contact_phone,
+        driver_depot.depot_name as driver_depot_name,
+        driver_depot.contact_phone as driver_depot_phone,
         r.handover_date,
         r.handover_notes,
         CASE
@@ -109,9 +113,15 @@ class LostFoundReport {
       FROM lost_found_reports r
       LEFT JOIN passengers pas ON r.passenger_id = pas.passenger_id
       LEFT JOIN users p ON pas.passenger_id = p.user_id
+      LEFT JOIN users drv ON r.driver_id = drv.user_id
       LEFT JOIN routes rt ON r.route_number = rt.route_number
       LEFT JOIN regions reg ON r.region_id = reg.region_id
       LEFT JOIN depots d ON r.handed_to_depot_id = d.depot_id
+      LEFT JOIN (
+        SELECT DISTINCT ON (d.driver_id) d.driver_id, dep.depot_name, dep.contact_phone
+        FROM drivers d
+        JOIN depots dep ON d.depot_id = dep.depot_id
+      ) driver_depot ON r.driver_id = driver_depot.driver_id
       WHERE r.status = $1
     `;
     
@@ -175,9 +185,13 @@ class LostFoundReport {
       ...new LostFoundReport(row),
       first_name: row.first_name,
       last_name: row.last_name,
+      driver_name: row.driver_name,
       route_name: row.route_name,
       region_name: row.region_name,
       depot_name: row.depot_name,
+      depot_contact_phone: row.depot_contact_phone,
+      driver_depot_name: row.driver_depot_name,
+      driver_depot_phone: row.driver_depot_phone,
       handover_date: row.handover_date,
       handover_notes: row.handover_notes,
       time_ago: row.time_ago
