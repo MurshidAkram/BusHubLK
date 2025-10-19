@@ -206,26 +206,10 @@ const ConditionReportForm = () => {
         onScrollBeginDrag={closeDropdowns}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Enhanced Header with Gradient Effect */}
-        <View style={styles.headerContainer}>
-          <View style={styles.headerGradient}>
-            <View style={styles.headerContent}>
-              <View style={styles.headerIcon}>
-                <Text style={styles.headerIconText}>🚌</Text>
-              </View>
-              <Text style={styles.title}>Bus Condition Report</Text>
-              <Text style={styles.subtitle}>
-                Report any issues with your assigned bus
-              </Text>
-              <View style={styles.headerDecoration} />
-            </View>
-          </View>
-        </View>
-
         {/* Enhanced Form Container */}
         <View style={styles.formContainer}>
           {/* Bus Selection Card */}
-          <View style={styles.inputCard}>
+          <View style={[styles.inputCard, busDropdownOpen && styles.inputCardElevated]}>
             <View style={styles.inputHeader}>
               <Text style={styles.inputIcon}>🚍</Text>
               <Text style={styles.label}>Select Bus</Text>
@@ -270,11 +254,19 @@ const ConditionReportForm = () => {
               </TouchableOpacity>
               
               {busDropdownOpen && (
-                <View style={styles.dropdownList}>
+                <TouchableOpacity 
+                  activeOpacity={1} 
+                  onPress={(e) => e.stopPropagation()}
+                  style={styles.dropdownList}
+                >
                   <ScrollView 
                     style={styles.dropdownScrollView}
                     nestedScrollEnabled={true}
                     showsVerticalScrollIndicator={true}
+                    scrollEnabled={true}
+                    bounces={false}
+                    onStartShouldSetResponder={() => true}
+                    onMoveShouldSetResponder={() => true}
                   >
                     {buses.length === 0 ? (
                       <TouchableOpacity style={styles.dropdownItem}>
@@ -319,7 +311,7 @@ const ConditionReportForm = () => {
                       ))
                     )}
                   </ScrollView>
-                </View>
+                </TouchableOpacity>
               )}
             </View>
             
@@ -356,13 +348,10 @@ const ConditionReportForm = () => {
           </View>
 
           {/* Condition Status Card */}
-          <View style={styles.inputCard}>
+          <View style={[styles.inputCard, statusDropdownOpen && styles.inputCardElevated]}>
             <View style={styles.inputHeader}>
               <Text style={styles.inputIcon}>📊</Text>
               <Text style={styles.label}>Condition Status</Text>
-              <View style={[styles.selectedIndicator, { backgroundColor: getStatusColor(conditionStatus) }]}>
-                <Text style={styles.selectedText}>{getStatusIcon(conditionStatus)}</Text>
-              </View>
             </View>
             
             {/* Custom Status Dropdown */}
@@ -388,11 +377,19 @@ const ConditionReportForm = () => {
               </TouchableOpacity>
               
               {statusDropdownOpen && (
-                <View style={styles.dropdownList}>
+                <TouchableOpacity 
+                  activeOpacity={1} 
+                  onPress={(e) => e.stopPropagation()}
+                  style={styles.dropdownList}
+                >
                   <ScrollView 
                     style={styles.dropdownScrollView}
                     nestedScrollEnabled={true}
-                    showsVerticalScrollIndicator={false}
+                    showsVerticalScrollIndicator={true}
+                    scrollEnabled={true}
+                    bounces={false}
+                    onStartShouldSetResponder={() => true}
+                    onMoveShouldSetResponder={() => true}
                   >
                     {[
                       { label: "Good", value: "Good", icon: "✅", color: "#10B981" },
@@ -433,7 +430,7 @@ const ConditionReportForm = () => {
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
-                </View>
+                </TouchableOpacity>
               )}
             </View>
             
@@ -521,7 +518,7 @@ const ConditionReportForm = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F8FAFC",
+    backgroundColor: "transparent",
   },
   scrollContent: {
     flexGrow: 1,
@@ -558,73 +555,18 @@ const styles = StyleSheet.create({
   dot2: { opacity: 0.7 },
   dot3: { opacity: 1 },
 
-  // Enhanced Header Styles
-  headerContainer: {
-    marginTop: Platform.OS === "ios" ? 40 : 20,
-  },
-  headerGradient: {
-    backgroundColor: "#0076e3",
-    paddingTop: Platform.OS === "ios" ? 60 : 40,
-    paddingBottom: screenHeight * 0.05,
-    paddingHorizontal: screenWidth * 0.05,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-    position: "relative",
-    overflow: "hidden",
-  },
-  headerContent: {
-    alignItems: "center",
-    position: "relative",
-    zIndex: 2,
-  },
-  headerIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 15,
-  },
-  headerIconText: {
-    fontSize: 40,
-  },
-  title: {
-    fontSize: screenWidth * 0.07,
-    fontWeight: Platform.OS === "ios" ? "700" : "bold",
-    color: "#fff",
-    textAlign: "center",
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: screenWidth * 0.04,
-    color: "#E0E7FF",
-    textAlign: "center",
-    opacity: 0.9,
-    lineHeight: screenWidth * 0.05,
-    maxWidth: "80%",
-  },
-  headerDecoration: {
-    position: "absolute",
-    top: -50,
-    right: -50,
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-  },
-
   // Enhanced Form Styles
   formContainer: {
     paddingHorizontal: screenWidth * 0.05,
-    paddingTop: screenHeight * 0.03,
+    paddingTop: screenHeight * 0.01,
     paddingBottom: screenHeight * 0.03,
   },
+  
   inputCard: {
     backgroundColor: "#fff",
     borderRadius: 16,
-    marginBottom: screenHeight * 0.025,
-    padding: screenWidth * 0.05,
+    marginBottom: screenHeight * 0.015,
+    padding: screenWidth * 0.04,
     ...Platform.select({
       ios: {
         shadowColor: "#000",
@@ -637,10 +579,14 @@ const styles = StyleSheet.create({
       },
     }),
   },
+  inputCardElevated: {
+    zIndex: 2000,
+    elevation: 10,
+  },
   inputHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: screenHeight * 0.015,
+    marginBottom: screenHeight * 0.01,
   },
   inputIcon: {
     fontSize: 20,
@@ -726,7 +672,7 @@ const styles = StyleSheet.create({
   // Enhanced Button Styles
   submitButton: {
     borderRadius: 16,
-    marginTop: screenHeight * 0.03,
+    marginTop: screenHeight * 0.02,
     overflow: "hidden",
     ...Platform.select({
       ios: {
@@ -766,8 +712,8 @@ const styles = StyleSheet.create({
 
   // Footer Styles
   footerInfo: {
-    marginTop: screenHeight * 0.03,
-    padding: screenWidth * 0.04,
+    marginTop: screenHeight * 0.015,
+    padding: screenWidth * 0.035,
     backgroundColor: "#EFF6FF",
     borderRadius: 12,
     borderLeftWidth: 4,
@@ -796,15 +742,15 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   selectedBusDetails: {
-    marginTop: screenHeight * 0.02,
-    padding: screenWidth * 0.04,
+    marginTop: screenHeight * 0.012,
+    padding: screenWidth * 0.035,
     backgroundColor: "#F8FAFC",
     borderRadius: 12,
     borderWidth: 1,
     borderColor: "#E5E7EB",
   },
   busDetailsContainer: {
-    gap: 8,
+    gap: 6,
   },
   busDetailRow: {
     flexDirection: "row",
@@ -840,7 +786,7 @@ const styles = StyleSheet.create({
   // Custom Dropdown Styles
   dropdownContainer: {
     position: "relative",
-    zIndex: 1000,
+    zIndex: 2001,
   },
   dropdownButton: {
     backgroundColor: "#F9FAFB",
@@ -894,7 +840,7 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 12,
     borderBottomRightRadius: 12,
     maxHeight: 200,
-    zIndex: 1001,
+    zIndex: 2002,
     ...Platform.select({
       ios: {
         shadowColor: "#000",
@@ -903,7 +849,7 @@ const styles = StyleSheet.create({
         shadowRadius: 8,
       },
       android: {
-        elevation: 8,
+        elevation: 10,
       },
     }),
   },
