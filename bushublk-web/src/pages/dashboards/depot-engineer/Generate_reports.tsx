@@ -116,6 +116,7 @@ const copyPageStyles = () =>
     .join('');
 
 const GenerateReports: React.FC = () => {
+  // @ts-ignore
   const context = useContext(AppContext) as AppContextType | undefined;
   const token = context?.token;
 

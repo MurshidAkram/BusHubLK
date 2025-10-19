@@ -89,6 +89,8 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
 }
 
 const Busmanagement: React.FC = () => {
+  // @ts-ignore
+
   const context = useContext(AppContext) as AppContextType | undefined;
   const [buses, setBuses] = useState<Bus[]>([]);
   const [selectedBus, setSelectedBus] = useState<Bus | null>(null);

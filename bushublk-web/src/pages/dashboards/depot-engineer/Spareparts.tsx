@@ -33,6 +33,7 @@ interface AppContextType {
 
 
 const SparePartsInventory: React.FC = () => {
+  // @ts-ignore
   const context = useContext(AppContext) as AppContextType | null;
   const token = context?.token;
 
