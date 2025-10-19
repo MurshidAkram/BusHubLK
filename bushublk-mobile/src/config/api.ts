@@ -1,5 +1,6 @@
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
+import { API_URL } from 'expo-env';
 
 interface NetworkInfo {
   ip: string;
@@ -117,6 +118,12 @@ const getNetworkInfo = (): NetworkInfo => {
 };
 
 const getApiBaseUrl = (): string => {
+  // First priority: Environment variable from .env file
+  if (API_URL) {
+    console.log('📱 Using API URL from environment variable');
+    return API_URL;
+  }
+
   if (__DEV__) {
     // In development, we'll use the discovery mechanism
     // But for initial load, use the network info as fallback
@@ -125,7 +132,7 @@ const getApiBaseUrl = (): string => {
     console.log('🌐 Initial Development API Base URL:', baseUrl);
     return baseUrl;
   }
-  
+
   // Production URL
   const productionUrl = 'https://your-production-api.com';
   console.log('🚀 Production API Base URL:', productionUrl);
