@@ -44,20 +44,43 @@ export const SessionProvider: React.FC<SessionProviderProps> = ({ children, onSe
   };
 
   const checkSessionExpired = (error: any): boolean => {
-    // Check if error is related to token expiration
-    if (error?.response?.status === 403) {
+    // Check if error is related to token expiration (401 or 403)
+    if (error?.response?.status === 401 || error?.response?.status === 403) {
       return true;
     }
     
-    // Check for token expired message in error
-    if (error?.message?.toLowerCase().includes('token') && 
-        (error?.message?.toLowerCase().includes('expired') || 
-         error?.message?.toLowerCase().includes('invalid'))) {
+    const errorMessage = error?.message?.toLowerCase() || '';
+    const errorDataMessage = error?.response?.data?.error?.toLowerCase() || '';
+    
+    // Check for JWT-related errors
+    if (errorMessage.includes('jwt') || errorDataMessage.includes('jwt')) {
       return true;
     }
     
-    // Check response data for token errors
-    if (error?.response?.data?.error?.toLowerCase().includes('token')) {
+    // Check for token errors
+    if ((errorMessage.includes('token') || errorDataMessage.includes('token')) && 
+        (errorMessage.includes('expired') || errorMessage.includes('invalid') ||
+         errorDataMessage.includes('expired') || errorDataMessage.includes('invalid'))) {
+      return true;
+    }
+    
+    // Check for authentication errors
+    if (errorMessage.includes('authentication') || 
+        errorMessage.includes('unauthenticated') ||
+        errorDataMessage.includes('authentication') ||
+        errorDataMessage.includes('unauthenticated')) {
+      return true;
+    }
+    
+    // Check for connection timeout that might be JWT-related
+    if (errorMessage.includes('connection terminated') && 
+        errorMessage.includes('connection timeout')) {
+      return true;
+    }
+    
+    // Check response data for session/auth errors
+    if (errorDataMessage.includes('session') && 
+        (errorDataMessage.includes('expired') || errorDataMessage.includes('invalid'))) {
       return true;
     }
     
