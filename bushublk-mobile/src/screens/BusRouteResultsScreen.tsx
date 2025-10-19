@@ -423,7 +423,10 @@ export default function BusRouteResultsScreen({ route, navigation }: any) {
     });
   };
 
-  const renderBusRoute = ({ item }: { item: any }) => (
+  const renderBusRoute = ({ item }: { item: any }) => {
+    const isReturnTrip = item.journey?.is_return_trip || item.direction === 'reverse';
+    
+    return (
     <TouchableOpacity 
       style={styles.enhancedRouteCard}
       onPress={() => handleRouteCardPress(item.route_number)}
@@ -443,6 +446,12 @@ export default function BusRouteResultsScreen({ route, navigation }: any) {
           <View style={styles.operatorInfo}>
             <Text style={styles.operatorText}>SLTB</Text>
             <Text style={styles.routeNameText}>{item.route_name}</Text>
+            {isReturnTrip && (
+              <View style={styles.returnTripBadge}>
+                <Ionicons name="swap-horizontal" size={12} color={AppColors.warning} />
+                <Text style={styles.returnTripText}>Return Trip</Text>
+              </View>
+            )}
           </View>
         </View>
         
@@ -490,7 +499,8 @@ export default function BusRouteResultsScreen({ route, navigation }: any) {
         <Ionicons name="chevron-forward" size={16} color={AppColors.primary} />
       </View>
     </TouchableOpacity>
-  );
+    );
+  };
 
   return (
     <LinearGradient
@@ -1835,5 +1845,23 @@ const styles = StyleSheet.create({
     marginHorizontal: 8,
     flex: 1,
     textAlign: 'center',
+  },
+
+  // Return Trip Badge
+  returnTripBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: AppColors.warning + '20',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginTop: 4,
+    alignSelf: 'flex-start',
+  },
+  returnTripText: {
+    fontSize: 11,
+    color: AppColors.warning,
+    fontWeight: '600',
+    marginLeft: 4,
   },
 });
