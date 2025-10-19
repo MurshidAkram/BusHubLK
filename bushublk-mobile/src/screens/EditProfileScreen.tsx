@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
+  SafeAreaView,
   ScrollView,
   KeyboardAvoidingView,
   StyleSheet,
@@ -11,9 +12,7 @@ import {
   TouchableOpacity,
   View,
   Linking,
-  StatusBar,
 } from "react-native";
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { authAPI, storageAPI } from "../services/api";
@@ -53,12 +52,14 @@ const AppColors = {
   primaryLight: "#0076e3",
   primaryMuted: "rgba(0, 86, 179, 0.1)",
   text: "#1F2937",
+  textSecondary: "#6B7280",
   textMuted: "#6B7280",
   border: "#E5E7EB",
+  borderLight: "rgba(222, 226, 230, 0.4)",
   soft: "#EFF4FF",
   info: "#E8F2FF",
-  shadow: "rgba(0, 0, 0, 0.1)",
-  green: "#10B981",
+  indigo: "#6366F1",
+  success: "#10B981",
 };
 
 const createInitialState = (profile?: any): ProfileFormState => ({
@@ -202,10 +203,8 @@ export default function EditProfileScreen() {
       end={{ x: 1, y: 1 }}
       style={styles.gradientContainer}
     >
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor="#0056b3" />
-        
-        {/* Enhanced Header with Gradient */}
+      <SafeAreaView style={styles.safeArea}>
+        {/* Enhanced Header */}
         <LinearGradient
           colors={['#0056b3', '#1976d2', '#42a5f5']}
           start={{ x: 0, y: 0 }}
@@ -213,7 +212,7 @@ export default function EditProfileScreen() {
           style={styles.headerGradient}
         >
           <View style={styles.header}>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
               <Ionicons name="arrow-back-outline" size={24} color="white" />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>{headerTitle}</Text>
@@ -238,130 +237,102 @@ export default function EditProfileScreen() {
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
-              {/* Avatar Display Card */}
-              <View style={styles.avatarCardWrapper}>
-                <LinearGradient
-                  colors={['#FFFFFF', '#F8FAFF']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.avatarCardGradient}
-                >
-                  <View style={styles.avatarCard}>
-                    <LinearGradient
-                      colors={['#0056b3', '#1976d2']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={styles.avatarCircle}
-                    >
-                      <Text style={styles.avatarInitials}>{initials}</Text>
-                    </LinearGradient>
-                    <View style={styles.avatarInfo}>
-                      <Text style={styles.avatarName}>{displayName}</Text>
-                      <Text style={styles.avatarEmail}>{displayEmail}</Text>
-                    </View>
-                  </View>
-                </LinearGradient>
-              </View>
-
               {/* Personal Information Card */}
-              <View style={styles.sectionCardWrapper}>
-                <View style={styles.sectionCard}>
-                  <View style={styles.sectionTitleRow}>
-                    <Ionicons name="person" size={22} color={AppColors.primary} />
-                    <Text style={styles.sectionTitle}>Personal information</Text>
+              <View style={styles.card}>
+                <View style={styles.cardHeaderContainer}>
+                  <View style={styles.cardIconContainer}>
+                    <Ionicons name="person" size={24} color={AppColors.primary} />
                   </View>
+                  <View>
+                    <Text style={styles.cardHeader}>Personal Information</Text>
+                    <Text style={styles.cardSubheader}>Update your profile details</Text>
+                  </View>
+                </View>
 
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.label}>First name *</Text>
-                    <View style={styles.inputWrapper}>
-                      <LinearGradient
-                        colors={['#E7F1FF', '#F0F8FF']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.inputIconWrapper}
-                      >
-                        <Ionicons name="person-outline" size={20} color={AppColors.primary} />
-                      </LinearGradient>
-                      <TextInput
-                        style={styles.input}
-                        placeholder="Enter your first name"
-                        placeholderTextColor={AppColors.textMuted}
-                        value={form.first_name}
-                        onChangeText={(text) => handleChange("first_name", text)}
-                        autoCapitalize="words"
-                        returnKeyType="next"
-                      />
-                    </View>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>First Name</Text>
+                  <View style={styles.enhancedInputContainer}>
+                    <Ionicons name="person-outline" size={20} color={AppColors.primary} style={styles.inputIcon} />
+                    <TextInput
+                      style={styles.inputText}
+                      placeholder="Enter your first name"
+                      value={form.first_name}
+                      onChangeText={(text) => handleChange("first_name", text)}
+                      autoCapitalize="words"
+                      returnKeyType="next"
+                      placeholderTextColor={AppColors.textSecondary}
+                    />
                   </View>
+                </View>
 
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Last name *</Text>
-                    <View style={styles.inputWrapper}>
-                      <LinearGradient
-                        colors={['#E7F1FF', '#F0F8FF']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.inputIconWrapper}
-                      >
-                        <Ionicons name="person-circle-outline" size={20} color={AppColors.primary} />
-                      </LinearGradient>
-                      <TextInput
-                        style={styles.input}
-                        placeholder="Enter your last name"
-                        placeholderTextColor={AppColors.textMuted}
-                        value={form.last_name}
-                        onChangeText={(text) => handleChange("last_name", text)}
-                        autoCapitalize="words"
-                        returnKeyType="next"
-                      />
-                    </View>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Last Name</Text>
+                  <View style={styles.enhancedInputContainer}>
+                    <Ionicons name="person-circle-outline" size={20} color={AppColors.primary} style={styles.inputIcon} />
+                    <TextInput
+                      style={styles.inputText}
+                      placeholder="Enter your last name"
+                      value={form.last_name}
+                      onChangeText={(text) => handleChange("last_name", text)}
+                      autoCapitalize="words"
+                      returnKeyType="next"
+                      placeholderTextColor={AppColors.textSecondary}
+                    />
                   </View>
+                </View>
 
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Phone number</Text>
-                    <View style={styles.inputWrapper}>
-                      <LinearGradient
-                        colors={['#E7F1FF', '#F0F8FF']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.inputIconWrapper}
-                      >
-                        <Ionicons name="call-outline" size={20} color={AppColors.primary} />
-                      </LinearGradient>
-                      <TextInput
-                        style={styles.input}
-                        placeholder="07X XXX XXXX"
-                        placeholderTextColor={AppColors.textMuted}
-                        value={form.phone}
-                        onChangeText={(text) => handleChange("phone", text)}
-                        keyboardType="phone-pad"
-                        returnKeyType="done"
-                      />
-                    </View>
-                    <Text style={styles.inputHelper}>{phoneHelper}</Text>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Phone Number</Text>
+                  <View style={styles.enhancedInputContainer}>
+                    <Ionicons name="call-outline" size={20} color={AppColors.indigo} style={styles.inputIcon} />
+                    <TextInput
+                      style={styles.inputText}
+                      placeholder="07X XXX XXXX"
+                      value={form.phone}
+                      onChangeText={(text) => handleChange("phone", text)}
+                      keyboardType="phone-pad"
+                      returnKeyType="done"
+                      placeholderTextColor={AppColors.textSecondary}
+                    />
                   </View>
+                  <Text style={styles.helperText}>
+                    {phoneHelper}
+                  </Text>
                 </View>
               </View>
 
-              {/* Read-Only Information Card */}
-              <View style={styles.infoCardWrapper}>
-                <LinearGradient
-                  colors={['#E7F1FF', '#F0F8FF']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.infoCardGradient}
-                >
-                  <View style={styles.infoCard}>
-                    <View style={styles.infoIconWrapper}>
-                      <Ionicons name="information-circle" size={24} color={AppColors.primary} />
-                    </View>
-                    <View style={styles.infoContent}>
-                      <Text style={styles.infoTitle}>Email address</Text>
-                      <Text style={styles.infoText}>{displayEmail}</Text>
-                      <Text style={styles.infoHelper}>{emailHelper}</Text>
-                    </View>
+              {/* Account Information Card */}
+              <View style={styles.card}>
+                <View style={styles.cardHeaderContainer}>
+                  <View style={styles.cardIconContainer}>
+                    <Ionicons name="shield-checkmark" size={24} color={AppColors.success} />
                   </View>
-                </LinearGradient>
+                  <View>
+                    <Text style={styles.cardHeader}>Account Information</Text>
+                    <Text style={styles.cardSubheader}>Your account details</Text>
+                  </View>
+                </View>
+
+                <View style={styles.readOnlyField}>
+                  <View style={styles.readOnlyIconWrapper}>
+                    <Ionicons name="mail-outline" size={20} color={AppColors.success} />
+                  </View>
+                  <View style={styles.readOnlyContent}>
+                    <Text style={styles.readOnlyLabel}>Email Address</Text>
+                    <Text style={styles.readOnlyValue}>{displayEmail}</Text>
+                    <Text style={styles.readOnlyHelper}>{emailHelper}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.readOnlyField}>
+                  <View style={styles.readOnlyIconWrapper}>
+                    <Ionicons name="shield-outline" size={20} color={AppColors.indigo} />
+                  </View>
+                  <View style={styles.readOnlyContent}>
+                    <Text style={styles.readOnlyLabel}>Account Role</Text>
+                    <Text style={styles.readOnlyValue}>{roleLabel}</Text>
+                  </View>
+                </View>
               </View>
             </ScrollView>
           )}
@@ -369,26 +340,19 @@ export default function EditProfileScreen() {
           {!isLoading ? (
             <View style={styles.actionBar}>
               <TouchableOpacity
-                style={[styles.saveButtonWrapper, (isSaving) && styles.disabledButton]}
+                style={[styles.saveButton, isSaving && styles.disabledButton]}
                 onPress={handleSave}
                 disabled={isSaving}
-                activeOpacity={0.8}
+                activeOpacity={0.85}
               >
-                <LinearGradient
-                  colors={isSaving ? ['#6B7280', '#9CA3AF'] : ['#0056b3', '#1976d2', '#42a5f5']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.saveButton}
-                >
-                  {isSaving ? (
-                    <ActivityIndicator color="#FFFFFF" />
-                  ) : (
-                    <>
-                      <Ionicons name="checkmark-circle" size={24} color="#FFFFFF" style={styles.saveIcon} />
-                      <Text style={styles.saveButtonText}>Save changes</Text>
-                    </>
-                  )}
-                </LinearGradient>
+                {isSaving ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Ionicons name="save-outline" size={22} color="#FFFFFF" style={styles.saveIcon} />
+                    <Text style={styles.saveButtonText}>Save Changes</Text>
+                  </>
+                )}
               </TouchableOpacity>
             </View>
           ) : null}
@@ -402,45 +366,40 @@ const styles = StyleSheet.create({
   gradientContainer: {
     flex: 1,
   },
-  container: {
+  safeArea: {
     flex: 1,
     backgroundColor: 'transparent',
   },
-  
-  // Enhanced Header Styles
+  container: {
+    flex: 1,
+    backgroundColor: AppColors.background,
+  },
   headerGradient: {
-    paddingBottom: 20,
-    ...Platform.select({
-      android: {
-        elevation: 8,
-      },
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 8,
-      },
-    }),
+    paddingVertical: 16,
+    paddingHorizontal: 16,
   },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   backButton: {
     padding: 8,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerTitle: {
-    flex: 1,
     fontSize: 22,
     fontWeight: 'bold',
     color: 'white',
+    flex: 1,
     textAlign: 'center',
   },
   headerRightPlaceholder: {
     width: 40,
+    height: 40,
   },
   flex: {
     flex: 1,
@@ -451,274 +410,197 @@ const styles = StyleSheet.create({
   contentContainer: {
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 90,
+    paddingBottom: 120,
   },
-  
-  // Avatar Card
-  avatarCardWrapper: {
-    marginBottom: 16,
-    borderRadius: 16,
-    overflow: 'hidden',
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 86, 179, 0.08)',
     ...Platform.select({
       android: {
-        elevation: 3,
+        elevation: 8,
       },
       ios: {
-        shadowColor: AppColors.shadow,
-        shadowOpacity: 0.7,
-        shadowRadius: 8,
+        shadowColor: 'rgba(0, 86, 179, 0.15)',
+        shadowOpacity: 1,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 6 },
+      },
+    }),
+  },
+  cardHeaderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 24,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 86, 179, 0.08)',
+  },
+  cardIconContainer: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0, 86, 179, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  cardHeader: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: AppColors.text,
+    letterSpacing: 0.3,
+  },
+  cardSubheader: {
+    fontSize: 13,
+    color: AppColors.textSecondary,
+    marginTop: 4,
+    fontWeight: '500',
+  },
+  inputGroup: {
+    marginBottom: 18,
+  },
+  label: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: AppColors.text,
+    marginBottom: 12,
+    letterSpacing: 0.2,
+  },
+  enhancedInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    paddingHorizontal: 18,
+    height: 58,
+    borderWidth: 1.5,
+    borderColor: 'rgba(0, 86, 179, 0.15)',
+    ...Platform.select({
+      android: {
+        elevation: 2,
+      },
+      ios: {
+        shadowColor: 'rgba(0, 86, 179, 0.08)',
+        shadowOpacity: 1,
+        shadowRadius: 4,
         shadowOffset: { width: 0, height: 2 },
       },
     }),
   },
-  avatarCardGradient: {
-    borderRadius: 16,
+  inputIcon: {
+    marginRight: 14,
   },
-  avatarCard: {
+  inputText: {
+    flex: 1,
+    fontSize: 16,
+    color: AppColors.text,
+    fontWeight: '500',
+  },
+  helperText: {
+    fontSize: 12,
+    color: AppColors.textSecondary,
+    marginTop: 8,
+    marginLeft: 4,
+    lineHeight: 16,
+  },
+  readOnlyField: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(0, 86, 179, 0.04)',
+    borderRadius: 14,
     padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 86, 179, 0.08)',
   },
-  avatarCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+  readOnlyIconWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
-    ...Platform.select({
-      android: {
-        elevation: 3,
-      },
-      ios: {
-        shadowColor: AppColors.primary,
-        shadowOpacity: 0.3,
-        shadowRadius: 6,
-        shadowOffset: { width: 0, height: 2 },
-      },
-    }),
   },
-  avatarInitials: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: 'white',
-  },
-  avatarInfo: {
+  readOnlyContent: {
     flex: 1,
   },
-  avatarName: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: AppColors.text,
-    marginBottom: 4,
-  },
-  avatarEmail: {
-    fontSize: 13,
-    color: AppColors.textMuted,
-    fontWeight: '500',
-  },
-  
-  // Section Card
-  sectionCardWrapper: {
-    marginBottom: 16,
-    borderRadius: 16,
-    overflow: 'hidden',
-    ...Platform.select({
-      android: {
-        elevation: 3,
-      },
-      ios: {
-        shadowColor: AppColors.shadow,
-        shadowOpacity: 0.7,
-        shadowRadius: 8,
-        shadowOffset: { width: 0, height: 2 },
-      },
-    }),
-  },
-  sectionCard: {
-    backgroundColor: AppColors.card,
-    borderRadius: 16,
-    padding: 16,
-  },
-  sectionTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: AppColors.border,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: AppColors.text,
-    marginLeft: 10,
-  },
-  inputGroup: {
-    marginBottom: 14,
-  },
-  label: {
+  readOnlyLabel: {
     fontSize: 12,
-    fontWeight: "700",
-    color: AppColors.text,
-    marginBottom: 8,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  inputWrapper: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: AppColors.card,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: AppColors.border,
-    paddingRight: 14,
-    ...Platform.select({
-      android: {
-        elevation: 2,
-      },
-      ios: {
-        shadowColor: AppColors.shadow,
-        shadowOpacity: 0.3,
-        shadowRadius: 3,
-        shadowOffset: { width: 0, height: 1 },
-      },
-    }),
-  },
-  inputIconWrapper: {
-    width: 42,
-    height: 50,
-    borderTopLeftRadius: 11,
-    borderBottomLeftRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  input: {
-    flex: 1,
-    fontSize: 15,
-    color: AppColors.text,
-    fontWeight: '500',
-    paddingVertical: Platform.OS === "ios" ? 14 : 10,
-  },
-  inputHelper: {
-    marginTop: 6,
-    fontSize: 12,
-    color: AppColors.textMuted,
-    fontWeight: '500',
-    lineHeight: 16,
-  },
-  
-  // Info Card (Read-only)
-  infoCardWrapper: {
-    marginBottom: 16,
-    borderRadius: 14,
-    overflow: 'hidden',
-    ...Platform.select({
-      android: {
-        elevation: 2,
-      },
-      ios: {
-        shadowColor: AppColors.primary,
-        shadowOpacity: 0.15,
-        shadowRadius: 6,
-        shadowOffset: { width: 0, height: 2 },
-      },
-    }),
-  },
-  infoCardGradient: {
-    borderRadius: 14,
-  },
-  infoCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-  },
-  infoIconWrapper: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  infoContent: {
-    flex: 1,
-  },
-  infoTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: AppColors.primary,
+    fontWeight: '600',
+    color: AppColors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: 4,
+    marginBottom: 6,
   },
-  infoText: {
-    fontSize: 15,
+  readOnlyValue: {
+    fontSize: 16,
     fontWeight: '600',
     color: AppColors.text,
     marginBottom: 4,
   },
-  infoHelper: {
-    fontSize: 11,
-    color: AppColors.textMuted,
-    fontWeight: '500',
-    lineHeight: 15,
+  readOnlyHelper: {
+    fontSize: 12,
+    color: AppColors.textSecondary,
+    lineHeight: 16,
   },
-  
-  // Action Bar
   actionBar: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: Platform.OS === "ios" ? 22 : 16,
-    backgroundColor: 'transparent',
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: Platform.OS === 'ios' ? 28 : 20,
+    backgroundColor: AppColors.card,
+    borderTopWidth: 1,
+    borderTopColor: AppColors.border,
+    shadowColor: AppColors.primary,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 12,
   },
-  saveButtonWrapper: {
-    borderRadius: 14,
-    overflow: 'hidden',
+  saveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0056b3',
+    borderRadius: 16,
+    paddingVertical: 20,
     ...Platform.select({
       android: {
-        elevation: 5,
+        elevation: 8,
       },
       ios: {
-        shadowColor: AppColors.primary,
-        shadowOpacity: 0.3,
+        shadowColor: '#0056b3',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.35,
         shadowRadius: 10,
-        shadowOffset: { width: 0, height: 4 },
       },
     }),
   },
-  saveButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 15,
-    paddingHorizontal: 24,
-  },
   disabledButton: {
-    opacity: 0.6,
+    opacity: 0.65,
   },
   saveIcon: {
     marginRight: 10,
   },
   saveButtonText: {
-    color: AppColors.card,
-    fontSize: 17,
-    fontWeight: "700",
-    letterSpacing: 0.3,
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
-  
   loadingContainer: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     paddingHorizontal: 20,
   },
   loadingText: {
-    marginTop: 16,
-    fontSize: 16,
+    marginTop: 12,
+    fontSize: 15,
     color: AppColors.textMuted,
-    fontWeight: '600',
   },
 });

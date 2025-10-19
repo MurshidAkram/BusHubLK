@@ -77,23 +77,40 @@ const chunkArray = (items, size) => {
 };
 
 const postNotifyBatch = async (batch, message) => {
-  const payload = {
-    user_id: process.env.NOTIFY_USER_ID,
-    api_key: process.env.NOTIFY_API_KEY,
-    sender_id: process.env.NOTIFY_SENDER_ID,
-    to: batch.join(',')
-  };
+  // Notify.lk API only accepts ONE number per request, not comma-separated
+  // So we send each number individually
+  const results = [];
+  
+  for (const phoneNumber of batch) {
+    console.log(`📞 Sending SMS to: ${phoneNumber} (${phoneNumber.length} digits)`);
+    
+    const payload = {
+      user_id: process.env.NOTIFY_USER_ID,
+      api_key: process.env.NOTIFY_API_KEY,
+      sender_id: process.env.NOTIFY_SENDER_ID,
+      to: phoneNumber  // Single number, not joined
+    };
 
-  const body = new URLSearchParams(payload);
-  body.append('message', message);
+    const body = new URLSearchParams(payload);
+    body.append('message', message);
 
-  const response = await axios.post(NOTIFY_API_ENDPOINT, body.toString(), {
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded'
+    try {
+      const response = await axios.post(NOTIFY_API_ENDPOINT, body.toString(), {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        }
+      });
+      
+      console.log(`✅ SMS sent successfully to ${phoneNumber}`);
+      results.push({ phoneNumber, success: true, response: response.data });
+    } catch (error) {
+      const errorData = error?.response?.data || error.message;
+      console.error(`❌ SMS failed for ${phoneNumber}:`, errorData);
+      results.push({ phoneNumber, success: false, error: errorData });
     }
-  });
+  }
 
-  return response.data;
+  return results;
 };
 
 const sendSms = async ({ message, phoneNumbers }) => {
@@ -129,14 +146,32 @@ const sendSms = async ({ message, phoneNumbers }) => {
   let delivered = 0;
 
   for (const batch of batches) {
-    try {
-      const data = await postNotifyBatch(batch, message);
-      delivered += batch.length;
-      results.push({ success: true, batchSize: batch.length, response: data });
-    } catch (error) {
-      const responseData = error?.response?.data || error.message;
-      console.error('Notify.lk SMS batch failed:', responseData);
-      results.push({ success: false, batchSize: batch.length, error: responseData });
+    const batchResults = await postNotifyBatch(batch, message);
+    
+    // Count successful sends
+    const successCount = batchResults.filter(r => r.success).length;
+    delivered += successCount;
+    
+    // Aggregate results
+    const successNumbers = batchResults.filter(r => r.success).map(r => r.phoneNumber);
+    const failedNumbers = batchResults.filter(r => !r.success).map(r => ({ phoneNumber: r.phoneNumber, error: r.error }));
+    
+    if (successNumbers.length > 0) {
+      results.push({ 
+        success: true, 
+        batchSize: successNumbers.length, 
+        numbers: successNumbers, 
+        response: batchResults.filter(r => r.success).map(r => r.response)
+      });
+    }
+    
+    if (failedNumbers.length > 0) {
+      results.push({ 
+        success: false, 
+        batchSize: failedNumbers.length, 
+        numbers: failedNumbers.map(f => f.phoneNumber), 
+        error: failedNumbers 
+      });
     }
   }
 
@@ -265,9 +300,15 @@ const shouldTriggerCeoAnnouncementBroadcast = ({ channelId, senderId, channelCre
   return matchesRole || matchesChannel;
 };
 
+const sendSmsToRecipients = async ({ message, phoneNumbers }) => {
+  return sendSms({ message, phoneNumbers });
+};
+
 module.exports = {
   hasNotifyCredentials,
   sendSms,
   sendSmsToActivePassengers,
-  shouldTriggerCeoAnnouncementBroadcast
+  shouldTriggerCeoAnnouncementBroadcast,
+  sendSmsToRecipients,
+  normalizeToDialString
 };

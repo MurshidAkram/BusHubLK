@@ -1,32 +1,26 @@
-const twilio = require('twilio')(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 const sendgrid = require('@sendgrid/mail');
 sendgrid.setApiKey(process.env.SENDGRID_API_KEY);
 
+const db = require('../config/db');
 const Passenger = require('../models/passengerModel');
+const notifySmsService = require('../services/notifySmsService');
+const smsLogService = require('../services/smsLogService');
+const emergencySmsLogService = require('../services/emergencySmsLogService');
 
-// Helper function to format phone numbers to E.164
-const formatPhoneNumberToE164 = (phoneNumber) => {
+// Helper function to format phone numbers for Notify.lk (94 + 9 digits)
+const formatPhoneNumberForNotify = (phoneNumber) => {
     if (!phoneNumber) return null;
-    let cleanedNumber = phoneNumber.replace(/[^0-9+]/g, ''); // Remove non-numeric characters except '+'
-    
-    // If it already starts with '+', assume it's E.164
-    if (cleanedNumber.startsWith('+')) {
-        return cleanedNumber;
-    }
-    
-    // For Sri Lankan numbers, if it starts with '0', replace with '+94'
-    if (cleanedNumber.startsWith('0')) {
-        return '+94' + cleanedNumber.substring(1);
-    }
-    
-    // If it's a number without '0' prefix and no '+', assume it's a 9-digit local number and prepend '+94'
-    // This is a heuristic, adjust based on your expected input formats
-    if (cleanedNumber.length === 9) { // Example: 771234567 -> +94771234567
-        return '+94' + cleanedNumber;
-    }
+  const cleanedNumber = phoneNumber.replace(/[^0-9+]/g, '');
 
-    // Fallback if none of the above match, might still be invalid for Twilio
-    return cleanedNumber;
+  if (cleanedNumber.startsWith('+')) {
+    return notifySmsService.normalizeToDialString(cleanedNumber);
+  }
+
+  if (cleanedNumber.startsWith('0')) {
+    return notifySmsService.normalizeToDialString(`94${cleanedNumber.substring(1)}`);
+  }
+
+  return notifySmsService.normalizeToDialString(cleanedNumber);
 };
 
 
@@ -40,14 +34,7 @@ const addEmergencyContact = async (req, res) => {
       return res.status(400).json({ message: 'Name and phone are required.' });
     }
 
-    // Optionally, format the phone number to E.164 here before storing it
-    // const formattedPhone = formatPhoneNumberToE164(phone);
-    // if (!formattedPhone) {
-    //     return res.status(400).json({ message: 'Invalid phone number format.' });
-    // }
-    // const newContact = await Passenger.addEmergencyContact(id, name, formattedPhone, relationship, email, isPrimary);
-    
-    // For now, storing as is, and formatting during SMS sending
+    // For now, storing as provided, formatting happens during SMS sending
     const newContact = await Passenger.addEmergencyContact(id, name, phone, relationship, email, isPrimary);
     res.status(201).json(newContact);
   } catch (error) {
@@ -71,15 +58,6 @@ const updateEmergencyContact = async (req, res) => {
   try {
     const { id, contactId } = req.params;
     const updates = req.body;
-
-    // Optionally, format the phone number to E.164 here before updating it
-    // if (updates.phone) {
-    //     const formattedPhone = formatPhoneNumberToE164(updates.phone);
-    //     if (!formattedPhone) {
-    //         return res.status(400).json({ message: 'Invalid phone number format.' });
-    //     }
-    //     updates.phone = formattedPhone;
-    // }
 
     const updated = await Passenger.updateEmergencyContact(id, contactId, updates);
 
@@ -119,6 +97,29 @@ const notifyEmergencyContacts = async (req, res) => {
   let locationInfo = '';
   let nearestDepotContactPhone = null;
   let depotName = 'N/A';
+  let passengerPhone = '';
+
+  // Get passenger phone number if passengerId is provided
+  console.log('🔍 PassengerId from request:', req.body.passengerId);
+  if (req.body.passengerId) {
+    try {
+      const passengerResult = await db.query(
+        'SELECT phone FROM passengers WHERE id = $1',
+        [req.body.passengerId]
+      );
+      console.log('📱 Passenger query result:', passengerResult.rows);
+      if (passengerResult.rows.length > 0 && passengerResult.rows[0].phone) {
+        passengerPhone = passengerResult.rows[0].phone;
+        console.log('✅ Passenger phone found:', passengerPhone);
+      } else {
+        console.log('⚠️ No passenger phone found in database');
+      }
+    } catch (phoneErr) {
+      console.warn('❌ Could not fetch passenger phone:', phoneErr.message);
+    }
+  } else {
+    console.log('⚠️ No passengerId provided in request body');
+  }
 
   const notificationSummary = {
     smsSentToContacts: 0,
@@ -130,13 +131,14 @@ const notifyEmergencyContacts = async (req, res) => {
   };
 
   if (latitude !== null && longitude !== null) {
-      locationInfo = `Passenger Location: Lat ${latitude.toFixed(4)}, Lon ${longitude.toFixed(4)}.`;
+      const googleMapsLink = `https://maps.google.com/?q=${latitude},${longitude}`;
+      locationInfo = `Location: ${googleMapsLink}`;
       try {
           const nearestDepot = await Passenger.getNearestDepotLocation(latitude, longitude);
           if (nearestDepot) {
               depotName = nearestDepot.depot_name;
               nearestDepotContactPhone = nearestDepot.contact_phone;
-              locationInfo += ` Nearest Depot: ${depotName}.`;
+              locationInfo += ` | Nearest Depot: ${depotName}`;
               notificationSummary.depotName = depotName;
           }
       } catch (depotErr) {
@@ -150,29 +152,29 @@ const notifyEmergencyContacts = async (req, res) => {
   const notificationPromises = [];
 
   // 1. Send SMS/Email to Passenger's Emergency Contacts
+  const passengerContact = passengerPhone ? ` Contact: ${passengerPhone}.` : '';
+  console.log('📞 Passenger contact string:', passengerContact);
+  const smsBodyForContacts = `Emergency Alert: ${emergencyType}. ${locationInfo}${passengerContact} This is an automated message. Please contact the passenger immediately.`;
+  console.log('📨 Final SMS message:', smsBodyForContacts);
+  const emailSubject = `Emergency Alert: ${emergencyType}`;
+
+  const normalizedContactNumbers = new Map();
+
   contacts.forEach(contact => {
-    const smsBody = `Emergency Alert: ${emergencyType}. ${locationInfo} This is an automated message. Please contact the passenger immediately.`;
-    const emailSubject = `Emergency Alert: ${emergencyType}`;
-    const emailText = `Hello ${contact.name},\n\nAn automated emergency alert has been triggered for a passenger. The emergency type is: ${emergencyType}.\n${locationInfo}\n\nPlease attempt to contact them immediately.`;
-    const emailHtml = `<strong>Hello ${contact.name},</strong><br><br>An automated emergency alert has been triggered for a passenger. The emergency type is: <strong>${emergencyType}</strong>.<br>${locationInfo.replace(/\n/g, '<br>')}<br><br>Please attempt to contact them immediately.`;
+    const passengerContactInfo = passengerPhone ? `\nPassenger Contact: ${passengerPhone}` : '';
+    const emailText = `Hello ${contact.name},\n\nAn automated emergency alert has been triggered for a passenger. The emergency type is: ${emergencyType}.\n${locationInfo}${passengerContactInfo}\n\nPlease attempt to contact them immediately.`;
+    const emailHtml = `<strong>Hello ${contact.name},</strong><br><br>An automated emergency alert has been triggered for a passenger. The emergency type is: <strong>${emergencyType}</strong>.<br>${locationInfo.replace(/\n/g, '<br>')}${passengerContactInfo ? `<br><strong>Passenger Contact:</strong> ${passengerPhone}` : ''}<br><br>Please attempt to contact them immediately.`;
 
     if (contact.phone) {
-      const formattedPhone = formatPhoneNumberToE164(contact.phone);
-      if (formattedPhone) {
-        notificationPromises.push(
-          twilio.messages.create({
-            body: smsBody,
-            from: process.env.TWILIO_PHONE_NUMBER,
-            to: formattedPhone
-          }).then(() => { notificationSummary.smsSentToContacts++; })
-          .catch(err => {
-              console.error(`SMS to ${contact.phone} failed:`, err.message, 'Code:', err.code, 'More Info:', err.moreInfo);
-              notificationSummary.overallSuccess = false;
-              notificationSummary.detailedMessage.push(`Failed to send SMS to ${contact.name}: ${err.message || 'Unknown Twilio error'}`);
-          })
-        );
+      const formatted = formatPhoneNumberForNotify(contact.phone);
+      if (formatted) {
+        if (!normalizedContactNumbers.has(formatted)) {
+          normalizedContactNumbers.set(formatted, []);
+        }
+        normalizedContactNumbers.get(formatted).push(contact);
       } else {
-          notificationSummary.detailedMessage.push(`Skipped SMS to ${contact.name}: Invalid phone number format.`);
+        notificationSummary.overallSuccess = false;
+        notificationSummary.detailedMessage.push(`Skipped SMS to ${contact.name}: Invalid phone number format.`);
       }
     }
 
@@ -185,48 +187,146 @@ const notifyEmergencyContacts = async (req, res) => {
         html: emailHtml,
       };
       notificationPromises.push(
-        sendgrid.send(emailMessage).then(() => { notificationSummary.emailsSentToContacts++; })
-        .catch(err => { console.error(`Email to ${contact.email} failed: ${err.message}`); notificationSummary.overallSuccess = false; notificationSummary.detailedMessage.push(`Failed to send email to ${contact.name}: ${err.message || 'Unknown SendGrid error'}`); })
+        sendgrid.send(emailMessage)
+          .then(() => { notificationSummary.emailsSentToContacts++; })
+          .catch(err => {
+            console.error(`Email to ${contact.email} failed: ${err.message}`);
+            notificationSummary.overallSuccess = false;
+            notificationSummary.detailedMessage.push(`Failed to send email to ${contact.name}: ${err.message || 'Unknown SendGrid error'}`);
+          })
       );
     }
   });
 
-  // 2. Send SMS to Nearest Depot (if phone number is available)
-  if (nearestDepotContactPhone) {
-    const formattedDepotPhone = formatPhoneNumberToE164(nearestDepotContactPhone);
-    if (formattedDepotPhone) {
-        const depotSmsBody = `URGENT! Emergency Alert Type: ${emergencyType}. Passenger Location: Lat ${latitude.toFixed(4)}, Lon ${longitude.toFixed(4)}. Nearest Depot: ${depotName}. Please dispatch assistance.`;
-        notificationPromises.push(
-            twilio.messages.create({
-                body: depotSmsBody,
-                from: process.env.TWILIO_PHONE_NUMBER,
-                to: formattedDepotPhone
-            }).then(() => { notificationSummary.smsSentToDepot = true; notificationSummary.detailedMessage.push(`SMS sent to nearest depot (${depotName}).`); })
-            .catch(err => {
-                console.error(`SMS to nearest depot (${depotName}, ${nearestDepotContactPhone}) failed:`, err.message, 'Code:', err.code, 'More Info:', err.moreInfo);
-                notificationSummary.overallSuccess = false;
-                notificationSummary.detailedMessage.push(`Failed to send SMS to nearest depot (${depotName}): ${err.message || 'Unknown Twilio error'}`);
-            })
-        );
+  if (normalizedContactNumbers.size > 0) {
+    if (!notifySmsService.hasNotifyCredentials) {
+      notificationSummary.overallSuccess = false;
+      notificationSummary.detailedMessage.push('Notify.lk credentials are not configured; unable to send SMS to contacts.');
     } else {
-        console.warn('Nearest depot phone number could not be formatted to E.164, skipping SMS to depot.');
-        notificationSummary.detailedMessage.push('Nearest depot phone number invalid, SMS to depot skipped.');
+      const phoneNumbers = Array.from(normalizedContactNumbers.keys());
+      let smsLogPayload = {
+        provider: 'notify.lk',
+        channelId: null,
+        senderId: req.body.passengerId || null,
+        message: smsBodyForContacts,
+        requestedCount: phoneNumbers.length,
+        deliveredCount: 0,
+        status: 'pending',
+        recipients: phoneNumbers,
+        details: { emergencyType, location: locationInfo }
+      };
+
+      try {
+        const smsResult = await notifySmsService.sendSmsToRecipients({
+          message: smsBodyForContacts,
+          phoneNumbers: phoneNumbers
+        });
+
+        notificationSummary.smsSentToContacts = smsResult.delivered;
+        smsLogPayload.deliveredCount = smsResult.delivered;
+        smsLogPayload.requestedCount = smsResult.requested;
+
+        const failedBatches = smsResult.batches.filter(batch => !batch.success);
+        if (failedBatches.length > 0) {
+          notificationSummary.overallSuccess = false;
+          smsLogPayload.status = failedBatches.length === smsResult.batches.length ? 'failed' : 'partial';
+          smsLogPayload.details = { 
+            ...smsLogPayload.details, 
+            failedBatches: failedBatches.map(b => ({ error: b.error, numbers: b.numbers }))
+          };
+          
+          failedBatches.forEach(batch => {
+            const impactedContacts = (batch.numbers || [])
+              .flatMap(number => normalizedContactNumbers.get(number) || [])
+              .map(contact => contact.name);
+            const label = impactedContacts.length > 0 ? impactedContacts.join(', ') : (batch.numbers || []).join(', ');
+            notificationSummary.detailedMessage.push(`Failed to send SMS to ${label}: ${JSON.stringify(batch.error)}`);
+          });
+        } else {
+          smsLogPayload.status = 'sent';
+        }
+
+        // Log to general SMS logs
+        await smsLogService.logSms(smsLogPayload);
+        
+        // Log each SMS individually to emergency SMS logs
+        const emergencySmsLogs = [];
+        smsResult.batches.forEach(batch => {
+          batch.numbers.forEach(phoneNumber => {
+            const contactsForNumber = normalizedContactNumbers.get(phoneNumber) || [];
+            const contact = contactsForNumber[0]; // Get first contact for this number
+            
+            emergencySmsLogs.push({
+              passengerId: req.body.passengerId || null,
+              emergencyType: emergencyType,
+              passengerLatitude: latitude,
+              passengerLongitude: longitude,
+              nearestDepotName: depotName,
+              message: smsBodyForContacts,
+              recipientPhone: phoneNumber,
+              recipientName: contact ? contact.name : null,
+              recipientRelationship: contact ? contact.relationship : null,
+              deliveryStatus: batch.success ? 'sent' : 'failed',
+              deliveryError: batch.success ? null : JSON.stringify(batch.error),
+              notifyResponse: batch.response || batch.error
+            });
+          });
+        });
+        
+        // Log all emergency SMS
+        await emergencySmsLogService.logMultipleEmergencySms(emergencySmsLogs);
+        console.log(`✅ Logged ${emergencySmsLogs.length} emergency SMS to database`);
+        
+      } catch (error) {
+        console.error('Notify.lk contact SMS dispatch failed:', error);
+        notificationSummary.overallSuccess = false;
+        notificationSummary.detailedMessage.push(error.message || 'Notify.lk SMS dispatch failed for contacts.');
+        
+        // Log failed SMS attempt to general log
+        smsLogPayload.status = 'failed';
+        smsLogPayload.details = { 
+          ...smsLogPayload.details, 
+          error: error.message 
+        };
+        await smsLogService.logSms(smsLogPayload);
+        
+        // Log failed attempts to emergency SMS logs
+        const failedSmsLogs = phoneNumbers.map(phoneNumber => {
+          const contactsForNumber = normalizedContactNumbers.get(phoneNumber) || [];
+          const contact = contactsForNumber[0];
+          
+          return {
+            passengerId: req.body.passengerId || null,
+            emergencyType: emergencyType,
+            passengerLatitude: latitude,
+            passengerLongitude: longitude,
+            nearestDepotName: depotName,
+            message: smsBodyForContacts,
+            recipientPhone: phoneNumber,
+            recipientName: contact ? contact.name : null,
+            recipientRelationship: contact ? contact.relationship : null,
+            deliveryStatus: 'failed',
+            deliveryError: error.message,
+            notifyResponse: null
+          };
+        });
+        
+        await emergencySmsLogService.logMultipleEmergencySms(failedSmsLogs);
+      }
     }
-  } else {
-    console.warn('Nearest depot phone number not available, skipping SMS to depot.');
-    notificationSummary.detailedMessage.push('Nearest depot phone number not available, SMS to depot skipped.');
   }
 
-  try {
-    await Promise.allSettled(notificationPromises);
-    res.status(200).json({ message: 'Notifications initiated.', summary: notificationSummary });
-  }
-  catch (error) {
-    console.error('A critical error occurred during notification processing:', error);
-    notificationSummary.overallSuccess = false;
-    notificationSummary.detailedMessage.push('Critical server error during notifications.');
-    res.status(500).json({ message: 'An error occurred while processing notifications.', summary: notificationSummary });
-  }
+  const emailAndOtherPromisesResult = await Promise.allSettled(notificationPromises);
+  emailAndOtherPromisesResult.forEach(result => {
+    if (result.status === 'rejected') {
+      notificationSummary.overallSuccess = false;
+    }
+  });
+
+  // Depot SMS removed - only sending SMS/Email to emergency contacts
+  // Depot phone is only used for manual calling from the app
+  
+  res.status(200).json({ message: 'Notification processing completed.', summary: notificationSummary });
 };
 
 // === Alert Controllers ===
@@ -295,6 +395,23 @@ const getNearestDepot = async (req, res) => {
     }
 };
 
+// === Clear All Alerts Controller ===
+const clearAllAlerts = async (req, res) => {
+  const { id } = req.params; // passengerId
+
+  try {
+    const clearedCount = await Passenger.clearAllAlerts(id);
+    res.status(200).json({ 
+      success: true, 
+      message: `${clearedCount} alert(s) cleared successfully.`,
+      clearedCount 
+    });
+  } catch (error) {
+    console.error('Error clearing alerts (controller):', error);
+    res.status(500).json({ message: 'Server Error', error: error.message });
+  }
+};
+
 
 module.exports = {
   addEmergencyContact,
@@ -304,5 +421,6 @@ module.exports = {
   notifyEmergencyContacts,
   createAlert,
   getAlertsByPassenger,
+  clearAllAlerts,
   getNearestDepot, // Export the new function
 };

@@ -26,6 +26,7 @@ import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/dat
 import * as ImagePicker from "expo-image-picker";
 import DropDownPicker from "react-native-dropdown-picker";
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Location from 'expo-location';
 
 // --- Enhanced Color Palette (matching BusOccupancyScreen) ---
 const AppColors = {
@@ -54,12 +55,15 @@ const AppColors = {
 
 type ComplaintsScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Complaints'>;
 
-interface RouteSuggestion {
-  route_id: number;
-  route_number: string;
-  route_name: string;
-  start_location?: string;
-  end_location?: string;
+interface BusRouteSuggestion {
+  bus_route_id: number;
+  bus_id: number | null;
+  route_id: number | null;
+  registration_number: string | null;
+  bus_registration?: string | null;
+  route_number: string | null;
+  route_name?: string | null;
+  bus_name?: string | null;
 }
 
 interface BusRouteSuggestion {
@@ -104,15 +108,18 @@ export default function ComplaintsScreen() {
   const [routeNumber, setRouteNumber] = useState("");
   const [busNumber, setBusNumber] = useState("");
   const [location, setLocation] = useState("");
+  const [isLocationLoading, setIsLocationLoading] = useState(false);
   const [date, setDate] = useState(new Date());
   const [time, setTime] = useState(new Date());
   const [priority, setPriority] = useState("Medium");
   const [description, setDescription] = useState("");
   const [image, setImage] = useState<string | null>(null);
-  const [routeSuggestions, setRouteSuggestions] = useState<RouteSuggestion[]>([]);
+  const [routeSuggestions, setRouteSuggestions] = useState<BusRouteSuggestion[]>([]);
+  const [busSuggestions, setBusSuggestions] = useState<BusRouteSuggestion[]>([]);
   const [isRouteLoading, setIsRouteLoading] = useState(false);
-  const [isValidRoute, setIsValidRoute] = useState(false);
+  const [isBusLoading, setIsBusLoading] = useState(false);
   const routeSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const busSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [busSuggestions, setBusSuggestions] = useState<BusRouteSuggestion[]>([]);
   const [isBusLoading, setIsBusLoading] = useState(false);
@@ -149,93 +156,123 @@ export default function ComplaintsScreen() {
   };
 
   const pickImage = async () => {
-    Alert.alert(
-      'Select Image',
-      'Choose how you want to select an image',
-      [
-        {
-          text: 'Camera',
-          onPress: async () => {
-            try {
-              // Request camera permission
-              const cameraPermission = await ImagePicker.requestCameraPermissionsAsync();
-              
-              if (cameraPermission.granted === false) {
-                Alert.alert('Permission Required', 'Permission to access camera is required!');
-                return;
-              }
-              
-              const result = await ImagePicker.launchCameraAsync({
-                mediaTypes: ['images'],
-                allowsEditing: true,
-                aspect: [4, 3],
-                quality: 0.7,
-              });
-              
-              if (!result.canceled && result.assets && result.assets.length > 0) {
-                setImage(result.assets[0].uri);
-              }
-            } catch (error) {
-              console.error('Camera error:', error);
-              Alert.alert('Error', 'Failed to take photo');
-            }
-          }
-        },
-        {
-          text: 'Gallery',
-          onPress: async () => {
-            try {
-              // Request media library permission
-              const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-              
-              if (status !== "granted") {
-                Alert.alert("Permission Required", "Permission to access photo gallery is required!");
-                return;
-              }
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permission Denied", "Sorry, we need camera roll permissions to make this work!");
+      return;
+    }
 
-              const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ['images'],
-                allowsEditing: true,
-                aspect: [4, 3],
-                quality: 0.7,
-              });
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.7,
+    });
 
-              if (!result.canceled && result.assets && result.assets.length > 0) {
-                setImage(result.assets[0].uri);
-              }
-            } catch (error) {
-              console.error('Gallery error:', error);
-              Alert.alert('Error', 'Failed to select image from gallery');
-            }
-          }
-        },
-        {
-          text: 'Cancel',
-          style: 'cancel'
-        }
-      ]
-    );
+    if (!result.canceled) {
+      setImage(result.assets[0].uri);
+    }
   };
 
-  const fetchRouteSuggestions = useCallback(async (query: string) => {
+  const fetchCurrentLocation = async () => {
+    try {
+      setIsLocationLoading(true);
+      
+      // Request location permissions
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permission Denied',
+          'Location permission is required to fetch your current location.'
+        );
+        return;
+      }
+
+      // Get current position
+      const currentLocation = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+
+      const { latitude, longitude } = currentLocation.coords;
+
+      // Reverse geocode to get address
+      const addressResults = await Location.reverseGeocodeAsync({
+        latitude,
+        longitude,
+      });
+
+      if (addressResults && addressResults.length > 0) {
+        const address = addressResults[0];
+        
+        // Build a readable address string
+        const addressParts = [
+          address.name,
+          address.street,
+          address.district,
+          address.city,
+          address.region,
+        ].filter(Boolean);
+
+        const formattedAddress = addressParts.length > 0 
+          ? addressParts.join(', ')
+          : `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+
+        setLocation(formattedAddress);
+        
+        Alert.alert(
+          'Location Fetched',
+          'Your current location has been added. You can edit it if needed.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        // Fallback to coordinates if geocoding fails
+        setLocation(`${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+      }
+    } catch (error) {
+      console.error('Error fetching location:', error);
+      Alert.alert(
+        'Location Error',
+        'Unable to fetch your current location. Please enter it manually.'
+      );
+    } finally {
+      setIsLocationLoading(false);
+    }
+  };
+
+  const fetchBusRouteSuggestions = useCallback(async (query: string, mode: "route" | "bus") => {
     const trimmed = query.trim();
     if (!trimmed) {
-      setRouteSuggestions([]);
+      if (mode === "route") {
+        setRouteSuggestions([]);
+      } else {
+        setBusSuggestions([]);
+      }
       return;
     }
 
     try {
-      setIsRouteLoading(true);
+      if (mode === "route") {
+        setIsRouteLoading(true);
+      } else {
+        setIsBusLoading(true);
+      }
 
-      // Use the type parameter to search only routes
-      const response = await complaintAPI.searchBusRoutes(trimmed, 'route');
-      const matches: any[] = Array.isArray(response?.data) ? response.data : [];
+      const response = await complaintAPI.searchBusRoutes(trimmed);
+      const matches: BusRouteSuggestion[] = Array.isArray(response?.data) ? response.data : [];
 
-      setRouteSuggestions(matches.slice(0, 8));
+      if (mode === "route") {
+        setRouteSuggestions(matches.slice(0, 8));
+      } else {
+        setBusSuggestions(matches.slice(0, 8));
+      }
     } catch (error) {
-      console.error("Error searching routes:", error);
+      console.error("Error searching bus routes:", error);
     } finally {
-      setIsRouteLoading(false);
+      if (mode === "route") {
+        setIsRouteLoading(false);
+      } else {
+        setIsBusLoading(false);
+      }
     }
   }, []);
 
@@ -244,21 +281,40 @@ export default function ComplaintsScreen() {
       clearTimeout(routeSearchTimeout.current);
     }
     routeSearchTimeout.current = setTimeout(() => {
-      fetchRouteSuggestions(value);
+      fetchBusRouteSuggestions(value, "route");
     }, 350);
-  }, [fetchRouteSuggestions]);
+  }, [fetchBusRouteSuggestions]);
+
+  const scheduleBusSearch = useCallback((value: string) => {
+    if (busSearchTimeout.current) {
+      clearTimeout(busSearchTimeout.current);
+    }
+    busSearchTimeout.current = setTimeout(() => {
+      fetchBusRouteSuggestions(value, "bus");
+    }, 350);
+  }, [fetchBusRouteSuggestions]);
 
   const handleRouteInputChange = useCallback((value: string) => {
     setRouteNumber(value);
-    setIsValidRoute(false); // Mark as invalid when user types
     scheduleRouteSearch(value);
   }, [scheduleRouteSearch]);
 
+  const handleBusInputChange = useCallback((value: string) => {
+    setBusNumber(value);
+    scheduleBusSearch(value);
+  }, [scheduleBusSearch]);
+
   const handleRouteFocus = useCallback(() => {
     if (routeNumber.trim()) {
-      fetchRouteSuggestions(routeNumber);
+      fetchBusRouteSuggestions(routeNumber, "route");
     }
-  }, [fetchRouteSuggestions, routeNumber]);
+  }, [fetchBusRouteSuggestions, routeNumber]);
+
+  const handleBusFocus = useCallback(() => {
+    if (busNumber.trim()) {
+      fetchBusRouteSuggestions(busNumber, "bus");
+    }
+  }, [fetchBusRouteSuggestions, busNumber]);
 
   const handleRouteBlur = useCallback(() => {
     if (routeSearchTimeout.current) {
@@ -268,48 +324,6 @@ export default function ComplaintsScreen() {
     setTimeout(() => setRouteSuggestions([]), 150);
   }, []);
 
-
-  const fetchBusSuggestions = useCallback(async (query: string) => {
-    const trimmed = query.trim();
-    if (!trimmed) {
-      setBusSuggestions([]);
-      return;
-    }
-
-    try {
-      setIsBusLoading(true);
-
-      // Use the type parameter to search only buses
-      const response = await complaintAPI.searchBusRoutes(trimmed, 'bus');
-      const matches: any[] = Array.isArray(response?.data) ? response.data : [];
-
-      setBusSuggestions(matches.slice(0, 8));
-    } catch (error) {
-      console.error("Error searching buses:", error);
-    } finally {
-      setIsBusLoading(false);
-    }
-  }, []);
-
-  const scheduleBusSearch = useCallback((value: string) => {
-    if (busSearchTimeout.current) {
-      clearTimeout(busSearchTimeout.current);
-    }
-    busSearchTimeout.current = setTimeout(() => {
-      fetchBusSuggestions(value);
-    }, 350);
-  }, [fetchBusSuggestions]);
-
-  const handleBusInputChange = useCallback((value: string) => {
-    setBusNumber(value);
-    scheduleBusSearch(value);
-  }, [scheduleBusSearch]);
-
-  const handleBusFocus = useCallback(() => {
-    if (busNumber.trim()) {
-      fetchBusSuggestions(busNumber);
-    }
-  }, [fetchBusSuggestions, busNumber]);
 
   const handleBusBlur = useCallback(() => {
     if (busSearchTimeout.current) {
@@ -340,7 +354,6 @@ export default function ComplaintsScreen() {
       }
     }
 
-
     setRouteSuggestions([]);
     setBusSuggestions([]);
     Keyboard.dismiss();
@@ -352,10 +365,6 @@ export default function ComplaintsScreen() {
       return;
     }
 
-    if (!isValidRoute) {
-      Alert.alert("Invalid Route", "Please select a valid route from the dropdown suggestions.");
-      return;
-    }
 
     setIsSubmitting(true);
 
@@ -542,23 +551,17 @@ export default function ComplaintsScreen() {
             <View style={styles.row}>
               <View style={[styles.inputGroup, styles.autocompleteWrapper]}>
                 <Text style={styles.label}>Route No.</Text>
-                <View style={[
-                  styles.enhancedInputContainer,
-                  isValidRoute && styles.validInputContainer
-                ]}>
+                <View style={styles.enhancedInputContainer}>
                   <Ionicons name="bus-outline" size={20} color={AppColors.primary} style={styles.inputIcon} />
                   <TextInput
                     style={styles.inputText}
-                    placeholder="e.g. 177"
+                    placeholder="e.g., 177"
                     value={routeNumber}
                     onChangeText={handleRouteInputChange}
                     onFocus={handleRouteFocus}
                     onBlur={handleRouteBlur}
                     autoCapitalize="characters"
                   />
-                  {isValidRoute && (
-                    <Ionicons name="checkmark-circle" size={20} color={AppColors.success} style={{ marginLeft: 8 }} />
-                  )}
                 </View>
                 {(isRouteLoading || (routeSuggestions.length > 0 && routeNumber.trim().length > 0)) && (
                   <View style={styles.suggestionsWrapper}>
@@ -567,7 +570,6 @@ export default function ComplaintsScreen() {
                         <ActivityIndicator size="small" color={AppColors.primary} />
                       </View>
                     ) : (
-
                       routeSuggestions.map((suggestion, index) => {
                         const suggestionKey = `route-sugg-${suggestion.route_id ?? index}-${index}`;
                         const isLast = index === routeSuggestions.length - 1;
@@ -586,18 +588,17 @@ export default function ComplaintsScreen() {
                           </TouchableOpacity>
                         );
                       })
-
                     )}
                   </View>
                 )}
               </View>
-              <View style={styles.inputGroup}>
+              <View style={[styles.inputGroup, styles.autocompleteWrapper]}>
                 <Text style={styles.label}>Bus No. (Optional)</Text>
                 <View style={styles.enhancedInputContainer}>
                   <Ionicons name="information-circle-outline" size={20} color={AppColors.secondary} style={styles.inputIcon} />
                   <TextInput
                     style={styles.inputText}
-                    placeholder="e.g.ND-1234"
+                    placeholder="e.g., ND-1234"
                     value={busNumber}
                     onChangeText={handleBusInputChange}
                     onFocus={handleBusFocus}
@@ -605,7 +606,6 @@ export default function ComplaintsScreen() {
                     autoCapitalize="characters"
                   />
                 </View>
-
                 {(isBusLoading || (busSuggestions.length > 0 && busNumber.trim().length > 0)) && (
                   <View style={styles.suggestionsWrapper}>
                     {isBusLoading ? (
@@ -641,36 +641,66 @@ export default function ComplaintsScreen() {
                     )}
                   </View>
                 )}
-
               </View>
             </View>
           </View>
 
           {/* --- CARD 2: TIME & PLACE --- */}
           <View style={styles.card}>
-            <View style={styles.cardHeaderContainer}><View style={styles.cardIconContainer}><Ionicons name="location" size={24} color={AppColors.indigo} /></View><View><Text style={styles.cardHeader}>Time & Place</Text><Text style={styles.cardSubheader}>When and where did this happen?</Text></View></View>
+            <View style={styles.cardHeaderContainer}>
+              <View style={styles.cardIconContainer}>
+                <Ionicons name="location" size={24} color={AppColors.indigo} />
+              </View>
+              <View>
+                <Text style={styles.cardHeader}>Time & Place</Text>
+                <Text style={styles.cardSubheader}>When and where did this happen?</Text>
+              </View>
+            </View>
             
-            <Text style={styles.label}>Location</Text>
+            <View style={styles.locationHeaderRow}>
+              <Text style={styles.label}>Location</Text>
+              <TouchableOpacity 
+                style={styles.fetchLocationButton} 
+                onPress={fetchCurrentLocation}
+                disabled={isLocationLoading}
+              >
+                {isLocationLoading ? (
+                  <ActivityIndicator size="small" color={AppColors.primary} />
+                ) : (
+                  <>
+                    <Ionicons name="navigate" size={16} color={AppColors.primary} />
+                    <Text style={styles.fetchLocationText}>Use Current</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+            
             <View style={styles.enhancedInputContainer}>
               <Ionicons name="location-outline" size={20} color={AppColors.indigo} style={styles.inputIcon} />
               <TextInput
                 style={styles.inputText}
-                placeholder="e.g. Colombo Fort Bus Stand"
+                placeholder="e.g., Colombo Fort Bus Stand"
                 value={location}
                 onChangeText={setLocation}
+                editable={!isLocationLoading}
               />
             </View>
 
             <View style={styles.row}>
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Date</Text>
-                <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.enhancedInputContainer}><Ionicons name="calendar-outline" size={20} color={AppColors.indigo} style={styles.inputIcon} /><Text style={styles.inputText}>{date.toLocaleDateString()}</Text></TouchableOpacity>
+                <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.enhancedInputContainer}>
+                  <Ionicons name="calendar-outline" size={20} color={AppColors.indigo} style={styles.inputIcon} />
+                  <Text style={styles.inputText}>{date.toLocaleDateString()}</Text>
+                </TouchableOpacity>
               </View>
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Time</Text>
-                <TouchableOpacity onPress={() => setShowTimePicker(true)} style={styles.enhancedInputContainer}><Ionicons name="time-outline" size={20} color={AppColors.indigo} style={styles.inputIcon} /><Text style={styles.inputText}>{time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text></TouchableOpacity>
+                <TouchableOpacity onPress={() => setShowTimePicker(true)} style={styles.enhancedInputContainer}>
+                  <Ionicons name="time-outline" size={20} color={AppColors.indigo} style={styles.inputIcon} />
+                  <Text style={styles.inputText}>{time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+                </TouchableOpacity>
               </View>
-
             </View>
           </View>
 
@@ -769,7 +799,7 @@ const styles = StyleSheet.create({
         },
       }),
     },
-    cardHeaderContainer:{flexDirection:"row",alignItems:"center",marginBottom:16,paddingBottom:12,borderBottomWidth:1,borderBottomColor:'rgba(0, 86, 179, 0.08)'},
+    cardHeaderContainer:{flexDirection:"row",alignItems:"center",marginBottom:24,paddingBottom:16,borderBottomWidth:1,borderBottomColor:'rgba(0, 86, 179, 0.08)'},
     cardIconContainer:{
       width:52,
       height:52,
@@ -781,7 +811,7 @@ const styles = StyleSheet.create({
     },
     cardHeader:{fontSize:20,fontWeight:"700",color:AppColors.text,letterSpacing:0.3},
     cardSubheader:{fontSize:13,color:AppColors.textSecondary,marginTop:4,fontWeight:'500'},
-    label:{fontSize:15,fontWeight:"600",color:AppColors.text,marginBottom:8, marginTop: 8,letterSpacing:0.2},
+    label:{fontSize:15,fontWeight:"600",color:AppColors.text,marginBottom:12, marginTop: 16,letterSpacing:0.2},
     enhancedInputContainer:{
       flexDirection:"row",
       alignItems:"center",
@@ -802,10 +832,6 @@ const styles = StyleSheet.create({
           shadowOffset: { width: 0, height: 2 },
         },
       }),
-    },
-    validInputContainer: {
-      borderColor: AppColors.success,
-      borderWidth: 2,
     },
     inputIcon:{marginRight:14},
     inputText:{flex:1,fontSize:16,color:AppColors.text,fontWeight:"500"},
@@ -853,7 +879,7 @@ const styles = StyleSheet.create({
       zIndex: 999,
     },
     placeholderText:{color:AppColors.textSecondary,fontSize:16,fontWeight:'500'},
-    priorityContainer:{flexDirection:"row",justifyContent:"space-between", marginBottom: 8,gap:10},
+    priorityContainer:{flexDirection:"row",justifyContent:"space-between", marginBottom: 18,gap:10},
     priorityButton:{
       flex:1,
       paddingVertical:14,
@@ -886,7 +912,7 @@ const styles = StyleSheet.create({
       borderWidth:1.5,
       borderColor:'rgba(0, 86, 179, 0.15)',
       fontWeight:"500", 
-      marginBottom: 8,
+      marginBottom: 18,
       ...Platform.select({
         android: {
           elevation: 2,
@@ -951,6 +977,7 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 6 },
       },
     }),
+    maxHeight:200,
     overflow:"hidden"
   },
   suggestionLoading:{paddingVertical:18,alignItems:"center",justifyContent:"center"},
@@ -975,6 +1002,29 @@ const styles = StyleSheet.create({
     paddingVertical:6,
     borderRadius:12,
     overflow:'hidden'
+  },
+  locationHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+    marginTop: 16,
+  },
+  fetchLocationButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 86, 179, 0.08)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 86, 179, 0.2)',
+  },
+  fetchLocationText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: AppColors.primary,
   },
 
 });
