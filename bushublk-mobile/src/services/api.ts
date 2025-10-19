@@ -3,6 +3,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_BASE_URL } from '../config/api';
 import { busLiveTrackingAPI } from '../services/busLiveTrackingAPI';
 
+const ALERT_HISTORY_KEY_PREFIX = 'alertHistoryCleared:';
+
 // Create axios instance
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -195,11 +197,43 @@ export const storageAPI = {
   clearStorage: async () => {
     try {
       console.log('Clearing storage...');
-      await AsyncStorage.multiRemove(['authToken', 'userData']);
+      const keys = await AsyncStorage.getAllKeys();
+      const historyKeys = keys.filter((key) => key.startsWith(ALERT_HISTORY_KEY_PREFIX));
+      const keysToRemove = ['authToken', 'userData', ...historyKeys];
+      await AsyncStorage.multiRemove(keysToRemove);
       console.log('Storage cleared successfully');
     } catch (error) {
       console.error('Error clearing storage:', error);
       throw error;
+    }
+  },
+
+  setAlertHistoryCleared: async (passengerId: number, cleared: boolean) => {
+    try {
+      await AsyncStorage.setItem(
+        `${ALERT_HISTORY_KEY_PREFIX}${passengerId}`,
+        cleared ? 'true' : 'false'
+      );
+    } catch (error) {
+      console.error('Error setting alert history cleared flag:', error);
+    }
+  },
+
+  getAlertHistoryCleared: async (passengerId: number): Promise<boolean> => {
+    try {
+      const value = await AsyncStorage.getItem(`${ALERT_HISTORY_KEY_PREFIX}${passengerId}`);
+      return value === 'true';
+    } catch (error) {
+      console.error('Error getting alert history cleared flag:', error);
+      return false;
+    }
+  },
+
+  clearAlertHistoryClearedFlag: async (passengerId: number) => {
+    try {
+      await AsyncStorage.removeItem(`${ALERT_HISTORY_KEY_PREFIX}${passengerId}`);
+    } catch (error) {
+      console.error('Error clearing alert history flag:', error);
     }
   },
 };
