@@ -212,11 +212,11 @@ try {
 
 
 try {
-const depotManagerRoutes = require('./routes/depotManagerRoutes');
-app.use('/api/depot-manager', depotManagerRoutes);
-console.log('✅ depotManagerRoutes loaded');
+  const depotManagerRoutes = require('./routes/depotManagerRoutes');
+  app.use('/api/depot-manager', depotManagerRoutes);
+  console.log('✅ depotManagerRoutes loaded');
 } catch (error) {
-console.log('❌ depotManagerRoutes error: ', error.message);
+  console.log('❌ depotManagerRoutes error: ', error.message);
 }
 
 
@@ -260,6 +260,15 @@ try {
   console.log('✅ notificationRoutes loaded');
 } catch (error) {
   console.log('❌ notificationRoutes error:', error.message);
+}
+
+
+try {
+  const adminNotificationRoutes = require('./routes/adminNotificationRoutes');
+  app.use('/api/admin', adminNotificationRoutes);
+  console.log('✅ adminNotificationRoutes loaded');
+} catch (error) {
+  console.log('❌ adminNotificationRoutes error:', error.message);
 }
 
 try {
@@ -354,6 +363,14 @@ try {
 }
 
 try {
+  const dgmOperationsRoutes = require('./routes/dgmOperationsRoutes');
+  app.use('/api/dgm-operations', dgmOperationsRoutes);
+  console.log('✅ dgmOperationsRoutes loaded');
+} catch (error) {
+  console.log('❌ dgmOperationsRoutes error:', error.message);
+}
+
+try {
   const ceoRoutes = require('./routes/ceoRoutes');
   app.use('/api/ceo', ceoRoutes);
   console.log('✅ ceoRoutes loaded');
@@ -377,6 +394,14 @@ try {
   console.log('✅ rtoRoutes loaded');
 } catch (error) {
   console.log('❌ rtoRoutes error:', error.message);
+}
+
+try {
+  const regionalOperationsRoutes = require('./routes/regionalOperationsRoutes');
+  app.use('/api/regional-operations', regionalOperationsRoutes);
+  console.log('✅ regionalOperationsRoutes loaded');
+} catch (error) {
+  console.log('❌ regionalOperationsRoutes error:', error.message);
 }
 
 try {
@@ -430,7 +455,7 @@ try {
   app.use('/api/communication', communicationRoutes);
   console.log('✅ communicationRoutes loaded');
 } catch (error) {
-  console.log('❌ communicationRoutes error:', error.message);  
+  console.log('❌ communicationRoutes error:', error.message);
 }
 
 // Error handling middleware (should be added after all routes are registered)

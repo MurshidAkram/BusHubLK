@@ -306,6 +306,7 @@ const sendSmsToRecipients = async ({ message, phoneNumbers }) => {
 
 module.exports = {
   hasNotifyCredentials,
+  sendSms,
   sendSmsToActivePassengers,
   shouldTriggerCeoAnnouncementBroadcast,
   sendSmsToRecipients,

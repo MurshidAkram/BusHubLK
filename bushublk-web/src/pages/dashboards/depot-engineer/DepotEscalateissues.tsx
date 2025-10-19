@@ -4,7 +4,17 @@ import {
     MessageSquare, Send, AlertTriangle, ShieldAlert, ChevronDown, ChevronUp, Users, User
 } from 'lucide-react';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5000';
+
+const buildDepotEmergencyUrl = () => `${API_BASE_URL}/api/depot/emergency`;
+
+const buildDepotEmergencyStatsUrl = () => `${API_BASE_URL}/api/depot/emergency/statistics`;
+
+const buildDepotEmergencyStatusUrl = (reportId: number) => `${API_BASE_URL}/api/depot/emergency/${reportId}/status`;
+
+const buildDepotEmergencyMessagesUrl = (reportId: number) => `${API_BASE_URL}/api/depot/emergency/${reportId}/messages`;
+
+const buildDepotEmergencyManagerChatUrl = (reportId: number) => `${API_BASE_URL}/api/depot/emergency/${reportId}/manager-chat`;
 
 // --- INTERFACES (MODIFIED) --- //
 interface ChatMessage {
@@ -52,8 +62,8 @@ const ChatBox: React.FC<ChatBoxProps> = ({ reportId, messages, onMessageSent, ch
         if (!newMessage.trim()) return;
 
         const endpoint = chatType === 'driver'
-            ? `${API_BASE_URL}/depot/emergency/${reportId}/messages`
-            : `${API_BASE_URL}/depot/emergency/${reportId}/manager-chat`;
+            ? buildDepotEmergencyMessagesUrl(reportId)
+            : buildDepotEmergencyManagerChatUrl(reportId);
 
         try {
             const response = await fetch(endpoint, {
@@ -110,8 +120,8 @@ const DepotEscalateIssues: React.FC = () => {
         if (reports.length === 0) setIsLoading(true);
         try {
             const [reportsResponse, statsResponse] = await Promise.all([
-                fetch(`${API_BASE_URL}/depot/emergency`),
-                fetch(`${API_BASE_URL}/depot/emergency/statistics`)
+                fetch(buildDepotEmergencyUrl()),
+                fetch(buildDepotEmergencyStatsUrl())
             ]);
             const reportsResult = await reportsResponse.json();
             if (reportsResult.success) {
@@ -147,7 +157,7 @@ const DepotEscalateIssues: React.FC = () => {
 
     const handleUpdateStatus = async (id: number, status: EmergencyReport['status']) => {
         try {
-            const response = await fetch(`${API_BASE_URL}/depot/emergency/${id}/status`, {
+            const response = await fetch(buildDepotEmergencyStatusUrl(id), {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status }),
@@ -165,7 +175,7 @@ const DepotEscalateIssues: React.FC = () => {
 
     const fetchMessagesForReport = useCallback(async (reportId: number) => {
         try {
-            const response = await fetch(`${API_BASE_URL}/depot/emergency/${reportId}/messages`);
+            const response = await fetch(buildDepotEmergencyMessagesUrl(reportId));
             const result = await response.json();
             if (result.success) {
                 setReports(prevReports => prevReports.map(r =>
@@ -179,7 +189,7 @@ const DepotEscalateIssues: React.FC = () => {
 
     const fetchManagerChatForReport = useCallback(async (reportId: number) => {
         try {
-            const response = await fetch(`${API_BASE_URL}/depot/emergency/${reportId}/manager-chat`);
+            const response = await fetch(buildDepotEmergencyManagerChatUrl(reportId));
             const result = await response.json();
             if (result.success) {
                 setReports(prevReports => prevReports.map(r =>

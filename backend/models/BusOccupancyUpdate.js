@@ -3,18 +3,20 @@ const pool = require('../config/db');
 class BusOccupancy {
   static async create(occupancyData) {
     try {
-      const { busId, occupancyLevel, latitude, longitude, updatedAt, confidence, passengerId } = occupancyData;
+      const { busId, occupancyLevel, latitude, longitude, confidence, passengerId } = occupancyData;
       
       // Validate required passenger_id field
       if (!passengerId) {
         throw new Error('passenger_id is required for bus occupancy records');
       }
       
+      // Always use PostgreSQL's CURRENT_TIMESTAMP to avoid timezone issues
+      // This ensures updated_at is always stored in database timezone (UTC) consistently
       const result = await pool.query(
         `INSERT INTO bus_occupancy (bus_id, passenger_id, occupancy_level, latitude, longitude, updated_at, confidence)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, $6)
          RETURNING *`,
-        [busId, passengerId, occupancyLevel, latitude, longitude, updatedAt || new Date().toISOString(), confidence]
+        [busId, passengerId, occupancyLevel, latitude, longitude, confidence]
       );
       return result.rows[0];
     } catch (error) {

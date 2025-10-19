@@ -1,5 +1,7 @@
 const express = require('express');
 const router = express.Router();
+const { authenticateJWT, authorizeRole } = require('../middlewares/authMiddleware');
+const dgmTechnicalNotificationController = require('../controllers/dgmTechnicalNotificationController');
 const {
     getAllRegions,
     getDepotsByRegion,
@@ -14,6 +16,14 @@ const {
     generateRegionalReport,
     generateDepotReport
 } = require('../controllers/dgmTechnicalController');
+
+const ensureDGMTechnical = authorizeRole(['dgm_technical']);
+
+// Notification endpoints for DGM Technical dashboard
+router.get('/notifications', authenticateJWT, ensureDGMTechnical, dgmTechnicalNotificationController.getNotifications);
+router.get('/notifications/unread-count', authenticateJWT, ensureDGMTechnical, dgmTechnicalNotificationController.getUnreadCount);
+router.post('/notifications/mark-read', authenticateJWT, ensureDGMTechnical, dgmTechnicalNotificationController.markAsRead);
+router.post('/notifications/mark-all-read', authenticateJWT, ensureDGMTechnical, dgmTechnicalNotificationController.markAllAsRead);
 
 // GET /api/dgm-technical/regions - Get all regions with depot and bus counts
 router.get('/regions', getAllRegions);

@@ -82,6 +82,7 @@ interface Report {
   time_ago: string;
   first_name?: string;
   last_name?: string;
+  driver_name?: string;
   item_photo_url?: string;
   reward_offered?: number;
   approximate_location?: string;
@@ -95,6 +96,9 @@ interface Report {
   handover_date?: string;
   handover_notes?: string;
   depot_name?: string;
+  depot_contact_phone?: string;
+  driver_depot_name?: string;
+  driver_depot_phone?: string;
 }
 
 interface Route {
@@ -410,7 +414,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
             
             allMyReports = [...allMyReports, ...transformedDriverReports];
             console.log('✅ Driver reports loaded:', transformedDriverReports.length);
-            console.log('📸 Driver reports with photos:', transformedDriverReports.filter(r => r.item_photo_url).length);
+            console.log('📸 Driver reports with photos:', transformedDriverReports.filter((r: any) => r.item_photo_url).length);
           }
         } catch (error) {
           console.error('Error loading driver reports:', error);
@@ -604,14 +608,14 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
         isValid = false;
       }
     } else if (reportStep === 3) {
-      if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) {
+      if (!formData.email.trim()) {
+        newErrors.email = 'Email address is required.';
+        isValid = false;
+      } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
         newErrors.email = 'Please enter a valid email address.';
         isValid = false;
       }
-      if (!formData.phone.trim()) {
-        newErrors.phone = 'Phone number is required.';
-        isValid = false;
-      } else if (formData.phone.length < 9) {
+      if (formData.phone && formData.phone.length < 9) {
         newErrors.phone = 'Please enter a valid phone number.';
         isValid = false;
       }
@@ -1155,14 +1159,29 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
             )}
             
             <View style={styles.separator} />
-            
+
+            {/* Display depot handover information prominently if available */}
+            {report.handed_to_depot_id && (
+              <View style={styles.depotHandoverBanner}>
+                <Ionicons name="business" size={20} color={AppColors.success} />
+                <View style={styles.depotHandoverBannerContent}>
+                  <Text style={styles.depotHandoverBannerTitle}>Item Handed Over to Depot</Text>
+                  <Text style={styles.depotHandoverBannerDetails}>
+                    {report.depot_name && `${report.depot_name} • `}
+                    {report.handover_date ? new Date(report.handover_date).toLocaleDateString() : 'Unknown date'}
+                    {report.handover_notes && `\nNotes: ${report.handover_notes}`}
+                  </Text>
+                </View>
+              </View>
+            )}
+
             <View style={styles.contactSection}>
               {/* Header row with Contact label, name, and Your Report badge */}
               <View style={styles.contactHeader}>
                 <Text style={styles.contactName}>
                   <Text style={styles.contactLabel}>Contact: </Text>
-                  {report.driver_id 
-                    ? `Driver ${report.first_name || 'Unknown'}${report.last_name ? ` ${report.last_name.charAt(0)}.` : ''}` 
+                  {report.driver_id
+                    ? `${report.driver_name || 'Unknown'} (SLTB Driver)`
                     : (report.first_name ? `${report.first_name} ${report.last_name?.charAt(0) || ''}.` : 'Anonymous')
                   }
                 </Text>
@@ -1181,22 +1200,12 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
                   📧 {report.contact_email}
                 </Text>
               )}
-              
-              {/* Display depot handover information if available */}
-              {report.handed_to_depot_id && (
-                <View style={styles.depotHandoverInfo}>
-                  <Ionicons name="business-outline" size={16} color={AppColors.success} />
-                  <Text style={styles.depotHandoverText}>
-                    Handed to depot on {report.handover_date ? new Date(report.handover_date).toLocaleDateString() : 'Unknown date'}
-                  </Text>
-                </View>
-              )}
-              
-              {/* Only show contact buttons if this is not the current user's report */}
-              {(report.passenger_id !== (userData as any)?.id && report.driver_id !== (userData as any)?.driver_id && report.driver_id !== (userData as any)?.id) && (
+
+              {/* Only show contact buttons if this is not the current user's report and item hasn't been handed over */}
+              {(report.passenger_id !== (userData as any)?.id && report.driver_id !== (userData as any)?.driver_id && report.driver_id !== (userData as any)?.id) && !report.handed_to_depot_id && (
                 <View style={styles.contactButtons}>
                   {report.contact_phone && (
-                    <TouchableOpacity 
+                    <TouchableOpacity
                       style={styles.callButton}
                       onPress={() => {
                         Linking.openURL(`tel:${report.contact_phone}`);
@@ -1207,7 +1216,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
                     </TouchableOpacity>
                   )}
                   {report.contact_email && (
-                    <TouchableOpacity 
+                    <TouchableOpacity
                       style={styles.contactButton}
                       onPress={() => {
                         Linking.openURL(`mailto:${report.contact_email}`);
@@ -1217,6 +1226,41 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
                       <Text style={styles.contactButtonText}>Email</Text>
                     </TouchableOpacity>
                   )}
+                </View>
+              )}
+
+              {/* Show depot collection message for driver reports */}
+              {report.driver_id && !report.handed_to_depot_id && (
+                <View style={styles.depotCollectionMessage}>
+                  <View style={styles.depotInfoRow}>
+                    <Ionicons name="business" size={20} color={AppColors.success} />
+                    <View style={styles.depotInfoTextContainer}>
+                      <Text style={styles.depotCollectionTitle}>Item Available at Depot</Text>
+                      {report.driver_depot_name && (
+                        <Text style={styles.depotCollectionText}>
+                          You can collect your item at <Text style={styles.depotNameBold}>{report.driver_depot_name}</Text>
+                        </Text>
+                      )}
+                      {!report.driver_depot_name && (
+                        <Text style={styles.depotCollectionText}>
+                          You can come and collect your item at the depot.
+                        </Text>
+                      )}
+                      {report.driver_depot_phone && (
+                        <TouchableOpacity
+                          style={styles.depotPhoneButton}
+                          onPress={() => {
+                            Linking.openURL(`tel:${report.driver_depot_phone}`);
+                          }}
+                        >
+                          <Ionicons name="call" size={16} color={AppColors.primary} />
+                          <Text style={styles.depotPhoneText}>
+                            Call Depot: {report.driver_depot_phone}
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </View>
                 </View>
               )}
             </View>
@@ -1346,28 +1390,30 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
               </View>
               
               <View style={styles.actionButtonsContainer}>
-                {/* Depot handover button - only show for found items that aren't resolved */}
-                {report.report_type === 'found' && report.status !== 'resolved' && (
-                  <TouchableOpacity 
+                {/* Depot handover button - only show for found items that aren't resolved and haven't been handed over */}
+                {report.report_type === 'found' && report.status !== 'resolved' && !report.handed_to_depot_id && (
+                  <TouchableOpacity
                     style={styles.depotHandoverButton}
                     onPress={() => {
                       setSelectedReportForHandover(report);
-                      // Pre-fill existing data if available
-                      if (report.handed_to_depot_id) {
-                        setHandoverData({
-                          depotId: report.handed_to_depot_id,
-                          handoverDate: report.handover_date ? report.handover_date.split('T')[0] : new Date().toISOString().split('T')[0],
-                          notes: report.handover_notes || '',
-                        });
-                      }
                       setShowDepotModal(true);
                     }}
                   >
                     <Ionicons name="business" size={18} color="#2563EB" />
                     <Text style={styles.depotHandoverButtonText}>
-                      {report.handed_to_depot_id ? 'Update Depot' : 'Hand to Depot'}
+                      Hand to Depot
                     </Text>
                   </TouchableOpacity>
+                )}
+
+                {/* Show disabled button if already handed over */}
+                {report.handed_to_depot_id && (
+                  <View style={styles.depotHandoverButtonDisabled}>
+                    <Ionicons name="business" size={18} color="#6C757D" />
+                    <Text style={styles.depotHandoverButtonTextDisabled}>
+                      Already Handed Over
+                    </Text>
+                  </View>
                 )}
                 
                 {report.status !== 'resolved' && (
@@ -1842,7 +1888,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
             <View style={styles.modernInputContainer}>
               <Ionicons name="mail-outline" size={20} color={AppColors.textSecondary} style={styles.modernInputIcon} />
               <TextInput
-                placeholder="Your email address"
+                placeholder="Your email address *"
                 placeholderTextColor={AppColors.textSecondary}
                 style={styles.modernTextInput}
                 value={formData.email}
@@ -1856,7 +1902,7 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
             <View style={[styles.modernInputContainer, { marginTop: 16 }]}>
               <Ionicons name="call-outline" size={20} color={AppColors.textSecondary} style={styles.modernInputIcon} />
               <TextInput
-                placeholder="Your phone number"
+                placeholder="Your phone number (Optional)"
                 placeholderTextColor={AppColors.textSecondary}
                 style={styles.modernTextInput}
                 value={formData.phone}
@@ -1929,27 +1975,6 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
           <Text style={styles.modernSuccessMessage}>
             Your {formData.reportType} item report has been successfully submitted! We'll notify you via email if there are any potential matches.
           </Text>
-          <Text style={styles.modernSuccessNote}>
-            Note: Your report may take a few moments to appear in the search results due to database synchronization.
-          </Text>
-
-          <View style={styles.successStats}>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>24/7</Text>
-              <Text style={styles.statLabel}>Monitoring</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>85%</Text>
-              <Text style={styles.statLabel}>Success Rate</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>2-3</Text>
-              <Text style={styles.statLabel}>Days Average</Text>
-            </View>
-          </View>
-
           <TouchableOpacity
             style={styles.modernPrimaryButton}
             onPress={async () => { 
@@ -3989,6 +4014,19 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(16, 185, 129, 0.2)',
   },
 
+  depotHandoverDisabled: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(108, 117, 125, 0.08)',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    marginTop: 8,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(108, 117, 125, 0.2)',
+  },
+
   depotHandoverInfoText: {
     fontSize: 13,
     color: AppColors.success,
@@ -4058,11 +4096,130 @@ const styles = StyleSheet.create({
     }),
   },
 
+  depotHandoverButtonDisabled: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: '#F8F9FA',
+    borderWidth: 2,
+    borderColor: '#E9ECEF',
+  },
+
   depotHandoverButtonText: {
     fontSize: 14,
     color: '#2563EB',
     fontWeight: '600',
     marginLeft: 6,
+  },
+
+  depotHandoverButtonTextDisabled: {
+    fontSize: 14,
+    color: '#6C757D',
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+
+  depotHandoverBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginHorizontal: 16,
+    marginVertical: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+    ...Platform.select({
+      android: {
+        elevation: 2,
+      },
+      ios: {
+        shadowColor: AppColors.success,
+        shadowOpacity: 0.1,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 2 },
+      },
+    }),
+  },
+
+  depotHandoverBannerContent: {
+    flex: 1,
+    marginLeft: 12,
+  },
+
+  depotHandoverBannerTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: AppColors.success,
+    marginBottom: 4,
+  },
+
+  depotHandoverBannerDetails: {
+    fontSize: 14,
+    color: AppColors.textSecondary,
+    lineHeight: 20,
+  },
+
+  depotCollectionMessage: {
+    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.2)',
+  },
+
+  depotInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+
+  depotInfoTextContainer: {
+    flex: 1,
+  },
+
+  depotCollectionTitle: {
+    fontSize: 14,
+    color: AppColors.text,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+
+  depotCollectionText: {
+    fontSize: 13,
+    color: AppColors.textSecondary,
+    lineHeight: 18,
+    marginBottom: 6,
+  },
+
+  depotNameBold: {
+    fontWeight: '700',
+    color: AppColors.success,
+  },
+
+  depotPhoneButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: AppColors.primary + '15',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    gap: 6,
+    marginTop: 4,
+    alignSelf: 'flex-start',
+  },
+
+  depotPhoneText: {
+    fontSize: 13,
+    color: AppColors.primary,
+    fontWeight: '600',
   },
 
   // Modal styles

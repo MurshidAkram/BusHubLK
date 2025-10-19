@@ -90,8 +90,11 @@ export const DriverProvider: React.FC<DriverProviderProps> = ({ children }) => {
               if (dailyAssignment && dailyAssignment.assignment_date === today) {
                 todayAssignment = dailyAssignment;
               }
-            } catch (dailyError) {
-              console.log('No daily assignment found or endpoint failed:', dailyError);
+            } catch (dailyError: any) {
+              // Don't log session expiration errors - they're handled globally
+              if (!dailyError?.message?.includes('Session expired')) {
+                console.log('No daily assignment found or endpoint failed:', dailyError);
+              }
             }
           }
           
@@ -120,7 +123,11 @@ export const DriverProvider: React.FC<DriverProviderProps> = ({ children }) => {
             });
           }
           
-        } catch (assignmentError) {
+        } catch (assignmentError: any) {
+          // Don't log or set error for session expiration - it's handled globally
+          if (assignmentError?.message?.includes('Session expired')) {
+            throw assignmentError; // Re-throw to stop further execution
+          }
           console.error('Error fetching today assignment:', assignmentError);
           // Still set the basic user data even if assignment fetch fails
           setDriverData({
@@ -131,9 +138,12 @@ export const DriverProvider: React.FC<DriverProviderProps> = ({ children }) => {
       } else {
         setDriverData(null);
       }
-    } catch (err) {
-      console.error('Error fetching driver data:', err);
-      setError('Failed to load driver data');
+    } catch (err: any) {
+      // Don't show error message for session expiration
+      if (!err?.message?.includes('Session expired')) {
+        console.error('Error fetching driver data:', err);
+        setError('Failed to load driver data');
+      }
       setDriverData(null);
     } finally {
       setIsLoading(false);
