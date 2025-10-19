@@ -104,6 +104,116 @@ class LostFoundReport {
     return new LostFoundReport(result.rows[0]);
   }
 
+  // Find all reports with optional filters (includes depot information for driver reports)
+  static async findAllWithDepotInfo(filters = {}) {
+    let query = `
+      SELECT
+        r.*,
+        p.first_name,
+        p.last_name,
+        COALESCE(CONCAT(drv.first_name, ' ', drv.last_name), 'Unknown') as driver_name,
+        rt.route_name,
+        reg.region_name,
+        d.depot_name,
+        d.contact_phone as depot_contact_phone,
+        driver_depot.depot_name as driver_depot_name,
+        driver_depot.contact_phone as driver_depot_phone,
+        r.handover_date,
+        r.handover_notes,
+        CASE
+          WHEN r.created_at > NOW() - INTERVAL '1 minute' THEN 'Just now'
+          WHEN r.created_at > NOW() - INTERVAL '1 hour' THEN EXTRACT(MINUTE FROM NOW() - r.created_at) || ' minutes ago'
+          WHEN r.created_at > NOW() - INTERVAL '1 day' THEN EXTRACT(HOUR FROM NOW() - r.created_at) || ' hours ago'
+          ELSE EXTRACT(DAY FROM NOW() - r.created_at) || ' days ago'
+        END as time_ago
+      FROM lost_found_reports r
+      LEFT JOIN passengers pas ON r.passenger_id = pas.passenger_id
+      LEFT JOIN users p ON pas.passenger_id = p.user_id
+      LEFT JOIN users drv ON r.driver_id = drv.user_id
+      LEFT JOIN routes rt ON r.route_number = rt.route_number
+      LEFT JOIN regions reg ON r.region_id = reg.region_id
+      LEFT JOIN depots d ON r.handed_to_depot_id = d.depot_id
+      LEFT JOIN (
+        SELECT DISTINCT ON (d.driver_id) d.driver_id, dep.depot_name, dep.contact_phone
+        FROM drivers d
+        JOIN depots dep ON d.depot_id = dep.depot_id
+      ) driver_depot ON r.driver_id = driver_depot.driver_id
+      WHERE r.status = $1
+    `;
+    
+    const values = ['active'];
+    let paramCount = 1;
+
+    // Add filters dynamically
+    if (filters.item_category) {
+      paramCount++;
+      query += ` AND r.item_category = $${paramCount}`;
+      values.push(filters.item_category);
+    }
+
+    if (filters.report_type) {
+      paramCount++;
+      query += ` AND r.report_type = $${paramCount}`;
+      values.push(filters.report_type);
+    }
+
+    if (filters.route_number) {
+      paramCount++;
+      query += ` AND r.route_number = $${paramCount}`;
+      values.push(filters.route_number);
+    }
+
+    if (filters.region_id) {
+      paramCount++;
+      query += ` AND r.region_id = $${paramCount}`;
+      values.push(filters.region_id);
+    }
+
+    if (filters.passenger_id) {
+      paramCount++;
+      query += ` AND r.passenger_id = $${paramCount}`;
+      values.push(filters.passenger_id);
+    }
+
+    if (filters.search) {
+      paramCount++;
+      query += ` AND (r.item_description ILIKE $${paramCount} OR r.approximate_location ILIKE $${paramCount})`;
+      values.push(`%${filters.search}%`);
+    }
+
+    // Add pagination
+    query += ` ORDER BY r.created_at DESC`;
+    
+    if (filters.limit) {
+      paramCount++;
+      query += ` LIMIT $${paramCount}`;
+      values.push(filters.limit);
+    }
+
+    if (filters.offset) {
+      paramCount++;
+      query += ` OFFSET $${paramCount}`;
+      values.push(filters.offset);
+    }
+
+    const result = await db.query(query, values);
+    return result.rows.map(row => ({
+      ...new LostFoundReport(row),
+      first_name: row.first_name,
+      last_name: row.last_name,
+      driver_name: row.driver_name,
+      route_name: row.route_name,
+      region_name: row.region_name,
+      depot_name: row.depot_name,
+      depot_contact_phone: row.depot_contact_phone,
+      driver_depot_name: row.driver_depot_name,
+      driver_depot_phone: row.driver_depot_phone,
+      handover_date: row.handover_date,
+      handover_notes: row.handover_notes,
+      time_ago: row.time_ago
+    }));
+  }
+
   // Find all reports with optional filters
   static async findAll(filters = {}) {
     let query = `
@@ -132,7 +242,6 @@ class LostFoundReport {
       LEFT JOIN routes rt ON r.route_number = rt.route_number
       LEFT JOIN regions reg ON r.region_id = reg.region_id
       LEFT JOIN depots d ON r.handed_to_depot_id = d.depot_id
-      LEFT JOIN users drv ON r.driver_id = drv.user_id
       WHERE r.status = $1
     `;
     

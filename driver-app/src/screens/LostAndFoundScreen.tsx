@@ -1070,7 +1070,7 @@ const LostAndFoundScreen = ({ navigation }: { navigation: NavigationProp }) => {
       <View style={styles.sectionContainer}>
         <View style={styles.sectionTitleRow}>
           <Text style={styles.sectionTitle}>Phone Number (Optional)</Text>
-          <Text style={styles.sectionHint}>You can remove if you don't want to share</Text>
+
         </View>
         <View style={styles.modernInputContainer}>
           <Ionicons name="call-outline" size={20} color={AppColors.textSecondary} style={styles.modernInputIcon} />
