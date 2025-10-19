@@ -107,7 +107,7 @@ const Employees = () => {
   const fetchRegions = async () => {
     if (!context?.token) return;
     try {
-      const response = await fetch('http://localhost:5000/api/regions', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/regions`, {
         headers: {
           'Authorization': `Bearer ${context.token}`,
           'Content-Type': 'application/json'
@@ -128,7 +128,7 @@ const Employees = () => {
   const fetchDepots = async () => {
     if (!context?.token) return;
     try {
-      const response = await fetch('http://localhost:5000/api/depots', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/depots`, {
         headers: {
           'Authorization': `Bearer ${context.token}`,
           'Content-Type': 'application/json'
@@ -149,7 +149,7 @@ const Employees = () => {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:5000/api/users', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/users`, {
         headers: {
           'Authorization': `Bearer ${context?.token}`
         }
@@ -286,7 +286,7 @@ const Employees = () => {
   // Toggle user active status
   const toggleUserStatus = async (userId: string, currentStatus: boolean) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/users/${userId}/${currentStatus ? 'deactivate' : 'activate'}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/users/${userId}/${currentStatus ? 'deactivate' : 'activate'}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${context?.token}`,
@@ -313,7 +313,7 @@ const Employees = () => {
     if (!window.confirm('Are you sure you want to delete this user?')) return;
 
     try {
-      const response = await fetch(`http://localhost:5000/api/users/${userId}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/users/${userId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${context?.token}`,
@@ -387,7 +387,7 @@ const Employees = () => {
     e.preventDefault();
     
     try {
-      const response = await fetch(`http://localhost:5000/api/users/${editFormData.id}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/users/${editFormData.id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${context?.token}`,

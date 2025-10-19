@@ -33,6 +33,9 @@ const getStatusBadge = (status: StatusType): string => {
   }
 };
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE_URL = `${API_URL}/api`;
+
 const DepotInspections: React.FC = () => {
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -55,7 +58,7 @@ const DepotInspections: React.FC = () => {
         }
 
         // Depot managers can see all inspections in their depot
-        const response = await fetch('http://localhost:5000/api/inspections/depot-manager', {
+  const response = await fetch(`${API_BASE_URL}/inspections/depot-manager`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${context.token}`,
@@ -239,7 +242,7 @@ const DepotInspections: React.FC = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assigned To</th>
+                {/*  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assigned To</th> */}
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assigned By</th>
                 </tr>
               </thead>
@@ -261,9 +264,9 @@ const DepotInspections: React.FC = () => {
                           {inspection.status}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {/*    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {inspection.assigned_to || '-'}
-                      </td>
+                      </td> */}
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{inspection.assigned_by}</td>
                     </tr>
                   ))

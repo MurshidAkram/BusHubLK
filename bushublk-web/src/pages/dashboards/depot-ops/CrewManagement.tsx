@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { CheckCircle, AlertCircle, Clock, RotateCw, Search, X } from 'lucide-react';
 
+const API_BASE_URL = `${import.meta.env.VITE_API_URL}/api`;
+
 type CrewStatus = 'On Duty' | 'On Break';
 
 interface CrewMember {
@@ -34,7 +36,7 @@ const CrewManagement = () => {
         const token = localStorage.getItem('token'); // Or get it from your auth context
 
         const res = await fetch(
-          `http://localhost:5000/api/crew?depot_id=${depotId}&region_id=${regionId}`,
+          `${API_BASE_URL}/crew?depot_id=${depotId}&region_id=${regionId}`,
           {
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -80,7 +82,7 @@ const CrewManagement = () => {
     if (selectedMember) {
       try {
         const token = localStorage.getItem('token');
-        const res = await fetch('http://localhost:5000/api/crew/status', {
+  const res = await fetch(`${API_BASE_URL}/crew/status`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -133,6 +135,11 @@ const CrewManagement = () => {
       member.contact.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesRole && matchesSearch;
   });
+
+  const today = new Date();
+  const localDateString = today.getFullYear() + '-' +
+    String(today.getMonth() + 1).padStart(2, '0') + '-' +
+    String(today.getDate()).padStart(2, '0');
 
   return (
     <div className="space-y-6 relative">
@@ -293,7 +300,7 @@ const CrewManagement = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button
                         onClick={() => openStatusModal(member)}
-                        className={`inline-flex items-center text-blue-600 hover:text-blue-900 ${member.assigned_today ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        className={`inline-flex items-center text-blue-600 hover:text-blue-900 ${member.assigned_today ? 'opacity-30 cursor-not-allowed' : ''}`}
                         disabled={member.assigned_today}
                       >
                         <RotateCw className="h-4 w-4 mr-1" />

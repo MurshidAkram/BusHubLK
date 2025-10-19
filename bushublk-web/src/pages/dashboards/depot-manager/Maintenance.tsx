@@ -4,7 +4,9 @@ import {
     MessageSquare, Send, AlertTriangle, ShieldCheck, ChevronDown, ChevronUp, Activity
 } from 'lucide-react';
 
-const API_BASE_URL = 'http://localhost:5000/api/depot-manager';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE_URL = `${API_URL}/api`;
+const DEPOT_MANAGER_BASE_URL = `${API_BASE_URL}/depot-manager`;
 
 // --- INTERFACES --- //
 interface ChatMessage {
@@ -47,8 +49,8 @@ const ChatBox: React.FC<{
         e.preventDefault();
         if (!newMessage.trim()) return;
         const postUrl = chatType === 'rto' 
-            ? `${API_BASE_URL}/emergency/${reportId}/rto-reply`
-            : `${API_BASE_URL}/emergency/${reportId}/reply`;
+            ? `${DEPOT_MANAGER_BASE_URL}/emergency/${reportId}/rto-reply`
+            : `${DEPOT_MANAGER_BASE_URL}/emergency/${reportId}/reply`;
         try {
             const response = await fetch(postUrl, {
                 method: 'POST',
@@ -121,8 +123,8 @@ const DepotManagerIssues: React.FC = () => {
     const fetchAllManagerData = useCallback(async () => {
         try {
             const [reportsResponse, statsResponse] = await Promise.all([
-                fetch(API_BASE_URL),
-                fetch(`${API_BASE_URL}/statistics`)
+                fetch(DEPOT_MANAGER_BASE_URL),
+                fetch(`${DEPOT_MANAGER_BASE_URL}/statistics`)
             ]);
             const reportsResult = await reportsResponse.json();
             const statsResult = await statsResponse.json();
@@ -159,7 +161,7 @@ const DepotManagerIssues: React.FC = () => {
 
     const handleUpdateStatus = async (id: number, status: ManagerReport['status']) => {
         try {
-            await fetch(`${API_BASE_URL}/emergency/${id}/status`, {
+            await fetch(`${DEPOT_MANAGER_BASE_URL}/emergency/${id}/status`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status }),
@@ -172,7 +174,7 @@ const DepotManagerIssues: React.FC = () => {
     
     const fetchMessagesForReport = useCallback(async (reportId: number) => {
         try {
-            const response = await fetch(`http://localhost:5000/api/depot/emergency/${reportId}/manager-chat`);
+            const response = await fetch(`${API_BASE_URL}/depot/emergency/${reportId}/manager-chat`);
             const result = await response.json();
             if (result.success) {
                 setReports(prev => prev.map(r => 
@@ -186,7 +188,7 @@ const DepotManagerIssues: React.FC = () => {
 
     const fetchRTOMessagesForReport = useCallback(async (reportId: number) => {
         try {
-            const response = await fetch(`${API_BASE_URL}/emergency/${reportId}/rto-chat`);
+            const response = await fetch(`${DEPOT_MANAGER_BASE_URL}/emergency/${reportId}/rto-chat`);
             const result = await response.json();
             if (result.success) {
                 setReports(prev => prev.map(r => 
@@ -200,7 +202,7 @@ const DepotManagerIssues: React.FC = () => {
 
     const handleEscalateToRTO = async (id: number) => {
         try {
-            const response = await fetch(`${API_BASE_URL}/emergency/${id}/status`, {
+            const response = await fetch(`${DEPOT_MANAGER_BASE_URL}/emergency/${id}/status`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status: 'Escalated to RTO' }),

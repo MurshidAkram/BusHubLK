@@ -77,6 +77,9 @@ interface AppContextType {
   token: string | null;
 }
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE_URL = `${API_URL}/api`;
+
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: string | null }> {
   constructor(props: { children: React.ReactNode }) {
     super(props);
@@ -110,6 +113,9 @@ const FleetManagement: React.FC = () => {
   const [showDetails, setShowDetails] = useState(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [fleetStatus, setFleetStatus] = useState<{ active:number; maintenance:number; outOfService:number; total:number }>({
+    active: 0, maintenance: 0, outOfService: 0, total: 0
+  });
 
   const token = context?.token;
 
@@ -145,7 +151,7 @@ const FleetManagement: React.FC = () => {
       if (!token) return 'N/A';
       const today = new Date().toISOString().slice(0, 10);
       const response = await axios.get(
-        `http://localhost:5000/api/buses/bus/${busId}/current-route`,
+        `${API_BASE_URL}/buses/bus/${busId}/current-route`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -171,14 +177,14 @@ const FleetManagement: React.FC = () => {
         return;
       }
 
-      let apiUrl = 'http://localhost:5000/api/depot-engineer/buses';
+      let apiUrl = `${API_BASE_URL}/depot-engineer/buses`;
       if (context?.user?.role === 'depot_manager' || context?.user?.role === 'depot_operations') {
         if (!context?.user?.depot_id) {
           setError('Depot ID is required for this user role.');
           setLoading(false);
           return;
         }
-        apiUrl = `http://localhost:5000/api/buses/depot/${context.user.depot_id}`;
+        apiUrl = `${API_BASE_URL}/buses/depot/${context.user.depot_id}`;
       }
       
       console.log('Fetching from:', apiUrl);
@@ -222,8 +228,8 @@ const FleetManagement: React.FC = () => {
                 ? [{ 
                     type: 'error', 
                     message: statusDuration 
-                      ? `Under maintenance for ${statusDuration} - ETA 2 days` 
-                      : 'Under maintenance - ETA 2 days' 
+                      ? `Under maintenance for ${statusDuration}` 
+                      : 'Under maintenance'
                   }] 
                 : bus.status === 'Out of Service'
                   ? [{
@@ -270,6 +276,27 @@ const FleetManagement: React.FC = () => {
       setLoading(false);
     }
   }, [token, context?.user?.role, context?.user?.depot_id]);
+
+  useEffect(() => {
+    // If you already fetch fleetStatus in a parent page, remove this block.
+    const fetchFleet = async () => {
+      try {
+  const res = await axios.get(`${API_BASE_URL}/depot-ops-dashboard/depot/${context?.user?.depot_id}/fleet-status`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined
+        });
+        const d = res.data || {};
+        setFleetStatus({
+          active: Number(d.active ?? d.activeBuses ?? 0),
+          maintenance: Number(d.maintenance ?? d.maintenanceBuses ?? 0),
+          outOfService: Number(d.outOfService ?? d.out_of_service ?? 0),
+          total: Number(d.total ?? d.totalBuses ?? 0)
+        });
+      } catch (e) {
+        console.warn('Failed to load fleet status', e);
+      }
+    };
+    fetchFleet();
+  }, [context?.user?.depot_id, token]);
 
   const filteredBuses = buses.filter((bus) => {
     const matchesSearch =
@@ -365,9 +392,7 @@ const FleetManagement: React.FC = () => {
               <p className="text-gray-600 mt-1">Manage and monitor your bus fleet operations</p>
             </div>
             <div className="mt-4 lg:mt-0 flex items-center space-x-2 text-sm text-gray-500">
-              <HiTruck className="w-4 h-4" />
-              <span>{fleetStats.total} total vehicles</span>
-            </div>
+                </div>
           </div>
         </div>
 
@@ -388,11 +413,11 @@ const FleetManagement: React.FC = () => {
             bgColor="bg-green-50"
           />
           <StatCard 
-            label="In Service" 
-            value={fleetStats.inService} 
-            icon={<HiTruck className="w-5 h-5" />}
-            color="text-blue-600"
-            bgColor="bg-blue-50"
+            label="Out of Service" 
+            value={fleetStatus.outOfService ?? 0} 
+            icon={<HiExclamationCircle className="w-5 h-5" />}
+            color="text-red-600"
+            bgColor="bg-red-50"
           />
           <StatCard 
             label="Maintenance" 
@@ -424,78 +449,77 @@ const FleetManagement: React.FC = () => {
                 onChange={(e) => setStatusFilter(e.target.value)}
               >
                 <option value="All">All Status</option>
-                <option value="Active">Active</option>
-                <option value="In Service">In Service</option>
-                <option value="Maintenance">Maintenance</option>
-                <option value="Out of Service">Out of Service</option>
+                <option value="Active">Active buses </option>
+                <option value="Maintenance">Maintenance buses </option>
+                <option value="Out of Service">Out of Service buses </option>
               </select>
             </div>
           </div>
 
           {/* Bus Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 auto-rows-fr">
             {filteredBuses.map((bus) => (
-              <div key={bus.bus_id} className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-all duration-300 hover:border-blue-200 group">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
-                      {bus.registration_number}
-                    </h3>
-                    <p className="text-sm text-gray-600">
-                      {bus.model} • {bus.year} • {bus.class || 'N/A'}
-                    </p>
-                  </div>
-                  <div className="flex flex-col items-end">
-                    <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(bus.status)}`}>
-                      {getStatusIcon(bus.status)}
-                      {bus.status}
-                    </span>
-                    {bus.statusDuration && (
-                      <div className="text-xs text-gray-500 mt-1 font-normal">
-                        {bus.statusDuration}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {bus.alerts.length > 0 && (
-                  <div className="mb-4">
-                    {bus.alerts.map((alert, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center text-sm text-amber-700 bg-amber-50 border border-amber-200 p-3 rounded-lg"
-                      >
-                        <HiExclamationCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-                        <span>{alert.message}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <div className="space-y-3 mb-6 text-sm text-gray-600">
-                  <div className="flex items-center">
-                    <HiLocationMarker className="w-4 h-4 mr-3 text-gray-400" />
-                    <span className="font-medium">Location:</span>
-                    <span className="ml-2">{bus.location || 'N/A'}</span>
-                  </div>
-                  <div className="flex items-start">
-                    <HiMap className="w-4 h-4 mr-3 text-gray-400 mt-0.5" />
-                    <div>
-                      <span className="font-medium">Current Route:</span>
-                      <p className="text-gray-700 mt-1">{bus.currentRoute || 'No route assigned'}</p>
-                    </div>
-                  </div>
-                </div>
-
+              <div key={bus.bus_id} className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-all duration-300 hover:border-blue-200 group flex flex-col justify-between h-full">
+                 <div className="flex justify-between items-start mb-4">
+                   <div>
+                     <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+                       {bus.registration_number}
+                     </h3>
+                     <p className="text-sm text-gray-600">
+                       {bus.model} • {bus.year} • {bus.class || 'N/A'}
+                     </p>
+                   </div>
+                   <div className="flex flex-col items-end">
+                     <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(bus.status)}`}>
+                       {getStatusIcon(bus.status)}
+                       {bus.status}
+                     </span>
+                     {bus.statusDuration && (
+                       <div className="text-xs text-gray-500 mt-1 font-normal">
+                         {bus.statusDuration}
+                       </div>
+                     )}
+                   </div>
+                 </div>
+ 
+                 {bus.alerts.length > 0 && (
+                   <div className="mb-4">
+                     {bus.alerts.map((alert, index) => (
+                       <div
+                         key={index}
+                         className="flex items-center text-sm text-amber-700 bg-amber-50 border border-amber-200 p-3 rounded-lg"
+                       >
+                         <HiExclamationCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+                         <span>{alert.message}</span>
+                       </div>
+                     ))}
+                   </div>
+                 )}
+ 
+                <div className="space-y-3 mb-6 text-sm text-gray-600 flex-1">
+                   <div className="flex items-center">
+                     <HiLocationMarker className="w-4 h-4 mr-3 text-gray-400" />
+                     <span className="font-medium">Location:</span>
+                     <span className="ml-2">{bus.location || 'N/A'}</span>
+                   </div>
+                   <div className="flex items-start">
+                     <HiMap className="w-4 h-4 mr-3 text-gray-400 mt-0.5" />
+                     <div>
+                       <span className="font-medium">Current Route:</span>
+                       <p className="text-gray-700 mt-1">{bus.currentRoute || 'No route assigned'}</p>
+                     </div>
+                   </div>
+                 </div>
+ 
                 <button
-                  onClick={() => handleViewDetails(bus)}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium group"
-                >
-                  View Details
-                        </button>
-              </div>
-            ))}
-          </div>
+                   onClick={() => handleViewDetails(bus)}
+                   className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium group"
+                 >
+                   View Details
+                 </button>
+               </div>
+             ))}
+           </div>
 
           {filteredBuses.length === 0 && (
             <div className="text-center py-12">
@@ -544,7 +568,7 @@ const FleetManagement: React.FC = () => {
 
                   <DetailsSection 
                     title="Performance & Status" 
-                    icon={<HiCog className="w-5 h-5" />}
+                    icon={<HiCog className="w-5 h-5" /> }
                     data={[
                       ['Current Status', 
                         <span key="status" className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(selectedBus.status)}`}>
@@ -553,10 +577,6 @@ const FleetManagement: React.FC = () => {
                         </span>
                       ],
                       ['Last Service', selectedBus.lastService || 'N/A'],
-                      ['Next Service', selectedBus.nextService || 'N/A'],
-                      ...(selectedBus.statusDuration && (selectedBus.status === 'Maintenance' || selectedBus.status === 'Out of Service') 
-                        ? [['Status Duration', selectedBus.statusDuration] as [string, React.ReactNode]]
-                        : []),
                     ]} 
                   />
                 </div>

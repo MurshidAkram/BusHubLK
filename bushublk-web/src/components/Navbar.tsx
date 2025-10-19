@@ -4,8 +4,17 @@ import { HiBell } from 'react-icons/hi';
 import { AppContext } from '../context/AppContext';
 import { assets } from '../assets/assets';
 
-const Navbar = () => {
-  const { user, token, logout } = useContext(AppContext);
+declare global {
+  interface Window {
+    refreshNotificationCount?: () => void;
+  }
+}
+
+const Navbar: React.FC = () => {
+  const appContext = useContext(AppContext);
+  const user = appContext?.user;
+  const token = appContext?.token;
+  const logout = appContext?.logout;
   const navigate = useNavigate();
   const location = useLocation();
   const [showMenu, setShowMenu] = useState(false);
@@ -13,8 +22,14 @@ const Navbar = () => {
 
   const normalizeRole = (role?: string) =>
     role ? role.toLowerCase().replace(/\s+/g, '').replace(/-/g, '_') : '';
-  const roleKey = normalizeRole(user?.role);
-  const depotId = user?.depot_id;
+  const userInfo = user as any;
+  const derivedName = [userInfo?.first_name, userInfo?.last_name].filter(Boolean).join(' ').trim();
+  const userName = ((userInfo?.name ?? (derivedName || userInfo?.username)) || '').toString().trim() || 'User';
+  const userEmail = userInfo?.email ?? '';
+  const userRoleLabel = userInfo?.role ?? '';
+  const depotId = userInfo?.depot_id;
+  const roleKey = normalizeRole(userRoleLabel);
+  const isRegionalOps = roleKey === 'regional_operations' || roleKey === 'regional_operations_officer' || roleKey === 'regionaloperationsofficer';
 
   // Check if we're in a dashboard route
   const isDashboard =
@@ -39,30 +54,61 @@ const Navbar = () => {
 
     try {
       let response;
-      if (roleKey === 'depot_engineer') {
-        response = await fetch('http://localhost:5000/api/depot-engineer/notifications/unread-count', {
+      if (roleKey === 'admin') {
+        response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/notifications/unread-count`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+      } else if (roleKey === 'depot_engineer') {
+        response = await fetch(`${import.meta.env.VITE_API_URL}/api/depot-engineer/notifications/unread-count`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+      } else if (roleKey === 'dgm_operations') {
+        response = await fetch(`${import.meta.env.VITE_API_URL}/api/dgm-operations/notifications/unread-count`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+      } else if (roleKey === 'dgm_technical') {
+        response = await fetch(`${import.meta.env.VITE_API_URL}/api/dgm-technical/notifications/unread-count`, {
           headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
         });
       } else if (roleKey === 'regional_tech' || roleKey === 'regional_technical_officer') {
-        response = await fetch('http://localhost:5000/api/rto/notifications/unread-count', {
+        response = await fetch(`${import.meta.env.VITE_API_URL}/api/rto/notifications/unread-count`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+      } else if (isRegionalOps) {
+        response = await fetch(`${import.meta.env.VITE_API_URL}/api/regional-operations/notifications/unread-count`, {
           headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
         });
       } else if (roleKey === 'depot_operations' && depotId) {
-        response = await fetch(`http://localhost:5000/api/depot/${depotId}/notifications`, {
+        response = await fetch(`${import.meta.env.VITE_API_URL}/api/depot/${depotId}/notifications`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-      } else if (roleKey === 'depot_manager' && depotId) {
-        response = await fetch(`http://localhost:5000/api/depot-manager/${depotId}/notifications`, {
-          headers: { Authorization: `Bearer ${token}` },
+      } else if (roleKey === 'depot_manager') {
+        response = await fetch(`${import.meta.env.VITE_API_URL}/api/depot-manager/notifications/unread-count`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
         });
       } else {
-        response = await fetch('http://localhost:5000/api/notifications/unread-count', {
+        response = await fetch(`${import.meta.env.VITE_API_URL}/api/notifications/unread-count`, {
           headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -73,10 +119,15 @@ const Navbar = () => {
       if (response.ok) {
         const data = await response.json();
         // Handle different response structures
-        const count =
-          roleKey === 'depot_operations' || roleKey === 'depot_manager'
-            ? data.notifications?.length || 0
-            : data.unreadCount || 0;
+        let count = data.unreadCount || 0;
+
+        if (roleKey === 'depot_operations') {
+          count = data.notifications?.length || 0;
+        } else if (roleKey === 'depot_manager') {
+          count = Number.isFinite(Number(data.unreadCount)) ? Number(data.unreadCount) : 0;
+        } else if (roleKey === 'admin') {
+          count = Number.isFinite(Number(data.unreadCount)) ? Number(data.unreadCount) : 0;
+        }
         setNotificationCount(count);
       } else {
         setNotificationCount(0);
@@ -85,7 +136,7 @@ const Navbar = () => {
       console.error('Error fetching notification count:', error);
       // Fallback to general notifications
       try {
-        const response = await fetch('http://localhost:5000/api/notifications/unread-count', {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/notifications/unread-count`, {
           headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -113,15 +164,23 @@ const Navbar = () => {
 
   // Handle notification click
   const handleNotificationClick = () => {
-    console.log('User role:', user?.role); // Debug log
-    if (roleKey === 'depot_engineer') {
+    console.log('User role:', userRoleLabel); // Debug log
+    if (roleKey === 'admin') {
+      navigate('/admin/notifications');
+    } else if (roleKey === 'depot_engineer') {
       navigate('/depot-engineer/notifications');
+    } else if (roleKey === 'dgm_technical') {
+      navigate('/dgm-technical/Dgmtech_notification');
     } else if (roleKey === 'depot_manager') {
       navigate('/depot-manager/notifications');
     } else if (roleKey === 'regional_tech' || roleKey === 'regional_technical_officer') {
       navigate('/regional-technical-officer/notifications');
+    } else if (isRegionalOps) {
+      navigate('/regional-operations-officer/notifications');
     } else if (roleKey === 'depot_operations') {
       navigate('/depot-operations-manager/notificationscenter');
+    } else if (roleKey === 'dgm_operations') {
+      navigate('/dgm-operations/notifications');
     } else {
       alert('Notifications feature is not yet implemented for your role.');
     }
@@ -143,7 +202,7 @@ const Navbar = () => {
   }, [token, isDashboard, roleKey, depotId]);
 
   // Function to get dashboard route based on user role
-  const getDashboardRoute = (role) => {
+  const getDashboardRoute = (role: string | undefined) => {
     const normalizedRole = normalizeRole(role);
     switch (normalizedRole) {
       case 'admin':
@@ -160,9 +219,13 @@ const Navbar = () => {
       case 'regional_technical_officer':
         return '/regional-technical-officer';
       case 'regional-operations-officer':
+      case 'regional_operations_officer':
+      case 'regionaloperationsofficer':
         return '/regional-operations-officer';
+      case 'dgm_technical':
       case 'dgm-technical':
         return '/dgm-technical';
+      case 'dgm_operations':
       case 'dgm-operations':
         return '/dgm-operations';
       case 'ceo':
@@ -260,8 +323,11 @@ const Navbar = () => {
               >
                 <HiBell className="h-6 w-6" />
                 {notificationCount > 0 && (
-                  <span className="absolute top-0 right-0 h-4 w-4 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold">
-                    {notificationCount > 9 ? '9+' : notificationCount}
+                  <span
+                    className="absolute top-0 right-0 flex h-5 items-center justify-center rounded-full bg-red-500 px-1 text-xs font-bold text-white"
+                    style={{ minWidth: '20px' }}
+                  >
+                    {notificationCount}
                   </span>
                 )}
               </button>
@@ -278,8 +344,8 @@ const Navbar = () => {
                   />
                   {isDashboard && (
                     <div className="hidden md:block text-left">
-                      <span className="text-sm font-medium text-gray-900">{user.name}</span>
-                      <span className="block text-xs text-gray-500">{user.role}</span>
+                      <span className="text-sm font-medium text-gray-900">{userName}</span>
+                      <span className="block text-xs text-gray-500">{userRoleLabel}</span>
                     </div>
                   )}
                   <svg
@@ -298,8 +364,8 @@ const Navbar = () => {
                 {/* Dropdown Menu */}
                 <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-200 py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform translate-y-2 group-hover:translate-y-0">
                   <div className="px-4 py-2 border-b border-gray-100">
-                    <p className="text-sm font-medium text-gray-900">{user.name}</p>
-                    <p className="text-xs text-gray-500">{user.email}</p>
+                    <p className="text-sm font-medium text-gray-900">{userName}</p>
+                    <p className="text-xs text-gray-500">{userEmail}</p>
                   </div>
                   <button
                     onClick={() => navigate('/my-profile')}
@@ -309,7 +375,7 @@ const Navbar = () => {
                   </button>
                   {!isDashboard && (
                     <button
-                      onClick={() => navigate(getDashboardRoute(user.role))}
+                      onClick={() => navigate(getDashboardRoute(userRoleLabel))}
                       className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-150"
                     >
                       Dashboard
@@ -331,7 +397,7 @@ const Navbar = () => {
                   <div className="border-t border-gray-100 mt-1 pt-1">
                     <button
                       onClick={() => {
-                        logout();
+                        logout?.();
                         navigate('/');
                       }}
                       className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors duration-150"

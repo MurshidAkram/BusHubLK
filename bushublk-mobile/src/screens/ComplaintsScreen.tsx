@@ -27,11 +27,18 @@ import * as ImagePicker from "expo-image-picker";
 import DropDownPicker from "react-native-dropdown-picker";
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
+import * as Location from 'expo-location';
 
+// --- Enhanced Color Palette (matching BusOccupancyScreen) ---
 // --- Enhanced Color Palette (matching BusOccupancyScreen) ---
 const AppColors = {
   background: "#F8FAFF",
+  background: "#F8FAFF",
   card: "#FFFFFF",
+  primary: "#0056b3",
+  primaryDark: "#003d82",
+  primaryLight: "#0076e3",
+  primaryMuted: "rgba(0, 86, 179, 0.1)",
   primary: "#0056b3",
   primaryDark: "#003d82",
   primaryLight: "#0076e3",
@@ -40,15 +47,22 @@ const AppColors = {
   accent: "#F59E0B",
   text: "#1F2937",
   textSecondary: "#6B7280",
+  text: "#1F2937",
+  textSecondary: "#6B7280",
   textLight: "#94A3B8",
+  border: "#E5E7EB",
+  borderLight: "rgba(222, 226, 230, 0.4)",
   border: "#E5E7EB",
   borderLight: "rgba(222, 226, 230, 0.4)",
   success: "#10B981",
   warning: "#F59E0B",
   danger: "#EF4444",
   red: "#EF4444",
+  red: "#EF4444",
   purple: "#8B5CF6",
   indigo: "#6366F1",
+  orange: "#F97316",
+  shadow: "rgba(0, 0, 0, 0.1)",
   orange: "#F97316",
   shadow: "rgba(0, 0, 0, 0.1)",
 };
@@ -64,6 +78,14 @@ interface BusRouteSuggestion {
   route_number: string | null;
   route_name?: string | null;
   bus_name?: string | null;
+}
+
+interface BusRouteSuggestion {
+  bus_route_id?: number;
+  route_number?: string;
+  route_name?: string;
+  registration_number?: string;
+  bus_registration?: string;
 }
 
 export default function ComplaintsScreen() {
@@ -87,9 +109,9 @@ export default function ComplaintsScreen() {
   const [complaintTypeOpen, setComplaintTypeOpen] = useState(false);
   const [complaintTypeValue, setComplaintTypeValue] = useState<string | null>(null);
   const [complaintTypeItems, setComplaintTypeItems] = useState([
-    { label: "Staff Conduct (Driver/Conductor)", value: "staff_conduct" },
+    { label: "Staff Behavior/Act (Driver/Conductor)", value: "staff_conduct" },
     { label: "Reckless Driving", value: "reckless_driving" },
-    { label: "Bus Not Stopping", value: "not_stopping" },
+    { label: "Bus Not Stopping on a halt", value: "not_stopping" },
     { label: "Ticketing Issue", value: "ticketing_issue" },
     { label: "Bus Condition", value: "bus_condition" },
     { label: "Harassment", value: "harassment" },
@@ -99,6 +121,8 @@ export default function ComplaintsScreen() {
 
   const [routeNumber, setRouteNumber] = useState("");
   const [busNumber, setBusNumber] = useState("");
+  const [location, setLocation] = useState("");
+  const [isLocationLoading, setIsLocationLoading] = useState(false);
   const [location, setLocation] = useState("");
   const [isLocationLoading, setIsLocationLoading] = useState(false);
   const [date, setDate] = useState(new Date());
@@ -111,6 +135,10 @@ export default function ComplaintsScreen() {
   const [isRouteLoading, setIsRouteLoading] = useState(false);
   const [isBusLoading, setIsBusLoading] = useState(false);
   const routeSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const busSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [busSuggestions, setBusSuggestions] = useState<BusRouteSuggestion[]>([]);
+  const [isBusLoading, setIsBusLoading] = useState(false);
   const busSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   React.useEffect(() => {
@@ -159,6 +187,71 @@ export default function ComplaintsScreen() {
 
     if (!result.canceled) {
       setImage(result.assets[0].uri);
+    }
+  };
+
+  const fetchCurrentLocation = async () => {
+    try {
+      setIsLocationLoading(true);
+      
+      // Request location permissions
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permission Denied',
+          'Location permission is required to fetch your current location.'
+        );
+        return;
+      }
+
+      // Get current position
+      const currentLocation = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+
+      const { latitude, longitude } = currentLocation.coords;
+
+      // Reverse geocode to get address
+      const addressResults = await Location.reverseGeocodeAsync({
+        latitude,
+        longitude,
+      });
+
+      if (addressResults && addressResults.length > 0) {
+        const address = addressResults[0];
+        
+        // Build a readable address string
+        const addressParts = [
+          address.name,
+          address.street,
+          address.district,
+          address.city,
+          address.region,
+        ].filter(Boolean);
+
+        const formattedAddress = addressParts.length > 0 
+          ? addressParts.join(', ')
+          : `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+
+        setLocation(formattedAddress);
+        
+        Alert.alert(
+          'Location Fetched',
+          'Your current location has been added. You can edit it if needed.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        // Fallback to coordinates if geocoding fails
+        setLocation(`${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+      }
+    } catch (error) {
+      console.error('Error fetching location:', error);
+      Alert.alert(
+        'Location Error',
+        'Unable to fetch your current location. Please enter it manually.'
+      );
+    } finally {
+      setIsLocationLoading(false);
     }
   };
 
@@ -312,6 +405,7 @@ export default function ComplaintsScreen() {
     setTimeout(() => setRouteSuggestions([]), 150);
   }, []);
 
+
   const handleBusBlur = useCallback(() => {
     if (busSearchTimeout.current) {
       clearTimeout(busSearchTimeout.current);
@@ -322,7 +416,7 @@ export default function ComplaintsScreen() {
 
   const handleSelectSuggestion = useCallback((suggestion: BusRouteSuggestion, mode: "route" | "bus") => {
     const derivedRoute = suggestion.route_number ?? "";
-    const derivedBus = suggestion.registration_number ?? suggestion.bus_registration ?? "";
+    const derivedBus = (suggestion as BusRouteSuggestion).registration_number ?? (suggestion as BusRouteSuggestion).bus_registration ?? "";
 
     if (mode === "route") {
       // Only set route number when selecting from route suggestions
@@ -345,7 +439,7 @@ export default function ComplaintsScreen() {
   }, []);
 
   const handleSubmit = async () => {
-    if (!complaintTypeValue || !routeNumber || !description) {
+    if (!complaintTypeValue || !routeNumber || !location || !description) {
       Alert.alert("Missing Information", "Please fill all required fields before submitting.");
       return;
     }
@@ -464,6 +558,13 @@ export default function ComplaintsScreen() {
       style={styles.gradientContainer}
     >
       <SafeAreaView style={styles.safeArea}>
+    <LinearGradient
+      colors={['#F8FAFF', '#E3F2FD', '#BBDEFB']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.gradientContainer}
+    >
+      <SafeAreaView style={styles.safeArea}>
 
         {/* --- Enhanced Header (matching Lost&Found style) --- */}
         <LinearGradient
@@ -476,7 +577,23 @@ export default function ComplaintsScreen() {
             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
               <Ionicons name="arrow-back-outline" size={24} color="white" />
             </TouchableOpacity>
+        {/* --- Enhanced Header (matching Lost&Found style) --- */}
+        <LinearGradient
+          colors={['#0056b3', '#1976d2', '#42a5f5']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.headerGradient}
+        >
+          <View style={styles.headerContent}>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+              <Ionicons name="arrow-back-outline" size={24} color="white" />
+            </TouchableOpacity>
             <Text style={styles.headerTitle}>File a Complaint</Text>
+            <TouchableOpacity onPress={() => navigation.navigate("ComplaintHistory")} style={styles.headerRightAction}>
+              <Ionicons name="time-outline" size={24} color="white" />
+            </TouchableOpacity>
+          </View>
+        </LinearGradient>
             <TouchableOpacity onPress={() => navigation.navigate("ComplaintHistory")} style={styles.headerRightAction}>
               <Ionicons name="time-outline" size={24} color="white" />
             </TouchableOpacity>
@@ -558,14 +675,16 @@ export default function ComplaintsScreen() {
                       </View>
                     ) : (
                       routeSuggestions.map((suggestion, index) => {
-                        const suggestionKey = `route-sugg-${suggestion.bus_route_id ?? index}-${index}`;
+                        const suggestionKey = `route-sugg-${suggestion.route_id ?? index}-${index}`;
                         const isLast = index === routeSuggestions.length - 1;
                         return (
                           <TouchableOpacity
                             key={suggestionKey}
                             style={[styles.suggestionItem, isLast && styles.suggestionItemLast]}
                             onPress={() => handleSelectSuggestion(suggestion, "route")}
+                            onPress={() => handleSelectSuggestion(suggestion, "route")}
                           >
+                            <View style={{flex: 1}}>
                             <View style={{flex: 1}}>
                               <Text style={styles.suggestionPrimary}>{suggestion.route_number || "Route not assigned"}</Text>
                               {suggestion.route_name ? (
@@ -611,6 +730,7 @@ export default function ComplaintsScreen() {
                           <TouchableOpacity
                             key={suggestionKey}
                             style={[styles.suggestionItem, isLast && styles.suggestionItemLast]}
+                            onPress={() => handleSelectSuggestion(suggestion, "bus")}
                             onPress={() => handleSelectSuggestion(suggestion, "bus")}
                           >
                             <View>
@@ -680,9 +800,17 @@ export default function ComplaintsScreen() {
                   <Ionicons name="calendar-outline" size={20} color={AppColors.indigo} style={styles.inputIcon} />
                   <Text style={styles.inputText}>{date.toLocaleDateString()}</Text>
                 </TouchableOpacity>
+                <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.enhancedInputContainer}>
+                  <Ionicons name="calendar-outline" size={20} color={AppColors.indigo} style={styles.inputIcon} />
+                  <Text style={styles.inputText}>{date.toLocaleDateString()}</Text>
+                </TouchableOpacity>
               </View>
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Time</Text>
+                <TouchableOpacity onPress={() => setShowTimePicker(true)} style={styles.enhancedInputContainer}>
+                  <Ionicons name="time-outline" size={20} color={AppColors.indigo} style={styles.inputIcon} />
+                  <Text style={styles.inputText}>{time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+                </TouchableOpacity>
                 <TouchableOpacity onPress={() => setShowTimePicker(true)} style={styles.enhancedInputContainer}>
                   <Ionicons name="time-outline" size={20} color={AppColors.indigo} style={styles.inputIcon} />
                   <Text style={styles.inputText}>{time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
@@ -722,11 +850,21 @@ export default function ComplaintsScreen() {
       {showTimePicker && <DateTimePicker value={time} mode="time" display="default" onChange={onTimeChange} />}
       </SafeAreaView>
     </LinearGradient>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
 // --- Enhanced StyleSheet (matching BusOccupancyScreen) ---
+// --- Enhanced StyleSheet (matching BusOccupancyScreen) ---
 const styles = StyleSheet.create({
+    gradientContainer: {
+      flex: 1,
+    },
+    safeArea: {
+      flex: 1,
+      backgroundColor: 'transparent',
+    },
     gradientContainer: {
       flex: 1,
     },
@@ -821,7 +959,93 @@ const styles = StyleSheet.create({
       }),
     },
     inputIcon:{marginRight:14},
+    headerGradient:{
+      paddingVertical: 16,
+      paddingHorizontal: 16,
+    },
+    headerContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    backButton: {
+      padding: 8,
+      width: 40,
+      height: 40,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    headerTitle:{
+      fontSize: 22,
+      fontWeight: 'bold',
+      color: 'white',
+      flex: 1,
+      textAlign: 'center',
+    },
+    headerRightAction: {
+      padding: 8,
+      width: 40,
+      height: 40,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    contentContainer:{paddingHorizontal:16,paddingTop:16,paddingBottom:40},
+    card:{
+      backgroundColor: '#FFFFFF',
+      borderRadius: 20,
+      padding: 24,
+      marginBottom: 20,
+      borderWidth: 1,
+      borderColor: 'rgba(0, 86, 179, 0.08)',
+      ...Platform.select({
+        android: {
+          elevation: 8,
+        },
+        ios: {
+          shadowColor: 'rgba(0, 86, 179, 0.15)',
+          shadowOpacity: 1,
+          shadowRadius: 12,
+          shadowOffset: { width: 0, height: 6 },
+        },
+      }),
+    },
+    cardHeaderContainer:{flexDirection:"row",alignItems:"center",marginBottom:24,paddingBottom:16,borderBottomWidth:1,borderBottomColor:'rgba(0, 86, 179, 0.08)'},
+    cardIconContainer:{
+      width:52,
+      height:52,
+      borderRadius:16,
+      backgroundColor:'rgba(0, 86, 179, 0.12)',
+      alignItems:"center",
+      justifyContent:"center",
+      marginRight:16
+    },
+    cardHeader:{fontSize:20,fontWeight:"700",color:AppColors.text,letterSpacing:0.3},
+    cardSubheader:{fontSize:13,color:AppColors.textSecondary,marginTop:4,fontWeight:'500'},
+    label:{fontSize:15,fontWeight:"600",color:AppColors.text,marginBottom:12, marginTop: 16,letterSpacing:0.2},
+    enhancedInputContainer:{
+      flexDirection:"row",
+      alignItems:"center",
+      backgroundColor:'#FFFFFF',
+      borderRadius:14,
+      paddingHorizontal:18,
+      height:58,
+      borderWidth:1.5,
+      borderColor:'rgba(0, 86, 179, 0.15)',
+      ...Platform.select({
+        android: {
+          elevation: 2,
+        },
+        ios: {
+          shadowColor: 'rgba(0, 86, 179, 0.08)',
+          shadowOpacity: 1,
+          shadowRadius: 4,
+          shadowOffset: { width: 0, height: 2 },
+        },
+      }),
+    },
+    inputIcon:{marginRight:14},
     inputText:{flex:1,fontSize:16,color:AppColors.text,fontWeight:"500"},
+    row:{flexDirection:"row",justifyContent:"space-between",gap:12},
     row:{flexDirection:"row",justifyContent:"space-between",gap:12},
     inputGroup:{flex:1},
     dropdownPicker: {
@@ -831,7 +1055,14 @@ const styles = StyleSheet.create({
       borderWidth: 1.5,
       height: 58,
       paddingHorizontal: 18,
+      backgroundColor: '#FFFFFF',
+      borderColor: 'rgba(0, 86, 179, 0.15)',
+      borderRadius: 14,
+      borderWidth: 1.5,
+      height: 58,
+      paddingHorizontal: 18,
       marginBottom: 15,
+      minHeight: 58,
       minHeight: 58,
       zIndex: 999,
       ...Platform.select({
@@ -845,8 +1076,23 @@ const styles = StyleSheet.create({
           shadowOffset: { width: 0, height: 2 },
         },
       }),
+      ...Platform.select({
+        android: {
+          elevation: 2,
+        },
+        ios: {
+          shadowColor: 'rgba(0, 86, 179, 0.08)',
+          shadowOpacity: 1,
+          shadowRadius: 4,
+          shadowOffset: { width: 0, height: 2 },
+        },
+      }),
     },
     dropdownContainer: {
+      backgroundColor: '#FFFFFF',
+      borderColor: 'rgba(0, 86, 179, 0.15)',
+      borderRadius: 14,
+      borderWidth: 1.5,
       backgroundColor: '#FFFFFF',
       borderColor: 'rgba(0, 86, 179, 0.15)',
       borderRadius: 14,
@@ -925,6 +1171,7 @@ const styles = StyleSheet.create({
     },
     uploadContent:{alignItems: "center"},
     uploadText:{marginTop:10,color:AppColors.textSecondary,fontSize:15,fontWeight:'500'},
+    uploadText:{marginTop:10,color:AppColors.textSecondary,fontSize:15,fontWeight:'500'},
     previewImage:{width:"100%",height:"100%",borderRadius:14},
     submitButton:{
       backgroundColor:'#0056b3',
@@ -944,7 +1191,26 @@ const styles = StyleSheet.create({
         },
       }),
     },
+    submitButton:{
+      backgroundColor:'#0056b3',
+      paddingVertical:20,
+      borderRadius:16,
+      alignItems:"center",
+      marginTop:16,
+      ...Platform.select({
+        android: {
+          elevation: 8,
+        },
+        ios: {
+          shadowColor: '#0056b3',
+          shadowOffset:{width:0,height:6},
+          shadowOpacity:0.35,
+          shadowRadius:10,
+        },
+      }),
+    },
     submitButtonDisabled:{backgroundColor:AppColors.textSecondary},
+  submitButtonText:{color:"#FFFFFF",fontSize:18,fontWeight:"700",letterSpacing:0.5},
   submitButtonText:{color:"#FFFFFF",fontSize:18,fontWeight:"700",letterSpacing:0.5},
   autocompleteWrapper:{zIndex:40},
   suggestionsWrapper:{
@@ -977,7 +1243,72 @@ const styles = StyleSheet.create({
     borderBottomWidth:1,
     borderBottomColor:'rgba(0, 86, 179, 0.06)'
   },
+  suggestionsWrapper:{
+    marginTop:8,
+    backgroundColor:'#FFFFFF',
+    borderRadius:14,
+    borderWidth:1.5,
+    borderColor:'rgba(0, 86, 179, 0.15)',
+    ...Platform.select({
+      android: {
+        elevation: 8,
+      },
+      ios: {
+        shadowColor: 'rgba(0, 86, 179, 0.15)',
+        shadowOpacity: 1,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 6 },
+      },
+    }),
+    maxHeight:200,
+    overflow:"hidden"
+  },
+  suggestionLoading:{paddingVertical:18,alignItems:"center",justifyContent:"center"},
+  suggestionItem:{
+    paddingVertical:14,
+    paddingHorizontal:16,
+    flexDirection:"row",
+    alignItems:"center",
+    justifyContent:"space-between",
+    borderBottomWidth:1,
+    borderBottomColor:'rgba(0, 86, 179, 0.06)'
+  },
   suggestionItemLast:{borderBottomWidth:0},
+  suggestionPrimary:{fontSize:16,fontWeight:"600",color:AppColors.text,letterSpacing:0.2},
+  suggestionSecondary:{fontSize:13,color:AppColors.textSecondary,marginTop:3,fontWeight:'500'},
+  suggestionBadge:{
+    fontSize:11,
+    fontWeight:"700",
+    color:'#FFFFFF',
+    backgroundColor:'#0056b3',
+    paddingHorizontal:12,
+    paddingVertical:6,
+    borderRadius:12,
+    overflow:'hidden'
+  },
+  locationHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+    marginTop: 16,
+  },
+  fetchLocationButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 86, 179, 0.08)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 86, 179, 0.2)',
+  },
+  fetchLocationText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: AppColors.primary,
+  },
   suggestionPrimary:{fontSize:16,fontWeight:"600",color:AppColors.text,letterSpacing:0.2},
   suggestionSecondary:{fontSize:13,color:AppColors.textSecondary,marginTop:3,fontWeight:'500'},
   suggestionBadge:{

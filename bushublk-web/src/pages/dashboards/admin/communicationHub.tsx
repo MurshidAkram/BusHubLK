@@ -3,7 +3,7 @@ import { io, Socket } from 'socket.io-client';
 import { AppContext } from '../../../context/AppContext';
 import { Send, Users, Plus, MessageSquare, AlertCircle } from 'lucide-react';
 
-const API_URL = 'http://localhost:5000';
+const API_URL = `${import.meta.env.VITE_API_URL}`;
 
 // Type definitions
 interface User {
@@ -195,7 +195,13 @@ const CommunicationHub = () => {
       });
       const data = await response.json();
       if (data.success) {
-        setChannels(data.channels);
+        // Filter out channels with passengers and drivers
+        const filteredChannels = data.channels.filter((channel: Channel) =>
+          !channel.participants?.some(participant =>
+            ['passenger', 'driver'].includes(participant.role)
+          )
+        );
+        setChannels(filteredChannels);
       }
       setLoading(false);
     } catch (err) {
@@ -214,7 +220,11 @@ const CommunicationHub = () => {
       });
       const data = await response.json();
       if (data.success) {
-        setContacts(data.contacts);
+        // Filter out passengers and drivers, only keep admin/staff roles
+        const filteredContacts = data.contacts.filter((contact: Contact) =>
+          !['passenger', 'driver'].includes(contact.role)
+        );
+        setContacts(filteredContacts);
       }
     } catch (err) {
       console.error('Error fetching contacts:', err);

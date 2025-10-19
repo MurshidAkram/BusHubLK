@@ -78,6 +78,9 @@ interface PaginationInfo {
   recordsPerPage: number;
 }
 
+const API_BASE_URL = (import.meta.env.VITE_API_URL ).replace(/\/$/, '');
+const buildApiUrl = (path: string) => `${API_BASE_URL}${path}`;
+
 const Servicehistoryexplorer = () => {
   const [activeTab, setActiveTab] = useState<'services' | 'parts' | 'inspections'>('services');
   
@@ -160,7 +163,7 @@ const Servicehistoryexplorer = () => {
 
   const fetchRegions = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/dgm-technical/regions');
+      const response = await fetch(buildApiUrl('/api/dgm-technical/regions'));
       const result = await response.json();
       if (result.success) {
         setRegions(result.data);
@@ -172,7 +175,7 @@ const Servicehistoryexplorer = () => {
 
   const fetchDepotsByRegion = async (regionId: string) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/dgm-technical/regions/${regionId}/depots`);
+      const response = await fetch(buildApiUrl(`/api/dgm-technical/regions/${regionId}/depots`));
       const result = await response.json();
       if (result.success) {
         setDepots(result.data);
@@ -195,7 +198,7 @@ const Servicehistoryexplorer = () => {
         endDate: ''
       });
 
-      const response = await fetch(`http://localhost:5000/api/dgm-technical/service-history?${queryParams}`);
+      const response = await fetch(buildApiUrl(`/api/dgm-technical/service-history?${queryParams}`));
       const result = await response.json();
       
       if (result.success) {
@@ -219,7 +222,7 @@ const Servicehistoryexplorer = () => {
         search: ''
       });
 
-      const response = await fetch(`http://localhost:5000/api/dgm-technical/parts-history?${queryParams}`);
+      const response = await fetch(buildApiUrl(`/api/dgm-technical/parts-history?${queryParams}`));
       const result = await response.json();
       
       if (result.success) {
@@ -243,7 +246,7 @@ const Servicehistoryexplorer = () => {
         status: 'all'
       });
 
-      const response = await fetch(`http://localhost:5000/api/dgm-technical/inspection-history?${queryParams}`);
+      const response = await fetch(buildApiUrl(`/api/dgm-technical/inspection-history?${queryParams}`));
       const result = await response.json();
       
       if (result.success) {
@@ -273,7 +276,7 @@ const Servicehistoryexplorer = () => {
         endDate: filters.endDate
       });
 
-      const response = await fetch(`http://localhost:5000/api/dgm-technical/service-history?${queryParams}`);
+      const response = await fetch(buildApiUrl(`/api/dgm-technical/service-history?${queryParams}`));
       const result = await response.json();
       
       if (result.success) {
@@ -308,7 +311,7 @@ const Servicehistoryexplorer = () => {
         search: filters.search
       });
 
-      const response = await fetch(`http://localhost:5000/api/dgm-technical/parts-history?${queryParams}`);
+      const response = await fetch(buildApiUrl(`/api/dgm-technical/parts-history?${queryParams}`));
       const result = await response.json();
       
       if (result.success) {
@@ -343,7 +346,7 @@ const Servicehistoryexplorer = () => {
         status: filters.status
       });
 
-      const response = await fetch(`http://localhost:5000/api/dgm-technical/inspection-history?${queryParams}`);
+      const response = await fetch(buildApiUrl(`/api/dgm-technical/inspection-history?${queryParams}`));
       const result = await response.json();
       
       if (result.success) {

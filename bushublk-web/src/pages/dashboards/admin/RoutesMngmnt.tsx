@@ -5,6 +5,13 @@ import { toast } from 'react-toastify';
 interface Depot {
   depot_id: string;
   depot_name: string;
+  region_id: string;
+  region_name: string;
+}
+
+interface Region {
+  region_id: string;
+  region_name: string;
 }
 
 interface Route {
@@ -24,6 +31,7 @@ const RoutesMngmnt: React.FC = () => {
   const context = useContext(AppContext);
   const [routes, setRoutes] = useState<Route[]>([]);
   const [depots, setDepots] = useState<Depot[]>([]);
+  const [regions, setRegions] = useState<Region[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -34,19 +42,37 @@ const RoutesMngmnt: React.FC = () => {
     start_location: '',
     end_location: '',
     distance_km: '',
-    estimated_duration_minutes: '',
   });
   const [searchTerm, setSearchTerm] = useState('');
+  const [depotFilter, setDepotFilter] = useState('');
+  const [regionFilter, setRegionFilter] = useState('');
+  const [showDepotDropdown, setShowDepotDropdown] = useState(false);
+  const [showRegionDropdown, setShowRegionDropdown] = useState(false);
+  const [filteredDepots, setFilteredDepots] = useState<Depot[]>([]);
+  const [filteredRegions, setFilteredRegions] = useState<Region[]>([]);
 
   useEffect(() => {
     fetchRoutes();
     fetchDepots();
+    fetchRegions();
   }, []);
+
+  const fetchRegions = async () => {
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/regions`, {
+        headers: { Authorization: `Bearer ${context?.token}` },
+      });
+      const data = await res.json();
+      setRegions(data.regions || []);
+    } catch {
+      toast.error('Error fetching regions');
+    }
+  };
 
   const fetchRoutes = async () => {
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:5000/api/routes', {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/routes`, {
         headers: { Authorization: `Bearer ${context?.token}` },
       });
       const data = await res.json();
@@ -60,7 +86,7 @@ const RoutesMngmnt: React.FC = () => {
 
   const fetchDepots = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/depots', {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/depots`, {
         headers: { Authorization: `Bearer ${context?.token}` },
       });
       const data = await res.json();
@@ -88,6 +114,44 @@ const RoutesMngmnt: React.FC = () => {
     setForm(updatedForm);
   };
 
+  const handleDepotFilterChange = (value: string) => {
+    setDepotFilter(value);
+    if (value.trim()) {
+      const filtered = depots.filter(depot =>
+        depot.depot_name.toLowerCase().includes(value.toLowerCase())
+      );
+      setFilteredDepots(filtered);
+      setShowDepotDropdown(true);
+    } else {
+      setFilteredDepots([]);
+      setShowDepotDropdown(false);
+    }
+  };
+
+  const handleRegionFilterChange = (value: string) => {
+    setRegionFilter(value);
+    if (value.trim()) {
+      const filtered = regions.filter(region =>
+        region.region_name.toLowerCase().includes(value.toLowerCase())
+      );
+      setFilteredRegions(filtered);
+      setShowRegionDropdown(true);
+    } else {
+      setFilteredRegions([]);
+      setShowRegionDropdown(false);
+    }
+  };
+
+  const selectDepotFilter = (depot: Depot) => {
+    setDepotFilter(depot.depot_name);
+    setShowDepotDropdown(false);
+  };
+
+  const selectRegionFilter = (region: Region) => {
+    setRegionFilter(region.region_name);
+    setShowRegionDropdown(false);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (
@@ -96,8 +160,7 @@ const RoutesMngmnt: React.FC = () => {
       !form.depot_id ||
       !form.start_location ||
       !form.end_location ||
-      !form.distance_km ||
-      !form.estimated_duration_minutes
+      !form.distance_km
     ) {
       toast.error('Please fill all fields');
       return;
@@ -105,8 +168,8 @@ const RoutesMngmnt: React.FC = () => {
     try {
       const method = editId ? 'PUT' : 'POST';
       const url = editId
-        ? `http://localhost:5000/api/routes/${editId}`
-        : 'http://localhost:5000/api/routes';
+        ? `${import.meta.env.VITE_API_URL}/api/routes/${editId}`
+        : `${import.meta.env.VITE_API_URL}/api/routes`;
       const res = await fetch(url, {
         method,
         headers: {
@@ -116,7 +179,6 @@ const RoutesMngmnt: React.FC = () => {
         body: JSON.stringify({
           ...form,
           distance_km: Number(form.distance_km),
-          estimated_duration_minutes: Number(form.estimated_duration_minutes),
         }),
       });
       if (!res.ok) throw new Error('Failed');
@@ -130,7 +192,6 @@ const RoutesMngmnt: React.FC = () => {
         start_location: '',
         end_location: '',
         distance_km: '',
-        estimated_duration_minutes: '',
       });
       toast.success(editId ? 'Route updated' : 'Route added');
     } catch {
@@ -148,14 +209,13 @@ const RoutesMngmnt: React.FC = () => {
       start_location: route.start_location,
       end_location: route.end_location,
       distance_km: route.distance_km.toString(),
-      estimated_duration_minutes: route.estimated_duration_minutes.toString(),
     });
   };
 
   const handleDelete = async (id: string) => {
     if (!window.confirm('Delete this route?')) return;
     try {
-      await fetch(`http://localhost:5000/api/routes/${id}`, {
+      await fetch(`${import.meta.env.VITE_API_URL}/api/routes/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${context?.token}` },
       });
@@ -176,57 +236,128 @@ const RoutesMngmnt: React.FC = () => {
       start_location: '',
       end_location: '',
       distance_km: '',
-      estimated_duration_minutes: '',
     });
   };
 
   const filteredRoutes = routes.filter(
-    (r) =>
-      r.route_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.route_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.start_location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.end_location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.depot_name.toLowerCase().includes(searchTerm.toLowerCase())
+    (r) => {
+      const matchesSearch = searchTerm === '' ||
+        r.route_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        r.route_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        r.start_location.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        r.end_location.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        r.depot_name.toLowerCase().includes(searchTerm.toLowerCase());
+
+      const matchesDepot = depotFilter === '' ||
+        r.depot_name.toLowerCase().includes(depotFilter.toLowerCase());
+
+      const matchesRegion = regionFilter === '' ||
+        regions.some(reg =>
+          reg.region_name.toLowerCase().includes(regionFilter.toLowerCase()) &&
+          depots.some(d => d.depot_id === r.depot_id && d.region_id === reg.region_id)
+        );
+
+      return matchesSearch && matchesDepot && matchesRegion;
+    }
   );
 
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Route Management</h1>
 
-      {/* ✅ Only one search + button row */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <input
-          type="text"
-          placeholder="Search by depot name"
-          className="w-full md:w-1/2 border border-gray-300 rounded-md px-4 py-2"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-        <div className="flex gap-2">
-          <button
-            onClick={() => {
-              setShowForm(true);
-              setEditId(null);
-              setForm({
-                route_number: '',
-                route_name: '',
-                depot_id: depots[0]?.depot_id || '',
-                start_location: '',
-                end_location: '',
-                distance_km: '',
-                estimated_duration_minutes: '',
-              });
-            }}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-          >
-            Add Route
-          </button>
-          <button
-            onClick={fetchRoutes}
-            className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700"
-          >
-            Refresh
-          </button>
+      {/* ✅ Enhanced search and filter row */}
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <input
+            type="text"
+            placeholder="Search routes..."
+            className="w-full md:w-1/3 border border-gray-300 rounded-md px-4 py-2"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+
+          {/* Depot Filter */}
+          <div className="relative w-full md:w-1/4">
+            <input
+              type="text"
+              placeholder="Filter by depot..."
+              className="w-full border border-gray-300 rounded-md px-4 py-2"
+              value={depotFilter}
+              onChange={(e) => handleDepotFilterChange(e.target.value)}
+              onFocus={() => depotFilter && setShowDepotDropdown(true)}
+              onBlur={() => setTimeout(() => setShowDepotDropdown(false), 200)}
+            />
+            {showDepotDropdown && filteredDepots.length > 0 && (
+              <div className="absolute z-10 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-40 overflow-y-auto">
+                {filteredDepots.map((depot) => (
+                  <div
+                    key={depot.depot_id}
+                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                    onClick={() => selectDepotFilter(depot)}
+                  >
+                    {depot.depot_name}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Region Filter */}
+          <div className="relative w-full md:w-1/4">
+            <input
+              type="text"
+              placeholder="Filter by region..."
+              className="w-full border border-gray-300 rounded-md px-4 py-2"
+              value={regionFilter}
+              onChange={(e) => handleRegionFilterChange(e.target.value)}
+              onFocus={() => regionFilter && setShowRegionDropdown(true)}
+              onBlur={() => setTimeout(() => setShowRegionDropdown(false), 200)}
+            />
+            {showRegionDropdown && filteredRegions.length > 0 && (
+              <div className="absolute z-10 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-40 overflow-y-auto">
+                {filteredRegions.map((region) => (
+                  <div
+                    key={region.region_id}
+                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                    onClick={() => selectRegionFilter(region)}
+                  >
+                    {region.region_name}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                setShowForm(true);
+                setEditId(null);
+                setForm({
+                  route_number: '',
+                  route_name: '',
+                  depot_id: depots[0]?.depot_id || '',
+                  start_location: '',
+                  end_location: '',
+                  distance_km: '',
+                });
+              }}
+              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+            >
+              Add Route
+            </button>
+            <button
+              onClick={() => {
+                fetchRoutes();
+                setDepotFilter('');
+                setRegionFilter('');
+                setSearchTerm('');
+              }}
+              className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700"
+            >
+              Refresh
+            </button>
+          </div>
         </div>
       </div>
 
@@ -311,18 +442,6 @@ const RoutesMngmnt: React.FC = () => {
               required
             />
           </div>
-          <div>
-            <label className="block text-gray-700 mb-1">Estimated Duration (min)</label>
-            <input
-              name="estimated_duration_minutes"
-              type="number"
-              min={1}
-              className="w-full border border-gray-300 rounded-md px-3 py-2"
-              value={form.estimated_duration_minutes}
-              onChange={handleChange}
-              required
-            />
-          </div>
           <div className="col-span-2 flex gap-2 mt-2">
             <button
               type="submit"
@@ -351,8 +470,8 @@ const RoutesMngmnt: React.FC = () => {
               <th className="px-4 py-2 text-left">Start</th>
               <th className="px-4 py-2 text-left">End</th>
               <th className="px-4 py-2 text-right">Distance (km)</th>
-              <th className="px-4 py-2 text-right">Est. Duration (min)</th>
-              <th className="px-4 py-2 text-center">Actions</th>
+              <th className="px-4 py-2 text-right">Actions</th>
+
             </tr>
           </thead>
           <tbody>
@@ -364,7 +483,6 @@ const RoutesMngmnt: React.FC = () => {
                 <td className="px-4 py-2">{route.start_location}</td>
                 <td className="px-4 py-2">{route.end_location}</td>
                 <td className="px-4 py-2 text-right">{route.distance_km}</td>
-                <td className="px-4 py-2 text-right">{route.estimated_duration_minutes}</td>
                 <td className="px-4 py-2 text-center">
                   <button
                     className="text-blue-600 hover:underline mr-2"
@@ -383,7 +501,7 @@ const RoutesMngmnt: React.FC = () => {
             ))}
             {filteredRoutes.length === 0 && (
               <tr>
-                <td colSpan={8} className="text-center py-8 text-gray-500">
+                <td colSpan={7} className="text-center py-8 text-gray-500">
                   No routes found.
                 </td>
               </tr>

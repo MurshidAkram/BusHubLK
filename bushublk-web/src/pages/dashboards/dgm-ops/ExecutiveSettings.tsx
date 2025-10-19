@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import {
   BarChart,
   Bar,
@@ -10,59 +11,96 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE_URL = `${API_URL}/api`;
+
 interface DepotReport {
   depot: string;
   region: string;
   totalBuses: number;
-  totalCrew: number;
-  fleetUtilizationPercent: number;
+  activeBuses: number;
+  maintenanceBuses: number;
+  outOfServiceBuses: number;
+  driversOnDuty: number;
+  driversOnBreak: number;
+  conductorsOnDuty: number;
+  conductorsOnBreak: number;
   routesCovered: number;
   totalRoutes: number;
-  activeCrew: number;
-  crewOnLeave: number;
 }
 
-// 🔧 Mock Monthly and Yearly Data
-const mockDepotReports: Record<'monthly' | 'yearly', DepotReport[]> = {
-  monthly: [
-    { depot: 'Colombo Depot', region: 'Western', totalBuses: 120, totalCrew: 250, fleetUtilizationPercent: 85, routesCovered: 30, totalRoutes: 32, activeCrew: 210, crewOnLeave: 40 },
-    { depot: 'Pettah', region: 'Western', totalBuses: 80, totalCrew: 160, fleetUtilizationPercent: 72, routesCovered: 22, totalRoutes: 25, activeCrew: 130, crewOnLeave: 30 },
-    { depot: 'Nugegoda', region: 'Western', totalBuses: 70, totalCrew: 150, fleetUtilizationPercent: 77, routesCovered: 20, totalRoutes: 21, activeCrew: 115, crewOnLeave: 35 },
-    { depot: 'Kotte', region: 'Central', totalBuses: 65, totalCrew: 140, fleetUtilizationPercent: 79, routesCovered: 18, totalRoutes: 20, activeCrew: 110, crewOnLeave: 30 },
-    { depot: 'Dehiwala', region: 'Central', totalBuses: 90, totalCrew: 180, fleetUtilizationPercent: 80, routesCovered: 25, totalRoutes: 27, activeCrew: 145, crewOnLeave: 35 },
-  ],
-  yearly: [
-    { depot: 'Colombo Depot', region: 'Western', totalBuses: 125, totalCrew: 270, fleetUtilizationPercent: 87, routesCovered: 31, totalRoutes: 32, activeCrew: 230, crewOnLeave: 40 },
-    { depot: 'Pettah', region: 'Western', totalBuses: 85, totalCrew: 170, fleetUtilizationPercent: 75, routesCovered: 24, totalRoutes: 25, activeCrew: 135, crewOnLeave: 35 },
-    { depot: 'Nugegoda', region: 'Western', totalBuses: 75, totalCrew: 160, fleetUtilizationPercent: 79, routesCovered: 21, totalRoutes: 22, activeCrew: 120, crewOnLeave: 40 },
-    { depot: 'Kotte', region: 'Central', totalBuses: 70, totalCrew: 150, fleetUtilizationPercent: 80, routesCovered: 19, totalRoutes: 20, activeCrew: 115, crewOnLeave: 35 },
-    { depot: 'Dehiwala', region: 'Central', totalBuses: 95, totalCrew: 190, fleetUtilizationPercent: 83, routesCovered: 26, totalRoutes: 27, activeCrew: 150, crewOnLeave: 40 },
-    { depot: 'Negombo', region: 'Northern', totalBuses: 60, totalCrew: 130, fleetUtilizationPercent: 70, routesCovered: 16, totalRoutes: 18, activeCrew: 100, crewOnLeave: 30 },
-    { depot: 'Jaffna', region: 'Northern', totalBuses: 55, totalCrew: 120, fleetUtilizationPercent: 65, routesCovered: 14, totalRoutes: 16, activeCrew: 90, crewOnLeave: 30 },
-  ],
-};
+// State will be fetched from backend
+const mockDepotReports: DepotReport[] = [];
 
 const OpsReports = () => {
-  const [viewType, setViewType] = useState<'monthly' | 'yearly'>('monthly');
+  const token = localStorage.getItem('bushublk_token') || '';
   const [selectedRegion, setSelectedRegion] = useState<string>('All');
   const [selectedDepot, setSelectedDepot] = useState<string>('All');
+  const [depotReports, setDepotReports] = useState<DepotReport[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
-  const depotReports = mockDepotReports[viewType].map((entry) => {
-    const activeBuses = Math.round((entry.totalBuses * entry.fleetUtilizationPercent) / 100);
-    return {
-      ...entry,
-      activeBuses,
-      maintenanceBuses: entry.totalBuses - activeBuses,
-    };
-  });
-
+  // Derived lists from fetched data
   const regions = ['All', ...Array.from(new Set(depotReports.map((d) => d.region)))];
-  const depots = ['All', ...Array.from(new Set(depotReports.map((d) => d.depot)))];
+  // show depots filtered by selectedRegion
+  const depotsForRegion = ['All', ...Array.from(new Set(
+    depotReports
+      .filter(d => selectedRegion === 'All' || d.region === selectedRegion)
+      .map((d) => d.depot)
+  ))];
 
   const filteredDepots = depotReports.filter((d) =>
     (selectedRegion === 'All' || d.region === selectedRegion) &&
     (selectedDepot === 'All' || d.depot === selectedDepot)
   );
+
+  // Map backend row to DepotReport shape
+  const mapDepotRowToReport = (row: any): DepotReport => {
+    return {
+      depot: row.depot_name || row.depot || `Depot ${row.depot_id || ''}`,
+      region: row.region_name || row.region || 'Unknown',
+      totalBuses: Number(row.buses || row.total_buses) || 0,
+      activeBuses: Number(row.active_buses) || Number(row.active) || 0,
+      maintenanceBuses: Number(row.maintenance_buses) || 0,
+      outOfServiceBuses: Number(row.out_of_service_buses) || 0,
+      driversOnDuty: Number(row.drivers_on_duty) || 0,
+      driversOnBreak: Number(row.drivers_on_break) || 0,
+      conductorsOnDuty: Number(row.conductors_on_duty) || 0,
+      conductorsOnBreak: Number(row.conductors_on_break) || 0,
+      routesCovered: Number(row.routes_covered) || 0,
+      totalRoutes: Number(row.total_routes) || 0,
+    };
+  };
+
+  useEffect(() => {
+    const fetchOverview = async () => {
+      setLoading(true);
+      setFetchError(null);
+      try {
+  const res = await axios.get(`${API_BASE_URL}/dgm-operations-dashboard/overview`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          params: {
+            depotsLimit: 1000, // fetch many; UI does local filtering
+            depotsOffset: 0,
+            regionId: undefined,
+            incidentsLimit: 0
+          }
+        });
+        const d = res.data.data;
+        // backend returns depotsPerformance as array
+        const reports = (d.depotsPerformance || []).map(mapDepotRowToReport);
+        setDepotReports(reports);
+      } catch (err: any) {
+        console.error('Failed to fetch depot reports', err);
+        setFetchError(err?.response?.data?.error || err.message || 'Failed to fetch');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOverview();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const groupedByRegion = filteredDepots.reduce<Record<string, typeof filteredDepots>>((acc, curr) => {
     if (!acc[curr.region]) acc[curr.region] = [];
@@ -70,88 +108,219 @@ const OpsReports = () => {
     return acc;
   }, {});
 
+  // Color configurations
+  const busColors = {
+    active: '#10B981',
+    maintenance: '#F59E0B',
+    outOfService: '#EF4444'
+  };
+
+  const crewColors = {
+    driversOnDuty: '#3B82F6',
+    driversOnBreak: '#60A5FA',
+    conductorsOnDuty: '#8B5CF6',
+    conductorsOnBreak: '#A78BFA'
+  };
+
   return (
-    <div>
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-4">Operations Reports - Depot Summary</h1>
-        <p className="text-gray-600 mb-6">
-          Regional performance reports including fleet usage, crew availability, and route coverage.
-        </p>
-
-        {/* View Switch */}
-        <div className="flex justify-between mb-4">
-          <div className="space-x-2">
-            <button
-              className={`px-4 py-1 rounded ${viewType === 'monthly' ? 'bg-blue-800 text-white' : 'bg-gray-200 text-gray-800'}`}
-              onClick={() => setViewType('monthly')}
-            >
-              Monthly View
-            </button>
-            <button
-              className={`px-4 py-1 rounded ${viewType === 'yearly' ? 'bg-blue-800 text-white' : 'bg-gray-200 text-gray-800'}`}
-              onClick={() => setViewType('yearly')}
-            >
-              Yearly View
-            </button>
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="bg-white rounded-xl shadow-lg p-6">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Operations Reports - Depot Summary</h1>
+            <p className="text-gray-600">
+              Regional performance reports including fleet usage, crew availability, and route coverage.
+            </p>
           </div>
-
+          
           {/* Filters */}
-          <div className="flex gap-2">
-            <select className="border rounded px-2 py-1" value={selectedRegion} onChange={(e) => setSelectedRegion(e.target.value)}>
-              {regions.map((region) => (
-                <option key={region} value={region}>
-                  {region}
-                </option>
-              ))}
-            </select>
-            <select className="border rounded px-2 py-1" value={selectedDepot} onChange={(e) => setSelectedDepot(e.target.value)}>
-              {depots.map((depot) => (
-                <option key={depot} value={depot}>
-                  {depot}
-                </option>
-              ))}
-            </select>
+          <div className="flex flex-col sm:flex-row gap-4 mt-4 lg:mt-0">
+            <div className="flex flex-col">
+              <label className="text-sm font-medium text-gray-700 mb-1">Filter by Region</label>
+              <select 
+                className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-w-40"
+                value={selectedRegion} 
+                onChange={(e) => { setSelectedRegion(e.target.value); setSelectedDepot('All'); }}
+              >
+                {regions.map((region) => (
+                  <option key={region} value={region}>
+                    {region}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="flex flex-col">
+              <label className="text-sm font-medium text-gray-700 mb-1">Filter by Depot</label>
+              <select 
+                className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-w-40"
+                value={selectedDepot} 
+                onChange={(e) => setSelectedDepot(e.target.value)}
+              >
+                {depotsForRegion.map((depot) => (
+                  <option key={depot} value={depot}>
+                    {depot}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
-        {/* Charts */}
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-4 rounded-xl text-white">
+            <div className="text-sm font-medium opacity-90">Total Depots</div>
+            <div className="text-2xl font-bold">{filteredDepots.length}</div>
+          </div>
+          <div className="bg-gradient-to-r from-green-500 to-green-600 p-4 rounded-xl text-white">
+            <div className="text-sm font-medium opacity-90">Total Buses</div>
+            <div className="text-2xl font-bold">{filteredDepots.reduce((sum, depot) => sum + depot.totalBuses, 0)}</div>
+          </div>
+          <div className="bg-gradient-to-r from-purple-500 to-purple-600 p-4 rounded-xl text-white">
+            <div className="text-sm font-medium opacity-90">Total Drivers</div>
+            <div className="text-2xl font-bold">{filteredDepots.reduce((sum, depot) => sum + depot.driversOnDuty + depot.driversOnBreak, 0)}</div>
+          </div>
+          <div className="bg-gradient-to-r from-indigo-500 to-indigo-600 p-4 rounded-xl text-white">
+            <div className="text-sm font-medium opacity-90">Total Conductors</div>
+            <div className="text-2xl font-bold">{filteredDepots.reduce((sum, depot) => sum + depot.conductorsOnDuty + depot.conductorsOnBreak, 0)}</div>
+          </div>
+        </div>
+
+        {/* Charts by Region */}
         {Object.entries(groupedByRegion).map(([regionName, depots]) => (
           <div key={regionName} className="mb-12">
-            <h2 className="text-2xl font-bold text-blue-900 mb-4">{regionName} Region</h2>
+            <h2 className="text-2xl font-bold text-gray-800 mb-6 pb-2 border-b border-gray-200 flex items-center">
+              <div className="w-3 h-3 bg-blue-500 rounded-full mr-3"></div>
+              {regionName} Region
+            </h2>
 
             {/* Fleet Chart */}
-            <section className="mb-8">
-              <h3 className="text-xl font-semibold mb-2">Fleet by Depot</h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={depots} margin={{ top: 10, right: 20, left: 20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="depot" />
+            <section className="mb-8 bg-gray-50 p-6 rounded-xl border border-gray-200">
+              <h3 className="text-xl font-semibold mb-4 text-gray-700">Fleet Status by Depot</h3>
+              <ResponsiveContainer width="100%" height={350}>
+                <BarChart 
+                  data={depots} 
+                  margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                  barGap={0}
+                  barCategoryGap="15%"
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis 
+                    dataKey="depot" 
+                    angle={-45}
+                    textAnchor="end"
+                    height={80}
+                    tick={{ fontSize: 12 }}
+                  />
                   <YAxis />
-                  <Tooltip />
+                  <Tooltip 
+                    contentStyle={{ 
+                      borderRadius: '8px', 
+                      border: 'none', 
+                      boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                      backgroundColor: 'white'
+                    }}
+                  />
                   <Legend />
-                  <Bar dataKey="activeBuses" name="Active Buses" fill="#1E40AF" />
-                  <Bar dataKey="maintenanceBuses" name="In Maintenance" fill="#60A5FA" />
+                  <Bar 
+                    dataKey="activeBuses" 
+                    name="Active Buses" 
+                    fill={busColors.active}
+                    radius={[4, 4, 0, 0]}
+                  />
+                  <Bar 
+                    dataKey="maintenanceBuses" 
+                    name="In Maintenance" 
+                    fill={busColors.maintenance}
+                    radius={[4, 4, 0, 0]}
+                  />
+                  <Bar 
+                    dataKey="outOfServiceBuses" 
+                    name="Out of Service" 
+                    fill={busColors.outOfService}
+                    radius={[4, 4, 0, 0]}
+                  />
                 </BarChart>
               </ResponsiveContainer>
             </section>
 
             {/* Crew Chart */}
-            <section className="mb-8">
-              <h3 className="text-xl font-semibold mb-2">Crew by Depot</h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={depots} margin={{ top: 10, right: 20, left: 20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="depot" />
+            <section className="mb-8 bg-gray-50 p-6 rounded-xl border border-gray-200">
+              <h3 className="text-xl font-semibold mb-4 text-gray-700">Crew Status by Depot</h3>
+              <ResponsiveContainer width="100%" height={350}>
+                <BarChart 
+                  data={depots} 
+                  margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                  barGap={0}
+                  barCategoryGap="15%"
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis 
+                    dataKey="depot" 
+                    angle={-45}
+                    textAnchor="end"
+                    height={80}
+                    tick={{ fontSize: 12 }}
+                  />
                   <YAxis />
-                  <Tooltip />
+                  <Tooltip 
+                    contentStyle={{ 
+                      borderRadius: '8px', 
+                      border: 'none', 
+                      boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                      backgroundColor: 'white'
+                    }}
+                  />
                   <Legend />
-                  <Bar dataKey="activeCrew" fill="#6276afff" name="Active Crew" />
-                  <Bar dataKey="crewOnLeave" fill="#1b569fff" name="On Leave" />
+                  <Bar 
+                    dataKey="driversOnDuty" 
+                    name="Drivers On Duty" 
+                    fill={crewColors.driversOnDuty}
+                    radius={[4, 4, 0, 0]}
+                  />
+                  <Bar 
+                    dataKey="driversOnBreak" 
+                    name="Drivers On Break" 
+                    fill={crewColors.driversOnBreak}
+                    radius={[4, 4, 0, 0]}
+                  />
+                  <Bar 
+                    dataKey="conductorsOnDuty" 
+                    name="Conductors On Duty" 
+                    fill={crewColors.conductorsOnDuty}
+                    radius={[4, 4, 0, 0]}
+                  />
+                  <Bar 
+                    dataKey="conductorsOnBreak" 
+                    name="Conductors On Break" 
+                    fill={crewColors.conductorsOnBreak}
+                    radius={[4, 4, 0, 0]}
+                  />
                 </BarChart>
               </ResponsiveContainer>
             </section>
           </div>
         ))}
+
+        {/* Loading / Error / No Data */}
+        {loading && (
+          <div className="text-center py-12 bg-gray-50 rounded-xl border border-gray-200">
+            <div className="text-gray-500 text-lg">Loading data...</div>
+          </div>
+        )}
+        {fetchError && (
+          <div className="text-center py-12 bg-red-50 rounded-xl border border-red-200">
+            <div className="text-red-600 text-lg">{fetchError}</div>
+            <div className="text-red-400 text-sm mt-2">Check backend server and try again</div>
+          </div>
+        )}
+        {!loading && !fetchError && filteredDepots.length === 0 && (
+          <div className="text-center py-12 bg-gray-50 rounded-xl border border-gray-200">
+            <div className="text-gray-500 text-lg">No data available for the selected filters</div>
+            <div className="text-gray-400 text-sm mt-2">Try selecting different region or depot filters</div>
+          </div>
+        )}
       </div>
     </div>
   );

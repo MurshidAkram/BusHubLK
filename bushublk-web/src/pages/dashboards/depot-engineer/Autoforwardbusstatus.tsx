@@ -1,6 +1,6 @@
 import { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
+import {
   FaSearch, 
   FaCheckCircle, 
   FaExclamationTriangle, 
@@ -13,6 +13,14 @@ import {
 } from 'react-icons/fa';
 import { AppContext } from '../../../context/AppContext';
 import axios, { AxiosError } from 'axios';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5000';
+
+const buildConditionReportsUrl = () => `${API_BASE_URL}/api/depot-engineer/condition-reports`;
+
+const buildConditionReportStatsUrl = () => `${API_BASE_URL}/api/depot-engineer/condition-reports/stats`;
+
+const buildReviewReportUrl = (reportId: string) => `${API_BASE_URL}/api/depot-engineer/condition-reports/${reportId}/review`;
 
 interface Report {
   report_id: string;
@@ -95,14 +103,11 @@ const Autoforwardbusstatus = () => {
         return;
       }
 
-      const response = await axios.get<ReportsResponse>(
-        'http://localhost:5000/api/depot-engineer/condition-reports',
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const response = await axios.get<ReportsResponse>(buildConditionReportsUrl(), {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
       if (response.data.success) {
         setReports(response.data.reports);
@@ -123,14 +128,11 @@ const Autoforwardbusstatus = () => {
     try {
       if (!token) return;
 
-      const response = await axios.get<StatsResponse>(
-        'http://localhost:5000/api/depot-engineer/condition-reports/stats',
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const response = await axios.get<StatsResponse>(buildConditionReportStatsUrl(), {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
       if (response.data.success) {
         setStats({
@@ -187,15 +189,11 @@ const Autoforwardbusstatus = () => {
     try {
       if (!token) return;
 
-      const response = await axios.put(
-        `http://localhost:5000/api/depot-engineer/condition-reports/${reportId}/review`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const response = await axios.put(buildReviewReportUrl(reportId), {}, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
       if (response.data.success) {
         // Update local state
@@ -339,7 +337,7 @@ const Autoforwardbusstatus = () => {
               <option value="good">Good</option>
               <option value="minor issues">Minor Issues</option>
               <option value="major issues">Major Issues</option>
-              <option value="out of service">Out of Service</option>
+              {/* <option value="out of service">Out of Service</option> */}
             </select>
           </div>
         </div>

@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Dropdown } from 'react-native-element-dropdown';
 import * as ImagePicker from 'expo-image-picker';
 import { API_BASE_URL } from '../config/api';
+import { storageAPI, driverAPI } from '../services/api';
 
 // Type definitions
 interface NavigationProp {
@@ -178,6 +179,10 @@ const LostAndFoundScreen = ({ navigation }: { navigation: NavigationProp }) => {
     driverPhone: '',
     driverEmail: '',
   });
+
+  // Driver and depot data
+  const [driverData, setDriverData] = useState<any>(null);
+  const [depotData, setDepotData] = useState<any>(null);
   
   const [errors, setErrors] = useState<FormErrors>({});
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -193,7 +198,7 @@ const LostAndFoundScreen = ({ navigation }: { navigation: NavigationProp }) => {
     return `${hour12}:${minutes} ${period}`;
   };
 
-  // Auto-fill current date and time
+  // Auto-fill current date and time, and load driver/depot data
   useEffect(() => {
     const now = new Date();
     if (!formData.date) {
@@ -207,7 +212,63 @@ const LostAndFoundScreen = ({ navigation }: { navigation: NavigationProp }) => {
       const minutes = now.getMinutes().toString().padStart(2, '0');
       setFormData(prev => ({ ...prev, time: `${hours}:${minutes}` }));
     }
+
+    // Load driver and depot data
+    loadDriverAndDepotData();
   }, []);
+
+  const loadDriverAndDepotData = async () => {
+    try {
+      const userData = await storageAPI.getUserData();
+      if (userData && userData.driver_id) {
+        setDriverData(userData);
+
+        // Auto-fill driver name and phone from user data
+        setFormData(prev => ({
+          ...prev,
+          driverName: userData.name || userData.first_name + ' ' + (userData.last_name || ''),
+          driverPhone: userData.phone || '',
+          driverEmail: userData.email || '',
+        }));
+
+        // Get current assignment to auto-fill route and bus
+        try {
+          const assignment = await driverAPI.getDailyAssignment(userData.driver_id.toString());
+          console.log('📋 Assignment data received:', assignment);
+          console.log('🚌 Bus registration:', assignment?.registration_number);
+          console.log('🚌 Bus number:', assignment?.bus_number);
+          
+          if (assignment && assignment.route_number) {
+            const busNumber = assignment.registration_number || assignment.bus_registration || assignment.bus_number || '';
+            console.log('✅ Auto-filling form - Route:', assignment.route_number, 'Bus:', busNumber);
+            
+            setFormData(prev => ({
+              ...prev,
+              routeNumber: assignment.route_number.toString(),
+              busNumber: busNumber,
+            }));
+          }
+        } catch (assignmentError) {
+          console.log('⚠️ No current assignment found, will use manual entry:', assignmentError);
+        }
+
+        // Get depot information
+        try {
+          const depotResponse = await fetch(`${API_BASE_URL}/emergency/contact/${userData.driver_id}`);
+          if (depotResponse.ok) {
+            const depotInfo = await depotResponse.json();
+            if (depotInfo.success && depotInfo.data && depotInfo.data.length > 0) {
+              setDepotData(depotInfo.data[0]);
+            }
+          }
+        } catch (depotError) {
+          console.log('Could not load depot information');
+        }
+      }
+    } catch (error) {
+      console.error('Error loading driver data:', error);
+    }
+  };
 
   // Load my reports
   const loadMyReports = useCallback(async () => {
@@ -215,8 +276,9 @@ const LostAndFoundScreen = ({ navigation }: { navigation: NavigationProp }) => {
       setLoading(true);
       console.log('📋 Loading driver reports...');
       
-      // For now, use dummy driver ID (in real app, get from auth context)
-      const driverId = 1;
+      // Get driver ID from user data
+      const userData = await storageAPI.getUserData();
+      const driverId = userData?.driver_id || 1;
       
       const response = await fetch(`${API_BASE_URL}/driver/found-items?driver_id=${driverId}`);
       
@@ -269,18 +331,12 @@ const LostAndFoundScreen = ({ navigation }: { navigation: NavigationProp }) => {
         isValid = false;
       }
     } else if (reportStep === 2) {
-      if (!formData.locationFound.trim()) {
-        newErrors.locationFound = 'Please specify where the item was found';
-        isValid = false;
-      }
+      // locationFound is now optional - no validation needed
       if (!formData.routeNumber.trim()) {
         newErrors.routeNumber = 'Please enter the route number';
         isValid = false;
       }
-      if (!formData.busNumber.trim()) {
-        newErrors.busNumber = 'Please enter the bus number';
-        isValid = false;
-      }
+      // busNumber is now optional - no validation needed
       if (!formData.date.trim()) {
         newErrors.date = 'Please select a date';
         isValid = false;
@@ -294,10 +350,8 @@ const LostAndFoundScreen = ({ navigation }: { navigation: NavigationProp }) => {
         newErrors.driverName = 'Please enter your name';
         isValid = false;
       }
-      if (!formData.driverPhone.trim()) {
-        newErrors.driverPhone = 'Please enter your phone number';
-        isValid = false;
-      } else if (formData.driverPhone.length < 9) {
+      // Phone number is now optional but validate if provided
+      if (formData.driverPhone.trim() && formData.driverPhone.length < 9) {
         newErrors.driverPhone = 'Please enter a valid phone number';
         isValid = false;
       }
@@ -321,6 +375,10 @@ const LostAndFoundScreen = ({ navigation }: { navigation: NavigationProp }) => {
     try {
       setSubmitting(true);
       
+      // Get driver ID from user data
+      const userData = await storageAPI.getUserData();
+      const driverId = userData?.driver_id || '1';
+      
       // Convert date format from DD/MM/YYYY to YYYY-MM-DD
       const [day, month, year] = formData.date.split('/');
       const formattedDate = `${year}-${month}-${day}`;
@@ -328,17 +386,16 @@ const LostAndFoundScreen = ({ navigation }: { navigation: NavigationProp }) => {
       // Create FormData for multipart upload
       const submitFormData = new FormData();
       
-      // For driver found items, we use a dummy driver ID (in real app, get from auth context)
-      submitFormData.append('driver_id', '1');
+      submitFormData.append('driver_id', driverId.toString());
       submitFormData.append('item_category', formData.itemType || '');
       submitFormData.append('item_description', formData.description);
-      submitFormData.append('location_found', formData.locationFound);
+      submitFormData.append('location_found', formData.locationFound || '');
       submitFormData.append('route_number', formData.routeNumber);
-      submitFormData.append('bus_number', formData.busNumber);
+      submitFormData.append('bus_number', formData.busNumber || '');
       submitFormData.append('incident_date', formattedDate);
       submitFormData.append('incident_time', formData.time + ':00');
       submitFormData.append('driver_name', formData.driverName);
-      submitFormData.append('driver_phone', formData.driverPhone);
+      submitFormData.append('driver_phone', formData.driverPhone || '');
       submitFormData.append('driver_email', formData.driverEmail || '');
       
       // Add photo if exists
@@ -633,17 +690,12 @@ const LostAndFoundScreen = ({ navigation }: { navigation: NavigationProp }) => {
               {report.item_category ? (report.item_category.charAt(0).toUpperCase() + report.item_category.slice(1)) : 'UNKNOWN'} - {report.item_description ? report.item_description.substring(0, 50) : 'No description'}
               {report.item_description && report.item_description.length > 50 ? '...' : ''}
             </Text>
-            <Text style={styles.itemDescription}>
-              {report.item_description}
-            </Text>
             
             <View style={styles.itemDetails}>
               <View style={styles.detailRow}>
                 <Ionicons name="location-outline" size={18} color={AppColors.textSecondary} />
                 <Text style={styles.detailText}>
-                  {report.location_found || 'Location not specified'} 
-                  {report.route_number && ` - Route ${report.route_number}`}
-                  {report.bus_number && ` (Bus ${report.bus_number})`}
+                  {report.location_found || (report.route_number ? `Route ${report.route_number}${report.bus_number ? ` (Bus ${report.bus_number})` : ''}` : 'Location not specified')}
                 </Text>
               </View>
               <View style={styles.detailRow}>
@@ -652,12 +704,25 @@ const LostAndFoundScreen = ({ navigation }: { navigation: NavigationProp }) => {
                   {new Date(report.incident_date).toLocaleDateString()}, {report.incident_time}
                 </Text>
               </View>
-              <View style={styles.detailRow}>
-                <Ionicons name="person-outline" size={18} color={AppColors.textSecondary} />
-                <Text style={styles.detailText}>
-                  Reported by: {report.driver_name} ({report.driver_phone})
-                </Text>
-              </View>
+              {/* Removed driver name and phone display */}
+              {/* Display depot handover information */}
+              {depotData && (
+                <View style={styles.detailRow}>
+                  <Ionicons name="business-outline" size={18} color={AppColors.success} />
+                  <Text style={styles.detailText}>
+                    Handed over to depot: {depotData.depot_name || 'Unknown Depot'}
+                  </Text>
+                </View>
+              )}
+              {/* Display depot contact information */}
+              {depotData && depotData.contact_phone && (
+                <View style={styles.detailRow}>
+                  <Ionicons name="call-outline" size={18} color={AppColors.primary} />
+                  <Text style={styles.detailText}>
+                    Depot Contact: {depotData.contact_phone}
+                  </Text>
+                </View>
+              )}
             </View>
             
             {report.item_photo_url && (
@@ -672,9 +737,8 @@ const LostAndFoundScreen = ({ navigation }: { navigation: NavigationProp }) => {
             
             <View style={styles.myReportActions}>
               <View style={styles.reportInfo}>
-                <Text style={styles.reportId}>Report ID: #{report.report_reference}</Text>
                 <Text style={styles.reportStatus}>
-                  Status: {report.status === 'claimed' ? '✅ Claimed' : '🔍 Available'}
+                  Status: {report.status === 'claimed' ? '✅ Resolved - Handed over to passenger' : '🔍 Not resolved or handed over to passenger yet'}
                 </Text>
               </View>
             </View>
@@ -831,13 +895,24 @@ const LostAndFoundScreen = ({ navigation }: { navigation: NavigationProp }) => {
         <Text style={styles.modernStepSubtitle}>Tell us when and where you found this item</Text>
       </View>
 
+      {/* Info Card - Auto-filled route and bus */}
+      {(formData.routeNumber || formData.busNumber) && (
+        <View style={styles.infoCard}>
+          <Ionicons name="information-circle" size={20} color={AppColors.primary} />
+          <Text style={styles.infoCardText}>
+            Route and bus details are auto-filled from your current assignment
+          </Text>
+        </View>
+      )}
+
       {/* Location Found Section */}
       <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>Location Found *</Text>
+        <Text style={styles.sectionTitle}>Location Found (Optional)</Text>
+        <Text style={styles.fieldHint}>Specify where in the bus you found the item (e.g., "under seat 5", "back of bus")</Text>
         <View style={styles.modernInputContainer}>
           <Ionicons name="location-outline" size={20} color={AppColors.textSecondary} style={styles.modernInputIcon} />
           <TextInput
-            placeholder="Where exactly did you find this item?"
+            placeholder="e.g., Under seat 5, Back of bus, etc."
             placeholderTextColor={AppColors.textSecondary}
             style={styles.modernTextInput}
             value={formData.locationFound}
@@ -850,9 +925,21 @@ const LostAndFoundScreen = ({ navigation }: { navigation: NavigationProp }) => {
 
       {/* Route and Bus Section */}
       <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>Transport Details *</Text>
+        <Text style={styles.sectionTitle}>Transport Details</Text>
+        
+        {/* Info about auto-fetch */}
+        {(formData.routeNumber || formData.busNumber) && (
+          <View style={styles.infoCard}>
+            <Ionicons name="information-circle" size={20} color={AppColors.primaryLight} />
+            <Text style={styles.infoCardText}>
+              Route and bus details are automatically loaded from your current assignment.
+            </Text>
+          </View>
+        )}
+        
         <View style={styles.row}>
           <View style={styles.halfContainer}>
+            <Text style={styles.fieldLabel}>Route Number *</Text>
             <View style={styles.modernInputContainer}>
               <Ionicons name="bus-outline" size={20} color={AppColors.textSecondary} style={styles.modernInputIcon} />
               <TextInput
@@ -866,6 +953,7 @@ const LostAndFoundScreen = ({ navigation }: { navigation: NavigationProp }) => {
             {errors.routeNumber && <Text style={styles.modernErrorText}>{errors.routeNumber}</Text>}
           </View>
           <View style={styles.halfContainer}>
+            <Text style={styles.fieldLabel}>Bus Number (Optional)</Text>
             <View style={styles.modernInputContainer}>
               <Ionicons name="car-outline" size={20} color={AppColors.textSecondary} style={styles.modernInputIcon} />
               <TextInput
@@ -980,7 +1068,10 @@ const LostAndFoundScreen = ({ navigation }: { navigation: NavigationProp }) => {
 
       {/* Phone Number Section */}
       <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>Phone Number *</Text>
+        <View style={styles.sectionTitleRow}>
+          <Text style={styles.sectionTitle}>Phone Number (Optional)</Text>
+          <Text style={styles.sectionHint}>You can remove if you don't want to share</Text>
+        </View>
         <View style={styles.modernInputContainer}>
           <Ionicons name="call-outline" size={20} color={AppColors.textSecondary} style={styles.modernInputIcon} />
           <TextInput
@@ -1014,11 +1105,35 @@ const LostAndFoundScreen = ({ navigation }: { navigation: NavigationProp }) => {
         {errors.driverEmail && <Text style={styles.modernErrorText}>{errors.driverEmail}</Text>}
       </View>
 
+      {/* Depot Handover Information */}
+      {depotData && (
+        <View style={styles.depotInfoCard}>
+          <View style={styles.depotInfoHeader}>
+            <Ionicons name="business" size={24} color={AppColors.success} />
+            <Text style={styles.depotInfoTitle}>Item Handover</Text>
+          </View>
+          <Text style={styles.depotInfoText}>
+            This item will be handed over to <Text style={styles.depotInfoBold}>{depotData.depot_name || 'your depot'}</Text>
+          </Text>
+          {depotData.contact_phone && (
+            <View style={styles.depotContactRow}>
+              <Ionicons name="call" size={16} color={AppColors.primary} />
+              <Text style={styles.depotContactText}>
+                Depot Contact: {depotData.contact_phone}
+              </Text>
+            </View>
+          )}
+          <Text style={styles.depotInfoSubtext}>
+            Passengers can contact the depot to retrieve the item
+          </Text>
+        </View>
+      )}
+
       {/* Privacy Note */}
       <View style={styles.modernPrivacyNote}>
         <Ionicons name="shield-checkmark" size={20} color={AppColors.primary} />
         <Text style={styles.modernPrivacyText}>
-          Your contact information will only be shared with passengers who claim this item.
+          Your contact information will only be shared with passengers who claim this item. If you don't provide your phone number, passengers can contact the depot directly.
         </Text>
       </View>
 
@@ -1829,6 +1944,102 @@ const styles = StyleSheet.create({
     backgroundColor: AppColors.textSecondary,
     elevation: 0,
     shadowOpacity: 0,
+  },
+  
+  // Section Title Row
+  sectionTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  sectionHint: {
+    fontSize: 12,
+    color: AppColors.textSecondary,
+    fontStyle: 'italic',
+  },
+  
+  // Depot Information Card Styles
+  depotInfoCard: {
+    backgroundColor: AppColors.accent,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: AppColors.success + '40',
+  },
+  depotInfoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 8,
+  },
+  depotInfoTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: AppColors.text,
+  },
+  depotInfoText: {
+    fontSize: 15,
+    color: AppColors.text,
+    marginBottom: 8,
+    lineHeight: 22,
+  },
+  depotInfoBold: {
+    fontWeight: '700',
+    color: AppColors.success,
+  },
+  depotContactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginVertical: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: AppColors.card,
+    borderRadius: 8,
+  },
+  depotContactText: {
+    fontSize: 14,
+    color: AppColors.primary,
+    fontWeight: '500',
+  },
+  depotInfoSubtext: {
+    fontSize: 13,
+    color: AppColors.textSecondary,
+    fontStyle: 'italic',
+    marginTop: 4,
+  },
+  
+  // Info Card Styles
+  infoCard: {
+    backgroundColor: AppColors.primaryLight + '15',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderColor: AppColors.primaryLight + '30',
+  },
+  infoCardText: {
+    flex: 1,
+    fontSize: 14,
+    color: AppColors.text,
+    lineHeight: 20,
+  },
+  fieldHint: {
+    fontSize: 13,
+    color: AppColors.textSecondary,
+    marginBottom: 8,
+    marginTop: -4,
+  },
+  fieldLabel: {
+    fontSize: 14,
+    color: AppColors.text,
+    fontWeight: '500',
+    marginBottom: 6,
   },
 });
 
