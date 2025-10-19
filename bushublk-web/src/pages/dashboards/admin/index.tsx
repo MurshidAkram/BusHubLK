@@ -91,8 +91,8 @@ const AdminDashboard = () => {
       try {
         const [usersRes, busesRes, depotsRes] = await Promise.all([
           fetch(`${import.meta.env.VITE_API_URL}/api/users`, { headers: { 'Authorization': `Bearer ${context?.token}` } }),
-          fetch('http://43.205.127.30:5000/api/buses', { headers: { 'Authorization': `Bearer ${context?.token}` } }),
-          fetch('http://43.205.127.30:5000/api/depots', { headers: { 'Authorization': `Bearer ${context?.token}` } })
+          fetch(`${import.meta.env.VITE_API_URL}/api/buses`, { headers: { 'Authorization': `Bearer ${context?.token}` } }),
+          fetch(`${import.meta.env.VITE_API_URL}/api/depots`, { headers: { 'Authorization': `Bearer ${context?.token}` } })
         ]);
 
         if (!usersRes.ok || !busesRes.ok || !depotsRes.ok) {
