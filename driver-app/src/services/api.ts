@@ -148,14 +148,33 @@ export const driverAPI = {
   },
 
   requestPasswordReset: async (email: string) => {
-    const response = await fetch(`${API_BASE_URL}/password-reset/request`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ email }),
-    });
-    return response.json();
+    try {
+      const response = await fetch(`${API_BASE_URL}/password-reset/request`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        console.error('Password reset request failed:', data);
+        return {
+          success: false,
+          error: data.error || data.message || 'Failed to send reset email'
+        };
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('Password reset request error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Network error. Please check your connection.'
+      };
+    }
   },
 
   // Reset password with token
