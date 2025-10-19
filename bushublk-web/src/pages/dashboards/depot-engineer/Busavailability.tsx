@@ -3,6 +3,22 @@ import { HiSearch, HiX, HiChevronLeft, HiChevronRight } from 'react-icons/hi';
 import { AppContext } from '../../../context/AppContext';
 import axios, { AxiosError } from 'axios';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5000';
+
+const buildBusListUrl = (role?: string, depotId?: string) => {
+  if (role === 'depot_engineer') {
+    return `${API_BASE_URL}/api/depot-engineer/buses`;
+  }
+
+  if ((role === 'depot_manager' || role === 'depot_operations') && depotId) {
+    return `${API_BASE_URL}/api/buses/depot/${depotId}`;
+  }
+
+  return `${API_BASE_URL}/api/buses`;
+};
+
+const buildUpdateBusStatusUrl = (busId: string) => `${API_BASE_URL}/api/depot-engineer/buses/${busId}/status`;
+
 interface Bus {
   bus_id: string;
   registration_number: string;
@@ -89,17 +105,13 @@ const Busavailability = () => {
         return;
       }
 
-      let apiUrl = 'http://localhost:5000/api/buses';
-      if (userRole === 'depot_engineer') {
-        apiUrl = 'http://localhost:5000/api/depot-engineer/buses';
-      } else if (userRole === 'depot_manager' || userRole === 'depot_operations') {
-        if (!userDepotId) {
-          setError('Depot ID is required for this user role.');
-          setLoading(false);
-          return;
-        }
-        apiUrl = `http://localhost:5000/api/buses/depot/${userDepotId}`;
+      if ((userRole === 'depot_manager' || userRole === 'depot_operations') && !userDepotId) {
+        setError('Depot ID is required for this user role.');
+        setLoading(false);
+        return;
       }
+
+      const apiUrl = buildBusListUrl(userRole, userDepotId);
       console.log('Fetching from:', apiUrl);
 
       const response = await axios.get<BusResponse>(apiUrl, {
@@ -251,7 +263,7 @@ const Busavailability = () => {
       console.log('Submitting part payload:', partPayload);
 
       const response = await axios.put<BusResponse>(
-        `http://localhost:5000/api/depot-engineer/buses/${selectedBus.bus_id}/status`,
+        buildUpdateBusStatusUrl(selectedBus.bus_id),
         {
           status: editedStatus,
           part_checking_data: {

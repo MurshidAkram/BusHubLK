@@ -81,6 +81,9 @@ interface MaintenanceMetrics {
   };
 }
 
+const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/$/, '');
+const buildApiUrl = (path: string) => `${API_BASE_URL}${path}`;
+
 const GenerateReports = () => {
   const [regions, setRegions] = useState<RegionData[]>([]);
   const [depots, setDepots] = useState<DepotData[]>([]);
@@ -106,7 +109,7 @@ const GenerateReports = () => {
 
   const fetchRegions = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/dgm-technical/regions');
+      const response = await fetch(buildApiUrl('/api/dgm-technical/regions'));
       const result = await response.json();
       if (result.success) {
         setRegions(result.data);
@@ -118,7 +121,7 @@ const GenerateReports = () => {
 
   const fetchDepots = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/dgm-technical/depots');
+      const response = await fetch(buildApiUrl('/api/dgm-technical/depots'));
       const result = await response.json();
       if (result.success) {
         // Convert the regions data structure to a flat depot array
@@ -166,7 +169,7 @@ const GenerateReports = () => {
       
       // 1. Fetch Fleet Health Monitor data (bus status and availability)
       // Use the same endpoint as FleetMonitor component
-      const depotsResponse = await fetch('http://localhost:5000/api/dgm-technical/depots');
+  const depotsResponse = await fetch(buildApiUrl('/api/dgm-technical/depots'));
       const depotsResult = await depotsResponse.json();
       
       let fleetOverview = {
@@ -222,7 +225,7 @@ const GenerateReports = () => {
       
       if (entityType === 'regional') {
         // Find region ID by name
-        const regionsListResponse = await fetch('http://localhost:5000/api/dgm-technical/regions');
+  const regionsListResponse = await fetch(buildApiUrl('/api/dgm-technical/regions'));
         const regionsListResult = await regionsListResponse.json();
         if (regionsListResult.success) {
           const region = regionsListResult.data.find((r: any) => r.region_name === entityName);
@@ -232,11 +235,11 @@ const GenerateReports = () => {
         }
       } else {
         // Find depot ID by name
-        const regionsListResponse = await fetch('http://localhost:5000/api/dgm-technical/regions');
+  const regionsListResponse = await fetch(buildApiUrl('/api/dgm-technical/regions'));
         const regionsListResult = await regionsListResponse.json();
         if (regionsListResult.success) {
           for (const region of regionsListResult.data) {
-            const depotsInRegionResponse = await fetch(`http://localhost:5000/api/dgm-technical/regions/${region.region_id}/depots`);
+            const depotsInRegionResponse = await fetch(buildApiUrl(`/api/dgm-technical/regions/${region.region_id}/depots`));
             const depotsInRegionResult = await depotsInRegionResponse.json();
             if (depotsInRegionResult.success) {
               const depot = depotsInRegionResult.data.find((d: any) => d.depot_name === entityName);
@@ -262,7 +265,7 @@ const GenerateReports = () => {
         endDate: ''
       });
       
-      const serviceResponse = await fetch(`http://localhost:5000/api/dgm-technical/service-history?${serviceParams}`);
+  const serviceResponse = await fetch(buildApiUrl(`/api/dgm-technical/service-history?${serviceParams}`));
       const serviceResult = await serviceResponse.json();
       
       let serviceCompliance = {
@@ -300,7 +303,7 @@ const GenerateReports = () => {
         search: ''
       });
       
-      const partsResponse = await fetch(`http://localhost:5000/api/dgm-technical/parts-history?${partsParams}`);
+  const partsResponse = await fetch(buildApiUrl(`/api/dgm-technical/parts-history?${partsParams}`));
       const partsResult = await partsResponse.json();
       
       let partsRepairs = {
@@ -381,7 +384,7 @@ const GenerateReports = () => {
         status: 'all'
       });
       
-      const inspectionResponse = await fetch(`http://localhost:5000/api/dgm-technical/inspection-history?${inspectionParams}`);
+  const inspectionResponse = await fetch(buildApiUrl(`/api/dgm-technical/inspection-history?${inspectionParams}`));
       const inspectionResult = await inspectionResponse.json();
       
       let inspectionData = {
@@ -425,7 +428,7 @@ const GenerateReports = () => {
       }
 
       const emergencyQuery = emergencyParams.toString();
-      const emergencyBaseUrl = 'http://localhost:5000/api/depot/emergency';
+  const emergencyBaseUrl = buildApiUrl('/api/depot/emergency');
       const emergencyUrl = emergencyQuery ? `${emergencyBaseUrl}?${emergencyQuery}` : emergencyBaseUrl;
       const emergencyStatsUrl = emergencyQuery
         ? `${emergencyBaseUrl}/statistics?${emergencyQuery}`

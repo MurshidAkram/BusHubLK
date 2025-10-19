@@ -31,7 +31,11 @@ interface RTONotification {
 
 type FetchState = 'idle' | 'loading' | 'error' | 'success';
 
-const API_BASE_URL = 'http://localhost:5000/api/rto/notifications';
+const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/$/, '');
+const buildNotificationsUrl = (path: string = '') => {
+  const suffix = path ? (path.startsWith('/') ? path : `/${path}`) : '';
+  return `${API_BASE_URL}/api/rto/notifications${suffix}`;
+};
 
 const ALLOWED_ROLE_KEYS = new Set(['regional_tech', 'regional_technical_officer']);
 
@@ -85,7 +89,7 @@ const RTONotifications: React.FC = () => {
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}?limit=200&includeRead=false`, {
+  const response = await fetch(`${buildNotificationsUrl()}?limit=200&includeRead=false`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -116,7 +120,7 @@ const RTONotifications: React.FC = () => {
       if (!token || notification.is_read) return;
 
       try {
-        const response = await fetch(`${API_BASE_URL}/mark-read`, {
+  const response = await fetch(buildNotificationsUrl('/mark-read'), {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${token}`,
@@ -153,7 +157,7 @@ const RTONotifications: React.FC = () => {
     if (!token) return;
 
     try {
-      const response = await fetch(`${API_BASE_URL}/mark-all-read`, {
+  const response = await fetch(buildNotificationsUrl('/mark-all-read'), {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,

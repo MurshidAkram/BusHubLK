@@ -2,6 +2,9 @@ import React, { useState, useEffect, useContext, useMemo } from 'react';
 import axios from 'axios';
 import { AppContext } from '../../../context/AppContext';
 
+const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/$/, '');
+const buildApiUrl = (path: string) => `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
+
 interface Inspection {
   id: number;
   inspection_type: string;
@@ -61,7 +64,7 @@ const InspectionScheduleApp: React.FC = () => {
     try {
       if (!token) return;
       
-      const response = await axios.get('http://localhost:5000/api/inspections/depots', {
+      const response = await axios.get(buildApiUrl('/api/inspections/depots'), {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -81,7 +84,7 @@ const InspectionScheduleApp: React.FC = () => {
     try {
       if (!token) return;
       
-      const response = await axios.get('http://localhost:5000/api/inspections/upcoming', {
+      const response = await axios.get(buildApiUrl('/api/inspections/upcoming'), {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -101,7 +104,7 @@ const InspectionScheduleApp: React.FC = () => {
     try {
       if (!token) return;
       
-      const response = await axios.get('http://localhost:5000/api/inspections/past', {
+      const response = await axios.get(buildApiUrl('/api/inspections/past'), {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -265,7 +268,7 @@ const InspectionScheduleApp: React.FC = () => {
   const handleAddInspection = async (): Promise<void> => {
     if (newInspection.inspection_type && newInspection.depot_id && newInspection.date && newInspection.time) {
       try {
-        const response = await axios.post('http://localhost:5000/api/inspections', newInspection, {
+        const response = await axios.post(buildApiUrl('/api/inspections'), newInspection, {
           headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -304,7 +307,7 @@ const InspectionScheduleApp: React.FC = () => {
           depot_id: editingInspection.depot_id
         };
 
-        const response = await axios.put(`http://localhost:5000/api/inspections/${editingInspection.id}`, updateData, {
+        const response = await axios.put(buildApiUrl(`/api/inspections/${editingInspection.id}`), updateData, {
           headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -325,7 +328,7 @@ const InspectionScheduleApp: React.FC = () => {
 
   const handleDeleteInspection = async (id: number): Promise<void> => {
     try {
-      await axios.delete(`http://localhost:5000/api/inspections/${id}`, {
+      await axios.delete(buildApiUrl(`/api/inspections/${id}`), {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -340,7 +343,7 @@ const InspectionScheduleApp: React.FC = () => {
 
   const handleMarkAsCompleted = async (id: number): Promise<void> => {
     try {
-      await axios.patch(`http://localhost:5000/api/inspections/${id}/complete`, {}, {
+      await axios.patch(buildApiUrl(`/api/inspections/${id}/complete`), {}, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -355,16 +358,6 @@ const InspectionScheduleApp: React.FC = () => {
 
   const calendarDays = getDaysInMonth(currentDate);
   const today = new Date();
-
-  const openNewInspectionModal = () => {
-    setNewInspection({
-      inspection_type: '',
-      date: '',
-      time: '',
-      depot_id: selectedDepot === 'all' ? '' : String(selectedDepot),
-    });
-    setShowNewInspectionModal(true);
-  };
 
   if (loading) {
     return (

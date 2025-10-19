@@ -75,6 +75,14 @@ interface BusResponse {
   depot: DepotInfo;
 }
 
+const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/+$/, '');
+
+const buildDepotEngineerBusesUrl = () => `${API_BASE_URL}/api/depot-engineer/buses`;
+const buildBusConditionReportsUrl = () => `${API_BASE_URL}/api/bus-condition-reports`;
+const buildDepotEngineerPendingConditionReportsUrl = () => `${API_BASE_URL}/api/depot-engineer/condition-reports/pending`;
+const buildDepotEmergencyUrl = () => `${API_BASE_URL}/api/depot/emergency`;
+const buildEmergencyUrl = () => `${API_BASE_URL}/api/emergency`;
+
 const DepotEngineerDashboard = () => {
   const context = useContext(AppContext);
   const navigate = useNavigate();
@@ -204,7 +212,7 @@ const DepotEngineerDashboard = () => {
     setLoading(true);
     setError(null);
     try {
-      const apiUrl = `http://localhost:5000/api/depot-engineer/buses`;
+      const apiUrl = buildDepotEngineerBusesUrl();
       const response = await axios.get<BusResponse>(apiUrl, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -238,7 +246,7 @@ const DepotEngineerDashboard = () => {
   const fetchPendingReports = async () => {
     try {
       // Use the correct API endpoint for all bus condition reports
-      const apiUrl = `http://localhost:5000/api/bus-condition-reports`;
+      const apiUrl = buildBusConditionReportsUrl();
       console.log('🔍 Fetching condition reports from:', apiUrl);
       console.log('🔑 Using token:', token ? 'Token available' : 'No token');
       
@@ -298,7 +306,7 @@ const DepotEngineerDashboard = () => {
       if (axiosError.response?.status === 403 || axiosError.response?.status === 404) {
         console.log('🔄 Trying alternative endpoint...');
         try {
-          const altApiUrl = `http://localhost:5000/api/depot-engineer/condition-reports/pending`;
+          const altApiUrl = buildDepotEngineerPendingConditionReportsUrl();
           const altResponse = await axios.get(altApiUrl, {
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -383,7 +391,7 @@ const DepotEngineerDashboard = () => {
 
     try {
       // Use the depot emergency endpoint to get all reports, then filter for pending
-      const apiUrl = `http://localhost:5000/api/depot/emergency`;
+      const apiUrl = buildDepotEmergencyUrl();
       console.log('🔍 Fetching emergency reports from:', apiUrl);
       console.log('🔑 Using token:', token ? 'Token available' : 'No token');
       
@@ -450,7 +458,7 @@ const DepotEngineerDashboard = () => {
       if (axiosError.response?.status === 403 || axiosError.response?.status === 404) {
         console.log('🔄 Trying alternative emergency endpoint...');
         try {
-          const altApiUrl = `http://localhost:5000/api/emergency`;
+          const altApiUrl = buildEmergencyUrl();
           const altResponse = await axios.get<EmergencyReportResponse>(altApiUrl, {
             headers: {
               'Authorization': `Bearer ${token}`,

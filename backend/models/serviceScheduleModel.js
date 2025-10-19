@@ -190,6 +190,19 @@ class ServiceSchedule {
         return result.rows[0]?.count || 0;
     }
 
+    static async countOutstandingManualSchedules(bus_id) {
+        const result = await db.query(
+            `SELECT COUNT(*)::int AS count
+       FROM service_schedules ss
+       WHERE ss.bus_id = $1
+         AND (ss.is_deleted = false OR ss.is_deleted IS NULL)
+         AND ss.status <> 'Completed'
+         AND (ss.service_type IS NULL OR LOWER(ss.service_type) NOT LIKE 'auto follow-up:%')`,
+            [bus_id]
+        );
+        return result.rows[0]?.count || 0;
+    }
+
     // Update service schedule
     static async update(id, updates) {
         const fields = [];

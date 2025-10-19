@@ -3,7 +3,8 @@ import { io, Socket } from 'socket.io-client';
 import { Send, Users, Plus, MessageSquare, AlertCircle, Megaphone } from 'lucide-react';
 import { AppContext } from '../../../context/AppContext';
 
-const API_URL = 'http://localhost:5000';
+const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/$/, '');
+const buildApiUrl = (path: string) => `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
 
 interface User {
   id: string;
@@ -92,7 +93,7 @@ const DepotRegionalCommunicationHub = () => {
   useEffect(() => {
     if (!token) return;
 
-    const newSocket = io(API_URL, {
+    const newSocket = io(API_BASE_URL, {
       auth: { token }
     });
 
@@ -176,7 +177,7 @@ const DepotRegionalCommunicationHub = () => {
 
   const fetchChannels = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/communication/channels`, {
+      const response = await fetch(buildApiUrl('/api/communication/channels'), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -193,7 +194,7 @@ const DepotRegionalCommunicationHub = () => {
 
   const fetchContacts = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/communication/contacts`, {
+      const response = await fetch(buildApiUrl('/api/communication/contacts'), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -208,7 +209,7 @@ const DepotRegionalCommunicationHub = () => {
 
   const fetchMessages = async (channelId: string) => {
     try {
-      const response = await fetch(`${API_URL}/api/communication/channels/${channelId}/messages`, {
+      const response = await fetch(buildApiUrl(`/api/communication/channels/${channelId}/messages`), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -223,7 +224,7 @@ const DepotRegionalCommunicationHub = () => {
 
   const markChannelAsRead = async (channelId: string) => {
     try {
-      await fetch(`${API_URL}/api/communication/channels/${channelId}/read`, {
+      await fetch(buildApiUrl(`/api/communication/channels/${channelId}/read`), {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -240,7 +241,7 @@ const DepotRegionalCommunicationHub = () => {
     if (!messageText.trim() || !activeChannel) return;
 
     try {
-      const response = await fetch(`${API_URL}/api/communication/channels/${activeChannel.channel_id}/messages`, {
+      const response = await fetch(buildApiUrl(`/api/communication/channels/${activeChannel.channel_id}/messages`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -275,7 +276,7 @@ const DepotRegionalCommunicationHub = () => {
 
   const startNewChat = async (contact: Contact) => {
     try {
-      const response = await fetch(`${API_URL}/api/communication/channels/direct`, {
+      const response = await fetch(buildApiUrl('/api/communication/channels/direct'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

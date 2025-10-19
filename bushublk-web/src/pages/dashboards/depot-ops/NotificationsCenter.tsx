@@ -10,6 +10,12 @@ import {
 } from 'react-icons/hi';
 import { AppContext } from '../../../context/AppContext';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5000';
+
+const buildDepotNotificationsUrl = (depotId: number | string) => `${API_BASE_URL}/api/depot/${depotId}/notifications`;
+
+const buildDepotReadUrl = (depotId: number | string) => `${API_BASE_URL}/api/depot/${depotId}/notifications/read`;
+
 type NotificationType = 'complaint' | 'lost_found' | 'announcement' | 'direct_message';
 
 type Notification = {
@@ -24,10 +30,15 @@ type Notification = {
   route_number?: string;
   bus_number?: string;
   item_category?: string;
+  item_description?: string;
   description?: string;
   contact?: string;
+  contact_email?: string;
   incident_date?: string;
   incident_time?: string;
+  report_type?: 'Lost' | 'Found' | string;
+  approximate_location?: string;
+  status?: string;
   meta?: Record<string, unknown>;
 };
 
@@ -131,7 +142,7 @@ const NotificationsCenter: React.FC = () => {
     setError(null);
 
     try {
-      const response = await fetch(`http://localhost:5000/api/depot/${depotId}/notifications`, {
+      const response = await fetch(buildDepotNotificationsUrl(depotId), {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -159,7 +170,7 @@ const NotificationsCenter: React.FC = () => {
       if (!depotId || !token) return false;
 
       try {
-        const response = await fetch(`http://localhost:5000/api/depot/${depotId}/notifications/read`, {
+        const response = await fetch(buildDepotReadUrl(depotId), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -274,6 +285,22 @@ const NotificationsCenter: React.FC = () => {
               const channelName = typeof notification.meta?.channelName === 'string'
                 ? notification.meta.channelName
                 : undefined;
+              const rawReportType = typeof notification.report_type === 'string' ? notification.report_type : '';
+              const normalizedReportType = rawReportType.toLowerCase() === 'found' ? 'found' : 'lost';
+              const itemName = notification.item_description || notification.item_category || '';
+              const locationLabel = typeof notification.approximate_location === 'string' && notification.approximate_location.trim().length > 0
+                ? notification.approximate_location.trim()
+                : '';
+              const detailText = (() => {
+                const detail = notification.description || notification.message;
+                if (!detail) {
+                  return '';
+                }
+                if (itemName && detail.trim().toLowerCase() === itemName.trim().toLowerCase()) {
+                  return '';
+                }
+                return detail;
+              })();
 
               return (
                 <div
@@ -309,8 +336,33 @@ const NotificationsCenter: React.FC = () => {
                             )}
                             {notification.type === 'lost_found' && (
                               <span>
-                                <strong>{notification.person_name}</strong> reported a lost item (<strong>{notification.item_category}</strong>) on
-                                {' '}<strong>Route {notification.route_number}</strong>: <em>{notification.description || notification.message}</em>
+                                <strong>{notification.person_name || 'Passenger'}</strong>
+                                {locationLabel ? (
+                                  <>
+                                    {' from '}
+                                    <strong>{locationLabel}</strong>
+                                  </>
+                                ) : null}
+                                {` has reported a ${normalizedReportType} item`}
+                                {itemName ? (
+                                  <>
+                                    {' ('}
+                                    <strong>{itemName}</strong>
+                                    {')'}
+                                  </>
+                                ) : null}
+                                {notification.route_number ? (
+                                  <>
+                                    {' on '}
+                                    <strong>Route {notification.route_number}</strong>
+                                  </>
+                                ) : null}
+                                {detailText ? (
+                                  <>
+                                    {': '}
+                                    <em>{detailText}</em>
+                                  </>
+                                ) : null}
                               </span>
                             )}
                             {notification.type === 'announcement' && (
@@ -324,6 +376,8 @@ const NotificationsCenter: React.FC = () => {
                           <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
                             {timestamp && <span>Received: {formatRelativeTime(timestamp)}</span>}
                             {notification.contact && <span>Contact: {notification.contact}</span>}
+                            {notification.contact_email && <span>Email: {notification.contact_email}</span>}
+                            {notification.status && <span>Status: {notification.status}</span>}
                             {senderRoleLabel && <span>Sender Role: {senderRoleLabel}</span>}
                             {channelName && <span>Channel: {channelName}</span>}
                           </div>

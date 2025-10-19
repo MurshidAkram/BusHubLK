@@ -62,6 +62,8 @@ interface DepotsResponse {
   data: RegionsData;
 }
 
+const API_BASE_URL = (import.meta.env.VITE_API_URL).replace(/\/$/, '');
+
 const FleetMonitor = () => {
   const [selectedRegion, setSelectedRegion] = useState<string>('');
   const [selectedDepot, setSelectedDepot] = useState<string>('');
@@ -87,7 +89,7 @@ const FleetMonitor = () => {
   const fetchRegionsAndDepots = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:5000/api/dgm-technical/depots');
+  const response = await fetch(`${API_BASE_URL}/api/dgm-technical/depots`);
       const result: DepotsResponse = await response.json();
       
       if (result.success) {
@@ -125,7 +127,7 @@ const FleetMonitor = () => {
 
       if (!depotId) return;
 
-      const response = await fetch(`http://localhost:5000/api/dgm-technical/depots/${depotId}/buses`);
+  const response = await fetch(`${API_BASE_URL}/api/dgm-technical/depots/${depotId}/buses`);
       const result: BusResponse = await response.json();
       
       if (result.success) {

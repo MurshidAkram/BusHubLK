@@ -2,6 +2,16 @@ import React, { useState, useEffect, useContext } from 'react';
 import { AppContext } from '../../../context/AppContext';
 import axios, { AxiosError } from 'axios';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5000';
+
+const buildDepotEngineerBusesUrl = () => `${API_BASE_URL}/api/depot-engineer/buses`;
+
+const buildDepotBusesUrl = (depotId: string) => `${API_BASE_URL}/api/buses/depot/${depotId}`;
+
+const buildServiceHistoryUrl = (busId: string) => `${API_BASE_URL}/api/depot-engineer/buses/${busId}/service-history`;
+
+const buildPartUsageUrl = (busId: string) => `${API_BASE_URL}/api/depot-engineer/spare-parts/usage-history/${busId}`;
+
 // Matches the backend model properties
 type BusFromAPI = {
   bus_id: string;
@@ -144,7 +154,7 @@ const Busmanagement: React.FC = () => {
   const fetchServiceHistoryForBus = async (busId: string): Promise<ServiceHistory[]> => {
     try {
       const response = await axios.get(
-        `http://localhost:5000/api/depot-engineer/buses/${busId}/service-history`,
+        buildServiceHistoryUrl(busId),
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -176,7 +186,7 @@ const Busmanagement: React.FC = () => {
   const fetchPartChangesForBus = async (busId: string): Promise<PartChange[]> => {
     try {
       const response = await axios.get(
-        `http://localhost:5000/api/depot-engineer/spare-parts/usage-history/${busId}`,
+        buildPartUsageUrl(busId),
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -213,16 +223,14 @@ const Busmanagement: React.FC = () => {
         return;
       }
 
-      let apiUrl = 'http://localhost:5000/api/depot-engineer/buses';
-      // No need to append 'role' as a query parameter.
-      // The backend should derive the user's role from the JWT token.
+      let apiUrl = buildDepotEngineerBusesUrl();
       if (context?.user?.role === 'depot_manager' || context?.user?.role === 'depot_operations') {
         if (!context?.user?.depot_id) {
           setError('Depot ID is required for this user role.');
           setLoading(false);
           return;
         }
-        apiUrl = `http://localhost:5000/api/buses/depot/${context.user.depot_id}`;
+        apiUrl = buildDepotBusesUrl(context.user.depot_id);
       }
       
       console.log('Fetching from:', apiUrl); // Debug log
