@@ -7,11 +7,10 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
-  LineChart,
-  Line,
-  CartesianGrid,
   Legend,
-  Label
+  PieChart,
+  Pie,
+  Cell
 } from 'recharts';
 import { AppContext } from '../../../context/AppContext';
 import axios from 'axios';
@@ -26,58 +25,43 @@ interface CrewMember {
   status: CrewStatus;
 }
 
-const monthlyData = [
-  { month: 'Jan', active: 12, inService: 8, distance: 900 },
-  { month: 'Feb', active: 15, inService: 10, distance: 1100 },
-  { month: 'Mar', active: 14, inService: 9, distance: 1000 },
-  { month: 'Apr', active: 18, inService: 10, distance: 1300 },
-  { month: 'May', active: 16, inService: 8, distance: 1250 },
-  { month: 'Jun', active: 17, inService: 9, distance: 1350 },
-];
-
-const yearlyData = [
-  { year: '2022', active: 140, inService: 100, distance: 11500 },
-  { year: '2023', active: 160, inService: 100, distance: 12400 },
-  { year: '2024', active: 170, inService: 105, distance: 13000 },
-  { year: '2025', active: 180, inService: 109, distance: 14500 },
-];
-
-// Helper to convert "YYYY-MM" to "Jan", "Feb", etc.
 const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const formatMonthlyDistanceData = (data: any[]) => {
-  return data.map(row => {
-    const [year, month] = row.month.split('-');
-    return {
-      ...row,
-      month: monthNames[parseInt(month, 10) - 1] // "01" => "Jan"
-    };
-  });
-};
 
 const DepotOperationsManagerDashboard = () => {
   const [crewList, setCrewList] = useState<CrewMember[]>([]);
   const [loading, setLoading] = useState(false);
-  const [graphView, setGraphView] = useState<'monthly' | 'yearly'>('monthly');
   const [scheduleStatus, setScheduleStatus] = useState<any[]>([]);
   const [scheduleLoading, setScheduleLoading] = useState(false);
-  const [distanceData, setDistanceData] = useState<any[]>([]);
-  const [distanceLoading, setDistanceLoading] = useState(false);
   const [busStatsData, setBusStatsData] = useState<any[]>([]);
   const [busStatsLoading, setBusStatsLoading] = useState(false);
+  const [busHealth, setBusHealth] = useState([]);
+  const [monthlyDistance, setMonthlyDistance] = useState<{ month: string, totalDistance: number }[]>([]);
+  const [activeBuses, setActiveBuses] = useState(0);
+  const [fleetStatus, setFleetStatus] = useState<{
+    active: number;
+    maintenance: number;
+    outOfService: number;
+    total: number;
+  }>({
+    active: 0,
+    maintenance: 0,
+    outOfService: 0,
+    total: 0
+  });
+  const [distanceListing, setDistanceListing] = useState<
+  { registration_number: string; driver_name: string; total_distance_km: number }[]
+>([]);
   const chartRef = useRef<HTMLDivElement>(null);
 
   const appContext = useContext(AppContext);
   const user = appContext?.user;
   const token = appContext?.token;
 
-  const depotId = 1;
-  const regionId = 1;
-
   useEffect(() => {
     if (!user || !token) return;
     setLoading(true);
     axios.get(
-      `http://localhost:5000/api/crew?depot_id=${user.depot_id}&region_id=${regionId}`,
+      `${import.meta.env.VITE_API_URL}/api/crew?depot_id=${user.depot_id}`,
       {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -101,12 +85,12 @@ const DepotOperationsManagerDashboard = () => {
         setCrewList([]);
         setLoading(false);
       });
-  }, [user, token, regionId]);
+  }, [user, token]);
 
   useEffect(() => {
     if (!user || !token) return;
     setScheduleLoading(true);
-    axios.get(`http://localhost:5000/api/live-summary/depot/${user.depot_id}`, {
+    axios.get(`${import.meta.env.VITE_API_URL}/api/live-summary/depot/${user.depot_id}`, {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(res => {
@@ -121,35 +105,58 @@ const DepotOperationsManagerDashboard = () => {
 
   useEffect(() => {
     if (!user || !token) return;
-    setDistanceLoading(true);
-    axios.get(`http://localhost:5000/api/live-summary/depot/${user.depot_id}/distance-summary?period=${graphView}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then(res => {
-        setDistanceData(res.data.data ?? []);
-        setDistanceLoading(false);
-      })
-      .catch(() => {
-        setDistanceData([]);
-        setDistanceLoading(false);
-      });
-  }, [user, token, graphView]);
-
-  useEffect(() => {
-    if (!user || !token) return;
     setBusStatsLoading(true);
-    axios.get(`http://localhost:5000/api/bus-stats/depot/${user.depot_id}/bus-stats?period=${graphView}`, {
+    axios.get(`${import.meta.env.VITE_API_URL}/api/bus-stats/depot/${user.depot_id}/bus-stats?period=monthly`, {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(res => {
-        setBusStatsData(graphView === 'monthly' ? formatMonthlyDistanceData(res.data.data ?? []) : res.data.data ?? []);
+        setBusStatsData(res.data.data ?? []);
         setBusStatsLoading(false);
       })
       .catch(() => {
         setBusStatsData([]);
         setBusStatsLoading(false);
       });
-  }, [user, token, graphView]);
+  }, [user, token]);
+
+  useEffect(() => {
+    if (!user || !token) return;
+    axios.get(`${import.meta.env.VITE_API_URL}/api/depot-dashboard/bus-health/${user.depot_id}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(res => {
+        const health = res.data.health ?? [];
+        // Case-insensitive match
+        const active = health.find((h: any) => h.status.toLowerCase() === 'active');
+        setActiveBuses(active ? active.count : 0);
+      })
+      .catch(() => setActiveBuses(0));
+  }, [user, token]);
+
+  
+
+//bus status 
+  useEffect(() => {
+    if (!user || !token) return;
+    axios.get(`${import.meta.env.VITE_API_URL}/api/depot-ops-dashboard/depot/${user.depot_id}/fleet-status`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(res => {
+        const d = res.data || {};
+        setFleetStatus({
+          active: Number(d.active ?? d.activeBuses ?? 0),
+          maintenance: Number(d.maintenance ?? d.maintenanceBuses ?? 0),
+          outOfService: Number(d.outOfService ?? d.out_of_service ?? 0),
+          total: Number(d.total ?? d.totalBuses ?? 0)
+        });
+      })
+      .catch(() => setFleetStatus({
+        active: 0,
+        maintenance: 0,
+        outOfService: 0,
+        total: 0
+      }));
+  }, [user, token]);
 
   const onDutyDrivers = crewList.filter(
     (member) => member.role === 'Driver' && member.status === 'On Duty'
@@ -158,11 +165,31 @@ const DepotOperationsManagerDashboard = () => {
     (member) => member.role === 'Conductor' && member.status === 'On Duty'
   ).length;
 
+  const CREW_COLORS = ['#10b981', '#f59e42', '#6366f1', '#f87171'];
+  const crewStatusSummary = [
+    {
+      status: 'Drivers On Duty',
+      count: crewList.filter(c => c.role === 'Driver' && c.status === 'On Duty').length
+    },
+    {
+      status: 'Drivers On Break',
+      count: crewList.filter(c => c.role === 'Driver' && c.status === 'On Break').length
+    },
+    {
+      status: 'Conductors On Duty',
+      count: crewList.filter(c => c.role === 'Conductor' && c.status === 'On Duty').length
+    },
+    {
+      status: 'Conductors On Break',
+      count: crewList.filter(c => c.role === 'Conductor' && c.status === 'On Break').length
+    }
+  ];
+
   return (
     <div className="space-y-6 ">
       <div className="bg-white rounded-lg shadow-sm p-6">
          <h1 className="text-3xl font-bold text-gray-900 mb-2">Depot Operations Center</h1>
-        <p className="text-gray-600 text-lg">Monitoring and coordination of depot operations</p>
+        <p className="text-gray-600 text-lg">Monitor the depot operations</p>
       </div>
 
       {/* Real-time Metrics */}
@@ -173,8 +200,8 @@ const DepotOperationsManagerDashboard = () => {
               <HiTruck className="w-6 h-6 text-green-600" />
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Active Buses</p>
-              <p className="text-2xl font-bold text-gray-900">8</p>
+              <p className="text-sm font-medium text-gray-500">Active Buses Today</p>
+              <p className="text-2xl font-bold text-gray-900">{fleetStatus.active}</p>
             </div>
           </div>
         </div>
@@ -185,7 +212,7 @@ const DepotOperationsManagerDashboard = () => {
               <HiClock className="w-6 h-6 text-blue-600" />
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Active Drivers</p>
+              <p className="text-sm font-medium text-gray-500">Active Drivers Today</p>
               <p className="text-2xl font-bold text-gray-900">{loading ? '-' : onDutyDrivers}</p>
             </div>
           </div>
@@ -197,7 +224,7 @@ const DepotOperationsManagerDashboard = () => {
               <HiUsers className="w-6 h-6 text-purple-600" />
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Active Conductors</p>
+              <p className="text-sm font-medium text-gray-500">Active Conductors Today</p>
               <p className="text-2xl font-bold text-gray-900">{loading ? '-' : onDutyConductors}</p>
             </div>
           </div>
@@ -210,7 +237,7 @@ const DepotOperationsManagerDashboard = () => {
         <div className="bg-white rounded-xl shadow-md flex flex-col">
           <div className="p-6 border-b border-gray-200">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-gray-900">Schedule Status</h2>
+              <h2 className="text-xl font-semibold text-gray-900">Schedule Status </h2>
               <HiClock className="w-6 h-6 text-gray-400" />
             </div>
           </div>
@@ -253,60 +280,142 @@ const DepotOperationsManagerDashboard = () => {
         <div className="bg-white rounded-xl shadow-md p-6 h-full flex flex-col">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-gray-800">
-              Total Buses Deployed ({graphView})
+              Total Buses Deployed
             </h2>
-            <select
-              className="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
-              value={graphView}
-              onChange={e => setGraphView(e.target.value as 'monthly' | 'yearly')}
-            >
-              <option value="monthly">Monthly</option>
-              <option value="yearly">Yearly</option>
-            </select>
           </div>
           <div className="flex-1 flex items-center" ref={chartRef}>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={busStatsData}>
                 <XAxis 
-                  dataKey={graphView === 'monthly' ? 'month' : 'year'} 
-                  label={{ value: graphView === 'monthly' ? 'Month' : 'Year', position: 'insideBottom', offset: -5 }} 
+                  dataKey="month"
+                  label={{ value: 'Month', position: 'insideBottom', offset: -5 }} 
                 />
                 <YAxis 
                   label={{ value: 'Number of Buses', angle: -90, position: 'insideLeft' }} 
                 />
                 <Tooltip />
                 <Legend verticalAlign="top" height={36} />
-                <Bar dataKey="active" fill="#1d25bd" name="Active Buses" />
-                <Bar dataKey="in_service" fill="#3561f0" name="In Service" />
-              </BarChart>
+                <Bar dataKey="active" fill="#1d25bd" name=" Buses purchased and active " />
+                 </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Distance Travelled */}
+        {/* Today's Crew Update Pie Chart */}
         <div className="bg-white rounded-xl shadow-md p-6 h-full flex flex-col">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-gray-800">
-              Distance Travelled ({graphView})
-            </h2>
+            <h2 className="text-xl font-semibold text-gray-800">Today's Crew Update</h2>
           </div>
-          <div className="flex-1 flex items-center">
+          <div className="flex-1 flex items-center justify-center">
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={graphView === 'monthly' ? formatMonthlyDistanceData(distanceData) : distanceData}>
-                <XAxis dataKey={graphView === 'monthly' ? 'month' : 'year'} />
-                <YAxis label={{ value: 'Distance (km)', angle: -90, position: 'insideLeft' }} />
+              <PieChart>
+                <Pie
+                  data={crewStatusSummary}
+                  dataKey="count"
+                  nameKey="status"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={100}
+                  label={false}
+                  labelLine={false}
+                >
+                  {crewStatusSummary.map((entry, idx) => (
+                    <Cell key={`cell-${idx}`} fill={CREW_COLORS[idx % CREW_COLORS.length]} />
+                  ))}
+                </Pie>
                 <Tooltip />
-                <Legend verticalAlign="top" height={36} />
-                <Line
-                  type="monotone"
-                  dataKey="total_distance"
-                  stroke="#10b981"
-                  strokeWidth={2}
-                  name="Distance Travelled"
-                  activeDot={{ r: 8 }}
-                />
-              </LineChart>
+                <Legend />
+              </PieChart>
             </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Total distance */}
+        <div className="bg-white rounded-xl shadow-md flex flex-col">
+          <div className="p-6 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-gray-900">Total Distance travelled  </h2>
+              <HiClock className="w-6 h-6 text-gray-400" />
+            </div>
+          </div>
+          <div className="p-6 space-y-4 flex-1">
+            {scheduleLoading ? (
+              <div className="text-center text-gray-500">Loading...</div>
+            ) : (
+              scheduleStatus.length === 0 ? (
+                <div className="text-center text-gray-500">No distance data available.</div>
+              ) : (
+                scheduleStatus.map((trip, index) => (
+                  <div key={index} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0">
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-3 h-3 rounded-full ${
+                        trip.arrival_status === 'On Time' ? 'bg-green-500' :
+                        trip.arrival_status === 'Delayed' ? 'bg-red-500' : 'bg-blue-500'
+                      }`}></div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">Route {trip.route_number}</p>
+                        <p className="text-xs text-gray-500">Bus: {trip.registration_number}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-medium text-green-900">{trip.total_distance_km} km </p>
+                    </div>
+                  </div>
+                ))
+              )
+            )}
+          </div>
+        </div>
+                     
+
+        {/* Fleet Status - Added Section */}
+        <div className="bg-white rounded-xl shadow-md p-6 flex flex-col">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">Bus Status</h2>
+          <div className="space-y-4">
+            <div>
+              <div className="flex justify-between mb-1">
+                <span className="text-sm font-medium text-green-600">Active Buses </span>
+                <span className="text-sm font-medium text-green-600">
+                  {fleetStatus.active}/{fleetStatus.total}
+                </span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2.5">
+                <div
+                  className="bg-green-500 h-2.5 rounded-full"
+                  style={{ width: `${fleetStatus.total ? (fleetStatus.active / fleetStatus.total) * 100 : 0}%` }}
+                ></div>
+              </div>
+            </div>
+
+            <div>
+              <div className="flex justify-between mb-1">
+                <span className="text-sm font-medium text-yellow-600">Maintenance Buses</span>
+                <span className="text-sm font-medium text-yellow-600">
+                  {fleetStatus.maintenance}/{fleetStatus.total}
+                </span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2.5">
+                <div
+                  className="bg-yellow-500 h-2.5 rounded-full"
+                  style={{ width: `${fleetStatus.total ? (fleetStatus.maintenance / fleetStatus.total) * 100 : 0}%` }}
+                ></div>
+              </div>
+            </div>
+
+            <div>
+              <div className="flex justify-between mb-1">
+                <span className="text-sm font-medium text-red-600">Out of Service Buses</span>
+                <span className="text-sm font-medium text-red-600">
+                  {fleetStatus.outOfService}/{fleetStatus.total}
+                </span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2.5">
+                <div
+                  className="bg-red-500 h-2.5 rounded-full"
+                  style={{ width: `${fleetStatus.total ? (fleetStatus.outOfService / fleetStatus.total) * 100 : 0}%` }}
+                ></div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

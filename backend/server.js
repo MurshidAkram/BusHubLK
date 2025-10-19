@@ -1,4 +1,3 @@
-
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
@@ -192,6 +191,8 @@ const dailyAssignmentRoutes = require('./routes/dailyAssignmentRoutes');
 app.use('/api/assignments', dailyAssignmentRoutes);
 console.log('✅ dailyAssignmentRoutes loaded');
 
+const depotOpsDashboardRoutes = require('./routes/depotoperationsmanagerdashboardRoutes');
+app.use('/api/depot-ops-dashboard', depotOpsDashboardRoutes);
 
 
 try {
@@ -421,6 +422,24 @@ const depotRoutes = require('./routes/depotRoutes');
 app.use('/api/depots', depotRoutes);
 console.log('✅ depotRoutes loaded');
 
+// Register regional operations dashboard routes (protected routes)
+try {
+  const regionalOperationsRoutes = require('./routes/regionaloperationsDashboardRoutes');
+  app.use('/api/regional-dashboard', regionalOperationsRoutes);
+  console.log('✅ regionaloperationsDashboardRoutes loaded');
+} catch (error) {
+  console.log('❌ regionaloperationsDashboardRoutes error:', error.message);
+}
+
+// Register DGM operations dashboard routes (protected routes)
+try {
+  const dgmOpsRoutes = require('./routes/dgmoperationsDashboardRoutes');
+  app.use('/api/dgm-operations-dashboard', dgmOpsRoutes);
+  console.log('✅ dgmoperationsDashboardRoutes loaded');
+} catch (error) {
+  console.log('❌ dgmoperationsDashboardRoutes error:', error.message);
+}
+
 const busTripSummaryRoutes = require('./routes/busTripSummaryRoutes');
 app.use('/api/trip-summary', busTripSummaryRoutes);
 console.log('✅ busTripSummaryRoutes loaded');
@@ -495,3 +514,5 @@ server.listen(PORT, '0.0.0.0', () => {
     console.log('❌ Network utils error:', error.message);
   }
 });
+
+

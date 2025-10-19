@@ -66,16 +66,32 @@ class LostFoundReport {
 
   // Find report by ID
   static async findById(reportId) {
-    const query = 'SELECT * FROM lost_found_reports WHERE report_id = $1';
+    // include driver info (users table) when driver_id present
+    const query = `
+      SELECT r.*, 
+             u.first_name  AS passenger_first_name,
+             u.last_name   AS passenger_last_name,
+             drv.user_id   AS driver_user_id,
+             drv.first_name AS driver_first_name,
+             drv.last_name  AS driver_last_name,
+             drv.phone      AS driver_phone,
+             drv.email      AS driver_email
+      FROM lost_found_reports r
+      LEFT JOIN users u ON r.passenger_id = u.user_id
+      LEFT JOIN users drv ON r.driver_id = drv.user_id
+      WHERE r.report_id = $1
+      LIMIT 1
+    `;
     const result = await db.query(query, [reportId]);
     
     if (result.rows.length === 0) {
       return null;
     }
     
+    // return instance (model) — controller/route will get additional fields from row if needed
     return new LostFoundReport(result.rows[0]);
   }
-
+  
   // Find report by reference
   static async findByReference(reference) {
     const query = 'SELECT * FROM lost_found_reports WHERE report_reference = $1';
@@ -93,17 +109,16 @@ class LostFoundReport {
     let query = `
       SELECT
         r.*,
-        p.first_name,
-        p.last_name,
-        COALESCE(CONCAT(drv.first_name, ' ', drv.last_name), 'Unknown') as driver_name,
+        p.first_name            AS passenger_first_name,
+        p.last_name             AS passenger_last_name,
         rt.route_name,
         reg.region_name,
         d.depot_name,
-        d.contact_phone as depot_contact_phone,
-        driver_depot.depot_name as driver_depot_name,
-        driver_depot.contact_phone as driver_depot_phone,
-        r.handover_date,
-        r.handover_notes,
+        drv.user_id             AS driver_user_id,
+        drv.first_name          AS driver_first_name,
+        drv.last_name           AS driver_last_name,
+        drv.phone               AS driver_phone,
+        drv.email               AS driver_email,
         CASE
           WHEN r.created_at > NOW() - INTERVAL '1 minute' THEN 'Just now'
           WHEN r.created_at > NOW() - INTERVAL '1 hour' THEN EXTRACT(MINUTE FROM NOW() - r.created_at) || ' minutes ago'
@@ -117,11 +132,7 @@ class LostFoundReport {
       LEFT JOIN routes rt ON r.route_number = rt.route_number
       LEFT JOIN regions reg ON r.region_id = reg.region_id
       LEFT JOIN depots d ON r.handed_to_depot_id = d.depot_id
-      LEFT JOIN (
-        SELECT DISTINCT ON (d.driver_id) d.driver_id, dep.depot_name, dep.contact_phone
-        FROM drivers d
-        JOIN depots dep ON d.depot_id = dep.depot_id
-      ) driver_depot ON r.driver_id = driver_depot.driver_id
+      LEFT JOIN users drv ON r.driver_id = drv.user_id
       WHERE r.status = $1
     `;
     
@@ -181,21 +192,21 @@ class LostFoundReport {
     }
 
     const result = await db.query(query, values);
-    return result.rows.map(row => ({
-      ...new LostFoundReport(row),
-      first_name: row.first_name,
-      last_name: row.last_name,
-      driver_name: row.driver_name,
-      route_name: row.route_name,
-      region_name: row.region_name,
-      depot_name: row.depot_name,
-      depot_contact_phone: row.depot_contact_phone,
-      driver_depot_name: row.driver_depot_name,
-      driver_depot_phone: row.driver_depot_phone,
-      handover_date: row.handover_date,
-      handover_notes: row.handover_notes,
-      time_ago: row.time_ago
-    }));
+    return result.rows.map(row => {
+      const base = {
+        ...new LostFoundReport(row),
+        first_name: row.passenger_first_name,
+        last_name: row.passenger_last_name,
+        route_name: row.route_name,
+        region_name: row.region_name,
+        time_ago: row.time_ago
+      };
+      // attach driver fields (null when no driver)
+      base.driver_name = row.driver_first_name ? `${row.driver_first_name} ${row.driver_last_name || ''}`.trim() : null;
+      base.driver_phone = row.driver_phone || null;
+      base.driver_email = row.driver_email || null;
+      return base;
+    });
   }
 
   // Update report

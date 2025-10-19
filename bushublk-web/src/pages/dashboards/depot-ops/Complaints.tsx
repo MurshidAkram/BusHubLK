@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
-// API base URLs
-const API_BASE_URL = 'http://localhost:5000/api';
-const SERVER_BASE_URL = 'http://localhost:5000';
+// API base URLs sourced from Vite configuration
+const API_BASE_URL = `${import.meta.env.VITE_API_URL}/api`;
+const SERVER_BASE_URL = import.meta.env.VITE_API_URL;
 
 // The interface for our component's state (using camelCase)
 interface Complaint {
@@ -20,6 +20,8 @@ interface Complaint {
   contact: string;
   status: 'Pending' | 'In Progress' | 'Resolved'; // Updated status values to match DB
   submittedDate: string;
+  reporterEmail?: string | null;
+  reporterPhone?: string | null;
 }
 
 // Interface for the raw data from the API (using snake_case)
@@ -37,6 +39,9 @@ interface ApiComplaint {
   contact_info: string;
   status: 'Pending' | 'In Progress' | 'Resolved';
   created_at: string;
+  // added fields returned by backend join
+  reporter_email?: string | null;
+  reporter_phone?: string | null;
 }
 
 const Complaints: React.FC = () => {
@@ -46,18 +51,10 @@ const Complaints: React.FC = () => {
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('All');
   const [filterPriority, setFilterPriority] = useState<string>('All');
+  const [filterDate, setFilterDate] = useState<string>(''); // YYYY-MM-DD
+  const [filterType, setFilterType] = useState<string>('All');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
-  const [user, setUser] = useState<any>(null);
-
-  // Add effect to load user data
-  useEffect(() => {
-    const userData = localStorage.getItem('bushublk_user');
-    if (userData) {
-      setUser(JSON.parse(userData));
-    }
-  }, []);
-
   // --- Data Fetching Logic ---
   useEffect(() => {
     const fetchComplaints = async () => {
@@ -88,7 +85,7 @@ const Complaints: React.FC = () => {
         console.log('Available tokens:', possibleTokens.length);
         console.log('Using token:', activeToken ? 'Yes' : 'No');
         
-        const response = await axios.get('http://localhost:5000/api/complaints', {
+  const response = await axios.get(`${API_BASE_URL}/complaints`, {
           headers: {
             'Authorization': activeToken ? `Bearer ${activeToken}` : '',
             'Content-Type': 'application/json'
@@ -104,18 +101,23 @@ const Complaints: React.FC = () => {
           throw new Error('Invalid response format');
         }
 
+        // Ensure complaints are sorted by incident date (latest first)
+        // Sort the raw API array by incident_date (ISO or DB format) before transforming
+        response.data.complaints.sort((a: ApiComplaint, b: ApiComplaint) => {
+          return new Date(b.incident_date).getTime() - new Date(a.incident_date).getTime();
+        });
+        
         // Transform the snake_case data from the API to camelCase for the component
         const transformedComplaints = response.data.complaints.map((c: ApiComplaint): Complaint => {
           // Clean and format the image URL
-          const imageUrl = c.image_url ? c.image_url.replace(/^.*[\\\/]/, '') : undefined;
-          console.log('Processing image URL:', c.image_url, 'to:', imageUrl); // Debug log
+          const imageUrl = c.image_url ? c.image_url : undefined;
           
           return {
             id: c.id.toString(),
             type: c.complaint_type,
             routeNumber: c.route_number,
-            busNumber: c.bus_number,
-            date: new Date(c.incident_date).toLocaleDateString(), // Format date
+            busNumber: c.bus_number && c.bus_number.trim() !== '' ? c.bus_number : undefined,
+            date: new Date(c.incident_date).toLocaleDateString(),
             time: c.incident_time,
             location: c.location,
             priority: c.priority,
@@ -123,7 +125,10 @@ const Complaints: React.FC = () => {
             attachment: imageUrl,
             contact: c.contact_info,
             status: c.status,
-            submittedDate: new Date(c.created_at).toLocaleString(), // Format timestamp
+            submittedDate: new Date(c.created_at).toLocaleString(),
+            // include reporter contact if backend provided it
+            reporterEmail: c.reporter_email || null,
+            reporterPhone: c.reporter_phone || null
           };
         });
 
@@ -162,10 +167,11 @@ const Complaints: React.FC = () => {
   };
 
   const filteredComplaints = complaints.filter(complaint =>
-    (filterStatus === 'All' || complaint.status === filterStatus) &&
-    (filterPriority === 'All' || complaint.priority === filterPriority)
-  );
-
+  (filterStatus === 'All' || complaint.status === filterStatus) &&
+  (filterPriority === 'All' || complaint.priority === filterPriority) &&
+  (filterDate === '' || complaint.date === new Date(filterDate).toLocaleDateString()) &&
+  (filterType === 'All' || complaint.type === filterType)
+);
   // Pagination calculations
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -178,7 +184,7 @@ const Complaints: React.FC = () => {
   const handleStatusChange = async (id: string, newStatus: 'Pending' | 'In Progress' | 'Resolved') => {
     try {
         // Make API call to update the status on the backend
-        await axios.put(`http://localhost:5000/api/complaints/${id}/status`, { 
+  await axios.put(`${API_BASE_URL}/complaints/${id}/status`, { 
           status: newStatus 
         }, {
           headers: {
@@ -190,9 +196,10 @@ const Complaints: React.FC = () => {
         setComplaints(prev => prev.map(c =>
             c.id === id ? { ...c, status: newStatus } : c
         ));
-        // Also update the selected complaint if it's open in the modal
+
+        // Close the modal if the updated complaint is currently open so the table is visible
         if (selectedComplaint && selectedComplaint.id === id) {
-            setSelectedComplaint({ ...selectedComplaint, status: newStatus });
+            setSelectedComplaint(null);
         }
     } catch (err) {
         console.error("Failed to update status:", err);
@@ -271,6 +278,36 @@ const Complaints: React.FC = () => {
                 <option value="Low">Low</option>
               </select>
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Filter by Date</label>
+              <input
+                type="date"
+                className="border rounded-md px-3 py-2 w-40"
+                value={filterDate}
+                onChange={e => {
+                  setFilterDate(e.target.value);
+                  setCurrentPage(1);
+                }}
+                max={new Date().toISOString().split('T')[0]}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Filter by Type</label>
+              <select
+                className="border rounded-md px-3 py-2 w-40"
+                value={filterType}
+                onChange={e => {
+                  setFilterType(e.target.value);
+                  setCurrentPage(1);
+                }}
+              >
+                <option value="All">All Types</option>
+                {/* Dynamically generate unique types from complaints */}
+                {[...new Set(complaints.map(c => c.type))].map(type => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
@@ -278,8 +315,10 @@ const Complaints: React.FC = () => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Route Number</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bus Number</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type of Complaint</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -288,8 +327,12 @@ const Complaints: React.FC = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {currentItems.map((complaint) => (
                 <tr key={complaint.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{complaint.date}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{complaint.routeNumber}</td>
+                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                     {(complaint.busNumber && complaint.busNumber.toString().trim()) ? complaint.busNumber : 'Not given'}
+                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{complaint.type}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-xs truncate">{complaint.description}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${priorityColors[complaint.priority]}`}>
                       {complaint.priority}
@@ -355,12 +398,12 @@ const Complaints: React.FC = () => {
 
       {/* Complaint Detail Modal */}
       {selectedComplaint && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col border border-gray-100">
+       <div className="fixed inset-0 backdrop-blur-sm bg-white/10 flex items-center justify-center z-50 p-4">
+  <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col border border-gray-100">
             <div className="px-6 py-4 border-b border-gray-200">
               <div className="flex justify-between items-center">
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900">Complaint #{selectedComplaint.id}</h2>
+                  <h2 className="text-xl font-bold text-gray-900">Complaint details </h2>
                   <p className="text-gray-500 text-sm mt-1">Submitted on {selectedComplaint.submittedDate}</p>
                 </div>
                 <button
@@ -407,7 +450,9 @@ const Complaints: React.FC = () => {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700">Bus Number</label>
-                      <p className="mt-1 p-2 bg-gray-50 rounded-md">{selectedComplaint.busNumber || 'N/A'}</p>
+                      <p className="mt-1 p-2 bg-gray-50 rounded-md">
+                        {(selectedComplaint.busNumber && selectedComplaint.busNumber.toString().trim()) ? selectedComplaint.busNumber : 'Not given'}
+                      </p>
                     </div>
                   </div>
 
@@ -422,10 +467,7 @@ const Complaints: React.FC = () => {
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Location/Stop</label>
-                    <p className="mt-1 p-2 bg-gray-50 rounded-md">{selectedComplaint.location}</p>
-                  </div>
+      
                 </div>
 
                 <div className="space-y-4">
@@ -446,6 +488,8 @@ const Complaints: React.FC = () => {
                       onChange={(e) => {
                         handleStatusChange(selectedComplaint.id, e.target.value as 'Pending' | 'In Progress' | 'Resolved');
                       }}
+                       // don't allow changing a resolved complaint
+                       disabled={selectedComplaint.status === 'Resolved'}
                     >
                       <option value="Pending">Pending</option>
                       <option value="In Progress">In Progress</option>
@@ -455,7 +499,10 @@ const Complaints: React.FC = () => {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Contact Information</label>
-                    <p className="mt-1 p-2 bg-gray-50 rounded-md">{selectedComplaint.contact}</p>
+                    <div className="mt-1 p-2 bg-gray-50 rounded-md space-y-1 text-sm text-gray-900">
+                       {selectedComplaint.reporterPhone && <div> phone: {selectedComplaint.reporterPhone}</div>}
+                      {selectedComplaint.reporterEmail && <div>email: {selectedComplaint.reporterEmail}</div>}
+                    </div>
                   </div>
 
                   <div>
@@ -475,53 +522,26 @@ const Complaints: React.FC = () => {
                   <div className="flex items-center justify-between mb-3">
                     <label className="block text-sm font-medium text-gray-700">Attached Evidence</label>
                     <a
-                      href={`http://localhost:5000/uploads/${selectedComplaint.attachment}`}
+                      href={`${SERVER_BASE_URL}${selectedComplaint.attachment}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors duration-200"
                     >
-                      <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                      </svg>
                       View Full Size
                     </a>
                   </div>
                   <div className="relative bg-white rounded-lg overflow-hidden shadow-lg border border-gray-200">
-                    <div className="relative" style={{ paddingBottom: '56.25%' }}>
-                      <img
-                        src={`http://localhost:5000/uploads/${selectedComplaint.attachment}`}
-                        alt="Complaint evidence"
-                        className="absolute inset-0 w-full h-full object-contain"
-                        onError={(e) => {
-                          console.error('Image load error:', e);
-                          const target = e.target as HTMLImageElement;
-                          target.onerror = null;
-                          target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0yNCAxMmMwIDYuNjI3LTUuMzczIDEyLTEyIDEycy0xMi01LjM3My0xMi0xMiA1LjM3My0xMiAxMi0xMiAxMiA1LjM3MyAxMiAxMnptLTEgMGMwLTYuMDc1LTQuOTI1LTExLTExLTExcy0xMSA0LjkyNS0xMSAxMSA0LjkyNSAxMSAxMSAxMSAxMS00LjkyNSAxMS0xMXptLTExLjUtNS4xNzdjMC0uMjA5LjIwMS0uMzc4LjQ1LS4zNzguMjQ4IDAgLjQ1LjE2OS40NS4zNzh2NS4wNDVjMCAuMjA4LS4yMDIuMzc3LS40NS4zNzctLjI0OSAwLS40NS0uMTY5LS40NS0uMzc3di01LjA0NXptLjQ1IDcuNzIyYy0uMzMxIDAtLjYtLjI2OS0uNi0uNiAwLS4zMzEuMjY5LS42LjYtLjYuMzMxIDAgLjYuMjY5LjYuNiAwIC4zMzEtLjI2OS42LS42LjZ6Ii8+PC9zdmc+';
-                          target.className = 'w-12 h-12 mx-auto opacity-50';
-                        }}
-                      />
-                    </div>
-                    <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
-                      <div className="text-white text-center">
-                        <svg className="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
-                        </svg>
-                        <span className="text-sm font-medium">Click to view full size</span>
-                      </div>
-                    </div>
-                    <div className="absolute top-2 right-2">
-                      <a
-                        href={`http://localhost:5000/uploads/${selectedComplaint.attachment}`}
-                        download
-                        className="p-2 bg-white rounded-full shadow-lg hover:bg-gray-100 transition-colors duration-200"
-                        title="Download Image"
-                      >
-                        <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                        </svg>
-                      </a>
-                    </div>
+                    <img
+                      src={`${SERVER_BASE_URL}${selectedComplaint.attachment}`}
+                      alt="Complaint evidence"
+                      className="w-full h-auto object-contain"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.onerror = null;
+                        target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0yNCAxMmMwIDYuNjI3LTUuMzczIDEyLTEyIDEycy0xMi01LjM3My0xMi0xMiA1LjM3My0xMiAxMi0xMiAxMiA1LjM3MyAxMiAxMnptLTEgMGMwLTYuMDc1LTQuOTI1LTExLTExLTExcy0xMSA0LjkyNS0xMSAxMSA0LjkyNSAxMSAxMSAxMSAxMS00LjkyNSAxMS0xMXptLTExLjUtNS4xNzdjMC0uMjA5LjIwMS0uMzc4LjQ1LS4zNzguMjQ4IDAgLjQ1LjE2OS40NS4zNzh2NS4wNDVjMCAuMjA4LS4yMDIuMzc3LS40NS4zNzctLjI0OSAwLS40NS0uMTY5LS40NS0uMzc3di01LjA0NXptLjQ1IDcuNzIyYy0uMzMxIDAtLjYtLjI2OS0uNi0uNiAwLS4zMzEuMjY5LS42LjYtLjYuMzMxIDAgLjYuMjY5LjYuNiAwIC4zMzEtLjI2OS42LS42LjZ6Ii8+PC9zdmc+';
+                        target.className = 'w-12 h-12 mx-auto opacity-50';
+                      }}
+                    />
                   </div>
                 </div>
               )}
@@ -537,16 +557,19 @@ const Complaints: React.FC = () => {
                     </svg>
                     Close
                   </button>
-                  <button
-                    onClick={() => handleStatusChange(selectedComplaint.id, 'In Progress')}
-                    className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors duration-200 inline-flex items-center"
-                    disabled={selectedComplaint.status === 'Resolved'}
-                  >
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+
+                  {/* Hide action button when complaint is already resolved */}
+                  {selectedComplaint.status !== 'Resolved' && (
+                    <button
+                     onClick={() => handleStatusChange(selectedComplaint.id, selectedComplaint.status === 'Pending' ? 'In Progress' : selectedComplaint.status)}
+                     className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors duration-200 inline-flex items-center"
+                   >
+                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                     {selectedComplaint.status === 'Pending' ? 'Start Processing' : 'Update Status'}
-                  </button>
+                   </button>
+                 )}
                 </div>
               </div>
             </div>
