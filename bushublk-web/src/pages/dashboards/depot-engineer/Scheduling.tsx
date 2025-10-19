@@ -169,6 +169,8 @@ const buildDepotEngineerBusesUrl = () => `${API_BASE_URL}/api/depot-engineer/bus
 const buildDepotEngineerDailyChecklistsUrl = () => `${API_BASE_URL}/api/depot-engineer/daily-checklists`;
 
 const ServiceScheduleApp: React.FC = () => {
+  // @ts-ignore
+
   const context = useContext(AppContext) as AppContextType | null;
 
   const [currentDate, setCurrentDate] = useState<Date>(new Date());

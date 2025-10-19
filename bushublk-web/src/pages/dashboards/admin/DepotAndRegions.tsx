@@ -189,6 +189,8 @@ const DepotAndRegions = () => {
       let response;
       const url = activeTab === 'depots' 
         ? editMode 
+        // @ts-ignore
+
           ? `${import.meta.env.VITE_API_URL}/api/depots/${currentItem?.depot_id}`
           : `${import.meta.env.VITE_API_URL}/api/depots`
         : editMode
