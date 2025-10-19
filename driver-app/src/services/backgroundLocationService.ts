@@ -113,6 +113,16 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }: any) =>
     const assignment = JSON.parse(assignmentData);
     const location = locations[0];
 
+    // Support both camelCase and snake_case keys for backward compatibility
+    const driverId = assignment.driverId || assignment.driver_id;
+    const busId = assignment.busId || assignment.bus_id;
+    const routeId = assignment.routeId || assignment.route_id;
+
+    if (!driverId || !busId || !routeId) {
+      console.error('❌ Invalid assignment data in background task:', assignment);
+      return;
+    }
+
     const locationUpdate: OfflineQueueItem = {
       latitude: location.coords.latitude,
       longitude: location.coords.longitude,
@@ -120,9 +130,9 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }: any) =>
       speed: location.coords.speed,
       heading: location.coords.heading,
       accuracy: location.coords.accuracy,
-      driverId: assignment.driverId,
-      busId: assignment.busId,
-      routeId: assignment.routeId,
+      driverId,
+      busId,
+      routeId,
     };
 
     // Try to send location update immediately
@@ -316,12 +326,15 @@ export class BackgroundLocationService {
         return false;
       }
 
-      // Store active assignment
+      // Store active assignment with both camelCase and snake_case keys for compatibility
       console.log('💾 Storing assignment to AsyncStorage...');
       const assignment = {
         driverId,
         busId,
         routeId,
+        driver_id: driverId,  // Also store snake_case for compatibility
+        bus_id: busId,
+        route_id: routeId,
         startTime: Date.now(),
       };
       await withTimeout(
@@ -421,30 +434,45 @@ export class BackgroundLocationService {
                 console.warn('💡 Try: 1) Check location permissions, 2) Restart the app, 3) Check if GPS is enabled');
               }, 30000); // 30 seconds
 
-              // Validate assignment data before creating location update
-              console.log('🔍 [Expo Go] Validating assignment data:', { driverId, busId, routeId });
+              // Validate assignment data before creating location update - support both key formats
+              let assignmentDriverId = driverId;
+              let assignmentBusId = busId;
+              let assignmentRouteId = routeId;
               
-              if (!driverId || !busId || !routeId) {
-                console.error('❌ [Expo Go] Missing required assignment data!', { 
-                  driverId, 
-                  busId, 
-                  routeId,
-                  hasForegroundSub: !!foregroundSubscription 
-                });
-                
-                // Try to reload from AsyncStorage as fallback
+              // Try to reload from AsyncStorage if parameters are missing
+              if (!assignmentDriverId || !assignmentBusId || !assignmentRouteId) {
+                console.warn('⚠️ [Expo Go] Missing assignment parameters, reloading from storage...');
                 try {
                   const storedAssignment = await AsyncStorage.getItem(ACTIVE_ASSIGNMENT_KEY);
                   if (storedAssignment) {
                     const parsed = JSON.parse(storedAssignment);
                     console.log('📦 [Expo Go] Reloaded assignment from storage:', parsed);
+                    
+                    // Support both camelCase and snake_case keys
+                    assignmentDriverId = parsed.driverId || parsed.driver_id || assignmentDriverId;
+                    assignmentBusId = parsed.busId || parsed.bus_id || assignmentBusId;
+                    assignmentRouteId = parsed.routeId || parsed.route_id || assignmentRouteId;
                   } else {
-                    console.error('❌ [Expo Go] No assignment in AsyncStorage either!');
+                    console.error('❌ [Expo Go] No assignment in AsyncStorage!');
                   }
                 } catch (e) {
                   console.error('❌ [Expo Go] Failed to reload assignment:', e);
                 }
-                
+              }
+              
+              console.log('🔍 [Expo Go] Final assignment data:', { 
+                driverId: assignmentDriverId, 
+                busId: assignmentBusId, 
+                routeId: assignmentRouteId 
+              });
+              
+              if (!assignmentDriverId || !assignmentBusId || !assignmentRouteId) {
+                console.error('❌ [Expo Go] Still missing required assignment data after reload!', { 
+                  driverId: assignmentDriverId, 
+                  busId: assignmentBusId, 
+                  routeId: assignmentRouteId,
+                  hasForegroundSub: !!foregroundSubscription 
+                });
                 return; // Skip this update
               }
 
@@ -455,10 +483,17 @@ export class BackgroundLocationService {
                 speed: location.coords.speed,
                 heading: location.coords.heading,
                 accuracy: location.coords.accuracy,
+                driverId: assignmentDriverId,
+                busId: assignmentBusId,
+                routeId: assignmentRouteId,
+              };
+
+              console.log('✅ [Expo Go] Location update prepared:', {
+                coords: `${location.coords.latitude.toFixed(6)}, ${location.coords.longitude.toFixed(6)}`,
                 driverId,
                 busId,
-                routeId,
-              };
+                routeId
+              });
 
               console.log('✅ [Expo Go] Location update prepared:', {
                 coords: `${location.coords.latitude.toFixed(6)}, ${location.coords.longitude.toFixed(6)}`,
@@ -567,10 +602,16 @@ export class BackgroundLocationService {
         timeInterval: 5000, // Update every 5 seconds
         distanceInterval: 0, // Set to 0 for time-based updates only (no distance requirement)
         pausesUpdatesAutomatically: false, // Keep tracking even when stationary
+        showsBackgroundLocationIndicator: true, // Show indicator on iOS
         foregroundService: {
           notificationTitle: '🚌 BusHub Driver - Tracking Active',
-          notificationBody: 'Your bus is being tracked for passenger convenience',
+          notificationBody: 'Location tracking is running. Tap to open app.',
           notificationColor: '#0056b3',
+          // Android-specific: Make notification non-dismissible and high priority
+          ...(Platform.OS === 'android' && {
+            notificationPriority: 'high',
+            killServiceOnDestroy: false, // Keep service alive even if notification is dismissed
+          }),
         },
       };
       
@@ -611,9 +652,14 @@ export class BackgroundLocationService {
         foregroundService: true,
       });
       
+      // Platform-specific battery optimization advice
+      const batteryAdvice = Platform.OS === 'android' 
+        ? '\n\n⚠️ IMPORTANT: If tracking stops when screen is off:\n• Go to Settings > Apps > BusHub Driver\n• Set Battery to "Unrestricted"\n• Disable "Battery Optimization" for this app'
+        : '\n\n💡 For best results, keep the app open or running in background.';
+      
       Alert.alert(
         '✅ Tracking Started', 
-        'Your location is now being tracked continuously.\n\n• Updates every 5 seconds\n• Works even when bus is stationary\n• Works even when app is closed\n• Notification will show while tracking\n\nPassengers can now see your bus in real-time!',
+        `Your location is now being tracked continuously.\n\n• Updates every 5 seconds\n• Works even when bus is stationary\n• Works even when screen is OFF${batteryAdvice}\n\nPassengers can now see your bus in real-time!`,
         [{ text: 'Got it!' }]
       );
       return true;

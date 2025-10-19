@@ -8,16 +8,59 @@ export const setSessionExpiredHandler = (handler: () => void) => {
   sessionExpiredHandler = handler;
 };
 
-// Helper function to check if response indicates session expiration
-const handleApiResponse = async (response: Response) => {
-  // Check for 403 (Forbidden) which indicates expired/invalid token
-  if (response.status === 403) {
-    console.log('🔒 Session expired (403) - triggering handler');
+// Helper function to handle API errors and check for session expiration
+const handleApiError = (error: any) => {
+  const errorMessage = error?.message?.toLowerCase() || '';
+  
+  // Check if this is a session expiration error
+  if (
+    errorMessage.includes('jwt') ||
+    errorMessage.includes('session has expired') ||
+    errorMessage.includes('connection terminated') ||
+    (errorMessage.includes('token') && (errorMessage.includes('expired') || errorMessage.includes('invalid')))
+  ) {
+    console.log('🔒 Session/JWT error detected in catch - triggering handler');
     if (sessionExpiredHandler) {
       sessionExpiredHandler();
     }
-    throw new Error('Session expired');
   }
+  
+  throw error;
+};
+
+// Helper function to check if response indicates session expiration
+const handleApiResponse = async (response: Response) => {
+  // Check for 401 (Unauthorized) or 403 (Forbidden) which indicates expired/invalid token
+  if (response.status === 401 || response.status === 403) {
+    console.log(`🔒 Session expired (${response.status}) - triggering handler`);
+    if (sessionExpiredHandler) {
+      sessionExpiredHandler();
+    }
+    throw new Error('Your session has expired. Please log in again.');
+  }
+  
+  // Check for network/connection errors in response body
+  if (!response.ok) {
+    try {
+      const errorData = await response.json();
+      // Check if error message indicates JWT/auth issues
+      if (errorData.error && (
+        errorData.error.includes('JWT') ||
+        errorData.error.includes('token') ||
+        errorData.error.includes('authentication') ||
+        errorData.error.includes('Connection terminated')
+      )) {
+        console.log('🔒 JWT/Auth error detected - triggering handler');
+        if (sessionExpiredHandler) {
+          sessionExpiredHandler();
+        }
+        throw new Error('Your session has expired. Please log in again.');
+      }
+    } catch (e) {
+      // If we can't parse the error, continue with normal flow
+    }
+  }
+  
   return response;
 };
 
@@ -105,14 +148,33 @@ export const driverAPI = {
   },
 
   requestPasswordReset: async (email: string) => {
-    const response = await fetch(`${API_BASE_URL}/password-reset/request`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ email }),
-    });
-    return response.json();
+    try {
+      const response = await fetch(`${API_BASE_URL}/password-reset/request`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        console.error('Password reset request failed:', data);
+        return {
+          success: false,
+          error: data.error || data.message || 'Failed to send reset email'
+        };
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('Password reset request error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Network error. Please check your connection.'
+      };
+    }
   },
 
   // Reset password with token

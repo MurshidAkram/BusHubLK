@@ -1,11 +1,26 @@
-const sendgrid = require('@sendgrid/mail');
-sendgrid.setApiKey(process.env.SENDGRID_API_KEY);
-
+const nodemailer = require('nodemailer');
 const db = require('../config/db');
 const Passenger = require('../models/passengerModel');
 const notifySmsService = require('../services/notifySmsService');
 const smsLogService = require('../services/smsLogService');
 const emergencySmsLogService = require('../services/emergencySmsLogService');
+
+// Create email transporter using Nodemailer (same config as emailService.js)
+let emailTransporter = null;
+if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+  emailTransporter = nodemailer.createTransporter({
+    host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+    port: parseInt(process.env.EMAIL_PORT) || 587,
+    secure: process.env.EMAIL_SECURE === 'true',
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS
+    }
+  });
+  console.log('[passengerController] Email transporter initialized with Nodemailer');
+} else {
+  console.warn('[passengerController] Email credentials not configured. Emergency emails will fail.');
+}
 
 // Helper function to format phone numbers for Notify.lk (94 + 9 digits)
 const formatPhoneNumberForNotify = (phoneNumber) => {
@@ -179,22 +194,30 @@ const notifyEmergencyContacts = async (req, res) => {
     }
 
     if (contact.email) {
-      const emailMessage = {
-        to: contact.email,
-        from: process.env.SENDER_EMAIL,
-        subject: emailSubject,
-        text: emailText,
-        html: emailHtml,
-      };
-      notificationPromises.push(
-        sendgrid.send(emailMessage)
-          .then(() => { notificationSummary.emailsSentToContacts++; })
-          .catch(err => {
-            console.error(`Email to ${contact.email} failed: ${err.message}`);
-            notificationSummary.overallSuccess = false;
-            notificationSummary.detailedMessage.push(`Failed to send email to ${contact.name}: ${err.message || 'Unknown SendGrid error'}`);
-          })
-      );
+      if (emailTransporter) {
+        const emailMessage = {
+          from: `"${process.env.EMAIL_FROM_NAME || 'BusHubLK Support'}" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
+          to: contact.email,
+          subject: emailSubject,
+          text: emailText,
+          html: emailHtml,
+        };
+        notificationPromises.push(
+          emailTransporter.sendMail(emailMessage)
+            .then(() => { 
+              notificationSummary.emailsSentToContacts++; 
+              console.log(`[passengerController] Email sent to ${contact.email}`);
+            })
+            .catch(err => {
+              console.error(`[passengerController] Email to ${contact.email} failed:`, err.message);
+              notificationSummary.overallSuccess = false;
+              notificationSummary.detailedMessage.push(`Failed to send email to ${contact.name}: ${err.message || 'Email send failed'}`);
+            })
+        );
+      } else {
+        console.warn(`[passengerController] Email transporter not configured, skipping email to ${contact.email}`);
+        notificationSummary.detailedMessage.push(`Email to ${contact.name} skipped: Email service not configured`);
+      }
     }
   });
 

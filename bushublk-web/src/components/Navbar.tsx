@@ -82,6 +82,20 @@ const Navbar: React.FC = () => {
             'Content-Type': 'application/json',
           },
         });
+      } else if (roleKey === 'dgm_operations') {
+        response = await fetch('http://localhost:5000/api/dgm-operations/notifications/unread-count', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+      } else if (roleKey === 'dgm_technical') {
+        response = await fetch('http://localhost:5000/api/dgm-technical/notifications/unread-count', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
       } else if (roleKey === 'regional_tech' || roleKey === 'regional_technical_officer') {
         response = await fetch(`${import.meta.env.VITE_API_URL}/api/rto/notifications/unread-count`, {
           headers: {
@@ -91,6 +105,13 @@ const Navbar: React.FC = () => {
         });
       } else if (isRegionalOps) {
         response = await fetch(`${import.meta.env.VITE_API_URL}/api/regional-operations/notifications/unread-count`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+      } else if (isRegionalOps) {
+        response = await fetch('http://localhost:5000/api/regional-operations/notifications/unread-count', {
           headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
