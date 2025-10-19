@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AppContext } from '../../../context/AppContext';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE_URL = `${API_URL}/api`;
+
 const Assignments = () => {
   const appContext = useContext(AppContext);
   const user = appContext?.user;
@@ -22,7 +25,7 @@ const Assignments = () => {
       try {
         setIsLoading(true);
         setError('');
-        const routesRes = await fetch('http://localhost:5000/api/routes/', {
+  const routesRes = await fetch(`${API_BASE_URL}/routes/`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (!routesRes.ok) throw new Error('Failed to fetch routes');
@@ -47,7 +50,7 @@ const Assignments = () => {
       setError('');
       try {
         const res = await fetch(
-          `http://localhost:5000/api/assignments/route/${selectedRouteId}/daily-schedule?date=${assignmentDate}`,
+          `${API_BASE_URL}/assignments/route/${selectedRouteId}/daily-schedule?date=${assignmentDate}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         if (!res.ok) throw new Error('Failed to fetch daily schedule');
@@ -84,7 +87,14 @@ const Assignments = () => {
     <div>
       {/* Date Picker */}
       <div className="flex justify-end mb-4">
-        
+        <label className="mr-2 font-medium text-gray-700">Assignment Date:</label>
+        <input
+          type="date"
+          value={assignmentDate}
+          onChange={e => setAssignmentDate(e.target.value)}
+          className="border rounded px-2 py-1 text-gray-700"
+          max={new Date().toISOString().slice(0, 10)}
+        />
       </div>
       <div className="bg-white rounded-xl shadow-lg overflow-hidden">
         <div className="flex flex-col md:flex-row gap-0">
@@ -171,7 +181,7 @@ const Assignments = () => {
                               {slot.assignment ? (
                                 <>
                                   <div className="font-medium">{slot.assignment.bus_registration}</div>
-                                  <div className="text-sm text-gray-500">{slot.assignment.bus_type}</div>
+                                  <div className="text-sm text-gray-500">Class {slot.assignment.bus_type}</div>
                                 </>
                               ) : (
                                 <span className="bg-red-100 text-red-800 px-2.5 py-0.5 rounded-full text-xs font-medium">Not assigned</span>

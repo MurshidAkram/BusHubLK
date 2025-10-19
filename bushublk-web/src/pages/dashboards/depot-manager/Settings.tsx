@@ -11,6 +11,9 @@ import {
   HiExclamationCircle
 } from 'react-icons/hi';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE_URL = `${API_URL}/api`;
+
 const Settings: React.FC = () => {
   const appContext = useContext(AppContext);
   if (!appContext) {
@@ -40,10 +43,10 @@ const Settings: React.FC = () => {
       
       try {
         const [profileRes, busRes] = await Promise.all([
-          fetch(`http://localhost:5000/api/depots/${depotId}`, {
+          fetch(`${API_BASE_URL}/depots/${depotId}`, {
             headers: { Authorization: `Bearer ${token}` }
           }),
-          axios.get(`http://localhost:5000/api/buses/depot/${depotId}`, {
+          axios.get(`${API_BASE_URL}/buses/depot/${depotId}`, {
             headers: { Authorization: `Bearer ${token}` }
           })
         ]);
@@ -74,10 +77,10 @@ const Settings: React.FC = () => {
         setError('');
         try {
           const [profileRes, busRes] = await Promise.all([
-            fetch(`http://localhost:5000/api/depots/${depotId}`, {
+            fetch(`${API_BASE_URL}/depots/${depotId}`, {
               headers: { Authorization: `Bearer ${token}` }
             }),
-            axios.get(`http://localhost:5000/api/buses/depot/${depotId}`, {
+            axios.get(`${API_BASE_URL}/buses/depot/${depotId}`, {
               headers: { Authorization: `Bearer ${token}` }
             })
           ]);

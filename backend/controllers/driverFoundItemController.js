@@ -71,13 +71,13 @@ const submitFoundItem = async (req, res) => {
     if (!driver_id) errors.push('driver_id is required');
     if (!item_category) errors.push('item_category is required');
     if (!item_description) errors.push('item_description is required');
-    if (!location_found) errors.push('location_found is required');
+    // location_found is now optional
     if (!route_number) errors.push('route_number is required');
-    if (!bus_number) errors.push('bus_number is required');
+    // bus_number is now optional (auto-fetched from assignment)
     if (!incident_date || !/^\d{4}-\d{2}-\d{2}$/.test(incident_date)) errors.push('incident_date is required in YYYY-MM-DD format');
     if (!incident_time || !/^\d{2}:\d{2}:\d{2}$/.test(incident_time)) errors.push('incident_time is required in HH:MM:SS format');
     if (!driver_name) errors.push('driver_name is required');
-    if (!driver_phone) errors.push('driver_phone is required');
+    // driver_phone is now optional
     if (driver_email && !/^\S+@\S+\.\S+$/.test(driver_email)) errors.push('driver_email is invalid');
 
     if (errors.length > 0) {
@@ -101,11 +101,18 @@ const submitFoundItem = async (req, res) => {
     const report_reference = uuidv4();
     console.log('🔗 Generated reference:', report_reference);
 
-    // Create approximate location combining bus info and location
-    const approximate_location = `${location_found} - Bus ${bus_number}`;
+    // Create approximate location combining bus info and location (if provided)
+    let approximate_location = `Route ${route_number}`;
+    if (bus_number) {
+      approximate_location = location_found 
+        ? `${location_found} - Bus ${bus_number}` 
+        : `Bus ${bus_number}, Route ${route_number}`;
+    } else if (location_found) {
+      approximate_location = `${location_found}, Route ${route_number}`;
+    }
     
     // Enhance the description to include driver identification
-    const enhanced_description = `${item_description} [Driver Report by ${driver_name}]`;
+    const enhanced_description = `${item_description}`;
 
     // Prepare report data for the existing lost_found_reports table
     const reportData = {
@@ -122,13 +129,13 @@ const submitFoundItem = async (req, res) => {
       incident_date,
       incident_time,
       contact_email: driver_email || null,
-      contact_phone: driver_phone, // Use normal phone number
+      contact_phone: driver_phone || null, // Optional phone number
       reward_offered: 0
     };
 
     // Add driver info to the description
-    reportData.item_description = `${item_description}\n\n[Driver Report - Driver: ${driver_name}, Bus: ${bus_number}, Location: ${location_found}]`;
-
+    const busInfo = bus_number ? `, Bus: ${bus_number}` : '';
+    const locationInfo = location_found ? `, Location: ${location_found}` : '';
     console.log('📝 Creating report with data:', reportData);
 
     // Create the report using the existing model

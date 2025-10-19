@@ -16,6 +16,14 @@ exports.createComplaint = (req, res) => {
   // --- MODIFIED PART ---
   // We now create the complaintData object with keys that match the database columns (snake_case).
   // This makes the mapping to the database model direct and clear.
+  const normalizedLocation = typeof req.body.location === 'string' && req.body.location.trim()
+    ? req.body.location.trim()
+    : 'Not provided';
+
+  const normalizedContactInfo = typeof req.body.contactInfo === 'string' && req.body.contactInfo.trim()
+    ? req.body.contactInfo.trim()
+    : 'Not provided';
+
   const complaintData = {
     user_id: userId,
     complaint_type: req.body.complaintType, // from 'complaintType'
@@ -23,11 +31,11 @@ exports.createComplaint = (req, res) => {
     bus_number: req.body.busNumber,
     incident_date: req.body.date,           // from 'date'
     incident_time: req.body.time,           // from 'time'
-    location: req.body.location,
+    location: normalizedLocation,
     priority: req.body.priority,
     description: req.body.description,
     image_url: req.file ? `/uploads/${req.file.filename}` : null, // from 'image'
-    contact_info: req.body.contactInfo      // from 'contactInfo'
+    contact_info: normalizedContactInfo      // from 'contactInfo'
   };
   // --- END MODIFIED PART ---
 
@@ -225,12 +233,23 @@ exports.deleteComplaint = (req, res) => {
  */
 exports.searchBusRoutes = async (req, res) => {
   try {
-    const { query = '' } = req.query;
+    const { query = '', type = 'all' } = req.query;
     if (!query.trim()) {
       return res.status(200).json({ success: true, data: [] });
     }
 
-    const matches = await BusRoute.search(query.trim());
+    let matches;
+    if (type === 'route') {
+      // Search only routes
+      matches = await BusRoute.searchRoutes(query.trim());
+    } else if (type === 'bus') {
+      // Search only buses
+      matches = await BusRoute.searchBuses(query.trim());
+    } else {
+      // Default: search both (backward compatibility)
+      matches = await BusRoute.search(query.trim());
+    }
+
     res.status(200).json({ success: true, data: matches });
   } catch (error) {
     console.error('Error searching bus routes:', error);

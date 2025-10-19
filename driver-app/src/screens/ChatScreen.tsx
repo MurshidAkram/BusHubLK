@@ -90,27 +90,47 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
 
   const fetchMessages = useCallback(async () => {
     try {
+      console.log(`🔍 Fetching messages for report ID: ${report.id}`);
       const token = await AsyncStorage.getItem("driverToken");
       const response = await fetch(`${API_BASE_URL}/emergency/${report.id}`, {
         method: "GET",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       });
-      if (!response.ok) throw new Error('Server responded with an error');
       
+      console.log(`📡 Response status: ${response.status}`);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("❌ Server error response:", response.status, errorText);
+        
+        if (response.status === 404) {
+          console.error(`❌ Report ID ${report.id} not found in database!`);
+          console.error('💡 This usually means the report was not committed or was rolled back.');
+        }
+        
+        throw new Error(`Server responded with status ${response.status}: ${errorText}`);
+      }
+
       const reportWithMessages = await response.json();
+      console.log("✅ Fetched report with messages:", JSON.stringify(reportWithMessages, null, 2));
+
       if (reportWithMessages && reportWithMessages.messages) {
         const normalizedMessages = reportWithMessages.messages.map((message: any) => normalizeMessage(message));
         setMessages(normalizedMessages);
+        console.log(`✅ Loaded ${normalizedMessages.length} messages`);
+      } else {
+        console.log("⚠️ No messages found in response");
+        setMessages([]);
       }
     } catch (error) {
-      console.error("Failed to fetch messages directly:", error);
+      console.error("❌ Failed to fetch messages directly:", error);
+      setMessages([]); // Clear messages on error
     }
   }, [report.id]);
 
-  // 👇 3. ADD A NEW FUNCTION to fetch the depot contact number
+  // 👇 3. ADD A NEW FUNCTION to fetch the depot contact number (only once)
   const fetchDepotContact = useCallback(async () => {
     if (!report?.driver_id) {
-        console.log("No driver_id found in report, cannot fetch contact.");
         return;
     }
     try {
@@ -119,26 +139,40 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
         method: "GET",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       });
-      if (!response.ok) throw new Error('Could not fetch depot contact');
+      
+      if (response.status === 404) {
+        // 404 means depot has no contact number - this is expected
+        console.log('ℹ️ No depot contact available for this driver');
+        return;
+      }
+      
+      if (!response.ok) {
+        // Other errors (500, etc.) - log for debugging
+        console.log(`⚠️ Depot contact endpoint returned ${response.status}`);
+        return;
+      }
       
       const data = await response.json();
       if (data.phone) {
+        console.log('✅ Depot contact number loaded');
         setDepotPhoneNumber(data.phone);
       }
     } catch (error) {
-      console.error("Failed to fetch depot contact:", error);
+      // Network errors - silently handle
+      console.log('⚠️ Could not reach depot contact endpoint');
     }
   }, [report.driver_id]);
 
   useFocusEffect(
     useCallback(() => {
       setIsLoading(true);
-      // 👇 4. FETCH both messages and contact
+      // Fetch messages and depot contact on initial load
       Promise.all([fetchMessages(), fetchDepotContact()]).finally(() => setIsLoading(false));
       
+      // Only refresh messages in the interval, not depot contact (it doesn't change)
       const intervalId = setInterval(fetchMessages, 5000);
       return () => clearInterval(intervalId);
-    }, [fetchMessages, fetchDepotContact]) // 👈 Add fetchDepotContact as a dependency
+    }, [fetchMessages, fetchDepotContact])
   );
   
   const handleSend = async () => {

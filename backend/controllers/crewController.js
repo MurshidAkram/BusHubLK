@@ -3,11 +3,17 @@ const CrewModel = require('../models/CrewModel');
 // GET /api/crew?depot_id=1&region_id=2
 const getCrew = async (req, res) => {
   const { depot_id, region_id } = req.query;
-  if (!depot_id || !region_id) {
-    return res.status(400).json({ error: 'depot_id and region_id required' });
-  }
   try {
-    const crew = await CrewModel.getCrewByDepotRegion(depot_id, region_id);
+    let crew;
+    if (!depot_id && !region_id) {
+      // Fetch all crew (across all regions/depots)
+      crew = await CrewModel.getAllCrew();
+    } else if (depot_id && region_id) {
+      crew = await CrewModel.getCrewByDepotRegion(depot_id, region_id);
+    } else {
+      // Optionally, handle region-only or depot-only filtering
+      crew = await CrewModel.getCrewFiltered({ depot_id, region_id });
+    }
     res.json(crew);
   } catch (err) {
     res.status(500).json({ error: 'Server error' });

@@ -3,6 +3,8 @@ import axios from 'axios';
 import { AppContext } from '../../../context/AppContext';
 import { Eye, Clock, MapPin, Bus, Route, Calendar, ChevronDown, X } from 'lucide-react';
 
+const API_BASE_URL = `${import.meta.env.VITE_API_URL}/api`;
+
 interface BusTripSummary {
   trip_id: number;
   bus_id: number;
@@ -34,13 +36,16 @@ const BusScheduleTable = () => {
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(() => {
     const today = new Date();
-    return today.toISOString().slice(0, 10);
+    const localDateString = today.getFullYear() + '-' +
+      String(today.getMonth() + 1).padStart(2, '0') + '-' +
+      String(today.getDate()).padStart(2, '0');
+    return localDateString;
   });
 
   useEffect(() => {
     if (!token || !user || !selectedDate) return;
     setLoading(true);
-    axios.get(`http://localhost:5000/api/live-summary/depot/${user.depot_id}?date=${selectedDate}`, {
+  axios.get(`${API_BASE_URL}/live-summary/depot/${user.depot_id}?date=${selectedDate}`, {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(res => {
@@ -94,6 +99,7 @@ const BusScheduleTable = () => {
   const today = new Date();
   const todayString = today.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
   const todayDay = today.toLocaleDateString('en-US', { weekday: 'short' });
+  const todayDateString = new Date().toISOString().split('T')[0];
 
   return (
     <div className="bg-white rounded-2xl shadow-md p-6 min-h-screen">
@@ -177,6 +183,7 @@ const BusScheduleTable = () => {
                     value={selectedDate}
                     onChange={e => setSelectedDate(e.target.value)}
                     className="border rounded px-2 py-1"
+                    max={todayDateString}
                   />
                 </div>
               </div>
@@ -189,7 +196,7 @@ const BusScheduleTable = () => {
                       <th className="px-8 py-6 text-left"><div className="flex items-center space-x-2"><Route className="h-4 w-4 text-gray-500" /><span className="font-semibold text-gray-700 text-sm uppercase tracking-wide">Route</span></div></th>
                       <th className="px-8 py-6 text-left"><div className="flex items-center space-x-2"><Clock className="h-4 w-4 text-gray-500" /><span className="font-semibold text-gray-700 text-sm uppercase tracking-wide">Scheduled</span></div></th>
                       <th className="px-8 py-6 text-left"><div className="flex items-center space-x-2"><Clock className="h-4 w-4 text-gray-500" /><span className="font-semibold text-gray-700 text-sm uppercase tracking-wide">Actual</span></div></th>
-                      <th className="px-8 py-6 text-left"><span className="font-semibold text-gray-700 text-sm uppercase tracking-wide">Distance</span></th>
+                    {/*<th className="px-8 py-6 text-left"><span className="font-semibold text-gray-700 text-sm uppercase tracking-wide">Distance</span></th>*/}
                       <th className="px-8 py-6 text-right"><span className="font-semibold text-gray-700 text-sm uppercase tracking-wide">Actions</span></th>
                     </tr>
                   </thead>
@@ -240,12 +247,12 @@ const BusScheduleTable = () => {
                             </div>
                           </div>
                         </td>
-                        <td className="px-8 py-6">
+                    {/*    <td className="px-8 py-6">
                           <div className="bg-gray-50 rounded-2xl px-4 py-3 inline-block">
                             <p className="font-bold text-gray-900 text-lg">{row.total_distance_km}</p>
                             <p className="text-sm text-gray-500">kilometers</p>
                           </div>
-                        </td>
+                        </td>*/}
                         <td className="px-8 py-6 text-right">
                           <button
                             onClick={() => handleModalOpen(row)}

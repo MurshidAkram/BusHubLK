@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   StyleSheet,
   View,
@@ -20,6 +20,7 @@ import TrackingStatusBanner from "../components/TrackingStatusBanner";
 import { useDriver } from "../context/DriverContext";
 import { useNotifications } from "../context/NotificationContext";
 import { useNotificationLogic } from "../hooks/useNotificationLogic";
+import { driverAPI, storageAPI } from "../services/api";
 
 // Get device dimensions
 import { Dimensions } from "react-native";
@@ -80,29 +81,75 @@ const TopHeader = () => {
 // WelcomeBanner component with dynamic data
 const WelcomeBanner = () => {
   const { driverData, isLoading, error } = useDriver();
-  
+  const [scheduleData, setScheduleData] = useState<any[]>([]);
+  const [scheduleLoading, setScheduleLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchScheduleData = async () => {
+      try {
+        setScheduleLoading(true);
+        const userData = await storageAPI.getUserData();
+
+        if (!userData || (!userData.user_id && !userData.driver_id)) {
+          console.error('No valid user ID found in storage');
+          return;
+        }
+
+        const driverId = userData.driver_id || userData.user_id;
+        console.log('Fetching schedule for driver:', driverId);
+
+        const response = await driverAPI.getUpcomingAssignments(driverId.toString(), 7);
+        console.log('Schedule response:', response);
+
+        if (response && Array.isArray(response)) {
+          setScheduleData(response);
+        } else {
+          setScheduleData([]);
+        }
+      } catch (error) {
+        console.error('Error fetching schedule:', error);
+        setScheduleData([]);
+      } finally {
+        setScheduleLoading(false);
+      }
+    };
+
+    fetchScheduleData();
+  }, []);
+
   const getDriverName = () => {
     if (isLoading) return "Loading...";
     if (error) return "Driver";
     return driverData?.first_name || "Driver";
   };
-  
-  const getBusRegistration = () => {
-    if (isLoading) return "Loading...";
-    if (error) return "Please contact depot";
-    
-    // Check if there's a today assignment
-    if (driverData?.todayAssignment?.bus_registration) {
-      return driverData.todayAssignment.bus_registration;
+
+  const getScheduleInfo = () => {
+    if (scheduleLoading) return "Loading schedule...";
+    if (scheduleData.length === 0) return "No upcoming assignments";
+
+    // Find today's assignment
+    const today = new Date().toISOString().split('T')[0];
+    const todayAssignment = scheduleData.find(assignment =>
+      assignment.assignment_date === today
+    );
+
+    if (todayAssignment) {
+      const busReg = todayAssignment.bus_registration || `Bus ${todayAssignment.bus_id}`;
+      const route = todayAssignment.route_number || `Route ${todayAssignment.route_id}`;
+      return `Today: ${busReg} on ${route}`;
     }
-    
-    // Fallback to legacy busRegistration field
-    if (driverData?.busRegistration) {
-      return driverData.busRegistration;
+
+    // If no today assignment, show next upcoming
+    const nextAssignment = scheduleData[0];
+    if (nextAssignment) {
+      const date = new Date(nextAssignment.assignment_date);
+      const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+      const busReg = nextAssignment.bus_registration || `Bus ${nextAssignment.bus_id}`;
+      const route = nextAssignment.route_number || `Route ${nextAssignment.route_id}`;
+      return `${dayName}: ${busReg} on ${route}`;
     }
-    
-    // No assignment for today
-    return "No Assignment Today";
+
+    return "No upcoming assignments";
   };
 
   return (
@@ -121,7 +168,7 @@ const WelcomeBanner = () => {
       </View>
       <View style={styles.welcomeTextContainer}>
         <Text style={styles.welcomeTitle}>Ready to Start, {getDriverName()}?</Text>
-        <Text style={styles.welcomeSubtitle}>Your bus for today is: {getBusRegistration()}</Text>
+        <Text style={styles.welcomeSubtitle}>{getScheduleInfo()}</Text>
       </View>
     </LinearGradient>
   );
@@ -223,7 +270,7 @@ const styles = StyleSheet.create({
   contentContainer: {
     paddingHorizontal: 20,
     paddingBottom: Platform.OS === 'android' ? 100 : 120, // Increased for new tab bar
-    paddingTop: 20,
+    paddingTop: 16,
   },
   header: {
     flexDirection: "row",
@@ -301,41 +348,42 @@ const styles = StyleSheet.create({
   welcomeBanner: {
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: 22,
-    padding: 24,
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 18,
     marginHorizontal: 20,
-    marginBottom: 20,
-    marginTop: 35,
-    minHeight: Platform.OS === "android" ? 100 : 95,
+    marginBottom: 16,
+    marginTop: 20,
+    minHeight: Platform.OS === "android" ? 75 : 70,
     ...Platform.select({
       android: {
-        elevation: 6,
+        elevation: 4,
       },
       ios: {
         shadowColor: "#000",
-        shadowOpacity: 0.15,
-        shadowRadius: 8,
-        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.12,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 3 },
       },
     }),
   },
   busIconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     backgroundColor: "rgba(255, 255, 255, 0.2)",
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 18,
+    marginRight: 14,
     ...Platform.select({
       android: {
-        elevation: 2,
+        elevation: 1,
       },
       ios: {
         shadowColor: "#000",
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 3,
+        shadowOffset: { width: 0, height: 1 },
       },
     }),
   },
@@ -345,36 +393,36 @@ const styles = StyleSheet.create({
   },
   welcomeTitle: {
     color: "#fff",
-    fontSize: Platform.OS === "ios" ? 20 : 19,
+    fontSize: Platform.OS === "ios" ? 18 : 17,
     fontWeight: "bold",
-    lineHeight: Platform.OS === "ios" ? 26 : 24,
+    lineHeight: Platform.OS === "ios" ? 24 : 22,
     includeFontPadding: false,
     textAlignVertical: "center",
-    marginBottom: 4,
+    marginBottom: 3,
   },
   welcomeSubtitle: {
     color: "rgba(255, 255, 255, 0.9)",
-    fontSize: Platform.OS === "ios" ? 15 : 14,
+    fontSize: Platform.OS === "ios" ? 14 : 13,
     fontWeight: "500",
-    lineHeight: Platform.OS === "ios" ? 20 : 18,
+    lineHeight: Platform.OS === "ios" ? 18 : 16,
     includeFontPadding: false,
     textAlignVertical: "center",
   },
   section: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: Platform.OS === "ios" ? 20 : 19,
+    fontSize: Platform.OS === "ios" ? 19 : 18,
     fontWeight: "600",
     color: AppColors.text,
     textAlign: "center",
-    lineHeight: Platform.OS === "ios" ? 26 : 24,
+    lineHeight: Platform.OS === "ios" ? 24 : 22,
     includeFontPadding: false,
   },
   journeyCard: {
-    padding: 20,
-    borderRadius: 20,
-    marginBottom: 30,
+    padding: 18,
+    borderRadius: 18,
+    marginBottom: 24,
     borderWidth: 1,
     borderColor: AppColors.border,
     ...Platform.select({

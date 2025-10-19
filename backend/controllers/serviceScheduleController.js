@@ -515,11 +515,56 @@ const completeService = async (req, res) => {
             });
         }
 
-        res.json({
+        let busStatusUpdate = null;
+        if (updatedSchedule?.bus_id) {
+            const [outstandingAuto, outstandingManual] = await Promise.all([
+                ServiceSchedule.countOutstandingAutoFollowUps(updatedSchedule.bus_id),
+                ServiceSchedule.countOutstandingManualSchedules(updatedSchedule.bus_id)
+            ]);
+
+            if (outstandingAuto === 0 && outstandingManual === 0) {
+                const currentBus = await Bus.findById(updatedSchedule.bus_id);
+                if (currentBus) {
+                    if (currentBus.status !== 'Active') {
+                        const updatedBus = await Bus.update(updatedSchedule.bus_id, { status: 'Active' });
+                        busStatusUpdate = {
+                            updated: true,
+                            status: updatedBus.status,
+                            bus: updatedBus
+                        };
+                    } else {
+                        busStatusUpdate = {
+                            updated: false,
+                            status: currentBus.status,
+                            bus: currentBus
+                        };
+                    }
+                }
+            } else {
+                console.log('Bus not yet eligible for reactivation', {
+                    bus_id: updatedSchedule.bus_id,
+                    outstandingAuto,
+                    outstandingManual
+                });
+            }
+        }
+
+        let message = 'Service completed successfully';
+        if (busStatusUpdate?.updated) {
+            message += ' and bus status restored to Active.';
+        }
+
+        const responseBody = {
             success: true,
-            message: 'Service completed successfully',
+            message,
             schedule: updatedSchedule
-        });
+        };
+
+        if (busStatusUpdate) {
+            responseBody.bus_status = busStatusUpdate;
+        }
+
+        res.json(responseBody);
     } catch (err) {
         console.error('Complete service error:', err);
         res.status(500).json({

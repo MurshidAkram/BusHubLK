@@ -1,6 +1,9 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
 import axios from 'axios';
 import { AppContext } from '../../../context/AppContext';
+
+const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/$/, '');
+const buildApiUrl = (path: string) => `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
 
 interface Inspection {
   id: number;
@@ -37,6 +40,7 @@ const InspectionScheduleApp: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [showNewInspectionModal, setShowNewInspectionModal] = useState<boolean>(false);
   const [showEditModal, setShowEditModal] = useState<boolean>(false);
+  const [selectedDepot, setSelectedDepot] = useState<'all' | number>('all');
   const [newInspection, setNewInspection] = useState<NewInspection>({
     inspection_type: '',
     date: '',
@@ -60,7 +64,7 @@ const InspectionScheduleApp: React.FC = () => {
     try {
       if (!token) return;
       
-      const response = await axios.get('http://localhost:5000/api/inspections/depots', {
+      const response = await axios.get(buildApiUrl('/api/inspections/depots'), {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -80,7 +84,7 @@ const InspectionScheduleApp: React.FC = () => {
     try {
       if (!token) return;
       
-      const response = await axios.get('http://localhost:5000/api/inspections/upcoming', {
+      const response = await axios.get(buildApiUrl('/api/inspections/upcoming'), {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -100,7 +104,7 @@ const InspectionScheduleApp: React.FC = () => {
     try {
       if (!token) return;
       
-      const response = await axios.get('http://localhost:5000/api/inspections/past', {
+      const response = await axios.get(buildApiUrl('/api/inspections/past'), {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -169,10 +173,35 @@ const InspectionScheduleApp: React.FC = () => {
     return days;
   };
 
+  const filteredUpcomingInspections = useMemo(() => {
+    if (selectedDepot === 'all') {
+      return upcomingInspections;
+    }
+    return upcomingInspections.filter((inspection) => Number(inspection.depot_id) === selectedDepot);
+  }, [upcomingInspections, selectedDepot]);
+
+  const filteredPastInspections = useMemo(() => {
+    if (selectedDepot === 'all') {
+      return pastInspections;
+    }
+    return pastInspections.filter((inspection) => Number(inspection.depot_id) === selectedDepot);
+  }, [pastInspections, selectedDepot]);
+
+  useEffect(() => {
+    if (selectedDepot === 'all') {
+      return;
+    }
+
+    const stillValid = depots.some((depot) => depot.depot_id === selectedDepot);
+    if (!stillValid) {
+      setSelectedDepot('all');
+    }
+  }, [depots, selectedDepot]);
+
   const getInspectionsForDate = (date: Date): Inspection[] => {
     const dateStr = date.toISOString().split('T')[0];
     // Combine both upcoming and past inspections for calendar display
-    const allInspections = [...upcomingInspections, ...pastInspections];
+    const allInspections = [...filteredUpcomingInspections, ...filteredPastInspections];
     
     // More flexible date comparison to handle different formats
     const dayInspections = allInspections.filter(inspection => {
@@ -239,7 +268,7 @@ const InspectionScheduleApp: React.FC = () => {
   const handleAddInspection = async (): Promise<void> => {
     if (newInspection.inspection_type && newInspection.depot_id && newInspection.date && newInspection.time) {
       try {
-        const response = await axios.post('http://localhost:5000/api/inspections', newInspection, {
+        const response = await axios.post(buildApiUrl('/api/inspections'), newInspection, {
           headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -278,7 +307,7 @@ const InspectionScheduleApp: React.FC = () => {
           depot_id: editingInspection.depot_id
         };
 
-        const response = await axios.put(`http://localhost:5000/api/inspections/${editingInspection.id}`, updateData, {
+        const response = await axios.put(buildApiUrl(`/api/inspections/${editingInspection.id}`), updateData, {
           headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -299,7 +328,7 @@ const InspectionScheduleApp: React.FC = () => {
 
   const handleDeleteInspection = async (id: number): Promise<void> => {
     try {
-      await axios.delete(`http://localhost:5000/api/inspections/${id}`, {
+      await axios.delete(buildApiUrl(`/api/inspections/${id}`), {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -314,7 +343,7 @@ const InspectionScheduleApp: React.FC = () => {
 
   const handleMarkAsCompleted = async (id: number): Promise<void> => {
     try {
-      await axios.patch(`http://localhost:5000/api/inspections/${id}/complete`, {}, {
+      await axios.patch(buildApiUrl(`/api/inspections/${id}/complete`), {}, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -342,15 +371,37 @@ const InspectionScheduleApp: React.FC = () => {
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto flex flex-col h-full">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Inspection Schedules</h1>
-          <button
-            onClick={() => setShowNewInspectionModal(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
-          >
-            <span className="text-lg">+</span>
-            New Inspection
-          </button>
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Inspection Schedules</h1>
+            <p className="text-sm text-gray-500">
+              Filter by depot to focus on upcoming and past inspections for a specific location.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <select
+              value={selectedDepot === 'all' ? 'all' : String(selectedDepot)}
+              onChange={(event) => {
+                const value = event.target.value;
+                setSelectedDepot(value === 'all' ? 'all' : Number(value));
+              }}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none"
+            >
+              <option value="all">All depots</option>
+              {depots.map((depot) => (
+                <option key={depot.depot_id} value={depot.depot_id}>
+                  {depot.depot_name}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={() => setShowNewInspectionModal(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+            >
+              <span className="text-lg">+</span>
+              New Inspection
+            </button>
+          </div>
         </div>
 
         {/* Error Message */}
@@ -540,7 +591,7 @@ const InspectionScheduleApp: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {upcomingInspections.map((inspection) => (
+                  {filteredUpcomingInspections.map((inspection) => (
                     <tr key={inspection.id} className="border-b border-gray-100 hover:bg-gray-50">
                       <td className="py-4 px-4 text-gray-900">{inspection.inspection_type}</td>
                       <td className="py-4 px-4 text-gray-900">{inspection.depot_name}</td>
@@ -579,7 +630,7 @@ const InspectionScheduleApp: React.FC = () => {
                       </td>
                     </tr>
                   ))}
-                  {upcomingInspections.length === 0 && (
+                  {filteredUpcomingInspections.length === 0 && (
                     <tr>
                       <td colSpan={6} className="py-8 px-4 text-center text-gray-500">
                         No upcoming inspections scheduled
@@ -593,7 +644,7 @@ const InspectionScheduleApp: React.FC = () => {
         </div>
 
         {/* Past Inspections Table */}
-        {pastInspections.length > 0 && (
+        {(pastInspections.length > 0 || filteredPastInspections.length > 0) && (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200">
             <div className="p-6">
               <h2 className="text-xl font-semibold text-gray-700 mb-6">Past Inspections (Last Month)</h2>
@@ -610,20 +661,28 @@ const InspectionScheduleApp: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {pastInspections.map((inspection) => (
-                      <tr key={inspection.id} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="py-4 px-4 text-gray-900">{inspection.inspection_type}</td>
-                        <td className="py-4 px-4 text-gray-900">{inspection.depot_name}</td>
-                        <td className="py-4 px-4 text-gray-900">{inspection.date}</td>
-                        <td className="py-4 px-4 text-gray-900">{inspection.time}</td>
-                        <td className="py-4 px-4">
-                          <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(inspection.status)}`}>
-                            {getStatusIcon(inspection.status)}
-                            {inspection.status}
-                          </span>
+                    {filteredPastInspections.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="py-8 px-4 text-center text-gray-500">
+                          No past inspections recorded for this depot in the last month.
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      filteredPastInspections.map((inspection) => (
+                        <tr key={inspection.id} className="border-b border-gray-100 hover:bg-gray-50">
+                          <td className="py-4 px-4 text-gray-900">{inspection.inspection_type}</td>
+                          <td className="py-4 px-4 text-gray-900">{inspection.depot_name}</td>
+                          <td className="py-4 px-4 text-gray-900">{inspection.date}</td>
+                          <td className="py-4 px-4 text-gray-900">{inspection.time}</td>
+                          <td className="py-4 px-4">
+                            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(inspection.status)}`}>
+                              {getStatusIcon(inspection.status)}
+                              {inspection.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>

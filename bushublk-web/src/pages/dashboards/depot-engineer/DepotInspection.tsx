@@ -2,6 +2,10 @@ import React, { useState, useEffect, useContext } from 'react';
 import { FaSearch, FaFilter } from 'react-icons/fa';
 import { AppContext } from '../../../context/AppContext';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5000';
+
+const buildDepotInspectionsUrl = () => `${API_BASE_URL}/api/inspections/depot-engineer`;
+
 type StatusType = 'Pending' | 'In Progress' | 'Completed' | 'Cancelled';
 
 interface Inspection {
@@ -53,7 +57,7 @@ const DepotInspections: React.FC = () => {
           return;
         }
 
-        const response = await fetch('http://localhost:5000/api/inspections/depot-engineer', {
+  const response = await fetch(buildDepotInspectionsUrl(), {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${context.token}`,

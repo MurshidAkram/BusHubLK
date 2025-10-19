@@ -15,11 +15,11 @@ class Communication {
     }
   }
 
-// Fixed getUserChannels method for communicationModel.js
+  // Fixed getUserChannels method for communicationModel.js
 
-static async getUserChannels(userId) {
-  try {
-    const query = `
+  static async getUserChannels(userId) {
+    try {
+      const query = `
       SELECT 
         c.channel_id,
         c.channel_type,
@@ -92,14 +92,14 @@ static async getUserChannels(userId) {
         WHERE m.channel_id = c.channel_id
       ) DESC
     `;
-    
-    const result = await db.query(query, [userId]);
-    return result.rows;
-  } catch (error) {
-    console.error('Error getting user channels:', error);
-    throw error;
+
+      const result = await db.query(query, [userId]);
+      return result.rows;
+    } catch (error) {
+      console.error('Error getting user channels:', error);
+      throw error;
+    }
   }
-}
   // Get messages for a channel
   static async getChannelMessages(channelId, userId, limit = 50, offset = 0) {
     try {
@@ -124,7 +124,7 @@ static async getUserChannels(userId) {
         ORDER BY m.created_at DESC
         LIMIT $3 OFFSET $4
       `;
-      
+
       const result = await db.query(query, [channelId, userId, limit, offset]);
       return result.rows.reverse(); // Return in ascending order
     } catch (error) {
@@ -223,15 +223,15 @@ static async getUserChannels(userId) {
   }
 
   // Get available contacts for a user based on their role and hierarchy
-// Get available contacts for a user based on their role and hierarchy
-// Get available contacts for a user based on their role and hierarchy
-// Complete getAvailableContacts method for communicationModel.js
+  // Get available contacts for a user based on their role and hierarchy
+  // Get available contacts for a user based on their role and hierarchy
+  // Complete getAvailableContacts method for communicationModel.js
 
-static async getAvailableContacts(userId, filters = {}) {
-  try {
-    // Get user's role and depot/region info
-    const userInfo = await db.query(
-      `SELECT u.user_id, u.role_id, r.role_name,
+  static async getAvailableContacts(userId, filters = {}) {
+    try {
+      // Get user's role and depot/region info
+      const userInfo = await db.query(
+        `SELECT u.user_id, u.role_id, r.role_name,
               COALESCE(dm.depot_id, dom.depot_id, de.depot_id, rto.region_id, roo.region_id) as depot_id,
               COALESCE(dm.region_id, dom.region_id, de.region_id, rto.region_id, roo.region_id) as region_id
        FROM users u
@@ -242,22 +242,22 @@ static async getAvailableContacts(userId, filters = {}) {
        LEFT JOIN regional_technical_officers rto ON u.user_id = rto.rto_id
        LEFT JOIN regional_operations_officers roo ON u.user_id = roo.roo_id
        WHERE u.user_id = $1`,
-      [userId]
-    );
+        [userId]
+      );
 
-    if (userInfo.rows.length === 0) {
-      throw new Error('User not found');
-    }
+      if (userInfo.rows.length === 0) {
+        throw new Error('User not found');
+      }
 
-    const user = userInfo.rows[0];
-    const { role_name, depot_id, region_id } = user;
+      const user = userInfo.rows[0];
+      const { role_name, depot_id, region_id } = user;
 
-    let query = '';
-    let params = [];
+      let query = '';
+      let params = [];
 
-    // Depot Engineer
-    if (role_name === 'depot_engineer') {
-      query = `
+      // Depot Engineer
+      if (role_name === 'depot_engineer') {
+        query = `
         SELECT 
           u.user_id, 
           u.username,
@@ -284,12 +284,12 @@ static async getAvailableContacts(userId, filters = {}) {
         )
         ORDER BY r.role_name, u.first_name
       `;
-      params = [userId, depot_id, region_id];
-    }
-    
-    // Depot Operations Manager
-    else if (role_name === 'depot_operations') {
-      query = `
+        params = [userId, depot_id, region_id];
+      }
+
+      // Depot Operations Manager
+      else if (role_name === 'depot_operations') {
+        query = `
         SELECT 
           u.user_id, 
           u.username,
@@ -316,12 +316,12 @@ static async getAvailableContacts(userId, filters = {}) {
         )
         ORDER BY r.role_name, u.first_name
       `;
-      params = [userId, depot_id, region_id];
-    }
-    
-    // Depot Manager
-    else if (role_name === 'depot_manager') {
-      query = `
+        params = [userId, depot_id, region_id];
+      }
+
+      // Depot Manager
+      else if (role_name === 'depot_manager') {
+        query = `
         SELECT 
           u.user_id, 
           u.username,
@@ -342,12 +342,12 @@ static async getAvailableContacts(userId, filters = {}) {
         )
         ORDER BY r.role_name, u.first_name
       `;
-      params = [userId, depot_id];
-    }
-    
-    // Regional Technical Officer
-    else if (role_name === 'regional_tech') {
-      query = `
+        params = [userId, depot_id];
+      }
+
+      // Regional Technical Officer
+      else if (role_name === 'regional_tech') {
+        query = `
         SELECT 
           u.user_id, 
           u.username,
@@ -376,12 +376,12 @@ static async getAvailableContacts(userId, filters = {}) {
           END,
           u.first_name
       `;
-      params = [userId, region_id];
-    }
-    
-    // Regional Operations Officer
-    else if (role_name === 'regional_operations') {
-      query = `
+        params = [userId, region_id];
+      }
+
+      // Regional Operations Officer
+      else if (role_name === 'regional_operations') {
+        query = `
         SELECT 
           u.user_id, 
           u.username,
@@ -410,13 +410,13 @@ static async getAvailableContacts(userId, filters = {}) {
           END,
           u.first_name
       `;
-      params = [userId, region_id];
-    }
-    
-    // DGM Technical
-    else if (role_name === 'dgm_technical') {
-      const regionFilter = filters.regionId ? 'AND rto.region_id = $2' : '';
-      query = `
+        params = [userId, region_id];
+      }
+
+      // DGM Technical
+      else if (role_name === 'dgm_technical') {
+        const regionFilter = filters.regionId ? 'AND rto.region_id = $2' : '';
+        query = `
         SELECT 
           u.user_id, 
           u.username,
@@ -441,13 +441,13 @@ static async getAvailableContacts(userId, filters = {}) {
           reg.region_name,
           u.first_name
       `;
-      params = filters.regionId ? [userId, filters.regionId] : [userId];
-    }
-    
-    // DGM Operations
-    else if (role_name === 'dgm_operations') {
-      const regionFilter = filters.regionId ? 'AND roo.region_id = $2' : '';
-      query = `
+        params = filters.regionId ? [userId, filters.regionId] : [userId];
+      }
+
+      // DGM Operations
+      else if (role_name === 'dgm_operations') {
+        const regionFilter = filters.regionId ? 'AND roo.region_id = $2' : '';
+        query = `
         SELECT 
           u.user_id, 
           u.username,
@@ -472,14 +472,14 @@ static async getAvailableContacts(userId, filters = {}) {
           reg.region_name,
           u.first_name
       `;
-      params = filters.regionId ? [userId, filters.regionId] : [userId];
-    }
-    
-    // CEO
-    else if (role_name === 'ceo') {
-      const regionFilter = filters.regionId ? 
-        'AND (rto.region_id = $2 OR roo.region_id = $2)' : '';
-      query = `
+        params = filters.regionId ? [userId, filters.regionId] : [userId];
+      }
+
+      // CEO
+      else if (role_name === 'ceo') {
+        const regionFilter = filters.regionId ?
+          'AND (rto.region_id = $2 OR roo.region_id = $2)' : '';
+        query = `
         SELECT 
           u.user_id, 
           u.username,
@@ -509,12 +509,12 @@ static async getAvailableContacts(userId, filters = {}) {
           COALESCE(reg1.region_name, reg2.region_name),
           u.first_name
       `;
-      params = filters.regionId ? [userId, filters.regionId] : [userId];
-    }
-    
-    // Admin
-    else if (role_name === 'admin') {
-      query = `
+        params = filters.regionId ? [userId, filters.regionId] : [userId];
+      }
+
+      // Admin
+      else if (role_name === 'admin') {
+        query = `
         SELECT 
           u.user_id, 
           u.username,
@@ -543,28 +543,28 @@ static async getAvailableContacts(userId, filters = {}) {
         AND u.is_active = true
         ORDER BY r.role_name, u.first_name
       `;
-      params = [userId];
-    }
-    
-    if (!query) {
-      console.log('No matching role found for contacts query');
-      return [];
-    }
+        params = [userId];
+      }
 
-    const contacts = await db.query(query, params);
-    console.log(`Found ${contacts.rows.length} contacts for user ${userId}`);
-    return contacts.rows;
-    
-  } catch (error) {
-    console.error('Error getting available contacts:', error);
-    console.error('Error stack:', error.stack);
-    throw error;
+      if (!query) {
+        console.log('No matching role found for contacts query');
+        return [];
+      }
+
+      const contacts = await db.query(query, params);
+      console.log(`Found ${contacts.rows.length} contacts for user ${userId}`);
+      return contacts.rows;
+
+    } catch (error) {
+      console.error('Error getting available contacts:', error);
+      console.error('Error stack:', error.stack);
+      throw error;
+    }
   }
-}
 
-static async getChannelInfo(channelId, userId) {
-  try {
-    const query = `
+  static async getChannelInfo(channelId, userId) {
+    try {
+      const query = `
       SELECT 
         c.channel_id,
         c.channel_type,
@@ -614,74 +614,74 @@ static async getChannelInfo(channelId, userId) {
         WHERE channel_id = $1 AND user_id = $2
       )
     `;
-    
-    const result = await db.query(query, [channelId, userId]);
-    
-    if (result.rows.length === 0) {
-      return null;
-    }
-    
-    const channelInfo = result.rows[0];
-    
-    // For direct messages, filter out current user from participants for display
-    if (channelInfo.channel_type === 'direct') {
-      channelInfo.participants = channelInfo.participants.filter(p => p.user_id !== userId);
-    }
-    // For announcements, keep the creator info visible to show who sent it
-    
-    return channelInfo;
-  } catch (error) {
-    console.error('Error getting channel info:', error);
-    throw error;
-  }
-}
 
-// Get all regions for DGM/CEO to select from
-static async getRegions() {
-  try {
-    const query = `
+      const result = await db.query(query, [channelId, userId]);
+
+      if (result.rows.length === 0) {
+        return null;
+      }
+
+      const channelInfo = result.rows[0];
+
+      // For direct messages, filter out current user from participants for display
+      if (channelInfo.channel_type === 'direct') {
+        channelInfo.participants = channelInfo.participants.filter(p => p.user_id !== userId);
+      }
+      // For announcements, keep the creator info visible to show who sent it
+
+      return channelInfo;
+    } catch (error) {
+      console.error('Error getting channel info:', error);
+      throw error;
+    }
+  }
+
+  // Get all regions for DGM/CEO to select from
+  static async getRegions() {
+    try {
+      const query = `
       SELECT region_id, region_name
       FROM regions
       ORDER BY region_name
     `;
-    const result = await db.query(query);
-    return result.rows;
-  } catch (error) {
-    console.error('Error getting regions:', error);
-    throw error;
+      const result = await db.query(query);
+      return result.rows;
+    } catch (error) {
+      console.error('Error getting regions:', error);
+      throw error;
+    }
   }
-}
 
-// Get all depots (optionally filtered by region)
-static async getDepots(regionId = null) {
-  try {
-    const query = regionId 
-      ? `SELECT depot_id, depot_name, region_id
+  // Get all depots (optionally filtered by region)
+  static async getDepots(regionId = null) {
+    try {
+      const query = regionId
+        ? `SELECT depot_id, depot_name, region_id
          FROM depots
          WHERE region_id = $1
          ORDER BY depot_name`
-      : `SELECT depot_id, depot_name, region_id
+        : `SELECT depot_id, depot_name, region_id
          FROM depots
          ORDER BY depot_name`;
-    
-    const params = regionId ? [regionId] : [];
-    const result = await db.query(query, params);
-    return result.rows;
-  } catch (error) {
-    console.error('Error getting depots:', error);
-    throw error;
-  }
-}
 
-// Get contacts for DGM (filtered by region)
-static async getDGMContacts(userId, roleType, regionId = null) {
-  try {
-    let query = '';
-    let params = [userId];
-    
-    if (roleType === 'technical') {
-      // DGM Technical can chat with Regional Technical Officers and CEO
-      query = `
+      const params = regionId ? [regionId] : [];
+      const result = await db.query(query, params);
+      return result.rows;
+    } catch (error) {
+      console.error('Error getting depots:', error);
+      throw error;
+    }
+  }
+
+  // Get contacts for DGM (filtered by region)
+  static async getDGMContacts(userId, roleType, regionId = null) {
+    try {
+      let query = '';
+      let params = [userId];
+
+      if (roleType === 'technical') {
+        // DGM Technical can chat with Regional Technical Officers and CEO
+        query = `
         SELECT 
           u.user_id, 
           u.username,
@@ -704,11 +704,11 @@ static async getDGMContacts(userId, roleType, regionId = null) {
           END,
           u.first_name
       `;
-      if (regionId) params.push(regionId);
-      
-    } else if (roleType === 'operations') {
-      // DGM Operations can chat with Regional Operations Officers and CEO
-      query = `
+        if (regionId) params.push(regionId);
+
+      } else if (roleType === 'operations') {
+        // DGM Operations can chat with Regional Operations Officers and CEO
+        query = `
         SELECT 
           u.user_id, 
           u.username,
@@ -731,67 +731,67 @@ static async getDGMContacts(userId, roleType, regionId = null) {
           END,
           u.first_name
       `;
-      if (regionId) params.push(regionId);
+        if (regionId) params.push(regionId);
+      }
+
+      const contacts = await db.query(query, params);
+      return contacts.rows;
+
+    } catch (error) {
+      console.error('Error getting DGM contacts:', error);
+      throw error;
     }
-    
-    const contacts = await db.query(query, params);
-    return contacts.rows;
-    
-  } catch (error) {
-    console.error('Error getting DGM contacts:', error);
-    throw error;
   }
-}
 
-// Create announcement channel for region or depot
-// Fixed createAnnouncementChannel method for communicationModel.js
+  // Create announcement channel for region or depot
+  // Fixed createAnnouncementChannel method for communicationModel.js
 
-static async createAnnouncementChannel(creatorId, targetType, targetId, channelName) {
-  const client = await db.connect();
-  try {
-    await client.query('BEGIN');
-    
-    // Get target name for better channel naming
-    let targetName = '';
-    if (targetType === 'region') {
-      const regionResult = await client.query(
-        'SELECT region_name FROM regions WHERE region_id = $1',
-        [targetId]
-      );
-      targetName = regionResult.rows[0]?.region_name || '';
-    } else if (targetType === 'depot') {
-      const depotResult = await client.query(
-        'SELECT depot_name FROM depots WHERE depot_id = $1',
-        [targetId]
-      );
-      targetName = depotResult.rows[0]?.depot_name || '';
-    }
-    
-    // Create announcement channel with enhanced name
-    const enhancedChannelName = `${channelName} (${targetType === 'region' ? '🌍' : '🏢'} ${targetName})`;
-    
-    const channelResult = await client.query(
-      `INSERT INTO communication_channels (channel_type, channel_name, created_by)
+  static async createAnnouncementChannel(creatorId, targetType, targetId, channelName) {
+    const client = await db.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Get target name for better channel naming
+      let targetName = '';
+      if (targetType === 'region') {
+        const regionResult = await client.query(
+          'SELECT region_name FROM regions WHERE region_id = $1',
+          [targetId]
+        );
+        targetName = regionResult.rows[0]?.region_name || '';
+      } else if (targetType === 'depot') {
+        const depotResult = await client.query(
+          'SELECT depot_name FROM depots WHERE depot_id = $1',
+          [targetId]
+        );
+        targetName = depotResult.rows[0]?.depot_name || '';
+      }
+
+      // Create announcement channel with enhanced name
+      const enhancedChannelName = `${channelName} (${targetType === 'region' ? '🌍' : '🏢'} ${targetName})`;
+
+      const channelResult = await client.query(
+        `INSERT INTO communication_channels (channel_type, channel_name, created_by)
        VALUES ('announcement', $1, $2)
        RETURNING channel_id`,
-      [enhancedChannelName, creatorId]
-    );
-    
-    const channelId = channelResult.rows[0].channel_id;
-    
-    // Add creator as participant (can send)
-    await client.query(
-      `INSERT INTO channel_participants (channel_id, user_id, can_send)
+        [enhancedChannelName, creatorId]
+      );
+
+      const channelId = channelResult.rows[0].channel_id;
+
+      // Add creator as participant (can send)
+      await client.query(
+        `INSERT INTO channel_participants (channel_id, user_id, can_send)
        VALUES ($1, $2, true)`,
-      [channelId, creatorId]
-    );
-    
-    // Add recipients based on target type (cannot send)
-    let recipientsQuery = '';
-    let recipientsParams = [channelId];
-    
-    if (targetType === 'region') {
-      recipientsQuery = `
+        [channelId, creatorId]
+      );
+
+      // Add recipients based on target type (cannot send)
+      let recipientsQuery = '';
+      let recipientsParams = [channelId];
+
+      if (targetType === 'region') {
+        recipientsQuery = `
         INSERT INTO channel_participants (channel_id, user_id, can_send)
         SELECT $1, u.user_id, false
         FROM users u
@@ -811,10 +811,10 @@ static async createAnnouncementChannel(creatorId, targetType, targetId, channelN
         )
         GROUP BY u.user_id
       `;
-      recipientsParams.push(creatorId, targetId);
-      
-    } else if (targetType === 'depot') {
-      recipientsQuery = `
+        recipientsParams.push(creatorId, targetId);
+
+      } else if (targetType === 'depot') {
+        recipientsQuery = `
         INSERT INTO channel_participants (channel_id, user_id, can_send)
         SELECT $1, u.user_id, false
         FROM users u
@@ -830,25 +830,37 @@ static async createAnnouncementChannel(creatorId, targetType, targetId, channelN
         )
         GROUP BY u.user_id
       `;
-      recipientsParams.push(creatorId, targetId);
+        recipientsParams.push(creatorId, targetId);
+      }
+
+      await client.query(recipientsQuery, recipientsParams);
+
+      // Ensure DGM Technical users receive leadership announcements
+      await client.query(
+        `INSERT INTO channel_participants (channel_id, user_id, can_send)
+       SELECT $1, u.user_id, false
+       FROM users u
+       JOIN roles r ON u.role_id = r.role_id
+       WHERE r.role_name = 'dgm_technical'
+         AND u.is_active = true
+       ON CONFLICT (channel_id, user_id) DO NOTHING`,
+        [channelId]
+      );
+
+      await client.query('COMMIT');
+
+      return channelId;
+
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('Error creating announcement channel:', error);
+      console.error('Error details:', error.message);
+      console.error('Error stack:', error.stack);
+      throw error;
+    } finally {
+      client.release();
     }
-    
-    await client.query(recipientsQuery, recipientsParams);
-    
-    await client.query('COMMIT');
-    
-    return channelId;
-    
-  } catch (error) {
-    await client.query('ROLLBACK');
-    console.error('Error creating announcement channel:', error);
-    console.error('Error details:', error.message);
-    console.error('Error stack:', error.stack);
-    throw error;
-  } finally {
-    client.release();
   }
-}
 }
 
 module.exports = Communication;

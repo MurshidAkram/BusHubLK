@@ -190,14 +190,18 @@ const passengerNotificationService = {
   async getUnreadCount(passengerId) {
     const client = await db.connect();
     try {
-      const count = await PassengerNotification.countForPassenger(
-        passengerId,
-        {
-          includeRead: false
-        },
-        client
+      // Use a simpler, faster query with timeout protection
+      const result = await client.query(
+        `SELECT COUNT(*) AS total
+         FROM passenger_notifications
+         WHERE passenger_id = $1 AND is_read = false`,
+        [passengerId]
       );
-      return count;
+      return parseInt(result.rows[0]?.total || 0, 10);
+    } catch (error) {
+      console.error('Error getting unread count:', error.message);
+      // Return 0 on error to prevent app crashes
+      return 0;
     } finally {
       client.release();
     }

@@ -1,11 +1,13 @@
 const pool = require('../config/db');
 
 const VALID_SOURCE_TYPES = [
-    'bus_condition_report',
-    'emergency_report',
-    'emergency_message',
-    'inspection',
-    'manager_chat'
+  'bus_condition_report',
+  'emergency_report',
+  'emergency_message',
+  'inspection',
+  'manager_chat',
+  'announcement',
+  'direct_message'
 ];
 
 const UNION_NOTIFICATIONS_CTE = `
@@ -149,16 +151,103 @@ const UNION_NOTIFICATIONS_CTE = `
     JOIN depots d ON i.depot_id = d.depot_id
     WHERE i.depot_id = $2
       AND d.region_id = $3
+
+    UNION ALL
+
+    SELECT
+      'announcement'::text AS source_type,
+      m.message_id::bigint AS source_id,
+      COALESCE(m.created_at, NOW()) AS created_at,
+        CONCAT('Announcement - ',
+        CASE r.role_name
+          WHEN 'ceo' THEN 'CEO'
+          WHEN 'dgm_technical' THEN 'DGM Technical'
+          WHEN 'dgm_operations' THEN 'DGM Operations'
+          ELSE INITCAP(REPLACE(r.role_name, '_', ' '))
+        END
+      ) AS title,
+      CASE
+        WHEN m.message_text IS NULL OR TRIM(m.message_text) = '' THEN 'New announcement posted'
+        WHEN LENGTH(m.message_text) > 120 THEN SUBSTRING(m.message_text FROM 1 FOR 117) || '...'
+        ELSE m.message_text
+      END AS message,
+      'New'::text AS status,
+      NULL::integer AS bus_id,
+      NULL::text AS registration_number,
+      NULL::integer AS driver_id,
+      $2 AS depot_id,
+      $3 AS region_id,
+      'medium'::text AS priority,
+      jsonb_build_object(
+        'channelId', m.channel_id,
+        'channelName', c.channel_name,
+        'senderRole', r.role_name,
+        'senderId', m.sender_id
+      ) AS meta
+    FROM messages m
+    JOIN communication_channels c ON m.channel_id = c.channel_id
+    JOIN channel_participants cp ON cp.channel_id = c.channel_id
+    JOIN users u ON m.sender_id = u.user_id
+    JOIN roles r ON u.role_id = r.role_id
+    WHERE c.channel_type = 'announcement'
+      AND cp.user_id = $1
+      AND r.role_name IN ('ceo', 'dgm_technical', 'dgm_operations')
+
+    UNION ALL
+
+    SELECT
+      'direct_message'::text AS source_type,
+      m.message_id::bigint AS source_id,
+      COALESCE(m.created_at, NOW()) AS created_at,
+      CONCAT('Message - ',
+        CASE
+          WHEN u.first_name IS NOT NULL OR u.last_name IS NOT NULL THEN
+            TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, '')))
+          ELSE COALESCE(u.username, 'Unknown sender')
+        END
+      ) AS title,
+      CASE
+        WHEN m.message_text IS NULL OR TRIM(m.message_text) = '' THEN 'New reply received'
+        WHEN LENGTH(m.message_text) > 120 THEN SUBSTRING(m.message_text FROM 1 FOR 117) || '...'
+        ELSE m.message_text
+      END AS message,
+      'New'::text AS status,
+      NULL::integer AS bus_id,
+      NULL::text AS registration_number,
+      NULL::integer AS driver_id,
+      $2 AS depot_id,
+      $3 AS region_id,
+      'medium'::text AS priority,
+      jsonb_build_object(
+        'channelId', m.channel_id,
+        'senderId', m.sender_id,
+        'senderRole', r.role_name,
+        'channelType', c.channel_type
+      ) AS meta
+    FROM messages m
+    JOIN communication_channels c ON m.channel_id = c.channel_id
+    JOIN channel_participants cp ON cp.channel_id = c.channel_id AND cp.user_id = $1
+    JOIN users u ON m.sender_id = u.user_id
+    JOIN roles r ON u.role_id = r.role_id
+    WHERE c.channel_type = 'direct'
+      AND m.sender_id <> $1
+  AND r.role_name IN ('depot_manager', 'depot_operations', 'regional_tech', 'admin')
+      AND NOT EXISTS (
+        SELECT 1
+        FROM message_read_status mrs
+        WHERE mrs.message_id = m.message_id
+          AND mrs.user_id = $1
+      )
   )
 `;
 
 const validateSourceType = (sourceType) => {
-    return VALID_SOURCE_TYPES.includes(sourceType);
+  return VALID_SOURCE_TYPES.includes(sourceType);
 };
 
 class DepotEngineerNotificationModel {
-    static async getNotifications({ userId, depotId, regionId, includeRead = false, limit = 100, offset = 0 }) {
-        const query = `
+  static async getNotifications({ userId, depotId, regionId, includeRead = false, limit = 100, offset = 0 }) {
+    const query = `
       ${UNION_NOTIFICATIONS_CTE}
       SELECT
         un.source_type,
@@ -182,17 +271,25 @@ class DepotEngineerNotificationModel {
        AND dir.source_type = un.source_type
        AND dir.source_id = un.source_id
       WHERE $4::boolean OR dir.id IS NULL
-      ORDER BY un.created_at DESC
+      ORDER BY
+        CASE
+          WHEN un.source_type = 'emergency_report' THEN 0
+          WHEN un.source_type = 'emergency_message' THEN 1
+          WHEN un.source_type = 'manager_chat' THEN 2
+          WHEN un.source_type = 'direct_message' THEN 3
+          ELSE 4
+        END,
+        un.created_at DESC
       LIMIT $5 OFFSET $6;
     `;
 
-        const params = [userId, depotId, regionId, includeRead, limit, offset];
-        const { rows } = await pool.query(query, params);
-        return rows;
-    }
+    const params = [userId, depotId, regionId, includeRead, limit, offset];
+    const { rows } = await pool.query(query, params);
+    return rows;
+  }
 
-    static async getUnreadCount({ userId, depotId, regionId }) {
-        const query = `
+  static async getUnreadCount({ userId, depotId, regionId }) {
+    const query = `
       ${UNION_NOTIFICATIONS_CTE}
       SELECT COUNT(*)::int AS count
       FROM union_notifications un
@@ -203,17 +300,17 @@ class DepotEngineerNotificationModel {
       WHERE dir.id IS NULL;
     `;
 
-        const params = [userId, depotId, regionId];
-        const { rows } = await pool.query(query, params);
-        return rows[0]?.count || 0;
+    const params = [userId, depotId, regionId];
+    const { rows } = await pool.query(query, params);
+    return rows[0]?.count || 0;
+  }
+
+  static async markAsRead({ userId, sourceType, sourceId, depotId, regionId }) {
+    if (!validateSourceType(sourceType)) {
+      throw new Error('Invalid source type provided');
     }
 
-    static async markAsRead({ userId, sourceType, sourceId, depotId, regionId }) {
-        if (!validateSourceType(sourceType)) {
-            throw new Error('Invalid source type provided');
-        }
-
-        const query = `
+    const query = `
   INSERT INTO depot_engineer_notifications_read (user_id, source_type, source_id, depot_id, region_id, is_read, read_at)
   VALUES ($1, $2, $3, $4, $5, TRUE, NOW())
   ON CONFLICT (user_id, source_type, source_id)
@@ -221,13 +318,24 @@ class DepotEngineerNotificationModel {
       RETURNING *;
     `;
 
-        const params = [userId, sourceType, sourceId, depotId, regionId];
-        const { rows } = await pool.query(query, params);
-        return rows[0];
+    const params = [userId, sourceType, sourceId, depotId, regionId];
+    const { rows } = await pool.query(query, params);
+
+    if (sourceType === 'direct_message') {
+      await pool.query(
+        `INSERT INTO message_read_status (message_id, user_id, read_at)
+           VALUES ($1, $2, NOW())
+           ON CONFLICT (message_id, user_id)
+           DO UPDATE SET read_at = NOW();`,
+        [sourceId, userId]
+      );
     }
 
-    static async markAllAsRead({ userId, depotId, regionId }) {
-        const query = `
+    return rows[0];
+  }
+
+  static async markAllAsRead({ userId, depotId, regionId }) {
+    const query = `
       ${UNION_NOTIFICATIONS_CTE}
       INSERT INTO depot_engineer_notifications_read (user_id, source_type, source_id, depot_id, region_id, is_read, read_at)
       SELECT
@@ -247,10 +355,26 @@ class DepotEngineerNotificationModel {
       RETURNING source_type, source_id;
     `;
 
-        const params = [userId, depotId, regionId];
-        const { rows } = await pool.query(query, params);
-        return rows;
+    const params = [userId, depotId, regionId];
+    const { rows } = await pool.query(query, params);
+
+    const directMessageIds = rows
+      .filter((row) => row.source_type === 'direct_message')
+      .map((row) => Number(row.source_id))
+      .filter((id) => Number.isFinite(id));
+
+    if (directMessageIds.length > 0) {
+      await pool.query(
+        `INSERT INTO message_read_status (message_id, user_id, read_at)
+                 SELECT UNNEST($1::bigint[]), $2, NOW()
+                 ON CONFLICT (message_id, user_id)
+                 DO UPDATE SET read_at = NOW();`,
+        [directMessageIds, userId]
+      );
     }
+
+    return rows;
+  }
 }
 
 module.exports = DepotEngineerNotificationModel;
