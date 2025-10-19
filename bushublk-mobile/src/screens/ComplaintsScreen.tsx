@@ -66,8 +66,8 @@ interface BusRouteSuggestion {
   bus_name?: string | null;
 }
 
-interface BusRouteSuggestion {
-  bus_route_id?: number;
+interface RouteSuggestion {
+  route_id?: number;
   route_number?: string;
   route_name?: string;
   registration_number?: string;
@@ -116,6 +116,8 @@ export default function ComplaintsScreen() {
   const [image, setImage] = useState<string | null>(null);
   const [routeSuggestions, setRouteSuggestions] = useState<BusRouteSuggestion[]>([]);
   const [busSuggestions, setBusSuggestions] = useState<BusRouteSuggestion[]>([]);
+  // Tracks whether the selected route is a valid recognized route
+  const [isValidRoute, setIsValidRoute] = useState<boolean>(false);
   const [isRouteLoading, setIsRouteLoading] = useState(false);
   const [isBusLoading, setIsBusLoading] = useState(false);
   const routeSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
