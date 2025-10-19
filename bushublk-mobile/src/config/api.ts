@@ -6,7 +6,7 @@ interface NetworkInfo {
   port: number;
 }
 
-// Get API_URL from environment variables via expo-constants
+// Get API_URL from app.json extra config or environment variables
 const API_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_API_URL;
 
 // Keep a cached API base URL to avoid repeated discovery
