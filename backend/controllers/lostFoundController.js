@@ -361,8 +361,8 @@ const getReports = async (req, res) => {
 
     console.log('🔍 Using filters:', filters);
 
-    // Use the model to get reports
-    const reports = await LostFoundReport.findAll(filters);
+    // Use the model to get reports with depot information
+    const reports = await LostFoundReport.findAllWithDepotInfo(filters);
 
     // Get total count using the model statistics (simplified)
     const stats = await LostFoundReport.getStatistics();

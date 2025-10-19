@@ -46,6 +46,9 @@
           "cameraPermission": "The app accesses your camera to let you take photos for lost and found reports."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "apiUrl": "http://43.205.127.30:5000/api"
+    }
   }
 }

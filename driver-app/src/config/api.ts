@@ -1,28 +1,37 @@
 import Constants from 'expo-constants';
 
 const getApiBaseUrl = () => {
+  // First priority: Environment variable from app.json extra config
+  const envApiUrl = Constants.expoConfig?.extra?.apiUrl || 
+                    Constants.manifest2?.extra?.expoClient?.extra?.apiUrl;
+  
+  if (envApiUrl) {
+    console.log('📱 Using API URL from app.json config');
+    return envApiUrl;
+  }
+
   // In development mode (Expo Go), dynamically detect IP
   if (__DEV__) {
-    const debuggerHost = Constants.expoConfig?.hostUri || 
-                        Constants.manifest?.debuggerHost;
-    
+    const debuggerHost = Constants.expoConfig?.hostUri ||
+                         (Constants.manifest as any)?.debuggerHost;
+
     if (debuggerHost) {
       const ip = debuggerHost.split(':')[0];
       return `http://${ip}:5000/api`;
     }
-    
+
     // Fallback to localhost if running on simulator
     return 'http://localhost:5000/api';
   }
-  
+
   // For production builds, try to get from app.json extra config
   const configuredApiUrl = Constants.expoConfig?.extra?.apiUrl;
-  
+
   if (configuredApiUrl) {
     console.log('📱 Using configured API URL from app.json');
     return configuredApiUrl;
   }
-  
+
   // Final fallback - try to use the last known development IP
   // This helps if user forgets to configure app.json
   const manifestExtra = Constants.manifest2?.extra?.expoClient?.extra;
@@ -30,9 +39,9 @@ const getApiBaseUrl = () => {
     console.log('📱 Using API URL from manifest');
     return manifestExtra.apiUrl;
   }
-  
+
   // Ultimate fallback - warn user
-  console.warn('⚠️ No API URL configured! Please set "extra.apiUrl" in app.json');
+  console.warn('⚠️ No API URL configured! Please set API_URL in .env or "extra.apiUrl" in app.json');
   return 'http://localhost:5000/api';
 };
 
