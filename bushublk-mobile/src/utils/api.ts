@@ -1,24 +1,19 @@
 import axios from 'axios';
 import NetInfo from '@react-native-community/netinfo';
-import Constants from 'expo-constants';
+
+const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
 const getApiBaseUrl = () => {
-  if (__DEV__) {
-    // For Expo Go development
-    const debuggerHost = Constants.expoConfig?.hostUri || 
-                        Constants.manifest?.debuggerHost;
-    
-    if (debuggerHost) {
-      const ip = debuggerHost.split(':')[0];
-      return `http://${ip}:5000`;
-    }
-    
-    // Fallback to localhost if running on simulator
-    return 'http://localhost:5000';
+  // Use environment variable from .env file
+  if (API_URL) {
+    console.log('📱 Using API URL from environment variable:', API_URL);
+    return API_URL;
   }
-  
-  // Production URL
-  return 'https://your-production-api.com';
+
+  // Fallback to AWS hosted backend
+  const awsUrl = 'http://43.205.127.30:5000';
+  console.log('🚀 Using AWS Backend URL:', awsUrl);
+  return awsUrl;
 };
 
 export const API_BASE_URL = getApiBaseUrl();
