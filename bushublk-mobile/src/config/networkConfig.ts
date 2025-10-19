@@ -1,27 +1,16 @@
-import Constants from 'expo-constants';
-import { Platform } from 'react-native';
+const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
 export const getDynamicBaseURL = () => {
-  if (__DEV__) {
-    // For Expo development
-    const debuggerHost = Constants.expoConfig?.hostUri 
-      || Constants.manifest?.debuggerHost 
-      || Constants.manifest2?.extra?.expoGo?.debuggerHost;
-
-    if (debuggerHost) {
-      const host = debuggerHost.split(':')[0];
-      return Platform.select({
-        // Android emulator needs special handling
-        android: `http://10.0.2.2:5000`,
-        // iOS and physical devices use the actual IP
-        ios: `http://${host}:5000`,
-        default: `http://${host}:5000`,
-      });
-    }
+  // Use environment variable from .env file
+  if (API_URL) {
+    console.log('📱 Using API URL from environment variable:', API_URL);
+    return API_URL;
   }
-  
-  // Production URL - replace with your actual production URL
-  return 'https://your-production-url.com';
+
+  // Fallback to AWS hosted backend
+  const awsUrl = 'http://43.205.127.30:5000';
+  console.log('🚀 Using AWS Backend URL:', awsUrl);
+  return awsUrl;
 };
 
 export const API_CONFIG = {

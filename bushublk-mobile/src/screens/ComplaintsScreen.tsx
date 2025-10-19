@@ -121,10 +121,6 @@ export default function ComplaintsScreen() {
   const routeSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const busSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [busSuggestions, setBusSuggestions] = useState<BusRouteSuggestion[]>([]);
-  const [isBusLoading, setIsBusLoading] = useState(false);
-  const busSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   React.useEffect(() => {
     return () => {
       if (routeSearchTimeout.current) {

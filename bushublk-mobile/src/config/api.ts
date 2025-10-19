@@ -1,6 +1,7 @@
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
-import { API_URL } from 'expo-env';
+
+const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
 interface NetworkInfo {
   ip: string;
@@ -120,23 +121,14 @@ const getNetworkInfo = (): NetworkInfo => {
 const getApiBaseUrl = (): string => {
   // First priority: Environment variable from .env file
   if (API_URL) {
-    console.log('📱 Using API URL from environment variable');
+    console.log('📱 Using API URL from environment variable:', API_URL);
     return API_URL;
   }
 
-  if (__DEV__) {
-    // In development, we'll use the discovery mechanism
-    // But for initial load, use the network info as fallback
-    const { ip, port } = getNetworkInfo();
-    const baseUrl = `http://${ip}:${port}`;
-    console.log('🌐 Initial Development API Base URL:', baseUrl);
-    return baseUrl;
-  }
-
-  // Production URL
-  const productionUrl = 'https://your-production-api.com';
-  console.log('🚀 Production API Base URL:', productionUrl);
-  return productionUrl;
+  // Fallback to AWS hosted backend
+  const awsUrl = 'http://43.205.127.30:5000';
+  console.log('🚀 Using AWS Backend URL:', awsUrl);
+  return awsUrl;
 };
 
 // Initial API base URL
@@ -144,12 +136,8 @@ export let API_BASE_URL = getApiBaseUrl();
 
 // Function to dynamically update the API base URL
 export const initializeApiConnection = async (): Promise<string> => {
-  if (__DEV__) {
-    console.log('🔄 Initializing dynamic API connection...');
-    const discoveredUrl = await discoverApiEndpoint();
-    API_BASE_URL = discoveredUrl;
-    return discoveredUrl;
-  }
+  // Always use the configured API URL from environment variable or fallback
+  console.log('🔄 API connection initialized with:', API_BASE_URL);
   return API_BASE_URL;
 };
 
