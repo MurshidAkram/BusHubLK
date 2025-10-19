@@ -5,6 +5,7 @@ const {
     getEmergencyContacts,
     updateEmergencyContact,
     deleteEmergencyContact,
+    setPrimaryContact,
     notifyEmergencyContacts,
     createAlert,
     getAlertsByPassenger,
@@ -16,6 +17,7 @@ const {
 router.get('/:id/contacts', getEmergencyContacts);
 router.post('/:id/contacts', addEmergencyContact);
 router.put('/:id/contacts/:contactId', updateEmergencyContact);
+router.put('/:id/contacts/:contactId/set-primary', setPrimaryContact);
 router.delete('/:id/contacts/:contactId', deleteEmergencyContact);
 
 // --- Emergency Alert Routes ---
