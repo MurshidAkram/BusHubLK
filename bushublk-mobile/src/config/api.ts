@@ -1,11 +1,13 @@
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
-import { API_URL } from 'expo-env';
 
 interface NetworkInfo {
   ip: string;
   port: number;
 }
+
+// Get API_URL from environment variables via expo-constants
+const API_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_API_URL;
 
 // Keep a cached API base URL to avoid repeated discovery
 let cachedApiBaseUrl: string | null = null;
@@ -118,9 +120,9 @@ const getNetworkInfo = (): NetworkInfo => {
 };
 
 const getApiBaseUrl = (): string => {
-  // First priority: Environment variable from .env file
+  // First priority: Configured API URL from app.json or environment
   if (API_URL) {
-    console.log('📱 Using API URL from environment variable');
+    console.log('📱 Using configured API URL:', API_URL);
     return API_URL;
   }
 
@@ -133,8 +135,8 @@ const getApiBaseUrl = (): string => {
     return baseUrl;
   }
 
-  // Production URL
-  const productionUrl = 'https://your-production-api.com';
+  // Production URL fallback
+  const productionUrl = 'http://43.205.127.30:5000';
   console.log('🚀 Production API Base URL:', productionUrl);
   return productionUrl;
 };
