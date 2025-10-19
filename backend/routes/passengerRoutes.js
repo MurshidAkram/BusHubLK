@@ -8,6 +8,7 @@ const {
     notifyEmergencyContacts,
     createAlert,
     getAlertsByPassenger,
+    clearAllAlerts,
     getNearestDepot,
 } = require('../controllers/passengerController');
 
@@ -21,6 +22,7 @@ router.delete('/:id/contacts/:contactId', deleteEmergencyContact);
 router.post('/notify-contacts', notifyEmergencyContacts); // Endpoint for sending notifications
 router.post('/:id/alerts', createAlert); // Endpoint for creating an alert record
 router.get('/:id/alerts', getAlertsByPassenger); // Endpoint for fetching alert history
+router.delete('/:id/alerts', clearAllAlerts); // Endpoint for clearing all alerts (soft delete)
 router.get('/:id/nearest-depot', getNearestDepot);
 
 

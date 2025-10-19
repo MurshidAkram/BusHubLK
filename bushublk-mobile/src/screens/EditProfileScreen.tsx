@@ -50,11 +50,16 @@ const AppColors = {
   primary: "#0056b3",
   primaryDark: "#003d82",
   primaryLight: "#0076e3",
+  primaryMuted: "rgba(0, 86, 179, 0.1)",
   text: "#1F2937",
+  textSecondary: "#6B7280",
   textMuted: "#6B7280",
   border: "#E5E7EB",
+  borderLight: "rgba(222, 226, 230, 0.4)",
   soft: "#EFF4FF",
   info: "#E8F2FF",
+  indigo: "#6366F1",
+  success: "#10B981",
 };
 
 const createInitialState = (profile?: any): ProfileFormState => ({
@@ -192,195 +197,209 @@ export default function EditProfileScreen() {
     : "Add a number so we can reach you if services change";
 
   return (
-    <SafeAreaView style={styles.container}>
-      <LinearGradient
-        colors={[AppColors.primary, AppColors.primaryDark]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.headerGradient}
-      >
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-
-          <View style={styles.headerCenter}>
-            <Text style={styles.headerTitle}>{headerTitle}</Text>
-            {!isLoading ? <Text style={styles.headerSubtitle}>{roleLabel}</Text> : null}
-          </View>
-
-          <View style={styles.iconButtonPlaceholder} />
-        </View>
-
-        {!isLoading ? (
-          <View style={styles.headerHero}>
-            <Text style={styles.heroTitle}>Keep your details up to date</Text>
-            <Text style={styles.heroSubtitle}>
-              Accurate information helps us personalise alerts and keep your rides running smoothly.
-            </Text>
-          </View>
-        ) : null}
-      </LinearGradient>
-
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 12 : 0}
-      >
-        {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#1E40AF" />
-            <Text style={styles.loadingText}>Loading profile...</Text>
-          </View>
-        ) : (
-          <ScrollView
-            style={styles.content}
-            contentContainerStyle={styles.contentContainer}
-            keyboardShouldPersistTaps="handled"
-          >
-            <View style={styles.sectionCard}>
-              <Text style={styles.sectionTitle}>Personal information</Text>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>First name</Text>
-                <View style={styles.inputWrapper}>
-                  <Ionicons name="person-outline" size={20} color="#64748B" />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="John"
-                    value={form.first_name}
-                    onChangeText={(text) => handleChange("first_name", text)}
-                    autoCapitalize="words"
-                    returnKeyType="next"
-                  />
-                </View>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Last name</Text>
-                <View style={styles.inputWrapper}>
-                  <Ionicons name="person-circle-outline" size={20} color="#64748B" />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Doe"
-                    value={form.last_name}
-                    onChangeText={(text) => handleChange("last_name", text)}
-                    autoCapitalize="words"
-                    returnKeyType="next"
-                  />
-                </View>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Phone number</Text>
-                <View style={styles.inputWrapper}>
-                  <Ionicons name="call-outline" size={20} color="#64748B" />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="07X XXX XXXX"
-                    value={form.phone}
-                    onChangeText={(text) => handleChange("phone", text)}
-                    keyboardType="phone-pad"
-                    returnKeyType="done"
-                  />
-                </View>
-              </View>
-            </View>
-          </ScrollView>
-        )}
-
-        {!isLoading ? (
-          <View style={styles.actionBar}>
-            <TouchableOpacity
-              style={[styles.saveButton, (isSaving) && styles.disabledButton]}
-              onPress={handleSave}
-              disabled={isSaving}
-              activeOpacity={0.85}
-            >
-              {isSaving ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <>
-                  <Ionicons name="save-outline" size={22} color="#FFFFFF" style={styles.saveIcon} />
-                  <Text style={styles.saveButtonText}>Save changes</Text>
-                </>
-              )}
+    <LinearGradient
+      colors={['#F8FAFF', '#E3F2FD', '#BBDEFB']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.gradientContainer}
+    >
+      <SafeAreaView style={styles.safeArea}>
+        {/* Enhanced Header */}
+        <LinearGradient
+          colors={['#0056b3', '#1976d2', '#42a5f5']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.headerGradient}
+        >
+          <View style={styles.header}>
+            <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+              <Ionicons name="arrow-back-outline" size={24} color="white" />
             </TouchableOpacity>
+            <Text style={styles.headerTitle}>{headerTitle}</Text>
+            <View style={styles.headerRightPlaceholder} />
           </View>
-        ) : null}
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        </LinearGradient>
+
+        <KeyboardAvoidingView
+          style={styles.flex}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 12 : 0}
+        >
+          {isLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={AppColors.primary} />
+              <Text style={styles.loadingText}>Loading profile...</Text>
+            </View>
+          ) : (
+            <ScrollView
+              style={styles.content}
+              contentContainerStyle={styles.contentContainer}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              {/* Personal Information Card */}
+              <View style={styles.card}>
+                <View style={styles.cardHeaderContainer}>
+                  <View style={styles.cardIconContainer}>
+                    <Ionicons name="person" size={24} color={AppColors.primary} />
+                  </View>
+                  <View>
+                    <Text style={styles.cardHeader}>Personal Information</Text>
+                    <Text style={styles.cardSubheader}>Update your profile details</Text>
+                  </View>
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>First Name</Text>
+                  <View style={styles.enhancedInputContainer}>
+                    <Ionicons name="person-outline" size={20} color={AppColors.primary} style={styles.inputIcon} />
+                    <TextInput
+                      style={styles.inputText}
+                      placeholder="Enter your first name"
+                      value={form.first_name}
+                      onChangeText={(text) => handleChange("first_name", text)}
+                      autoCapitalize="words"
+                      returnKeyType="next"
+                      placeholderTextColor={AppColors.textSecondary}
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Last Name</Text>
+                  <View style={styles.enhancedInputContainer}>
+                    <Ionicons name="person-circle-outline" size={20} color={AppColors.primary} style={styles.inputIcon} />
+                    <TextInput
+                      style={styles.inputText}
+                      placeholder="Enter your last name"
+                      value={form.last_name}
+                      onChangeText={(text) => handleChange("last_name", text)}
+                      autoCapitalize="words"
+                      returnKeyType="next"
+                      placeholderTextColor={AppColors.textSecondary}
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Phone Number</Text>
+                  <View style={styles.enhancedInputContainer}>
+                    <Ionicons name="call-outline" size={20} color={AppColors.indigo} style={styles.inputIcon} />
+                    <TextInput
+                      style={styles.inputText}
+                      placeholder="07X XXX XXXX"
+                      value={form.phone}
+                      onChangeText={(text) => handleChange("phone", text)}
+                      keyboardType="phone-pad"
+                      returnKeyType="done"
+                      placeholderTextColor={AppColors.textSecondary}
+                    />
+                  </View>
+                  <Text style={styles.helperText}>
+                    {phoneHelper}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Account Information Card */}
+              <View style={styles.card}>
+                <View style={styles.cardHeaderContainer}>
+                  <View style={styles.cardIconContainer}>
+                    <Ionicons name="shield-checkmark" size={24} color={AppColors.success} />
+                  </View>
+                  <View>
+                    <Text style={styles.cardHeader}>Account Information</Text>
+                    <Text style={styles.cardSubheader}>Your account details</Text>
+                  </View>
+                </View>
+
+                <View style={styles.readOnlyField}>
+                  <View style={styles.readOnlyIconWrapper}>
+                    <Ionicons name="mail-outline" size={20} color={AppColors.success} />
+                  </View>
+                  <View style={styles.readOnlyContent}>
+                    <Text style={styles.readOnlyLabel}>Email Address</Text>
+                    <Text style={styles.readOnlyValue}>{displayEmail}</Text>
+                    <Text style={styles.readOnlyHelper}>{emailHelper}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.readOnlyField}>
+                  <View style={styles.readOnlyIconWrapper}>
+                    <Ionicons name="shield-outline" size={20} color={AppColors.indigo} />
+                  </View>
+                  <View style={styles.readOnlyContent}>
+                    <Text style={styles.readOnlyLabel}>Account Role</Text>
+                    <Text style={styles.readOnlyValue}>{roleLabel}</Text>
+                  </View>
+                </View>
+              </View>
+            </ScrollView>
+          )}
+
+          {!isLoading ? (
+            <View style={styles.actionBar}>
+              <TouchableOpacity
+                style={[styles.saveButton, isSaving && styles.disabledButton]}
+                onPress={handleSave}
+                disabled={isSaving}
+                activeOpacity={0.85}
+              >
+                {isSaving ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Ionicons name="save-outline" size={22} color="#FFFFFF" style={styles.saveIcon} />
+                    <Text style={styles.saveButtonText}>Save Changes</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          ) : null}
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
+  gradientContainer: {
+    flex: 1,
+  },
+  safeArea: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
   container: {
     flex: 1,
     backgroundColor: AppColors.background,
   },
   headerGradient: {
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
-    paddingBottom: 28,
-    paddingTop: Platform.OS === "ios" ? 20 : 10,
-    elevation: 6,
-    shadowColor: AppColors.primaryDark,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.22,
-    shadowRadius: 16,
-    overflow: "hidden",
+    paddingVertical: 16,
+    paddingHorizontal: 16,
   },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingTop: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  headerCenter: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerHero: {
-    marginTop: 18,
-    paddingHorizontal: 20,
+  backButton: {
+    padding: 8,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerTitle: {
-    color: AppColors.card,
-    fontSize: 18,
-    fontWeight: "800",
-    letterSpacing: 0.3,
-    textTransform: "uppercase",
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: 'white',
+    flex: 1,
+    textAlign: 'center',
   },
-  headerSubtitle: {
-    marginTop: 4,
-    fontSize: 14,
-    color: "#E0ECFF",
-    fontWeight: "500",
-  },
-  heroTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: AppColors.card,
-    marginBottom: 6,
-  },
-  heroSubtitle: {
-    fontSize: 13,
-    lineHeight: 18,
-    color: "rgba(255,255,255,0.8)",
-  },
-  iconButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.15)",
-  },
-  iconButtonPlaceholder: {
-    width: 44,
-    height: 44,
+  headerRightPlaceholder: {
+    width: 40,
+    height: 40,
   },
   flex: {
     flex: 1,
@@ -389,57 +408,150 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   contentContainer: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingHorizontal: 16,
+    paddingTop: 16,
     paddingBottom: 120,
   },
-  sectionCard: {
-    backgroundColor: AppColors.card,
+  card: {
+    backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    padding: 22,
-    shadowColor: AppColors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 2,
+    padding: 24,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 86, 179, 0.08)',
+    ...Platform.select({
+      android: {
+        elevation: 8,
+      },
+      ios: {
+        shadowColor: 'rgba(0, 86, 179, 0.15)',
+        shadowOpacity: 1,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 6 },
+      },
+    }),
   },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "700",
+  cardHeaderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 24,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 86, 179, 0.08)',
+  },
+  cardIconContainer: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0, 86, 179, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  cardHeader: {
+    fontSize: 20,
+    fontWeight: '700',
     color: AppColors.text,
-    marginBottom: 18,
+    letterSpacing: 0.3,
+  },
+  cardSubheader: {
+    fontSize: 13,
+    color: AppColors.textSecondary,
+    marginTop: 4,
+    fontWeight: '500',
   },
   inputGroup: {
     marginBottom: 18,
   },
   label: {
-    fontSize: 13,
-    fontWeight: "600",
+    fontSize: 15,
+    fontWeight: '600',
     color: AppColors.text,
-    marginBottom: 6,
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
+    marginBottom: 12,
+    letterSpacing: 0.2,
   },
-  inputWrapper: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: AppColors.soft,
+  enhancedInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
     borderRadius: 14,
-    borderWidth: 1,
-    borderColor: AppColors.border,
-    paddingHorizontal: 16,
-    paddingVertical: Platform.OS === "ios" ? 14 : 12,
+    paddingHorizontal: 18,
+    height: 58,
+    borderWidth: 1.5,
+    borderColor: 'rgba(0, 86, 179, 0.15)',
+    ...Platform.select({
+      android: {
+        elevation: 2,
+      },
+      ios: {
+        shadowColor: 'rgba(0, 86, 179, 0.08)',
+        shadowOpacity: 1,
+        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 2 },
+      },
+    }),
   },
-  input: {
+  inputIcon: {
+    marginRight: 14,
+  },
+  inputText: {
     flex: 1,
-    marginLeft: 12,
     fontSize: 16,
     color: AppColors.text,
+    fontWeight: '500',
+  },
+  helperText: {
+    fontSize: 12,
+    color: AppColors.textSecondary,
+    marginTop: 8,
+    marginLeft: 4,
+    lineHeight: 16,
+  },
+  readOnlyField: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(0, 86, 179, 0.04)',
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 86, 179, 0.08)',
+  },
+  readOnlyIconWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  readOnlyContent: {
+    flex: 1,
+  },
+  readOnlyLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: AppColors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+  readOnlyValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: AppColors.text,
+    marginBottom: 4,
+  },
+  readOnlyHelper: {
+    fontSize: 12,
+    color: AppColors.textSecondary,
+    lineHeight: 16,
   },
   actionBar: {
     paddingHorizontal: 20,
     paddingTop: 16,
-    paddingBottom: Platform.OS === "ios" ? 28 : 20,
+    paddingBottom: Platform.OS === 'ios' ? 28 : 20,
     backgroundColor: AppColors.card,
     borderTopWidth: 1,
     borderTopColor: AppColors.border,
@@ -450,17 +562,23 @@ const styles = StyleSheet.create({
     elevation: 12,
   },
   saveButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: AppColors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0056b3',
     borderRadius: 16,
-    paddingVertical: 16,
-    shadowColor: AppColors.primary,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 6,
+    paddingVertical: 20,
+    ...Platform.select({
+      android: {
+        elevation: 8,
+      },
+      ios: {
+        shadowColor: '#0056b3',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.35,
+        shadowRadius: 10,
+      },
+    }),
   },
   disabledButton: {
     opacity: 0.65,
@@ -469,15 +587,15 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   saveButtonText: {
-    color: AppColors.card,
-    fontSize: 16,
-    fontWeight: "700",
-    letterSpacing: 0.3,
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     paddingHorizontal: 20,
   },
   loadingText: {

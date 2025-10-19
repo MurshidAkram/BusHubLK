@@ -3,8 +3,28 @@ const db = require('../config/db'); // Adjust the path as necessary
 class RegionDepot {
   // Region operations
   static async getAllRegions() {
-    const result = await db.query('SELECT * FROM regions ORDER BY region_id');
-    return result.rows;
+    const result = await db.query(
+      `SELECT reg.*, 
+         u_rto.first_name AS rto_first_name,
+         u_rto.last_name AS rto_last_name,
+         u_rto.phone AS rto_phone,
+         u_roo.first_name AS roo_first_name,
+         u_roo.last_name AS roo_last_name,
+         u_roo.phone AS roo_phone
+       FROM regions reg
+       LEFT JOIN regional_technical_officers rto ON rto.region_id = reg.region_id
+       LEFT JOIN users u_rto ON u_rto.user_id = rto.rto_id
+       LEFT JOIN regional_operations_officers roo ON roo.region_id = reg.region_id
+       LEFT JOIN users u_roo ON u_roo.user_id = roo.roo_id
+       ORDER BY reg.region_id`
+    );
+    return result.rows.map(row => ({
+      ...row,
+      rto_name: row.rto_first_name || row.rto_last_name ? `${row.rto_first_name || ''} ${row.rto_last_name || ''}`.trim() : null,
+      rto_phone: row.rto_phone || null,
+      roo_name: row.roo_first_name || row.roo_last_name ? `${row.roo_first_name || ''} ${row.roo_last_name || ''}`.trim() : null,
+      roo_phone: row.roo_phone || null
+    }));
   }
 
   static async getRegionById(region_id) {

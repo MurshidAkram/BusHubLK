@@ -844,13 +844,12 @@ CREATE TABLE busdailychecklists (
     tires BOOLEAN DEFAULT FALSE,
     windows BOOLEAN DEFAULT FALSE,
     doors BOOLEAN DEFAULT FALSE,
-    lights BOOLEAN DEFAULT FALSE,
-    turn_signals BOOLEAN DEFAULT FALSE,
-    fire_extinguisher BOOLEAN DEFAULT FALSE,
+    headlights BOOLEAN DEFAULT FALSE,
+    signallights BOOLEAN DEFAULT FALSE,
     
     -- Overall checklist status
-    all_parts_checked BOOLEAN GENERATED ALWAYS AS (
-        engine AND brakes AND tires AND windows AND doors AND lights AND turn_signals AND fire_extinguisher
+    is_checked BOOLEAN GENERATED ALWAYS AS (
+        engine OR brakes OR tires OR windows OR doors OR headlights OR signallights
     ) STORED,
     
     -- Bus status after the checklist is completed
@@ -867,7 +866,32 @@ CREATE TABLE busdailychecklists (
 CREATE INDEX idx_busdailychecklists_bus_id ON busdailychecklists(bus_id);
 CREATE INDEX idx_busdailychecklists_checker_id ON busdailychecklists(checker_id);
 CREATE INDEX idx_busdailychecklists_check_date ON busdailychecklists(check_date);
-CREATE INDEX idx_busdailychecklists_all_parts_checked ON busdailychecklists(all_parts_checked);
+CREATE INDEX idx_busdailychecklists_is_checked ON busdailychecklists(is_checked);
+
+-- Detailed checklist findings per bus per day
+CREATE TABLE busdailychecklist_parts (
+    id SERIAL PRIMARY KEY,
+    checklist_id INTEGER NOT NULL REFERENCES busdailychecklists(checklist_id) ON DELETE CASCADE,
+    part_key TEXT NOT NULL CHECK (part_key IN (
+        'engine',
+        'brakes',
+        'tires',
+        'windows',
+        'doors',
+        'headlights',
+        'signallights'
+    )),
+    part_label TEXT NOT NULL,
+    has_issue BOOLEAN NOT NULL DEFAULT FALSE,
+    severity TEXT CHECK (severity IS NULL OR severity IN ('low', 'medium', 'high')),
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(checklist_id, part_key)
+);
+
+CREATE INDEX idx_bdc_parts_checklist ON busdailychecklist_parts(checklist_id);
+CREATE INDEX idx_bdc_parts_issue ON busdailychecklist_parts(checklist_id) WHERE has_issue;
 
 
 CREATE TABLE communication_channels (
@@ -1023,3 +1047,57 @@ CREATE TABLE rto_notifications_read (
 
 CREATE INDEX IF NOT EXISTS idx_rto_notifications_read_user ON rto_notifications_read(user_id);
 CREATE INDEX IF NOT EXISTS idx_rto_notifications_read_lookup ON rto_notifications_read(source_type, source_id);
+CREATE TABLE dgm_technical_notifications_read (
+    id BIGSERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    source_type TEXT NOT NULL CHECK (source_type IN ('announcement', 'direct_message')),
+    source_id BIGINT NOT NULL,
+    region_id INTEGER REFERENCES regions(region_id) ON DELETE SET NULL,
+    is_read BOOLEAN NOT NULL DEFAULT TRUE,
+    read_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT dgm_technical_notifications_read_unique UNIQUE (user_id, source_type, source_id)
+);
+
+CREATE INDEX idx_dgm_technical_notifications_read_user
+    ON dgm_technical_notifications_read (user_id);
+
+CREATE INDEX idx_dgm_technical_notifications_read_source
+    ON dgm_technical_notifications_read (source_type, source_id);
+
+
+
+CREATE TABLE dgm_operations_notifications_read (
+    id BIGSERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    source_type TEXT NOT NULL CHECK (source_type IN ('announcement', 'direct_message')),
+    source_id BIGINT NOT NULL,
+    is_read BOOLEAN NOT NULL DEFAULT TRUE,
+    read_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT dgm_operations_notifications_read_unique UNIQUE (user_id, source_type, source_id)
+);
+
+CREATE INDEX idx_dgm_operations_notifications_read_user
+    ON dgm_operations_notifications_read (user_id);
+
+CREATE INDEX idx_dgm_operations_notifications_read_source
+    ON dgm_operations_notifications_read (source_type, source_id);
+
+
+
+CREATE TABLE admin_notifications_read (
+    id SERIAL PRIMARY KEY,
+    user_id        INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    source_type    TEXT    NOT NULL,             -- 'announcement' | 'direct_message' | 'emergency_escalated'
+    source_id      BIGINT  NOT NULL,             
+    is_read        BOOLEAN NOT NULL DEFAULT TRUE,
+    read_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (user_id, source_type, source_id)
+);
+
+CREATE INDEX idx_admin_notifications_read_user
+    ON admin_notifications_read (user_id);
+
+CREATE INDEX idx_admin_notifications_read_source
+    ON admin_notifications_read (source_type, source_id);

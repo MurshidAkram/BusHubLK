@@ -1,9 +1,9 @@
 const Communication = require('../models/communicationModel');
-const ideamartSmsService = require('../services/ideamartSmsService');
+const notifySmsService = require('../services/notifySmsService');
 
-const maybeBroadcastIdeamartAnnouncement = async ({ channelId, senderId, messageText }) => {
-  if (!ideamartSmsService.hasIdeamartCredentials) {
-    console.warn('Ideamart SMS: credentials missing, skipping broadcast.');
+const maybeBroadcastNotifyAnnouncement = async ({ channelId, senderId, messageText }) => {
+  if (!notifySmsService.hasNotifyCredentials) {
+    console.warn('Notify.lk SMS: credentials missing, skipping broadcast.');
     return;
   }
 
@@ -11,7 +11,7 @@ const maybeBroadcastIdeamartAnnouncement = async ({ channelId, senderId, message
     const channelInfo = await Communication.getChannelInfo(channelId, senderId);
 
     if (!channelInfo) {
-      console.warn(`Ideamart SMS: channel ${channelId} not found or inaccessible for sender ${senderId}.`);
+      console.warn(`Notify.lk SMS: channel ${channelId} not found or inaccessible for sender ${senderId}.`);
       return;
     }
 
@@ -21,7 +21,7 @@ const maybeBroadcastIdeamartAnnouncement = async ({ channelId, senderId, message
 
     const creatorRole = creatorParticipant?.role;
 
-    const shouldBroadcast = ideamartSmsService.shouldTriggerCeoAnnouncementBroadcast({
+    const shouldBroadcast = notifySmsService.shouldTriggerCeoAnnouncementBroadcast({
       channelId,
       senderId,
       channelCreatorId: channelInfo.created_by,
@@ -30,7 +30,7 @@ const maybeBroadcastIdeamartAnnouncement = async ({ channelId, senderId, message
 
     if (!shouldBroadcast) {
       console.info(
-        `Ideamart SMS: broadcast skipped (channelId=${channelId}, senderId=${senderId}, creatorId=${channelInfo.created_by}, role=${creatorRole}).`
+        `Notify.lk SMS: broadcast skipped (channelId=${channelId}, senderId=${senderId}, creatorId=${channelInfo.created_by}, role=${creatorRole}).`
       );
       return;
     }
@@ -39,19 +39,18 @@ const maybeBroadcastIdeamartAnnouncement = async ({ channelId, senderId, message
       ? `${channelInfo.channel_name}: ${messageText}`
       : `CEO Announcement: ${messageText}`;
 
-    const result = await ideamartSmsService.sendSmsToActivePassengers({
+    const result = await notifySmsService.sendSmsToActivePassengers({
       message: announcementMessage,
-        sourceAddress: process.env.IDEAMART_SOURCE_ADDRESS,
-        channelId,
-        senderId
+      channelId,
+      senderId
     });
 
     if (!result || result.requested === 0) {
-      console.warn('Ideamart broadcast executed but no valid passenger phone numbers were found.');
+      console.warn('Notify.lk broadcast executed but no valid passenger phone numbers were found.');
     }
   } catch (error) {
     const details = error?.response?.data || error.message;
-    console.error('Failed to send Ideamart announcement broadcast:', details);
+    console.error('Failed to send Notify.lk announcement broadcast:', details);
   }
 };
 
@@ -118,7 +117,7 @@ const sendMessage = async (req, res) => {
 
     const message = await Communication.sendMessage(channelId, senderId, trimmedMessage);
 
-    await maybeBroadcastIdeamartAnnouncement({
+    await maybeBroadcastNotifyAnnouncement({
       channelId,
       senderId,
       messageText: trimmedMessage
@@ -333,7 +332,7 @@ const createAnnouncementChannel = async (req, res) => {
     if (initialMessage && initialMessage.trim()) {
       const trimmedInitialMessage = initialMessage.trim();
       await Communication.sendMessage(channelId, creatorId, trimmedInitialMessage);
-      await maybeBroadcastIdeamartAnnouncement({
+      await maybeBroadcastNotifyAnnouncement({
         channelId,
         senderId: creatorId,
         messageText: trimmedInitialMessage

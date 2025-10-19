@@ -1,178 +1,298 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useEffect, useState, useContext, useMemo, useCallback } from 'react';
+import axios, { AxiosError } from 'axios';
+import { HiOutlineBell, HiOutlineShieldExclamation, HiOutlineCheckCircle } from 'react-icons/hi';
 import { AppContext } from '../../../context/AppContext';
-import { HiBell } from 'react-icons/hi';
 
-type Notification = {
-  id: string;
-  type: string;
-  title?: string;
-  date?: string;
-  bus_id?: string;
-  incident_type?: string;
-  description?: string;
-  inspection_type?: string;
-  status?: string;
-  time?: string;
-  text?: string;
+type NotificationSourceType =
+	| 'emergency_report'
+	| 'manager_chat'
+	| 'rto_manager_chat'
+	| 'announcement'
+	| 'direct_message';
+
+type DepotManagerNotification = {
+	source_type: NotificationSourceType;
+	source_id: number;
+	created_at: string;
+	title: string;
+	message: string;
+	status: string;
+	bus_id: number | null;
+	registration_number: string | null;
+	driver_id: number | null;
+	depot_id: number | null;
+	region_id: number | null;
+	priority: string;
+	meta?: Record<string, unknown> | null;
+	read_at: string | null;
+	is_read: boolean;
 };
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-const API_BASE_URL = `${API_URL}/api`;
+type FetchState = 'idle' | 'loading' | 'error' | 'success';
 
-const Notifications = () => {
-  const appContext = useContext(AppContext);
-  const depotId = appContext?.user?.depot_id;
-  const token = appContext?.token;
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+const PRIORITY_BADGE: Record<string, string> = {
+	critical: 'bg-red-100 text-red-800',
+	high: 'bg-orange-100 text-orange-800',
+	medium: 'bg-blue-100 text-blue-800',
+	low: 'bg-gray-100 text-gray-600'
+};
 
-  useEffect(() => {
-    if (!depotId || !token) return;
-  fetch(`${API_BASE_URL}/depot-manager/${depotId}/notifications`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then(res => res.json())
-      .then(data => setNotifications(data.notifications || []));
-  }, [depotId, token]);
+const SOURCE_LABEL: Record<NotificationSourceType, string> = {
+	emergency_report: 'Emergency Escalation',
+	manager_chat: 'Depot Engineer Chat',
+	rto_manager_chat: 'RTO Chat',
+	announcement: 'Announcement',
+	direct_message: 'Direct Message'
+};
 
-  const markAsRead = async (notif: Notification) => {
-  await fetch(`${API_BASE_URL}/depot-manager/${depotId}/notifications/read`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        notification_type: notif.type,
-        notification_id: notif.id
-      })
-    });
-    setNotifications(notifications.filter(n => n.id !== notif.id));
-  };
+const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/+$/, '');
+const buildDepotManagerNotificationsUrl = () => `${API_BASE_URL}/api/depot-manager/notifications`;
+const buildDepotManagerMarkReadUrl = () => `${API_BASE_URL}/api/depot-manager/notifications/mark-read`;
+const buildDepotManagerMarkAllReadUrl = () => `${API_BASE_URL}/api/depot-manager/notifications/mark-all-read`;
 
-  const deleteNotification = async (id: any, type: any) => {
-  await fetch(`${API_BASE_URL}/depot-manager/${depotId}/notifications/read`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        notification_type: type,
-        notification_id: id
-      })
-    });
-    setNotifications(notifications.filter(notif => notif.id !== id));
-  };
+const Notifications: React.FC = () => {
+	const appContext = useContext(AppContext);
+	const token = appContext?.token || null;
+	const user = appContext?.user;
+	const [notifications, setNotifications] = useState<DepotManagerNotification[]>([]);
+	const [state, setState] = useState<FetchState>('idle');
+	const [error, setError] = useState<string | null>(null);
 
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-blue-50 rounded-xl border border-blue-200">
-            <HiBell className="w-8 h-8 text-blue-600" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Notifications Center</h1>
-            <p className="text-gray-600 mt-1">
-              {notifications.length > 0 
-                ? `${notifications.length} notification${notifications.length !== 1 ? 's' : ''}`
-                : 'All caught up!'
-              }
-            </p>
-          </div>
-        </div>
-      </div>
+	const filteredNotifications = useMemo(
+		() => notifications.filter((notification) => !notification.is_read),
+		[notifications]
+	);
 
-      {/* Notifications List */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="border-b border-gray-200 px-6 py-4 bg-gray-50">
-          <h2 className="text-lg font-semibold text-gray-900">
-            Notifications ({notifications.length})
-          </h2>
-        </div>
+	const refreshGlobalCount = () => {
+		if (typeof window !== 'undefined' && typeof window.refreshNotificationCount === 'function') {
+			window.refreshNotificationCount();
+		}
+	};
 
-        <div className="divide-y divide-gray-200">
-          {notifications.length === 0 ? (
-            <div className="text-center py-12">
-              <HiBell className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500 text-lg">No notifications found</p>
-              <p className="text-gray-400 text-sm mt-2">All clear for now!</p>
-            </div>
-          ) : (
-            notifications.map((notification) => (
-              <div
-                key={notification.id}
-                className="p-6 hover:bg-gray-50 transition-colors"
-              >
-                <div className="flex gap-4">
-                  <div className="flex-shrink-0 p-3 rounded-lg border bg-blue-50 border-blue-200">
-                    <HiBell className="w-5 h-5" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex items-center gap-3">
-                        <h3 className="text-lg font-semibold text-gray-900">
-                          {notification.title}
-                        </h3>
-                        
-                        <span className="px-2 py-1 bg-blue-500 text-white text-xs font-medium rounded-full">
-                          New
-                        </span>
-                      </div>
-                      <span className="text-sm text-gray-500 whitespace-nowrap">
-                        {notification.date
-                          ? new Date(notification.date).toISOString().slice(0, 10)
-                          : ''}
-                      </span>
-                    </div>
-                    <div className="mb-2 text-gray-700 text-sm">
-                      {notification.type === 'emergency' && (
-                        <span>
-                          <strong>Bus:</strong> {notification.bus_id} | <strong>Incident:</strong> {notification.incident_type} <br />
-                          <em>{notification.description}</em>
-                        </span>
-                      )}
-                      {notification.type === 'inspection' && (
-                        <span>
-                          <strong>Inspection:</strong> {notification.inspection_type} | <strong>Status:</strong> {notification.status} <br />
-                          <em>Date: {notification.date} {notification.time ? `Time: ${notification.time}` : ''}</em>
-                        </span>
-                      )}
-                      {notification.type === 'manager_chat' && (
-                        <span>
-                          <strong>Depot Engineer has sent a message:</strong> {notification.text}
-                        </span>
-                      )}
-                      {notification.type === 'rto_manager_chat' && (
-                        <span>
-                          <strong>RTO Officer has sent a message:</strong> {notification.text}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex gap-3">
-                      <button
-                        onClick={() => markAsRead(notification)}
-                        className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
-                      >
-                        Mark as read
-                      </button>
-                      <button
-                        onClick={() => deleteNotification(notification.id, notification.type)}
-                        className="text-sm text-gray-500 hover:text-red-600 transition-colors"
-                      >
-                        Dismiss
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-    </div>
-  );
+	const formatDate = (value: string) => {
+		const date = new Date(value);
+		if (Number.isNaN(date.getTime())) {
+			return value;
+		}
+		return date.toLocaleString('en-GB', {
+			year: 'numeric',
+			month: 'short',
+			day: 'numeric',
+			hour: '2-digit',
+			minute: '2-digit'
+		});
+	};
+
+	const fetchNotifications = useCallback(async () => {
+		if (!token) return;
+
+		setState('loading');
+		setError(null);
+
+		try {
+			const response = await axios.get(buildDepotManagerNotificationsUrl(), {
+				headers: {
+					Authorization: `Bearer ${token}`
+				},
+				params: {
+					limit: 200,
+					includeRead: false
+				}
+			});
+
+			if (response.data?.success) {
+				setNotifications(response.data.notifications || []);
+				setState('success');
+			} else {
+				setState('error');
+				setError(response.data?.message || 'Failed to fetch notifications');
+			}
+		} catch (err) {
+			const axiosErr = err as AxiosError<{ message?: string }>;
+			setError(axiosErr.response?.data?.message || axiosErr.message);
+			setState('error');
+		}
+	}, [token]);
+
+	const markAsRead = async (notification: DepotManagerNotification) => {
+		if (!token || notification.is_read) return;
+
+		try {
+			const response = await axios.post(
+				buildDepotManagerMarkReadUrl(),
+				{
+					sourceType: notification.source_type,
+					sourceId: notification.source_id
+				},
+				{
+					headers: {
+						Authorization: `Bearer ${token}`
+					}
+				}
+			);
+
+			if (response.data?.success) {
+				setNotifications((prev) =>
+					prev.filter(
+						(item) => !(item.source_type === notification.source_type && item.source_id === notification.source_id)
+					)
+				);
+				refreshGlobalCount();
+			}
+		} catch (err) {
+			console.error('Failed to mark depot manager notification as read:', err);
+		}
+	};
+
+	const markAllAsRead = async () => {
+		if (!token) return;
+
+		try {
+			const response = await axios.post(
+				buildDepotManagerMarkAllReadUrl(),
+				{},
+				{
+					headers: {
+						Authorization: `Bearer ${token}`
+					}
+				}
+			);
+
+			if (response.data?.success) {
+				setNotifications([]);
+				refreshGlobalCount();
+			}
+		} catch (err) {
+			console.error('Failed to mark all depot manager notifications as read:', err);
+		}
+	};
+
+	useEffect(() => {
+		if (!token) {
+			setError('Please log in to view notifications.');
+			setState('error');
+			return;
+		}
+
+		if (user?.role !== 'depot_manager') {
+			setError('Notifications are only available for depot managers.');
+			setState('error');
+			return;
+		}
+
+		fetchNotifications();
+	}, [token, user?.role, fetchNotifications]);
+
+	const unreadCount = useMemo(() => filteredNotifications.length, [filteredNotifications]);
+
+	return (
+		<div className="p-6 bg-gray-50 min-h-screen">
+			<div className="max-w-6xl mx-auto">
+				<div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+					<div>
+						<h1 className="text-2xl font-semibold text-gray-900 flex items-center gap-2">
+							<HiOutlineBell className="text-blue-600" />
+							Depot Manager Notifications
+						</h1>
+						<p className="text-sm text-gray-600">
+							Escalations, announcements, and priority updates requiring your attention
+						</p>
+					</div>
+					<div className="flex flex-wrap items-center gap-3">
+						<div className="bg-white border border-gray-200 rounded-full px-4 py-1 text-sm text-gray-600">
+							Unread: <span className="font-semibold text-blue-600">{unreadCount}</span>
+						</div>
+						<button
+							onClick={markAllAsRead}
+							className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-green-600 text-white text-sm font-medium hover:bg-green-700"
+						>
+							<HiOutlineCheckCircle />
+							Mark All as Read
+						</button>
+					</div>
+				</div>
+
+				{state === 'loading' && (
+					<div className="bg-white rounded-lg shadow-sm p-6 text-center text-gray-600">
+						Loading notifications…
+					</div>
+				)}
+
+				{state === 'error' && (
+					<div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-4 flex items-start gap-3">
+						<HiOutlineShieldExclamation className="text-red-500 mt-1" size={20} />
+						<div>
+							<p className="font-medium">Unable to load notifications.</p>
+							<p className="text-sm">{error}</p>
+						</div>
+					</div>
+				)}
+
+				{state === 'success' && filteredNotifications.length === 0 && (
+					<div className="bg-white rounded-lg shadow-sm p-8 text-center text-gray-500">
+						<HiOutlineBell className="mx-auto text-3xl mb-2 text-gray-400" />
+						<p className="font-medium">No notifications to display.</p>
+						<p className="text-sm">All caught up! Check back later for new updates.</p>
+					</div>
+				)}
+
+				{state === 'success' && filteredNotifications.length > 0 && (
+					<div className="space-y-4">
+						{filteredNotifications.map((notification) => (
+							<article
+								key={`${notification.source_type}-${notification.source_id}`}
+								className={`bg-white rounded-lg border ${
+									notification.is_read ? 'border-gray-200' : 'border-blue-200'
+								} shadow-sm p-5 transition-all`}
+							>
+								<div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+									<div className="space-y-2">
+										<div className="flex items-center gap-2">
+											<span
+												className={`px-2 py-1 rounded-full text-xs font-semibold ${
+													PRIORITY_BADGE[notification.priority] || PRIORITY_BADGE.medium
+												}`}
+											>
+												{notification.priority.toUpperCase()}
+											</span>
+											<span className="px-2 py-1 rounded-full bg-gray-100 text-gray-600 text-xs font-medium">
+												{SOURCE_LABEL[notification.source_type] || notification.source_type}
+											</span>
+											{!notification.is_read && (
+												<span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">
+													New
+												</span>
+											)}
+										</div>
+										<h2 className="text-lg font-semibold text-gray-900">{notification.title}</h2>
+										<p className="text-sm text-gray-700 whitespace-pre-line">{notification.message}</p>
+										<div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
+											<span>Received: {formatDate(notification.created_at)}</span>
+											{notification.registration_number && <span>Bus: {notification.registration_number}</span>}
+											{notification.status && <span>Status: {notification.status}</span>}
+										</div>
+									</div>
+									<div className="flex items-center gap-2 md:flex-col md:items-end">
+										<button
+											onClick={() => markAsRead(notification)}
+											disabled={notification.is_read}
+											className={`px-4 py-2 rounded-md text-sm font-medium ${
+												notification.is_read
+													? 'bg-gray-100 text-gray-500 cursor-not-allowed'
+													: 'bg-blue-600 text-white hover:bg-blue-700'
+											}`}
+										>
+											{notification.is_read ? 'Read' : 'Mark as Read'}
+										</button>
+									</div>
+								</div>
+							</article>
+						))}
+					</div>
+				)}
+			</div>
+		</div>
+	);
 };
 
 export default Notifications;

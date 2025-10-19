@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { FaSearch, FaBoxes, FaTools, FaPlusCircle, FaTrash, FaBell, FaExclamationTriangle } from 'react-icons/fa';
+import { FaSearch, FaBoxes, FaTools, FaPlusCircle, FaTrash, FaExclamationTriangle } from 'react-icons/fa';
 import { AppContext } from '../../../context/AppContext';
 import axios, { AxiosError } from 'axios';
 
@@ -31,6 +31,7 @@ interface AppContextType {
   token: string | null;
 }
 
+
 const SparePartsInventory: React.FC = () => {
   const context = useContext(AppContext) as AppContextType | null;
   const token = context?.token;
@@ -41,7 +42,6 @@ const SparePartsInventory: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>('');
-  const [lowStockOnly, setLowStockOnly] = useState<boolean>(false);
   const [selectedPart, setSelectedPart] = useState<SparePart | null>(null);
   const [quantity, setQuantity] = useState<number>(1);
   const [selectedBusId, setSelectedBusId] = useState<string>('');
@@ -102,15 +102,6 @@ const SparePartsInventory: React.FC = () => {
       }
     } catch (err) {
       console.error('💥 Send notification error:', err);
-    }
-  };
-
-  // Check for out of stock parts and send notifications
-  const checkOutOfStockParts = async () => {
-    const outOfStockParts = parts.filter(p => p.current_stock === 0);
-    
-    for (const part of outOfStockParts) {
-      await sendOutOfStockNotification(part.part_id, part.part_name);
     }
   };
 
@@ -402,10 +393,14 @@ const SparePartsInventory: React.FC = () => {
     const matchesSearch = 
       part.part_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       part.part_id.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesLowStock = !lowStockOnly || part.current_stock < 10;
-    return matchesSearch && matchesLowStock;
+    return matchesSearch;
   });
+
+  const totalPartTypes = parts.length;
+  const totalUnitsInStock = parts.reduce((sum, part) => sum + (Number(part.current_stock) || 0), 0);
+  const lowStockCount = parts.filter(part => part.current_stock > 0 && part.current_stock < 10).length;
+  const outOfStockCount = parts.filter(part => part.current_stock === 0).length;
+  const inStockCount = parts.filter(part => part.current_stock > 0).length;
 
   // Get stock status color
   const getStockStatus = (part: SparePart) => {
@@ -464,6 +459,43 @@ const SparePartsInventory: React.FC = () => {
               <FaPlusCircle />
               Add New Part
             </button>
+          </div>
+        </div>
+
+        {/* Inventory Snapshot */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div>
+              {/* <h2 className="text-lg font-semibold text-gray-800">Inventory Snapshot</h2> */}
+              <p className="text-sm text-gray-500"> overview of spare parts availability</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mt-6">
+            {/* <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
+              <div className="text-xs font-semibold text-blue-600 uppercase tracking-wide">Part Types</div>
+              <div className="mt-2 text-2xl font-semibold text-blue-900">{totalPartTypes}</div>
+              <p className="text-xs text-blue-700 mt-1">Unique items tracked</p>
+            </div>
+            <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-4">
+              <div className="text-xs font-semibold text-indigo-600 uppercase tracking-wide">Units In Stock</div>
+              <div className="mt-2 text-2xl font-semibold text-indigo-900">{totalUnitsInStock.toLocaleString()}</div>
+              <p className="text-xs text-indigo-700 mt-1">Available quantity across all parts</p>
+            </div> */}
+            <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-4">
+              <div className="text-xs font-semibold text-emerald-600 uppercase tracking-wide">In Stock</div>
+              <div className="mt-2 text-2xl font-semibold text-emerald-900">{inStockCount}</div>
+              <p className="text-xs text-emerald-700 mt-1">Parts currently available</p>
+            </div>
+            <div className="bg-amber-50 border border-amber-100 rounded-lg p-4">
+              <div className="text-xs font-semibold text-amber-600 uppercase tracking-wide">Low Stock</div>
+              <div className="mt-2 text-2xl font-semibold text-amber-900">{lowStockCount}</div>
+              <p className="text-xs text-amber-700 mt-1">Below safety threshold of 10 units</p>
+            </div>
+            <div className="bg-red-50 border border-red-100 rounded-lg p-4">
+              <div className="text-xs font-semibold text-red-600 uppercase tracking-wide">Out of Stock</div>
+              <div className="mt-2 text-2xl font-semibold text-red-900">{outOfStockCount}</div>
+              <p className="text-xs text-red-700 mt-1">Require immediate restock</p>
+            </div>
           </div>
         </div>
 
@@ -527,42 +559,6 @@ const SparePartsInventory: React.FC = () => {
             </div>
           </div>
         )}
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-white p-6 rounded-lg shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-medium text-gray-500">In Stock</h3>
-                <p className="text-2xl font-bold text-green-600">
-                  {parts.filter(p => p.current_stock > 0).length}
-                </p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white p-6 rounded-lg shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-medium text-gray-500">Low Stock</h3>
-                <p className="text-2xl font-bold text-yellow-600">
-                  {parts.filter(p => p.current_stock > 0 && p.current_stock < 10).length}
-                </p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white p-6 rounded-lg shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-medium text-gray-500">Out of Stock</h3>
-                <p className="text-2xl font-bold text-red-600">
-                  {parts.filter(p => p.current_stock === 0).length}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
 
         {/* Parts Table */}
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">

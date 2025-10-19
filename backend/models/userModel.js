@@ -59,6 +59,11 @@ class User {
         idColumn: 'rto_id',
         fields: ['region_id']
       },
+      regional_operations: {
+        tableName: 'regional_operations_officers',
+        idColumn: 'roo_id',
+        fields: ['region_id']
+      },
       driver: {
         tableName: 'drivers',
         idColumn: 'driver_id',
@@ -107,14 +112,14 @@ class User {
   }
 
   // Add this updated getAll method to your userModel.js
-// Replace the existing static async getAll() method with this:
+  // Replace the existing static async getAll() method with this:
 
-// Add this updated getAll method to your userModel.js
-// Replace the existing static async getAll() method with this:
+  // Add this updated getAll method to your userModel.js
+  // Replace the existing static async getAll() method with this:
 
-static async getAll() {
-  const result = await db.query(
-    `SELECT 
+  static async getAll() {
+    const result = await db.query(
+      `SELECT 
       u.user_id as id,
       u.user_id,
       u.username,
@@ -156,9 +161,9 @@ static async getAll() {
     LEFT JOIN drivers d ON u.user_id = d.driver_id
     LEFT JOIN conductors c ON u.user_id = c.conductor_id
     ORDER BY u.user_id`
-  );
-  return result.rows;
-}
+    );
+    return result.rows;
+  }
 
   static async getAllRoles() {
     const result = await db.query('SELECT * FROM roles ORDER BY role_id');
@@ -293,7 +298,7 @@ static async getAll() {
        ORDER BY u.user_id`,
       [role_name]
     );
-    return result.rows;z
+    return result.rows; z
   }
 
   static async getUsersByDepot(depot_id) {

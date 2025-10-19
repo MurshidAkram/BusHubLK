@@ -26,6 +26,7 @@ import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/dat
 import * as ImagePicker from "expo-image-picker";
 import DropDownPicker from "react-native-dropdown-picker";
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Location from 'expo-location';
 
 // --- Enhanced Color Palette (matching BusOccupancyScreen) ---
 const AppColors = {
@@ -65,6 +66,14 @@ interface BusRouteSuggestion {
   bus_name?: string | null;
 }
 
+interface BusRouteSuggestion {
+  bus_route_id?: number;
+  route_number?: string;
+  route_name?: string;
+  registration_number?: string;
+  bus_registration?: string;
+}
+
 export default function ComplaintsScreen() {
   const navigation = useNavigation<ComplaintsScreenNavigationProp>();
 
@@ -86,9 +95,9 @@ export default function ComplaintsScreen() {
   const [complaintTypeOpen, setComplaintTypeOpen] = useState(false);
   const [complaintTypeValue, setComplaintTypeValue] = useState<string | null>(null);
   const [complaintTypeItems, setComplaintTypeItems] = useState([
-    { label: "Staff Conduct (Driver/Conductor)", value: "staff_conduct" },
+    { label: "Staff Behavior/Act (Driver/Conductor)", value: "staff_conduct" },
     { label: "Reckless Driving", value: "reckless_driving" },
-    { label: "Bus Not Stopping", value: "not_stopping" },
+    { label: "Bus Not Stopping on a halt", value: "not_stopping" },
     { label: "Ticketing Issue", value: "ticketing_issue" },
     { label: "Bus Condition", value: "bus_condition" },
     { label: "Harassment", value: "harassment" },
@@ -99,6 +108,7 @@ export default function ComplaintsScreen() {
   const [routeNumber, setRouteNumber] = useState("");
   const [busNumber, setBusNumber] = useState("");
   const [location, setLocation] = useState("");
+  const [isLocationLoading, setIsLocationLoading] = useState(false);
   const [date, setDate] = useState(new Date());
   const [time, setTime] = useState(new Date());
   const [priority, setPriority] = useState("Medium");
@@ -109,6 +119,10 @@ export default function ComplaintsScreen() {
   const [isRouteLoading, setIsRouteLoading] = useState(false);
   const [isBusLoading, setIsBusLoading] = useState(false);
   const routeSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const busSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [busSuggestions, setBusSuggestions] = useState<BusRouteSuggestion[]>([]);
+  const [isBusLoading, setIsBusLoading] = useState(false);
   const busSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   React.useEffect(() => {
@@ -157,6 +171,71 @@ export default function ComplaintsScreen() {
 
     if (!result.canceled) {
       setImage(result.assets[0].uri);
+    }
+  };
+
+  const fetchCurrentLocation = async () => {
+    try {
+      setIsLocationLoading(true);
+      
+      // Request location permissions
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permission Denied',
+          'Location permission is required to fetch your current location.'
+        );
+        return;
+      }
+
+      // Get current position
+      const currentLocation = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+
+      const { latitude, longitude } = currentLocation.coords;
+
+      // Reverse geocode to get address
+      const addressResults = await Location.reverseGeocodeAsync({
+        latitude,
+        longitude,
+      });
+
+      if (addressResults && addressResults.length > 0) {
+        const address = addressResults[0];
+        
+        // Build a readable address string
+        const addressParts = [
+          address.name,
+          address.street,
+          address.district,
+          address.city,
+          address.region,
+        ].filter(Boolean);
+
+        const formattedAddress = addressParts.length > 0 
+          ? addressParts.join(', ')
+          : `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+
+        setLocation(formattedAddress);
+        
+        Alert.alert(
+          'Location Fetched',
+          'Your current location has been added. You can edit it if needed.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        // Fallback to coordinates if geocoding fails
+        setLocation(`${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+      }
+    } catch (error) {
+      console.error('Error fetching location:', error);
+      Alert.alert(
+        'Location Error',
+        'Unable to fetch your current location. Please enter it manually.'
+      );
+    } finally {
+      setIsLocationLoading(false);
     }
   };
 
@@ -245,6 +324,7 @@ export default function ComplaintsScreen() {
     setTimeout(() => setRouteSuggestions([]), 150);
   }, []);
 
+
   const handleBusBlur = useCallback(() => {
     if (busSearchTimeout.current) {
       clearTimeout(busSearchTimeout.current);
@@ -253,15 +333,25 @@ export default function ComplaintsScreen() {
     setTimeout(() => setBusSuggestions([]), 150);
   }, []);
 
-  const handleSelectSuggestion = useCallback((suggestion: BusRouteSuggestion) => {
+  const handleSelectSuggestion = useCallback((suggestion: RouteSuggestion | BusRouteSuggestion, mode: "route" | "bus") => {
     const derivedRoute = suggestion.route_number ?? "";
-    const derivedBus = suggestion.registration_number ?? suggestion.bus_registration ?? "";
+    const derivedBus = (suggestion as BusRouteSuggestion).registration_number ?? (suggestion as BusRouteSuggestion).bus_registration ?? "";
 
-    if (derivedRoute) {
-      setRouteNumber(derivedRoute);
-    }
-    if (derivedBus) {
-      setBusNumber(derivedBus);
+    if (mode === "route") {
+      // Only set route number when selecting from route suggestions
+      if (derivedRoute) {
+        setRouteNumber(derivedRoute);
+        setIsValidRoute(true);
+      }
+    } else {
+      // Set both route and bus when selecting from bus suggestions
+      if (derivedRoute) {
+        setRouteNumber(derivedRoute);
+        setIsValidRoute(true);
+      }
+      if (derivedBus) {
+        setBusNumber(derivedBus);
+      }
     }
 
     setRouteSuggestions([]);
@@ -481,25 +571,20 @@ export default function ComplaintsScreen() {
                       </View>
                     ) : (
                       routeSuggestions.map((suggestion, index) => {
-                        const suggestionKey = `route-sugg-${suggestion.bus_route_id ?? index}-${index}`;
+                        const suggestionKey = `route-sugg-${suggestion.route_id ?? index}-${index}`;
                         const isLast = index === routeSuggestions.length - 1;
                         return (
                           <TouchableOpacity
                             key={suggestionKey}
                             style={[styles.suggestionItem, isLast && styles.suggestionItemLast]}
-                            onPress={() => handleSelectSuggestion(suggestion)}
+                            onPress={() => handleSelectSuggestion(suggestion, "route")}
                           >
-                            <View>
+                            <View style={{flex: 1}}>
                               <Text style={styles.suggestionPrimary}>{suggestion.route_number || "Route not assigned"}</Text>
                               {suggestion.route_name ? (
                                 <Text style={styles.suggestionSecondary}>{suggestion.route_name}</Text>
                               ) : null}
                             </View>
-                            {(suggestion.registration_number || suggestion.bus_registration) ? (
-                              <Text style={styles.suggestionBadge}>
-                                {suggestion.registration_number || suggestion.bus_registration}
-                              </Text>
-                            ) : null}
                           </TouchableOpacity>
                         );
                       })
@@ -539,7 +624,7 @@ export default function ComplaintsScreen() {
                           <TouchableOpacity
                             key={suggestionKey}
                             style={[styles.suggestionItem, isLast && styles.suggestionItemLast]}
-                            onPress={() => handleSelectSuggestion(suggestion)}
+                            onPress={() => handleSelectSuggestion(suggestion, "bus")}
                           >
                             <View>
                               <Text style={styles.suggestionPrimary}>{busLabel}</Text>
@@ -562,9 +647,34 @@ export default function ComplaintsScreen() {
 
           {/* --- CARD 2: TIME & PLACE --- */}
           <View style={styles.card}>
-            <View style={styles.cardHeaderContainer}><View style={styles.cardIconContainer}><Ionicons name="location" size={24} color={AppColors.indigo} /></View><View><Text style={styles.cardHeader}>Time & Place</Text><Text style={styles.cardSubheader}>When and where did this happen?</Text></View></View>
+            <View style={styles.cardHeaderContainer}>
+              <View style={styles.cardIconContainer}>
+                <Ionicons name="location" size={24} color={AppColors.indigo} />
+              </View>
+              <View>
+                <Text style={styles.cardHeader}>Time & Place</Text>
+                <Text style={styles.cardSubheader}>When and where did this happen?</Text>
+              </View>
+            </View>
             
-            <Text style={styles.label}>Location</Text>
+            <View style={styles.locationHeaderRow}>
+              <Text style={styles.label}>Location</Text>
+              <TouchableOpacity 
+                style={styles.fetchLocationButton} 
+                onPress={fetchCurrentLocation}
+                disabled={isLocationLoading}
+              >
+                {isLocationLoading ? (
+                  <ActivityIndicator size="small" color={AppColors.primary} />
+                ) : (
+                  <>
+                    <Ionicons name="navigate" size={16} color={AppColors.primary} />
+                    <Text style={styles.fetchLocationText}>Use Current</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+            
             <View style={styles.enhancedInputContainer}>
               <Ionicons name="location-outline" size={20} color={AppColors.indigo} style={styles.inputIcon} />
               <TextInput
@@ -572,19 +682,25 @@ export default function ComplaintsScreen() {
                 placeholder="e.g., Colombo Fort Bus Stand"
                 value={location}
                 onChangeText={setLocation}
+                editable={!isLocationLoading}
               />
             </View>
 
             <View style={styles.row}>
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Date</Text>
-                <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.enhancedInputContainer}><Ionicons name="calendar-outline" size={20} color={AppColors.indigo} style={styles.inputIcon} /><Text style={styles.inputText}>{date.toLocaleDateString()}</Text></TouchableOpacity>
+                <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.enhancedInputContainer}>
+                  <Ionicons name="calendar-outline" size={20} color={AppColors.indigo} style={styles.inputIcon} />
+                  <Text style={styles.inputText}>{date.toLocaleDateString()}</Text>
+                </TouchableOpacity>
               </View>
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Time</Text>
-                <TouchableOpacity onPress={() => setShowTimePicker(true)} style={styles.enhancedInputContainer}><Ionicons name="time-outline" size={20} color={AppColors.indigo} style={styles.inputIcon} /><Text style={styles.inputText}>{time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text></TouchableOpacity>
+                <TouchableOpacity onPress={() => setShowTimePicker(true)} style={styles.enhancedInputContainer}>
+                  <Ionicons name="time-outline" size={20} color={AppColors.indigo} style={styles.inputIcon} />
+                  <Text style={styles.inputText}>{time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+                </TouchableOpacity>
               </View>
-
             </View>
           </View>
 
@@ -886,6 +1002,29 @@ const styles = StyleSheet.create({
     paddingVertical:6,
     borderRadius:12,
     overflow:'hidden'
+  },
+  locationHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+    marginTop: 16,
+  },
+  fetchLocationButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 86, 179, 0.08)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 86, 179, 0.2)',
+  },
+  fetchLocationText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: AppColors.primary,
   },
 
 });

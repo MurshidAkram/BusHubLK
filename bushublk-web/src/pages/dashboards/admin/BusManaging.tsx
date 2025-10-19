@@ -28,7 +28,6 @@ interface Bus {
   manufacturer: string;
   model: string;
   year: number;
-  mileage: number;
   status: string;
   purchase_date: string;
   is_active: boolean;
@@ -77,7 +76,6 @@ const BusManaging = () => {
     manufacturer: '',
     model: '',
     year: new Date().getFullYear(),
-    mileage: 0,
     status: 'Active',
     purchase_date: new Date().toISOString().split('T')[0]
   });
@@ -210,7 +208,6 @@ const BusManaging = () => {
       manufacturer: '',
       model: '',
       year: new Date().getFullYear(),
-      mileage: 0,
       status: 'Active',
       purchase_date: new Date().toISOString().split('T')[0]
     });
@@ -253,9 +250,6 @@ const BusManaging = () => {
       errors.year = 'Invalid year';
     }
 
-    if (formData.mileage < 0) {
-      errors.mileage = 'Mileage must be positive';
-    }
 
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
@@ -306,7 +300,6 @@ const BusManaging = () => {
       manufacturer: bus.manufacturer,
       model: bus.model || '',
       year: bus.year,
-      mileage: bus.mileage,
       status: bus.status,
       purchase_date: bus.purchase_date ? bus.purchase_date.split('T')[0] : new Date().toISOString().split('T')[0]
     });
@@ -589,7 +582,7 @@ const BusManaging = () => {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">Class {bus.class}</div>
                           <div className="text-sm text-gray-500">
-                            {bus.year} • {bus.mileage.toLocaleString()} km
+                            {bus.year}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -782,23 +775,6 @@ const BusManaging = () => {
                   )}
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Mileage (km) *
-                  </label>
-                  <input
-                    type="number"
-                    name="mileage"
-                    value={formData.mileage}
-                    onChange={handleInputChange}
-                    min="0"
-                    className={`w-full px-3 py-2 border ${formErrors.mileage ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
-                    required
-                  />
-                  {formErrors.mileage && (
-                    <p className="mt-1 text-sm text-red-600">{formErrors.mileage}</p>
-                  )}
-                </div>
               </div>
 
               <div>
@@ -973,23 +949,6 @@ const BusManaging = () => {
                   )}
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Mileage (km) *
-                  </label>
-                  <input
-                    type="number"
-                    name="mileage"
-                    value={formData.mileage}
-                    onChange={handleInputChange}
-                    min="0"
-                    className={`w-full px-3 py-2 border ${formErrors.mileage ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
-                    required
-                  />
-                  {formErrors.mileage && (
-                    <p className="mt-1 text-sm text-red-600">{formErrors.mileage}</p>
-                  )}
-                </div>
               </div>
 
               <div>

@@ -105,13 +105,13 @@ const createBusOccupancy = async (req, res) => {
 
     console.log(`Creating occupancy record with bus_id=${busIdInt}, passenger_id=${actualPassengerId}`);
     
+    // Don't pass updatedAt - let the database set it with CURRENT_TIMESTAMP to avoid timezone issues
     const newOccupancy = await BusOccupancy.create({
       busId: busIdInt,
       passengerId: actualPassengerId,
       occupancyLevel,
       latitude,
       longitude,
-      updatedAt: updatedAt || new Date().toISOString(),
       confidence
     });
 
@@ -219,7 +219,7 @@ const deleteBusOccupancy = async (req, res) => {
 // Get average occupancy levels for multiple buses (for BusTrackingScreen)
 const getAverageOccupancyLevels = async (req, res) => {
   try {
-    const { busIds, timeWindowMinutes = 30 } = req.query;
+    const { busIds, timeWindowMinutes = 15 } = req.query; // Default to 15 minutes
     
     if (!busIds) {
       return res.status(400).json({ message: 'busIds parameter is required' });
@@ -241,7 +241,8 @@ const getAverageOccupancyLevels = async (req, res) => {
     
     console.log(`📊 Calculating average occupancy for buses: ${busIdArray.join(', ')} within last ${timeWindowMinutes} minutes`);
     
-    // Calculate average occupancy for each bus based on recent passenger reports
+    // Calculate average occupancy for each bus based on ONLY recent passenger reports (last 15 minutes)
+    // Reports older than the time window are automatically excluded
     const result = await pool.query(`
       WITH recent_reports AS (
         SELECT 
@@ -327,18 +328,26 @@ const getAverageOccupancyLevels = async (req, res) => {
     
     // Update with actual data from database
     result.rows.forEach(row => {
-      const freshnessLevel = row.minutes_since_last_report <= 5 ? 'very_fresh' :
-                           row.minutes_since_last_report <= 15 ? 'fresh' :
-                           row.minutes_since_last_report <= 30 ? 'moderate' : 'stale';
+      const minutesSince = Math.round(row.minutes_since_last_report);
+      
+      // Determine freshness level based on time since last report
+      const freshnessLevel = minutesSince <= 2 ? 'very_fresh' :
+                           minutesSince <= 5 ? 'fresh' :
+                           minutesSince <= 10 ? 'moderate' :
+                           minutesSince <= 15 ? 'stale' : 'very_stale';
+      
+      // If last report was more than 5 minutes ago, mark as "no_recent_updates"
+      // This signals to the frontend to show "No recent updates" message
+      const occupancyLevel = minutesSince > 5 ? 'no_recent_updates' : row.calculated_occupancy_level;
       
       occupancyData[row.bus_id] = {
         bus_id: row.bus_id,
         registration_number: row.registration_number,
-        calculated_occupancy_level: row.calculated_occupancy_level,
+        calculated_occupancy_level: occupancyLevel,
         report_count: parseInt(row.report_count),
         avg_confidence: Math.round(row.avg_confidence),
         last_report_time: row.last_report_time,
-        minutes_since_last_report: Math.round(row.minutes_since_last_report),
+        minutes_since_last_report: minutesSince,
         data_freshness: freshnessLevel,
         route_number: row.route_number,
         route_name: row.route_name

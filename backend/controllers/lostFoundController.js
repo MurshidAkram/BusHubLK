@@ -128,7 +128,7 @@ const submitReport = async (req, res) => {
     if (!item_description) errors.push('item_description is required');
     if (!incident_date || !/^\d{4}-\d{2}-\d{2}$/.test(incident_date)) errors.push('incident_date is required in YYYY-MM-DD format');
     if (!incident_time || !/^\d{2}:\d{2}:\d{2}$/.test(incident_time)) errors.push('incident_time is required in HH:MM:SS format');
-    if (!contact_phone) errors.push('contact_phone is required');
+    // contact_phone is now optional
     if (region_id !== null && region_id !== undefined && isNaN(Number(region_id))) errors.push('region_id must be a number');
     if (reward_offered !== undefined && reward_offered !== null && isNaN(Number(reward_offered))) errors.push('reward_offered must be a number');
     if (contact_email && !/^\S+@\S+\.\S+$/.test(contact_email)) errors.push('contact_email is invalid');
@@ -189,7 +189,7 @@ const submitReport = async (req, res) => {
       incident_date,
       incident_time,
       contact_email: contact_email || null,
-      contact_phone,
+      contact_phone: contact_phone || null,
       reward_offered: reward_offered !== undefined && reward_offered !== null && reward_offered !== '' ? Number(reward_offered) : 0
     };
 
@@ -797,7 +797,7 @@ const updateDepotHandover = async (req, res) => {
   try {
     const { reportId } = req.params;
     const { depot_id, handover_date, notes } = req.body;
-    const userId = req.user.user_id;
+    const userId = req.user?.userId;
 
     console.log('📦 Updating depot handover for report:', reportId);
 
@@ -809,9 +809,9 @@ const updateDepotHandover = async (req, res) => {
       });
     }
 
-    // Verify the report belongs to the user
+    // Verify the report belongs to the user and hasn't been handed over yet
     const reportCheck = await db.query(
-      'SELECT passenger_id, report_type FROM lost_found_reports WHERE report_id = $1',
+      'SELECT passenger_id, report_type, handed_to_depot_id FROM lost_found_reports WHERE report_id = $1',
       [reportId]
     );
 
@@ -823,9 +823,22 @@ const updateDepotHandover = async (req, res) => {
     }
 
     if (reportCheck.rows[0].passenger_id !== userId) {
+      console.log('❌ Authorization failed:', {
+        reportOwner: reportCheck.rows[0].passenger_id,
+        requestingUser: userId,
+        reportId: reportId
+      });
       return res.status(403).json({
         success: false,
         message: 'Not authorized to update this report'
+      });
+    }
+
+    // Check if item has already been handed over to depot
+    if (reportCheck.rows[0].handed_to_depot_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'This item has already been handed over to a depot'
       });
     }
 
@@ -850,12 +863,20 @@ const updateDepotHandover = async (req, res) => {
       reportId
     ]);
 
+    // Get depot name for the response
+    const depotQuery = 'SELECT depot_name FROM depots WHERE depot_id = $1';
+    const depotResult = await db.query(depotQuery, [depot_id]);
+    const depotName = depotResult.rows[0]?.depot_name || 'Unknown Depot';
+
     console.log('✅ Depot handover updated successfully');
 
     res.json({
       success: true,
       message: 'Depot handover information updated successfully',
-      data: result.rows[0]
+      data: {
+        ...result.rows[0],
+        depot_name: depotName
+      }
     });
 
   } catch (error) {

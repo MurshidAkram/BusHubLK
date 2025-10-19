@@ -22,6 +22,12 @@ class LostFoundReport {
     this.created_at = data.created_at;
     this.updated_at = data.updated_at;
     this.expires_at = data.expires_at;
+    this.resolved_date = data.resolved_date;
+    // Depot handover fields
+    this.handed_to_depot_id = data.handed_to_depot_id;
+    this.handover_date = data.handover_date;
+    this.handover_notes = data.handover_notes;
+    this.handover_updated_by = data.handover_updated_by;
   }
 
   // Create a new report
@@ -101,7 +107,7 @@ class LostFoundReport {
   // Find all reports with optional filters
   static async findAll(filters = {}) {
     let query = `
-      SELECT 
+      SELECT
         r.*,
         p.first_name            AS passenger_first_name,
         p.last_name             AS passenger_last_name,
@@ -114,14 +120,16 @@ class LostFoundReport {
         drv.phone               AS driver_phone,
         drv.email               AS driver_email,
         CASE
-          WHEN r.created_at > NOW() - INTERVAL '1 hour' THEN 'An hour before'
+          WHEN r.created_at > NOW() - INTERVAL '1 minute' THEN 'Just now'
+          WHEN r.created_at > NOW() - INTERVAL '1 hour' THEN EXTRACT(MINUTE FROM NOW() - r.created_at) || ' minutes ago'
           WHEN r.created_at > NOW() - INTERVAL '1 day' THEN EXTRACT(HOUR FROM NOW() - r.created_at) || ' hours ago'
           ELSE EXTRACT(DAY FROM NOW() - r.created_at) || ' days ago'
         END as time_ago
       FROM lost_found_reports r
-      LEFT JOIN passengers pas ON r.passenger_id = pas.passenger_id 
+      LEFT JOIN passengers pas ON r.passenger_id = pas.passenger_id
       LEFT JOIN users p ON pas.passenger_id = p.user_id
-      LEFT JOIN routes rt ON r.route_number = rt.route_number       
+      LEFT JOIN users drv ON r.driver_id = drv.user_id
+      LEFT JOIN routes rt ON r.route_number = rt.route_number
       LEFT JOIN regions reg ON r.region_id = reg.region_id
       LEFT JOIN depots d ON r.handed_to_depot_id = d.depot_id
       LEFT JOIN users drv ON r.driver_id = drv.user_id

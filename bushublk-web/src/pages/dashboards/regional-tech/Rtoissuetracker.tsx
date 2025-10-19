@@ -21,7 +21,9 @@ interface EmergencyReport {
   chatHistory?: ChatMessage[];
 }
 
-const API_BASE_URL = 'http://localhost:5000/api/rto';
+const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/$/, '');
+const RTO_API_BASE = `${API_BASE_URL}/api/rto`;
+const buildRtoUrl = (path: string = '') => `${RTO_API_BASE}${path ? (path.startsWith('/') ? path : `/${path}`) : ''}`;
 
 const Rtoissuetracker = () => {
   const [filterType, setFilterType] = useState('all');
@@ -39,7 +41,7 @@ const Rtoissuetracker = () => {
 
   const fetchRTOReports = useCallback(async () => {
     try {
-      const response = await fetch(API_BASE_URL);
+  const response = await fetch(buildRtoUrl());
       const result = await response.json();
       if (result.success) {
         setEmergencyReports(prevReports => {
@@ -95,7 +97,7 @@ const Rtoissuetracker = () => {
   const sendMessage = async () => {
     if (chatMessage.trim() && activeChatId) {
       try {
-        const response = await fetch(`${API_BASE_URL}/emergency/${activeChatId}/reply`, {
+  const response = await fetch(buildRtoUrl(`/emergency/${activeChatId}/reply`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: chatMessage }),
@@ -112,7 +114,7 @@ const Rtoissuetracker = () => {
 
   const fetchChatMessages = useCallback(async (reportId: number) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/emergency/${reportId}/chat`);
+  const response = await fetch(buildRtoUrl(`/emergency/${reportId}/chat`));
       const result = await response.json();
       if (result.success) {
         setEmergencyReports(prev => prev.map(r => 
@@ -138,7 +140,7 @@ const Rtoissuetracker = () => {
 
   const updateReportStatus = async (reportId: number, newStatus: string) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/emergency/${reportId}/status`, {
+  const response = await fetch(buildRtoUrl(`/emergency/${reportId}/status`), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
