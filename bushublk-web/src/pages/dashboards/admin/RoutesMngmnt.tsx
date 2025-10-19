@@ -59,7 +59,7 @@ const RoutesMngmnt: React.FC = () => {
 
   const fetchRegions = async () => {
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/regions`, {
+      const res = await fetch('http://localhost:5000/api/regions', {
         headers: { Authorization: `Bearer ${context?.token}` },
       });
       const data = await res.json();
@@ -72,7 +72,7 @@ const RoutesMngmnt: React.FC = () => {
   const fetchRoutes = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/routes`, {
+      const res = await fetch('http://localhost:5000/api/routes', {
         headers: { Authorization: `Bearer ${context?.token}` },
       });
       const data = await res.json();
@@ -86,7 +86,7 @@ const RoutesMngmnt: React.FC = () => {
 
   const fetchDepots = async () => {
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/depots`, {
+      const res = await fetch('http://localhost:5000/api/depots', {
         headers: { Authorization: `Bearer ${context?.token}` },
       });
       const data = await res.json();
@@ -168,8 +168,8 @@ const RoutesMngmnt: React.FC = () => {
     try {
       const method = editId ? 'PUT' : 'POST';
       const url = editId
-        ? `${import.meta.env.VITE_API_URL}/api/routes/${editId}`
-        : `${import.meta.env.VITE_API_URL}/api/routes`;
+        ? `http://localhost:5000/api/routes/${editId}`
+        : 'http://localhost:5000/api/routes';
       const res = await fetch(url, {
         method,
         headers: {
@@ -215,7 +215,7 @@ const RoutesMngmnt: React.FC = () => {
   const handleDelete = async (id: string) => {
     if (!window.confirm('Delete this route?')) return;
     try {
-      await fetch(`${import.meta.env.VITE_API_URL}/api/routes/${id}`, {
+      await fetch(`http://localhost:5000/api/routes/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${context?.token}` },
       });

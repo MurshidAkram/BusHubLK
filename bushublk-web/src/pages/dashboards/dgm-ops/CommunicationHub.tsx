@@ -3,8 +3,7 @@ import { io, Socket } from 'socket.io-client';
 import { Send, Users, Plus, MessageSquare, AlertCircle, Megaphone, X, Check } from 'lucide-react';
 import { AppContext } from '../../../context/AppContext';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-const API_BASE_URL = `${API_URL}/api`;
+const API_URL = import.meta.env.VITE_API_URL;
 
 interface User {
   id: string;
@@ -213,7 +212,7 @@ const ImprovedDGMCEOHub = () => {
 
   const fetchChannels = async () => {
     try {
-  const response = await fetch(`${API_BASE_URL}/communication/channels`, {
+      const response = await fetch(`${API_URL}/api/communication/channels`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -230,7 +229,7 @@ const ImprovedDGMCEOHub = () => {
 
   const fetchRegions = async () => {
     try {
-  const response = await fetch(`${API_BASE_URL}/communication/regions`, {
+      const response = await fetch(`${API_URL}/api/communication/regions`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -244,7 +243,7 @@ const ImprovedDGMCEOHub = () => {
 
   const fetchDepots = async (regionId: number) => {
     try {
-  const response = await fetch(`${API_BASE_URL}/communication/depots?regionId=${regionId}`, {
+      const response = await fetch(`${API_URL}/api/communication/depots?regionId=${regionId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -259,8 +258,8 @@ const ImprovedDGMCEOHub = () => {
   const fetchContacts = async (regionId: number | null) => {
     try {
       const url = regionId 
-  ? `${API_BASE_URL}/communication/contacts?regionId=${regionId}`
-  : `${API_BASE_URL}/communication/contacts`;
+        ? `${API_URL}/api/communication/contacts?regionId=${regionId}`
+        : `${API_URL}/api/communication/contacts`;
       
       const response = await fetch(url, {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -276,7 +275,7 @@ const ImprovedDGMCEOHub = () => {
 
   const fetchMessages = async (channelId: string) => {
     try {
-  const response = await fetch(`${API_BASE_URL}/communication/channels/${channelId}/messages`, {
+      const response = await fetch(`${API_URL}/api/communication/channels/${channelId}/messages`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -290,7 +289,7 @@ const ImprovedDGMCEOHub = () => {
 
   const markChannelAsRead = async (channelId: string) => {
     try {
-  await fetch(`${API_BASE_URL}/communication/channels/${channelId}/read`, {
+      await fetch(`${API_URL}/api/communication/channels/${channelId}/read`, {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -307,7 +306,7 @@ const ImprovedDGMCEOHub = () => {
     if (!messageText.trim() || !activeChannel) return;
 
     try {
-  const response = await fetch(`${API_BASE_URL}/communication/channels/${activeChannel.channel_id}/messages`, {
+      const response = await fetch(`${API_URL}/api/communication/channels/${activeChannel.channel_id}/messages`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -343,7 +342,7 @@ const ImprovedDGMCEOHub = () => {
 
   const startNewChat = async (contact: Contact) => {
     try {
-  const response = await fetch(`${API_BASE_URL}/communication/channels/direct`, {
+      const response = await fetch(`${API_URL}/api/communication/channels/direct`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -380,7 +379,7 @@ const ImprovedDGMCEOHub = () => {
     try {
       // Send announcement to each selected target
       for (const targetId of targetIds) {
-  await fetch(`${API_BASE_URL}/communication/announcements`, {
+        await fetch(`${API_URL}/api/communication/announcements`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

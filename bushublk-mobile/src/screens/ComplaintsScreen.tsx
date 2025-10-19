@@ -414,7 +414,7 @@ export default function ComplaintsScreen() {
     setTimeout(() => setBusSuggestions([]), 150);
   }, []);
 
-  const handleSelectSuggestion = useCallback((suggestion: BusRouteSuggestion, mode: "route" | "bus") => {
+  const handleSelectSuggestion = useCallback((suggestion: RouteSuggestion | BusRouteSuggestion, mode: "route" | "bus") => {
     const derivedRoute = suggestion.route_number ?? "";
     const derivedBus = (suggestion as BusRouteSuggestion).registration_number ?? (suggestion as BusRouteSuggestion).bus_registration ?? "";
 
@@ -422,11 +422,13 @@ export default function ComplaintsScreen() {
       // Only set route number when selecting from route suggestions
       if (derivedRoute) {
         setRouteNumber(derivedRoute);
+        setIsValidRoute(true);
       }
     } else {
       // Set both route and bus when selecting from bus suggestions
       if (derivedRoute) {
         setRouteNumber(derivedRoute);
+        setIsValidRoute(true);
       }
       if (derivedBus) {
         setBusNumber(derivedBus);
