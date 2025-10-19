@@ -101,6 +101,21 @@ const deleteEmergencyContact = async (req, res) => {
   }
 };
 
+const setPrimaryContact = async (req, res) => {
+  try {
+    const { id, contactId } = req.params;
+    const updated = await Passenger.setPrimaryContact(id, contactId);
+
+    if (!updated) {
+      return res.status(404).json({ message: 'Contact not found or does not belong to this passenger.' });
+    }
+    res.json({ success: true, message: 'Primary contact set successfully.', contact: updated });
+  } catch (error) {
+    console.error('Error in setPrimaryContact (controller):', error);
+    res.status(500).json({ message: 'Server Error', error: error.message });
+  }
+};
+
 // === Notification Controller ===
 const notifyEmergencyContacts = async (req, res) => {
   const { emergencyType, contacts, latitude, longitude } = req.body;
@@ -441,6 +456,7 @@ module.exports = {
   getEmergencyContacts,
   updateEmergencyContact,
   deleteEmergencyContact,
+  setPrimaryContact,
   notifyEmergencyContacts,
   createAlert,
   getAlertsByPassenger,

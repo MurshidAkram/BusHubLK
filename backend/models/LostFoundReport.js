@@ -132,7 +132,6 @@ class LostFoundReport {
       LEFT JOIN routes rt ON r.route_number = rt.route_number
       LEFT JOIN regions reg ON r.region_id = reg.region_id
       LEFT JOIN depots d ON r.handed_to_depot_id = d.depot_id
-      LEFT JOIN users drv ON r.driver_id = drv.user_id
       WHERE r.status = $1
     `;
     
