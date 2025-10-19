@@ -58,14 +58,25 @@ const maybeBroadcastNotifyAnnouncement = async ({ channelId, senderId, messageTe
 const getUserChannels = async (req, res) => {
   try {
     const userId = req.user.userId;
+    console.log(`📡 getUserChannels called for userId: ${userId}`);
+    
     const channels = await Communication.getUserChannels(userId);
+    
+    console.log(`✅ Found ${channels.length} channels for user ${userId}`);
+    console.log('Channel details:', JSON.stringify(channels.map(ch => ({
+      id: ch.channel_id,
+      type: ch.channel_type,
+      name: ch.channel_name,
+      participants: ch.participants?.length || 0,
+      unread: ch.unread_count
+    })), null, 2));
     
     res.json({
       success: true,
       channels
     });
   } catch (error) {
-    console.error('Get user channels error:', error);
+    console.error('❌ Get user channels error:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch channels'
@@ -282,17 +293,25 @@ const getAvailableContactsFiltered = async (req, res) => {
     const userId = req.user.userId;
     const { regionId } = req.query;
     
+    console.log(`📡 getAvailableContacts called for userId: ${userId}, regionId: ${regionId || 'all'}`);
+    
     const filters = {};
     if (regionId) filters.regionId = parseInt(regionId);
     
     const contacts = await Communication.getAvailableContacts(userId, filters);
+    
+    console.log(`✅ Found ${contacts.length} contacts for user ${userId}`);
+    if (contacts.length > 0) {
+      console.log('Sample contacts:', contacts.slice(0, 3).map(c => ({ name: c.name, role: c.role })));
+    }
     
     res.json({
       success: true,
       contacts
     });
   } catch (error) {
-    console.error('Get available contacts error:', error);
+    console.error('❌ Get available contacts error:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch contacts'

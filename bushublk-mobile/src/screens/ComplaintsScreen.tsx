@@ -345,7 +345,7 @@ export default function ComplaintsScreen() {
   }, []);
 
   const handleSubmit = async () => {
-    if (!complaintTypeValue || !routeNumber || !location || !description) {
+    if (!complaintTypeValue || !routeNumber || !description) {
       Alert.alert("Missing Information", "Please fill all required fields before submitting.");
       return;
     }
@@ -366,7 +366,9 @@ export default function ComplaintsScreen() {
       formData.append('complaintType', complaintTypeValue);
       formData.append('routeNumber', routeNumber);
       if (busNumber) formData.append('busNumber', busNumber);
-      formData.append('location', location);
+      if (location.trim()) {
+        formData.append('location', location);
+      }
       // contactInfo will be auto-filled from user profile in backend
       formData.append('date', date.toISOString().split('T')[0]);
       formData.append('time', time.toTimeString().split(' ')[0]);
@@ -643,7 +645,7 @@ export default function ComplaintsScreen() {
             </View>
             
             <View style={styles.locationHeaderRow}>
-              <Text style={styles.label}>Location</Text>
+              <Text style={styles.label}>Location (Optional)</Text>
               <TouchableOpacity 
                 style={styles.fetchLocationButton} 
                 onPress={fetchCurrentLocation}

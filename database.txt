@@ -1023,3 +1023,20 @@ CREATE TABLE rto_notifications_read (
 
 CREATE INDEX IF NOT EXISTS idx_rto_notifications_read_user ON rto_notifications_read(user_id);
 CREATE INDEX IF NOT EXISTS idx_rto_notifications_read_lookup ON rto_notifications_read(source_type, source_id);
+
+INSERT INTO depot_locations (depot_id, latitude, longitude)
+VALUES
+  ((SELECT depot_id FROM depots WHERE depot_name = 'Colombo head office'), 6.901856427567641, 79.87512563112156),
+  ((SELECT depot_id FROM depots WHERE depot_name = 'Angoda'),              6.9230246802637145, 79.9138687979453),
+  ((SELECT depot_id FROM depots WHERE depot_name = 'Avissawella'),         6.95595984302864,  80.20510648630083),
+  ((SELECT depot_id FROM depots WHERE depot_name = 'Central Bus stand'),   6.953542317087216, 80.21181200852274),
+  ((SELECT depot_id FROM depots WHERE depot_name = 'Homagama'),            6.8438213979823255, 80.01198337780819),
+  ((SELECT depot_id FROM depots WHERE depot_name = 'Kesbewa'),             6.796245439598848, 79.94751406766893),
+  ((SELECT depot_id FROM depots WHERE depot_name = 'Katubadda'),           6.802436399532881, 79.88580890664375),
+  ((SELECT depot_id FROM depots WHERE depot_name = 'Maharagama'),          6.8439871037768265, 79.92354168855007),
+  ((SELECT depot_id FROM depots WHERE depot_name = 'Mattakkuliya'),        6.976645694023368, 79.87275614134477),
+  ((SELECT depot_id FROM depots WHERE depot_name = 'Meethotamulla'),       6.935818387271022, 79.88878268976876),
+  ((SELECT depot_id FROM depots WHERE depot_name = 'Moratuwa'),            6.80166609661414,  79.88711985332188),
+  ((SELECT depot_id FROM depots WHERE depot_name = 'Rathmalana'),          6.827868203362745, 79.86864541459542),
+  ((SELECT depot_id FROM depots WHERE depot_name = 'Thalangama'),          6.907194567585722, 79.92633033964414),
+  ((SELECT depot_id FROM depots WHERE depot_name = 'Udahamulla'),          6.865157371925696, 79.91177330664375);
