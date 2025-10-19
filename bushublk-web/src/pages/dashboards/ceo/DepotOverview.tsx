@@ -43,7 +43,7 @@ const DepotNetworkPage: React.FC = () => {
       setLoading(true);
       if (!token) throw new Error('No authentication token found');
 
-      const response = await fetch('http://localhost:5000/api/ceo/depots', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/ceo/depots`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

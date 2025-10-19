@@ -79,7 +79,7 @@ const SparePartsInventory: React.FC = () => {
       }
 
       const response = await axios.post(
-        'http://localhost:5000/api/depot-engineer/notifications/out-of-stock',
+        `${import.meta.env.VITE_API_URL}/api/depot-engineer/notifications/out-of-stock`,
         {
           part_id: partId,
           part_name: partName,
@@ -116,7 +116,7 @@ const SparePartsInventory: React.FC = () => {
       }
 
       const response = await axios.get(
-        'http://localhost:5000/api/depot-engineer/buses',
+        `${import.meta.env.VITE_API_URL}/api/depot-engineer/buses`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -162,7 +162,7 @@ const SparePartsInventory: React.FC = () => {
       }
 
       const response = await axios.get(
-        'http://localhost:5000/api/depot-engineer/spare-parts',
+        `${import.meta.env.VITE_API_URL}/api/depot-engineer/spare-parts`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -214,7 +214,7 @@ const SparePartsInventory: React.FC = () => {
       console.log('📤 Request data:', requestData);
 
       const response = await axios.post(
-        'http://localhost:5000/api/depot-engineer/spare-parts',
+        `${import.meta.env.VITE_API_URL}/api/depot-engineer/spare-parts`,
         requestData,
         {
           headers: {
@@ -256,7 +256,7 @@ const SparePartsInventory: React.FC = () => {
 
     try {
       const response = await axios.put(
-        `http://localhost:5000/api/depot-engineer/spare-parts/${selectedPart.part_id}/restock`,
+        `${import.meta.env.VITE_API_URL}/api/depot-engineer/spare-parts/${selectedPart.part_id}/restock`,
         {
           current_stock: selectedPart.current_stock + restockQuantity
         },
@@ -289,7 +289,7 @@ const SparePartsInventory: React.FC = () => {
 
     try {
       const response = await axios.put(
-        `http://localhost:5000/api/depot-engineer/spare-parts/${selectedPart.part_id}/use`,
+        `${import.meta.env.VITE_API_URL}/api/depot-engineer/spare-parts/${selectedPart.part_id}/use`,
         {
           quantity_used: quantity,
           bus_id: selectedBusId
@@ -340,7 +340,7 @@ const SparePartsInventory: React.FC = () => {
       }
 
       const response = await axios.delete(
-        `http://localhost:5000/api/depot-engineer/spare-parts/${partId}`,
+        `${import.meta.env.VITE_API_URL}/api/depot-engineer/spare-parts/${partId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
