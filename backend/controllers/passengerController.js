@@ -1,4 +1,3 @@
-const nodemailer = require('nodemailer');
 const db = require('../config/db');
 const Passenger = require('../models/passengerModel');
 const notifySmsService = require('../services/notifySmsService');
@@ -7,19 +6,25 @@ const emergencySmsLogService = require('../services/emergencySmsLogService');
 
 // Create email transporter using Nodemailer (same config as emailService.js)
 let emailTransporter = null;
-if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
-  emailTransporter = nodemailer.createTransporter({
-    host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-    port: parseInt(process.env.EMAIL_PORT) || 587,
-    secure: process.env.EMAIL_SECURE === 'true',
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS
-    }
-  });
-  console.log('[passengerController] Email transporter initialized with Nodemailer');
-} else {
-  console.warn('[passengerController] Email credentials not configured. Emergency emails will fail.');
+try {
+  const nodemailer = require('nodemailer');
+  if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+    emailTransporter = nodemailer.createTransporter({
+      host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+      port: parseInt(process.env.EMAIL_PORT) || 587,
+      secure: process.env.EMAIL_SECURE === 'true',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+      }
+    });
+    console.log('[passengerController] Email transporter initialized with Nodemailer');
+  } else {
+    console.warn('[passengerController] Email credentials not configured. Emergency emails will fail.');
+  }
+} catch (error) {
+  console.error('[passengerController] Failed to initialize email transporter:', error.message);
+  console.warn('[passengerController] Emergency emails will be disabled.');
 }
 
 // Helper function to format phone numbers for Notify.lk (94 + 9 digits)

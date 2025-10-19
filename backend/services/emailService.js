@@ -1,38 +1,40 @@
-const nodemailer = require('nodemailer');
-
 const DEFAULT_FROM_EMAIL = process.env.EMAIL_FROM || 'noreply@bushublk.com';
 const DEFAULT_FROM_NAME = process.env.EMAIL_FROM_NAME || 'BusHubLK Support';
 
 // Create transporter using Gmail SMTP (Nodemailer only)
 let transporter = null;
 
-if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
-  transporter = nodemailer.createTransporter({
-    host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-    port: parseInt(process.env.EMAIL_PORT) || 587,
-    secure: process.env.EMAIL_SECURE === 'true', // true for port 465, false for other ports
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS
-    },
-    // Add debugging
-    logger: true,
-    debug: process.env.NODE_ENV === 'development'
-  });
+try {
+  const nodemailer = require('nodemailer');
   
-  // Verify transporter configuration
-  transporter.verify(function (error, success) {
-    if (error) {
-      console.error('[emailService] SMTP connection error:', error);
-    } else {
-      console.log('[emailService] SMTP server is ready to send emails');
-    }
-  });
-  
-  console.log('[emailService] Email service initialized with Nodemailer (Gmail SMTP)');
-} else {
-  console.warn('[emailService] EMAIL_USER or EMAIL_PASS not configured. Emails will be logged but not sent.');
-  console.warn('[emailService] Please set EMAIL_USER and EMAIL_PASS in your .env file');
+  if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+    transporter = nodemailer.createTransporter({
+      host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+      port: parseInt(process.env.EMAIL_PORT) || 587,
+      secure: process.env.EMAIL_SECURE === 'true', // true for port 465, false for other ports
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+      },
+      // Add debugging
+      logger: true,
+      debug: process.env.NODE_ENV === 'development'
+    });
+    
+    // Verify transporter configuration
+    transporter.verify(function (error, success) {
+      if (error) {
+        console.error('[emailService] SMTP connection error:', error);
+      } else {
+        console.log('[emailService] SMTP server is ready to send emails');
+      }
+    });
+  } else {
+    console.warn('[emailService] Email credentials not configured. Email sending will be disabled.');
+  }
+} catch (error) {
+  console.error('[emailService] Failed to initialize email transporter:', error.message);
+  console.warn('[emailService] Email sending will be disabled.');
 }
 
 const buildResetEmail = (toEmail, name, resetLink) => {
