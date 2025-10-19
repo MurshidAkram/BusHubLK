@@ -1,4 +1,3 @@
-
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
@@ -7,7 +6,7 @@ require('dotenv').config(); // Load environment variables at the very beginning
 const http = require('http');
 const { Server } = require('socket.io');
 const setupSocketIO = require('./utils/socketHandler');
-
+// Emergency SMS logging enabled
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -192,6 +191,8 @@ const dailyAssignmentRoutes = require('./routes/dailyAssignmentRoutes');
 app.use('/api/assignments', dailyAssignmentRoutes);
 console.log('✅ dailyAssignmentRoutes loaded');
 
+const depotOpsDashboardRoutes = require('./routes/depotoperationsmanagerdashboardRoutes');
+app.use('/api/depot-ops-dashboard', depotOpsDashboardRoutes);
 
 
 try {
@@ -212,11 +213,11 @@ try {
 
 
 try {
-const depotManagerRoutes = require('./routes/depotManagerRoutes');
-app.use('/api/depot-manager', depotManagerRoutes);
-console.log('✅ depotManagerRoutes loaded');
+  const depotManagerRoutes = require('./routes/depotManagerRoutes');
+  app.use('/api/depot-manager', depotManagerRoutes);
+  console.log('✅ depotManagerRoutes loaded');
 } catch (error) {
-console.log('❌ depotManagerRoutes error: ', error.message);
+  console.log('❌ depotManagerRoutes error: ', error.message);
 }
 
 
@@ -260,6 +261,15 @@ try {
   console.log('✅ notificationRoutes loaded');
 } catch (error) {
   console.log('❌ notificationRoutes error:', error.message);
+}
+
+
+try {
+  const adminNotificationRoutes = require('./routes/adminNotificationRoutes');
+  app.use('/api/admin', adminNotificationRoutes);
+  console.log('✅ adminNotificationRoutes loaded');
+} catch (error) {
+  console.log('❌ adminNotificationRoutes error:', error.message);
 }
 
 try {
@@ -354,6 +364,14 @@ try {
 }
 
 try {
+  const dgmOperationsRoutes = require('./routes/dgmOperationsRoutes');
+  app.use('/api/dgm-operations', dgmOperationsRoutes);
+  console.log('✅ dgmOperationsRoutes loaded');
+} catch (error) {
+  console.log('❌ dgmOperationsRoutes error:', error.message);
+}
+
+try {
   const ceoRoutes = require('./routes/ceoRoutes');
   app.use('/api/ceo', ceoRoutes);
   console.log('✅ ceoRoutes loaded');
@@ -380,6 +398,14 @@ try {
 }
 
 try {
+  const regionalOperationsRoutes = require('./routes/regionalOperationsRoutes');
+  app.use('/api/regional-operations', regionalOperationsRoutes);
+  console.log('✅ regionalOperationsRoutes loaded');
+} catch (error) {
+  console.log('❌ regionalOperationsRoutes error:', error.message);
+}
+
+try {
   const complaintRoutes = require('./routes/complaintRoutes');
   app.use('/api/complaints', complaintRoutes);
   console.log('✅ complaintRoutes loaded');
@@ -395,6 +421,24 @@ console.log('✅ crewRoutes loaded');
 const depotRoutes = require('./routes/depotRoutes');
 app.use('/api/depots', depotRoutes);
 console.log('✅ depotRoutes loaded');
+
+// Register regional operations dashboard routes (protected routes)
+try {
+  const regionalOperationsRoutes = require('./routes/regionaloperationsDashboardRoutes');
+  app.use('/api/regional-dashboard', regionalOperationsRoutes);
+  console.log('✅ regionaloperationsDashboardRoutes loaded');
+} catch (error) {
+  console.log('❌ regionaloperationsDashboardRoutes error:', error.message);
+}
+
+// Register DGM operations dashboard routes (protected routes)
+try {
+  const dgmOpsRoutes = require('./routes/dgmoperationsDashboardRoutes');
+  app.use('/api/dgm-operations-dashboard', dgmOpsRoutes);
+  console.log('✅ dgmoperationsDashboardRoutes loaded');
+} catch (error) {
+  console.log('❌ dgmoperationsDashboardRoutes error:', error.message);
+}
 
 const busTripSummaryRoutes = require('./routes/busTripSummaryRoutes');
 app.use('/api/trip-summary', busTripSummaryRoutes);
@@ -430,7 +474,7 @@ try {
   app.use('/api/communication', communicationRoutes);
   console.log('✅ communicationRoutes loaded');
 } catch (error) {
-  console.log('❌ communicationRoutes error:', error.message);  
+  console.log('❌ communicationRoutes error:', error.message);
 }
 
 // Error handling middleware (should be added after all routes are registered)
@@ -470,3 +514,5 @@ server.listen(PORT, '0.0.0.0', () => {
     console.log('❌ Network utils error:', error.message);
   }
 });
+
+

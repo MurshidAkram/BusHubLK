@@ -241,7 +241,7 @@ const fetchRoutes = async () => {
       const busIds = busLocations.map(bus => parseInt(bus.busId));
       console.log('🔄 Fetching dynamic occupancy data for buses:', busIds);
       
-      const response = await busOccupancyAPI.getAverageOccupancyLevels(busIds, 30); // 30-minute window
+      const response = await busOccupancyAPI.getAverageOccupancyLevels(busIds, 15); // 15-minute window as required
       
       console.log('📊 Raw occupancy API response:', JSON.stringify(response, null, 2));
       console.log('📊 Occupancy data structure:', response.data);
@@ -275,11 +275,14 @@ const fetchRoutes = async () => {
       console.log(`🔀 Bus ${bus.busId} (${bus.registrationNumber}):`, {
         hasData: !!dynamicData,
         data: dynamicData,
-        level: dynamicData?.calculated_occupancy_level
+        level: dynamicData?.calculated_occupancy_level,
+        reportCount: dynamicData?.report_count
       });
       
-      if (dynamicData && dynamicData.calculated_occupancy_level !== 'unknown') {
-        console.log(`✅ Adding occupancy data to bus ${bus.busId}: ${dynamicData.calculated_occupancy_level}`);
+      // Include occupancy data if it exists and has reports (even if level is 'unknown')
+      // Show data as long as there's at least one report
+      if (dynamicData && dynamicData.report_count > 0) {
+        console.log(`✅ Adding occupancy data to bus ${bus.busId}: ${dynamicData.calculated_occupancy_level} (${dynamicData.report_count} reports)`);
         return {
           ...bus,
           dynamicOccupancy: {
@@ -298,7 +301,7 @@ const fetchRoutes = async () => {
           }
         };
       } else {
-        console.log(`❌ No valid occupancy data for bus ${bus.busId}`);
+        console.log(`❌ No valid occupancy data for bus ${bus.busId} (no reports)`);
       }
       return bus;
     });
@@ -355,14 +358,14 @@ const fetchRoutes = async () => {
     // Initial fetch when buses are available
     fetchOccupancyData();
 
-    // Start polling for occupancy data every 5 minutes
+    // Start polling for occupancy data every 2 minutes (to check for new passenger reports)
     if (occupancyPollingRef.current) {
       clearInterval(occupancyPollingRef.current);
     }
     
     occupancyPollingRef.current = setInterval(() => {
       fetchOccupancyData();
-    }, 100000); // Poll every 5 minutes (300,000 ms)
+    }, 120000); // Poll every 2 minutes (120,000 ms) - more frequent for real-time updates
 
     return () => {
       if (occupancyPollingRef.current) {
@@ -406,29 +409,53 @@ const fetchRoutes = async () => {
       return true;
     });
 
-    console.log(`📊 Final result: ${filtered.length} buses after filtering from ${enhancedBuses.length} total`);
+    // Sort by distance (closest first) and limit to 10 buses to prevent performance issues
+    filtered = filtered
+      .sort((a, b) => a.distanceKm - b.distanceKm)
+      .slice(0, 10);
+
+    console.log(`📊 Final result: ${filtered.length} buses after filtering from ${enhancedBuses.length} total (limited to 10 closest buses)`);
     return filtered;
   }, [busLocations, selectedRoute, searchQuery, enhanceBusesWithOccupancyData]);
 
-  // Update map region when filtered buses change
+  // Update map region when filtered buses change (only in normal view)
+  // Use a ref to track the last adjusted region to prevent infinite loops
+  const lastAdjustedRegionRef = useRef<{ latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number } | null>(null);
+  
   useEffect(() => {
-    if (filteredBuses.length > 0 && userLocation) {
+    if (filteredBuses.length > 0 && userLocation && !isFullScreenMap) {
+      // Only adjust region if we have buses and user location, and not in full screen
       const latitudes = [userLocation.latitude, ...filteredBuses.map(bus => bus.latitude)];
       const longitudes = [userLocation.longitude, ...filteredBuses.map(bus => bus.longitude)];
       const minLat = Math.min(...latitudes);
       const maxLat = Math.max(...latitudes);
       const minLng = Math.min(...longitudes);
       const maxLng = Math.max(...longitudes);
-      const region = {
+
+      // Calculate new region
+      const newRegion = {
         latitude: (minLat + maxLat) / 2,
         longitude: (minLng + maxLng) / 2,
         latitudeDelta: Math.max((maxLat - minLat) * 1.5, 0.05),
         longitudeDelta: Math.max((maxLng - minLng) * 1.5, 0.05),
       };
-      setMapRegion(region);
-      mapRef.current?.animateToRegion(region, 1000);
+
+      // Only update if the region has actually changed significantly compared to last adjustment
+      const lastRegion = lastAdjustedRegionRef.current;
+      const regionChanged = !lastRegion || 
+                           Math.abs(newRegion.latitude - lastRegion.latitude) > 0.001 ||
+                           Math.abs(newRegion.longitude - lastRegion.longitude) > 0.001 ||
+                           Math.abs(newRegion.latitudeDelta - lastRegion.latitudeDelta) > 0.01 ||
+                           Math.abs(newRegion.longitudeDelta - lastRegion.longitudeDelta) > 0.01;
+
+      if (regionChanged) {
+        console.log('🔄 Adjusting map region to fit buses and user location');
+        lastAdjustedRegionRef.current = newRegion;
+        setMapRegion(newRegion);
+        mapRef.current?.animateToRegion(newRegion, 1000);
+      }
     }
-  }, [filteredBuses, userLocation]);
+  }, [filteredBuses, userLocation, isFullScreenMap]);
 
   const selectRoute = useCallback((routeNumber: string) => {
     setSelectedRoute(prev => prev === routeNumber ? null : routeNumber);
@@ -466,7 +493,12 @@ const fetchRoutes = async () => {
   }, [filteredBuses, userLocation]);
 
   const toggleFullScreenMap = useCallback(() => {
-    setIsFullScreenMap(prev => !prev);
+    setIsFullScreenMap(prev => {
+      const newValue = !prev;
+      // When entering full screen, don't auto-adjust map region
+      // When exiting full screen, the useEffect will handle region adjustment
+      return newValue;
+    });
   }, []);
 
   // Calculate dynamic distance from passenger to bus
@@ -520,47 +552,76 @@ const fetchRoutes = async () => {
   };
 
   const getOccupancyDisplayText = (bus: BusLocation) => {
-    // Only use passenger report data if available
-    if (bus.dynamicOccupancy && bus.dynamicOccupancy.dataFreshness !== 'no_data') {
-      // Simple occupancy level mapping
+    // Only use passenger report data if available and has at least one report
+    if (bus.dynamicOccupancy && bus.dynamicOccupancy.reportCount > 0) {
+      // Check if last report is older than 5 minutes - show "No Recent Updates"
+      if (bus.dynamicOccupancy.level === 'no_recent_updates' || 
+          (bus.dynamicOccupancy.minutesSinceLastReport !== null && bus.dynamicOccupancy.minutesSinceLastReport > 5)) {
+        return {
+          text: 'No Recent Updates',
+          color: '#6c757d',
+          confidence: 0,
+          freshness: `${bus.dynamicOccupancy.reportCount} report${bus.dynamicOccupancy.reportCount !== 1 ? 's' : ''} (Last ${bus.dynamicOccupancy.minutesSinceLastReport}m ago)`,
+          source: 'passenger_reports',
+          overallCondition: {
+            label: 'No Recent Updates',
+            color: '#6c757d',
+            icon: '⏱️'
+          },
+          trendInfo: getTrendInfo('stable'),
+          reliabilityScore: 0,
+          reportCount: bus.dynamicOccupancy.reportCount
+        };
+      }
+      
+      // Simple occupancy level mapping (for reports within last 5 minutes)
       let simpleLevel = '';
       let levelColor = '';
+      let icon = '❓';
       
       switch (bus.dynamicOccupancy.level) {
         case 'not_crowded':
           simpleLevel = 'Not Crowded';
           levelColor = '#28a745';
+          icon = '🟢';
           break;
         case 'not_too_crowded':
           simpleLevel = 'Moderate';
           levelColor = '#ffc107';
+          icon = '🟡';
           break;
         case 'crowded':
           simpleLevel = 'Crowded';
           levelColor = '#fd7e14';
+          icon = '🟠';
           break;
         case 'very_crowded':
           simpleLevel = 'Very Crowded';
           levelColor = '#dc3545';
+          icon = '🔴';
+          break;
+        case 'unknown':
+          // Even if level is unknown, show that we have reports
+          simpleLevel = `${bus.dynamicOccupancy.reportCount} Report${bus.dynamicOccupancy.reportCount !== 1 ? 's' : ''}`;
+          levelColor = '#17a2b8'; // Info color
+          icon = '📊';
           break;
         default:
-          simpleLevel = 'Unknown';
+          simpleLevel = `${bus.dynamicOccupancy.reportCount} Report${bus.dynamicOccupancy.reportCount !== 1 ? 's' : ''}`;
           levelColor = '#6c757d';
+          icon = '📊';
       }
       
       return {
         text: simpleLevel,
         color: levelColor,
         confidence: bus.dynamicOccupancy.avgConfidence,
-        freshness: bus.dynamicOccupancy.passengerFeedbackSummary,
+        freshness: `${bus.dynamicOccupancy.reportCount} report${bus.dynamicOccupancy.reportCount !== 1 ? 's' : ''} (${bus.dynamicOccupancy.avgConfidence}% confidence)`,
         source: 'passenger_reports',
         overallCondition: {
           label: simpleLevel,
           color: levelColor,
-          icon: bus.dynamicOccupancy.level === 'not_crowded' ? '🟢' : 
-                bus.dynamicOccupancy.level === 'not_too_crowded' ? '🟡' :
-                bus.dynamicOccupancy.level === 'crowded' ? '🟠' : 
-                bus.dynamicOccupancy.level === 'very_crowded' ? '🔴' : '❓'
+          icon: icon
         },
         trendInfo: getTrendInfo(bus.dynamicOccupancy.trendDirection),
         reliabilityScore: bus.dynamicOccupancy.reliabilityScore,
@@ -601,7 +662,6 @@ const fetchRoutes = async () => {
   );
 
   const renderBusItem = ({ item }: { item: BusLocation }) => {
-    const occupancy = item.passengerCount / 60; // Assume capacity is 60
     const timeSinceUpdate = getMinutesSince(item.lastUpdated); // Using Sri Lanka time
     const occupancyDisplay = getOccupancyDisplayText(item);
     const isStaleData = timeSinceUpdate > 2; // Mark as stale if older than 2 minutes
@@ -612,61 +672,93 @@ const fetchRoutes = async () => {
       ? `${Math.round(dynamicDistance)}m` 
       : `${(dynamicDistance / 1000).toFixed(1)}km`;
 
+    // Debug logging
+    console.log(`🎨 Rendering bus card for ${item.registrationNumber}:`, {
+      hasOccupancyDisplay: !!occupancyDisplay,
+      hasDynamicOccupancy: !!item.dynamicOccupancy,
+      reportCount: item.dynamicOccupancy?.reportCount,
+      occupancyLevel: item.dynamicOccupancy?.level,
+      displayText: occupancyDisplay?.text,
+      displayIcon: occupancyDisplay?.overallCondition?.icon
+    });
+
     return (
       <TouchableOpacity
-        style={[
-          styles.busCard,
-          isStaleData && styles.staleBusCard // Add visual indicator for stale data
-        ]}
+        style={styles.busCardNew}
         onPress={() => focusOnBus(item)}
         onLongPress={() => {
           setSelectedBus(item);
           setShowBusDetails(true);
         }}
       >
-        <View style={styles.busHeader}>
-          <View style={styles.busInfo}>
-            <Text style={styles.busId}>{item.registrationNumber}</Text>
-            <Text style={styles.busRoute}>Route {item.routeNumber || 'N/A'}</Text>
+        {/* Header Section - Bus Info and Route */}
+        <View style={styles.busCardHeader}>
+          <View style={styles.busCardLeft}>
+            <Text style={styles.busCardNumber}>{item.registrationNumber}</Text>
+            <View style={styles.busCardRouteContainer}>
+              <Ionicons name="navigate-circle-outline" size={14} color={AppColors.primary} />
+              <Text style={styles.busCardRoute}>Route {item.routeNumber || 'N/A'}</Text>
+            </View>
           </View>
-          <View style={styles.busRightInfo}>
-            {/* Occupancy Display on the right */}
-            {occupancyDisplay ? (
-              <View style={styles.occupancyCompact}>
-                <Text style={styles.occupancyIconSmall}>
-                  {occupancyDisplay.overallCondition?.icon || '🚌'}
-                </Text>
-                <Text style={[styles.occupancyTextCompact, { color: occupancyDisplay.color }]}>
-                  {occupancyDisplay.overallCondition?.label || occupancyDisplay.text}
-                </Text>
-              </View>
-            ) : (
-              <View style={styles.busStatus}>
-                <View style={[styles.statusDot, { backgroundColor: getBusStatusColor(item.status) }]} />
-                <Text style={styles.statusText}>{item.status}</Text>
-              </View>
-            )}
+          
+          <View style={styles.busCardRight}>
+            <View style={styles.busCardDistance}>
+              <Ionicons name="location-outline" size={16} color={AppColors.primary} />
+              <Text style={styles.busCardDistanceText}>{distanceText}</Text>
+            </View>
           </View>
         </View>
 
-        <View style={styles.busDetails}>
-          {/* Dynamic Distance from passenger */}
-          <View style={styles.busDetailRow}>
-            <Ionicons name="pin-outline" size={16} color={AppColors.textSecondary} />
-            <Text style={styles.busDetailText}>
-              Distance: {distanceText} away
+        {/* Occupancy Section - Prominent Display */}
+        <View style={styles.busCardOccupancySection}>
+          {occupancyDisplay && item.dynamicOccupancy ? (
+            <>
+              <View style={[
+                styles.busCardOccupancyBadge,
+                { backgroundColor: occupancyDisplay.color + '15', borderColor: occupancyDisplay.color }
+              ]}>
+                <Text style={styles.busCardOccupancyIcon}>
+                  {occupancyDisplay.overallCondition?.icon || '📊'}
+                </Text>
+                <View style={styles.busCardOccupancyTextContainer}>
+                  <Text style={[styles.busCardOccupancyLevel, { color: occupancyDisplay.color }]}>
+                    {occupancyDisplay.overallCondition?.label || occupancyDisplay.text}
+                  </Text>
+                  <Text style={styles.busCardOccupancySubtext}>
+                    {item.dynamicOccupancy.reportCount} report{item.dynamicOccupancy.reportCount !== 1 ? 's' : ''} • {item.dynamicOccupancy.avgConfidence}% confidence
+                  </Text>
+                </View>
+              </View>
+              
+              {/* Last Update Time */}
+              <Text style={[
+                styles.busCardOccupancyTime,
+                (item.dynamicOccupancy.minutesSinceLastReport !== null && item.dynamicOccupancy.minutesSinceLastReport > 5) && styles.busCardOccupancyTimeStale
+              ]}>
+                <Ionicons name="time-outline" size={12} color={AppColors.textSecondary} />
+                {' '}Updated {item.dynamicOccupancy.minutesSinceLastReport}m ago
+              </Text>
+            </>
+          ) : (
+            <View style={styles.busCardNoOccupancy}>
+              <Ionicons name="information-circle-outline" size={16} color={AppColors.textSecondary} />
+              <Text style={styles.busCardNoOccupancyText}>No passenger reports yet</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Status Footer */}
+        <View style={styles.busCardFooter}>
+          <View style={styles.busCardStatusContainer}>
+            <View style={[styles.busCardStatusDot, { backgroundColor: getBusStatusColor(item.status) }]} />
+            <Text style={styles.busCardStatusText}>{item.status}</Text>
+          </View>
+          {isStaleData && (
+            <Text style={styles.busCardStaleWarning}>
+              <Ionicons name="warning-outline" size={12} color={AppColors.warning} />
+              {' '}May be offline
             </Text>
-          </View>
-        </View>
-
-        <View style={styles.lastUpdated}>
-          <Text style={[
-            styles.lastUpdatedText,
-            isStaleData && styles.staleDataText
-          ]}>
-            Updated {formatTimeSince(item.lastUpdated)}
-            {isStaleData && ' (May be offline)'}
-          </Text>
+          )}
         </View>
       </TouchableOpacity>
     );
@@ -1637,5 +1729,144 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: AppColors.primary,
     fontWeight: '500',
+  },
+  // New Bus Card Styles - Clean and Modern
+  busCardNew: {
+    backgroundColor: AppColors.card,
+    marginHorizontal: 16,
+    marginVertical: 6,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: AppColors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  busCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: AppColors.border + '40',
+  },
+  busCardLeft: {
+    flex: 1,
+  },
+  busCardNumber: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: AppColors.text,
+    marginBottom: 4,
+  },
+  busCardRouteContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  busCardRoute: {
+    fontSize: 13,
+    color: AppColors.primary,
+    fontWeight: '600',
+  },
+  busCardRight: {
+    alignItems: 'flex-end',
+  },
+  busCardDistance: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: AppColors.primary + '10',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    gap: 4,
+  },
+  busCardDistanceText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: AppColors.primary,
+  },
+  busCardOccupancySection: {
+    marginBottom: 12,
+  },
+  busCardOccupancyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 2,
+    marginBottom: 6,
+  },
+  busCardOccupancyIcon: {
+    fontSize: 32,
+    marginRight: 12,
+  },
+  busCardOccupancyTextContainer: {
+    flex: 1,
+  },
+  busCardOccupancyLevel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 2,
+  },
+  busCardOccupancySubtext: {
+    fontSize: 12,
+    color: AppColors.textSecondary,
+  },
+  busCardOccupancyTime: {
+    fontSize: 11,
+    color: AppColors.textSecondary,
+    fontStyle: 'italic',
+    textAlign: 'right',
+  },
+  busCardOccupancyTimeStale: {
+    color: AppColors.warning,
+    fontWeight: '600',
+  },
+  busCardNoOccupancy: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: AppColors.background,
+    borderRadius: 8,
+    gap: 8,
+  },
+  busCardNoOccupancyText: {
+    fontSize: 13,
+    color: AppColors.textSecondary,
+    fontStyle: 'italic',
+  },
+  busCardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: AppColors.border + '40',
+  },
+  busCardStatusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  busCardStatusDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  busCardStatusText: {
+    fontSize: 12,
+    color: AppColors.textSecondary,
+    textTransform: 'capitalize',
+    fontWeight: '500',
+  },
+  busCardStaleWarning: {
+    fontSize: 11,
+    color: AppColors.warning,
+    fontWeight: '600',
   },
 });

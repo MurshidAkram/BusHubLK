@@ -1,4 +1,58 @@
 const Communication = require('../models/communicationModel');
+const notifySmsService = require('../services/notifySmsService');
+
+const maybeBroadcastNotifyAnnouncement = async ({ channelId, senderId, messageText }) => {
+  if (!notifySmsService.hasNotifyCredentials) {
+    console.warn('Notify.lk SMS: credentials missing, skipping broadcast.');
+    return;
+  }
+
+  try {
+    const channelInfo = await Communication.getChannelInfo(channelId, senderId);
+
+    if (!channelInfo) {
+      console.warn(`Notify.lk SMS: channel ${channelId} not found or inaccessible for sender ${senderId}.`);
+      return;
+    }
+
+    const creatorParticipant = Array.isArray(channelInfo.participants)
+      ? channelInfo.participants.find((participant) => participant.user_id === channelInfo.created_by)
+      : null;
+
+    const creatorRole = creatorParticipant?.role;
+
+    const shouldBroadcast = notifySmsService.shouldTriggerCeoAnnouncementBroadcast({
+      channelId,
+      senderId,
+      channelCreatorId: channelInfo.created_by,
+      creatorRole
+    });
+
+    if (!shouldBroadcast) {
+      console.info(
+        `Notify.lk SMS: broadcast skipped (channelId=${channelId}, senderId=${senderId}, creatorId=${channelInfo.created_by}, role=${creatorRole}).`
+      );
+      return;
+    }
+
+    const announcementMessage = channelInfo.channel_name
+      ? `${channelInfo.channel_name}: ${messageText}`
+      : `CEO Announcement: ${messageText}`;
+
+    const result = await notifySmsService.sendSmsToActivePassengers({
+      message: announcementMessage,
+      channelId,
+      senderId
+    });
+
+    if (!result || result.requested === 0) {
+      console.warn('Notify.lk broadcast executed but no valid passenger phone numbers were found.');
+    }
+  } catch (error) {
+    const details = error?.response?.data || error.message;
+    console.error('Failed to send Notify.lk announcement broadcast:', details);
+  }
+};
 
 // Get all channels for the authenticated user
 const getUserChannels = async (req, res) => {
@@ -59,7 +113,15 @@ const sendMessage = async (req, res) => {
       });
     }
 
-    const message = await Communication.sendMessage(channelId, senderId, messageText.trim());
+    const trimmedMessage = messageText.trim();
+
+    const message = await Communication.sendMessage(channelId, senderId, trimmedMessage);
+
+    await maybeBroadcastNotifyAnnouncement({
+      channelId,
+      senderId,
+      messageText: trimmedMessage
+    });
     
     // Emit socket event (will be handled by socket.io)
     if (req.io) {
@@ -268,7 +330,13 @@ const createAnnouncementChannel = async (req, res) => {
 
     // Send initial message if provided
     if (initialMessage && initialMessage.trim()) {
-      await Communication.sendMessage(channelId, creatorId, initialMessage.trim());
+      const trimmedInitialMessage = initialMessage.trim();
+      await Communication.sendMessage(channelId, creatorId, trimmedInitialMessage);
+      await maybeBroadcastNotifyAnnouncement({
+        channelId,
+        senderId: creatorId,
+        messageText: trimmedInitialMessage
+      });
     }
 
     // Get channel info

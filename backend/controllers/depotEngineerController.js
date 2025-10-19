@@ -52,9 +52,86 @@ const getBusesForDepotEngineer = async (req, res) => {
 };
 
 // Update bus status (only status can be updated by depot engineer)
+const ALLOWED_SEVERITY_VALUES = new Set(['low', 'medium', 'high']);
+
+const formatDateAsISO = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+const resolvePartPayload = (partsPayload = []) => {
+    const partDefinitions = BusDailyChecklist.partDefinitions || [];
+    const defaultState = new Map(partDefinitions.map((part) => [part.key, {
+        key: part.key,
+        label: part.label,
+        hasIssue: false,
+        notes: null,
+        severity: null
+    }]));
+
+    if (!Array.isArray(partsPayload)) {
+        return Array.from(defaultState.values());
+    }
+
+    partsPayload.forEach((raw) => {
+        if (!raw) {
+            return;
+        }
+
+        let key = typeof raw.key === 'string' ? raw.key.trim().toLowerCase() : typeof raw.partKey === 'string' ? raw.partKey.trim().toLowerCase() : '';
+
+        if (key === 'turn_signals' || key === 'turnsignals' || key === 'signal_lights') {
+            key = 'signallights';
+        }
+
+        if (key === 'lights' || key === 'head_lights' || key === 'head-light' || key === 'head-lighting') {
+            key = 'headlights';
+        }
+
+        if (!defaultState.has(key)) {
+            return;
+        }
+
+        const hasIssue = Boolean(raw.hasIssue ?? raw.issue ?? raw.isIssue);
+        const notes = typeof raw.notes === 'string' && raw.notes.trim().length > 0
+            ? raw.notes.trim()
+            : typeof raw.description === 'string' && raw.description.trim().length > 0
+                ? raw.description.trim()
+                : null;
+
+        let severity = null;
+        if (hasIssue) {
+            const severitySource = typeof raw.severity === 'string'
+                ? raw.severity
+                : typeof raw.level === 'string'
+                    ? raw.level
+                    : null;
+
+            if (severitySource) {
+                const normalised = severitySource.trim().toLowerCase();
+                if (ALLOWED_SEVERITY_VALUES.has(normalised)) {
+                    severity = normalised;
+                }
+            }
+        }
+
+        defaultState.set(key, {
+            key,
+            label: defaultState.get(key).label,
+            hasIssue,
+            notes: hasIssue ? notes : null,
+            severity: hasIssue ? severity : null
+        });
+    });
+
+    return Array.from(defaultState.values());
+};
+
 const updateBusStatus = async (req, res) => {
     const { bus_id } = req.params;
-    const { status } = req.body;
+    const { status, part_checking_data } = req.body;
 
     try {
         // Use getRoleSpecificDetails here as well
@@ -84,11 +161,252 @@ const updateBusStatus = async (req, res) => {
 
         const updatedBus = await Bus.update(bus_id, { status });
 
-        res.json({
+        let checklistRecord = null;
+        let automaticServiceSummary = null;
+
+        if (part_checking_data) {
+            const { statusAfterCheck, parts } = part_checking_data;
+            const resolvedParts = resolvePartPayload(parts);
+
+            console.log('Resolved checklist parts payload:', resolvedParts);
+
+            const missingDescriptions = resolvedParts.filter((part) => part.hasIssue && (!part.notes || part.notes.trim().length === 0));
+            const missingSeverity = resolvedParts.filter((part) => part.hasIssue && (!part.severity || !ALLOWED_SEVERITY_VALUES.has(part.severity)));
+
+            if (missingDescriptions.length > 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Please provide issue descriptions for: ${missingDescriptions.map((part) => part.label).join(', ')}`
+                });
+            }
+
+            if (missingSeverity.length > 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Please select severity for: ${missingSeverity.map((part) => part.label).join(', ')}`
+                });
+            }
+
+            checklistRecord = await BusDailyChecklist.upsertForToday({
+                bus_id: Number(bus_id),
+                checker_id: Number(req.user.userId),
+                status_after_check: statusAfterCheck || status,
+                parts: resolvedParts
+            });
+
+            let schedulingParts = resolvedParts.map((part) => ({
+                key: part.key,
+                label: part.label,
+                hasIssue: part.hasIssue,
+                notes: part.notes,
+                severity: part.severity
+            }));
+
+            try {
+                const todayDate = formatDateAsISO(new Date());
+                const persistedChecklist = await BusDailyChecklist.getByBusAndDate(Number(bus_id), todayDate);
+
+                if (persistedChecklist?.parts?.length) {
+                    schedulingParts = persistedChecklist.parts.map((partRow) => ({
+                        key: partRow.part_key || partRow.key,
+                        label: partRow.part_label || partRow.label || partRow.part_key || partRow.key || 'Unknown Part',
+                        hasIssue: Boolean(partRow.has_issue ?? partRow.hasIssue),
+                        notes: partRow.notes ?? null,
+                        severity: partRow.severity ? String(partRow.severity).trim().toLowerCase() : null
+                    }));
+                }
+            } catch (persistErr) {
+                console.warn('Unable to load persisted checklist parts, falling back to request payload:', persistErr);
+            }
+
+            const extractNoteDescription = (note) => {
+                if (typeof note !== 'string') {
+                    return '';
+                }
+
+                const trimmed = note.trim();
+
+                if (!trimmed) {
+                    return '';
+                }
+
+                const notesMatch = trimmed.match(/Notes?\s*:\s*(.+)$/i);
+                if (notesMatch?.[1]) {
+                    return notesMatch[1].trim();
+                }
+
+                return trimmed.replace(/^(?:low|medium|high)\s+severity\s+follow-up\s*:\s*/i, '').trim();
+            };
+
+            const issueParts = schedulingParts.filter((part) => part.hasIssue);
+            const hasHighSeverityIssue = issueParts.some((part) => part.severity === 'high');
+
+            if (hasHighSeverityIssue && bus.depot_id) {
+                const nextDay = new Date();
+                nextDay.setDate(nextDay.getDate() + 1);
+                nextDay.setHours(0, 0, 0, 0);
+                const nextDayDate = formatDateAsISO(nextDay);
+
+                const existingSchedules = await ServiceSchedule.getByBusAndDate(bus.bus_id, nextDayDate);
+                const existingByType = new Map();
+                existingSchedules.forEach((schedule) => {
+                    if (schedule?.service_type) {
+                        existingByType.set(String(schedule.service_type).toLowerCase(), schedule);
+                    }
+                });
+
+                const activeAutoFollowUps = await ServiceSchedule.getActiveAutoFollowUps(bus.bus_id);
+                const activeIdentifierSet = new Set();
+                const activeScheduleLookup = new Map();
+                activeAutoFollowUps.forEach((schedule) => {
+                    if (typeof schedule.service_type === 'string') {
+                        const lowerType = schedule.service_type.toLowerCase();
+                        const match = lowerType.match(/auto follow-up \[([^\]]+)\]/);
+                        const identifier = match?.[1];
+                        if (identifier) {
+                            activeIdentifierSet.add(identifier);
+                            activeScheduleLookup.set(identifier, schedule);
+                        }
+                    }
+                });
+
+                const scheduleResults = [];
+
+                for (const part of issueParts) {
+                    const partLabel = part.label || part.key || 'Unknown Part';
+                    const severityLabel = (part.severity || 'unspecified').toUpperCase();
+                    const identifierSource = (part.key || partLabel).toString().trim().toLowerCase();
+                    const identifier = identifierSource.replace(/[^a-z0-9]+/g, '-');
+                    const noteSummary = extractNoteDescription(part.notes);
+                    const description = noteSummary && noteSummary.length > 0 ? noteSummary : partLabel;
+
+                    let serviceType = `Auto follow-up [${identifier}] ${partLabel} (${severityLabel})`;
+                    if (description && description.length > 0) {
+                        serviceType = `${serviceType} - ${description}`;
+                    }
+
+                    if (serviceType.length > 240) {
+                        serviceType = `${serviceType.slice(0, 237)}...`;
+                    }
+
+                    const baseResult = {
+                        part_key: part.key || identifier,
+                        part_label: partLabel,
+                        severity: part.severity || null,
+                        scheduled_date: nextDayDate,
+                        service_type: serviceType,
+                        note_excerpt: noteSummary || null,
+                        description
+                    };
+
+                    if (activeIdentifierSet.has(identifier)) {
+                        scheduleResults.push({
+                            ...baseResult,
+                            outcome: 'existing_active',
+                            schedule: activeScheduleLookup.get(identifier) || existingByType.get(serviceType.toLowerCase()) || null
+                        });
+                        continue;
+                    }
+
+                    if (existingByType.has(serviceType.toLowerCase())) {
+                        scheduleResults.push({
+                            ...baseResult,
+                            outcome: 'existing',
+                            schedule: existingByType.get(serviceType.toLowerCase())
+                        });
+                        continue;
+                    }
+
+                    try {
+                        const createdSchedule = await ServiceSchedule.create({
+                            service_type: serviceType,
+                            bus_id: bus.bus_id,
+                            scheduled_date: nextDayDate,
+                            depot_id: bus.depot_id
+                        });
+
+                        const hydratedSchedule = createdSchedule?.id
+                            ? await ServiceSchedule.findById(createdSchedule.id)
+                            : null;
+
+                        const scheduleRecord = hydratedSchedule || createdSchedule;
+
+                        scheduleResults.push({
+                            ...baseResult,
+                            outcome: 'created',
+                            schedule: scheduleRecord
+                        });
+
+                        existingByType.set(serviceType.toLowerCase(), scheduleRecord);
+                        activeIdentifierSet.add(identifier);
+                        activeScheduleLookup.set(identifier, scheduleRecord);
+                    } catch (scheduleErr) {
+                        console.error(`Automatic service scheduling failed for part ${partLabel}:`, scheduleErr);
+                        scheduleResults.push({
+                            ...baseResult,
+                            outcome: 'error',
+                            error: scheduleErr.message || 'Automatic follow-up scheduling failed.'
+                        });
+                    }
+                }
+
+                if (scheduleResults.length > 0) {
+                    const createdCount = scheduleResults.filter((entry) => entry.outcome === 'created').length;
+                    const existingCount = scheduleResults.filter((entry) => entry.outcome === 'existing' || entry.outcome === 'existing_active').length;
+                    const errorCount = scheduleResults.filter((entry) => entry.outcome === 'error').length;
+
+                    automaticServiceSummary = {
+                        triggered: true,
+                        scheduled_date: nextDayDate,
+                        summary: {
+                            created: createdCount,
+                            existing: existingCount,
+                            failed: errorCount
+                        },
+                        results: scheduleResults,
+                        created: createdCount > 0,
+                        skipped: existingCount > 0 && createdCount === 0 && errorCount === 0,
+                        error: errorCount > 0,
+                        updated: false
+                    };
+                }
+            }
+        }
+
+        let message = 'Bus status updated successfully';
+        if (automaticServiceSummary?.triggered) {
+            const { summary, scheduled_date } = automaticServiceSummary;
+            const fragments = [];
+
+            if (summary?.created) {
+                fragments.push(`${summary.created} follow-up service${summary.created === 1 ? '' : 's'} scheduled for ${scheduled_date}`);
+            }
+
+            if (summary?.existing) {
+                fragments.push(`${summary.existing} existing follow-up service${summary.existing === 1 ? '' : 's'} already scheduled`);
+            }
+
+            if (summary?.failed) {
+                fragments.push(`${summary.failed} follow-up service${summary.failed === 1 ? '' : 's'} failed to schedule automatically`);
+            }
+
+            if (fragments.length > 0) {
+                message += ` (${fragments.join(' | ')})`;
+            }
+        }
+
+        const responsePayload = {
             success: true,
-            message: 'Bus status updated successfully',
-            bus: updatedBus
-        });
+            message,
+            bus: updatedBus,
+            checklist: checklistRecord
+        };
+
+        if (automaticServiceSummary) {
+            responsePayload.automatic_service_schedule = automaticServiceSummary;
+        }
+
+        res.json(responsePayload);
     } catch (err) {
         console.error('Update bus status error:', err);
         res.status(500).json({
@@ -130,15 +448,22 @@ const getServiceHistoryForBus = async (req, res) => {
         }
 
         const schedules = await ServiceSchedule.getByBusId(bus_id);
-        const completedSchedules = Array.isArray(schedules)
-            ? schedules.filter((schedule) => (schedule.status || '').toLowerCase() === 'completed')
+        const enrichedSchedules = Array.isArray(schedules)
+            ? schedules.map((schedule) => ({
+                ...schedule,
+                calculated_status: ServiceSchedule.calculateStatus(
+                    schedule.scheduled_date,
+                    schedule.status,
+                    schedule.is_deleted
+                )
+            }))
             : [];
 
         res.json({
             success: true,
             message: 'Service history retrieved successfully',
-            schedules: completedSchedules,
-            count: completedSchedules.length,
+            schedules: enrichedSchedules,
+            count: enrichedSchedules.length,
             bus: {
                 bus_id: bus.bus_id,
                 registration_number: bus.registration_number,
@@ -264,30 +589,8 @@ const reviewConditionReport = async (req, res) => {
     }
 };
 
-const CHECKLIST_PART_KEYS = [
-    'engine',
-    'brakes',
-    'tires',
-    'windows',
-    'doors',
-    'lights',
-    'turn_signals',
-    'fire_extinguisher'
-];
-
-const isChecklistPartPassed = (value) => {
-    if (typeof value === 'boolean') {
-        return value;
-    }
-    if (typeof value === 'number') {
-        return value === 1;
-    }
-    if (typeof value === 'string') {
-        const normalized = value.trim().toLowerCase();
-        return normalized === 'true' || normalized === '1' || normalized === 'yes';
-    }
-    return false;
-};
+const CHECKLIST_PART_DEFINITIONS = BusDailyChecklist.partDefinitions || [];
+const CHECKLIST_PART_KEYS = CHECKLIST_PART_DEFINITIONS.map((part) => part.key);
 
 const getDailyChecklistsWithIssues = async (req, res) => {
     try {
@@ -315,11 +618,27 @@ const getDailyChecklistsWithIssues = async (req, res) => {
 
         const issues = [];
         for (const checklist of latestChecklistByBus.values()) {
-            const missedParts = CHECKLIST_PART_KEYS.filter((key) => !isChecklistPartPassed(checklist[key]));
+            let missedParts = [];
+            let missedPartDetails = [];
+
+            if (Array.isArray(checklist.parts) && checklist.parts.length > 0) {
+                const partsWithIssues = checklist.parts.filter((part) => part.has_issue);
+                missedParts = partsWithIssues.map((part) => part.part_label || part.part_key);
+                missedPartDetails = partsWithIssues.map((part) => ({
+                    key: part.part_key,
+                    label: part.part_label,
+                    notes: part.notes || null,
+                    severity: part.severity || null
+                }));
+            } else {
+                missedParts = CHECKLIST_PART_KEYS.filter((key) => !Array.isArray(checklist[key]) && !checklist[key]);
+            }
+
             if (missedParts.length > 0) {
                 issues.push({
                     ...checklist,
-                    missed_parts: missedParts
+                    missed_parts: missedParts,
+                    missed_part_details: missedPartDetails
                 });
             }
         }

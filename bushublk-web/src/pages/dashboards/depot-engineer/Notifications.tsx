@@ -4,7 +4,14 @@ import { HiOutlineBell, HiOutlineShieldExclamation, HiOutlineCheckCircle } from 
 import { AxiosError } from 'axios';
 import axios from 'axios';
 
-type NotificationSourceType = 'bus_condition_report' | 'emergency_report' | 'emergency_message' | 'inspection' | 'manager_chat';
+type NotificationSourceType =
+	| 'bus_condition_report'
+	| 'emergency_report'
+	| 'emergency_message'
+	| 'inspection'
+	| 'manager_chat'
+	| 'announcement'
+	| 'direct_message';
 
 type DepotEngineerNotification = {
 	source_type: NotificationSourceType;
@@ -38,8 +45,15 @@ const SOURCE_LABEL: Record<NotificationSourceType, string> = {
 	emergency_report: 'Emergency Report',
 	emergency_message: 'Emergency Message',
 	inspection: 'Inspection',
-	manager_chat: 'Manager Chat'
+	manager_chat: 'Manager Chat',
+	announcement: 'Announcement',
+	direct_message: 'Direct Message'
 };
+
+const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/+$/, '');
+const buildDepotEngineerNotificationsUrl = () => `${API_BASE_URL}/api/depot-engineer/notifications`;
+const buildDepotEngineerMarkReadUrl = () => `${API_BASE_URL}/api/depot-engineer/notifications/mark-read`;
+const buildDepotEngineerMarkAllReadUrl = () => `${API_BASE_URL}/api/depot-engineer/notifications/mark-all-read`;
 
 const Notifications: React.FC = () => {
 		const appContext = useContext(AppContext);
@@ -78,7 +92,7 @@ const Notifications: React.FC = () => {
 		setError(null);
 
 		try {
-			const response = await axios.get('http://localhost:5000/api/depot-engineer/notifications', {
+			const response = await axios.get(buildDepotEngineerNotificationsUrl(), {
 				headers: {
 					Authorization: `Bearer ${token}`
 				},
@@ -108,7 +122,7 @@ const Notifications: React.FC = () => {
 
 		try {
 			const response = await axios.post(
-				'http://localhost:5000/api/depot-engineer/notifications/mark-read',
+				buildDepotEngineerMarkReadUrl(),
 				{
 					sourceType: notification.source_type,
 					sourceId: notification.source_id
@@ -139,7 +153,7 @@ const Notifications: React.FC = () => {
 
 		try {
 			const response = await axios.post(
-				'http://localhost:5000/api/depot-engineer/notifications/mark-all-read',
+				buildDepotEngineerMarkAllReadUrl(),
 				{},
 				{
 					headers: {

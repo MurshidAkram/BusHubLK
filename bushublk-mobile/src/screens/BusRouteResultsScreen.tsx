@@ -423,7 +423,10 @@ export default function BusRouteResultsScreen({ route, navigation }: any) {
     });
   };
 
-  const renderBusRoute = ({ item }: { item: any }) => (
+  const renderBusRoute = ({ item }: { item: any }) => {
+    const isReturnTrip = item.journey?.is_return_trip || item.direction === 'reverse';
+    
+    return (
     <TouchableOpacity 
       style={styles.enhancedRouteCard}
       onPress={() => handleRouteCardPress(item.route_number)}
@@ -443,6 +446,12 @@ export default function BusRouteResultsScreen({ route, navigation }: any) {
           <View style={styles.operatorInfo}>
             <Text style={styles.operatorText}>SLTB</Text>
             <Text style={styles.routeNameText}>{item.route_name}</Text>
+            {isReturnTrip && (
+              <View style={styles.returnTripBadge}>
+                <Ionicons name="swap-horizontal" size={12} color={AppColors.warning} />
+                <Text style={styles.returnTripText}>Return Trip</Text>
+              </View>
+            )}
           </View>
         </View>
         
@@ -490,7 +499,8 @@ export default function BusRouteResultsScreen({ route, navigation }: any) {
         <Ionicons name="chevron-forward" size={16} color={AppColors.primary} />
       </View>
     </TouchableOpacity>
-  );
+    );
+  };
 
   return (
     <LinearGradient
@@ -499,111 +509,144 @@ export default function BusRouteResultsScreen({ route, navigation }: any) {
       end={{ x: 1, y: 1 }}
       style={styles.gradientContainer}
     >
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={["top"]}>
         <StatusBar 
-          barStyle="dark-content"
-          backgroundColor="transparent"
-          translucent={true}
+          barStyle="light-content"
+          backgroundColor="#0056b3"
+          translucent={false}
         />
         
         {/* Header */}
         <LinearGradient
-          colors={[AppColors.primary, '#007bff']}
+          colors={['#0056b3', '#1976d2', '#42a5f5']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.headerGradient}
         >
           <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
-        >
-          <Ionicons name="arrow-back" size={24} color={AppColors.card} />
-        </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => navigation.goBack()}
+              style={styles.iconBackground}
+            >
+              <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
             <View style={styles.headerContent}>
               <Text style={styles.headerTitle}>Route Results</Text>
-              <Text style={styles.headerSubtitle}>BusHubLK</Text>
             </View>
+            <View style={styles.headerPlaceholder} />
           </View>
         </LinearGradient>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.contentContainer}>
           {/* Route Summary Card */}
-          <View style={styles.compactSummaryCard}>
-            <View style={styles.compactLocationContainer}>
-              <View style={styles.compactLocationItem}>
-                <View style={[styles.compactLocationDot, { backgroundColor: AppColors.success }]} />
-                <Text style={styles.compactLocationText} numberOfLines={1}>{fromText}</Text>
+          <View style={styles.summaryCardWrapper}>
+            <LinearGradient
+              colors={['#FFFFFF', '#F8FAFF']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.compactSummaryCard}
+            >
+              <View style={styles.compactLocationContainer}>
+                <View style={styles.compactLocationItem}>
+                  <View style={[styles.compactLocationDot, { backgroundColor: AppColors.success }]} />
+                  <Text style={styles.compactLocationText} numberOfLines={1}>{fromText}</Text>
+                </View>
+                <Ionicons name="arrow-forward" size={16} color={AppColors.textSecondary} style={styles.arrowIcon} />
+                <View style={styles.compactLocationItem}>
+                  <View style={[styles.compactLocationDot, { backgroundColor: AppColors.warning }]} />
+                  <Text style={styles.compactLocationText} numberOfLines={1}>{toText}</Text>
+                </View>
               </View>
-              <Ionicons name="arrow-forward" size={16} color={AppColors.textSecondary} style={styles.arrowIcon} />
-              <View style={styles.compactLocationItem}>
-                <View style={[styles.compactLocationDot, { backgroundColor: AppColors.warning }]} />
-                <Text style={styles.compactLocationText} numberOfLines={1}>{toText}</Text>
-              </View>
-            </View>
+            </LinearGradient>
           </View>
 
 {loading && (
-  <View style={styles.loadingContainer}>
-    <ActivityIndicator size="large" color={AppColors.primary} />
-    <Text style={styles.loadingText}>Calculating distance for your journey...</Text>
-    <Text style={[styles.loadingText, {fontSize: 12, marginTop: 8, color: AppColors.textSecondary}]}>
-      Finding stops "{fromText}" → "{toText}" using Google Maps
-    </Text>
+  <View style={styles.loadingCardWrapper}>
+    <LinearGradient
+      colors={['#FFFFFF', '#F8FAFF']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.loadingContainer}
+    >
+      <View style={styles.loadingIconContainer}>
+        <LinearGradient
+          colors={['#E7F1FF', '#F0F8FF']}
+          style={styles.loadingIconGradient}
+        >
+          <ActivityIndicator size="large" color={AppColors.primary} />
+        </LinearGradient>
+      </View>
+      <Text style={styles.loadingText}>Calculating distance for your journey...</Text>
+      <Text style={[styles.loadingText, {fontSize: 12, marginTop: 8, color: AppColors.textSecondary}]}>
+        Finding stops "{fromText}" → "{toText}" using Google Maps
+      </Text>
+    </LinearGradient>
   </View>
 )}
 
 {/* Map View */}
 {showMap && mapRegion && routeCoordinates.length > 0 && (
-  <View style={styles.mapContainer}>
-    <View style={styles.mapHeader}>
-      <Ionicons name="map-outline" size={20} color={AppColors.primary} />
-      <Text style={styles.mapTitle}>Route Map</Text>
-    </View>
-    <View style={styles.mapWrapper}>
-      <MapView
-        ref={mapRef}
-        provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
-        style={styles.map}
-        initialRegion={mapRegion}
-        showsUserLocation={true}
-        showsMyLocationButton={true}
-        showsCompass={true}
-        showsScale={true}
-        mapType="standard"
-        loadingEnabled={true}
-        loadingIndicatorColor={AppColors.primary}
-        loadingBackgroundColor={AppColors.background}
-      >
-        <Marker
-          coordinate={routeCoordinates[0]}
-          title="Start Location"
-          description={fromText}
-          pinColor="green"
+  <View style={styles.mapContainerWrapper}>
+    <LinearGradient
+      colors={['#FFFFFF', '#F8FAFF']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.mapContainer}
+    >
+      <View style={styles.mapHeader}>
+        <LinearGradient
+          colors={['#E7F1FF', '#F0F8FF']}
+          style={styles.mapHeaderIconContainer}
         >
-          <View style={styles.customMarker}>
-            <Ionicons name="location" size={24} color={AppColors.success} />
-          </View>
-        </Marker>
-        <Marker
-          coordinate={routeCoordinates[routeCoordinates.length - 1]}
-          title="Destination"
-          description={toText}
-          pinColor="red"
+          <Ionicons name="map-outline" size={20} color={AppColors.primary} />
+        </LinearGradient>
+        <Text style={styles.mapTitle}>Route Map</Text>
+      </View>
+      <View style={styles.mapWrapper}>
+        <MapView
+          ref={mapRef}
+          provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+          style={styles.map}
+          initialRegion={mapRegion}
+          showsUserLocation={true}
+          showsMyLocationButton={true}
+          showsCompass={true}
+          showsScale={true}
+          mapType="standard"
+          loadingEnabled={true}
+          loadingIndicatorColor={AppColors.primary}
+          loadingBackgroundColor={AppColors.background}
         >
-          <View style={styles.customMarker}>
-            <Ionicons name="flag" size={24} color={AppColors.warning} />
-          </View>
-        </Marker>
-        <Polyline
-          coordinates={routeCoordinates}
-          strokeColor={AppColors.primary}
-          strokeWidth={4}
-          lineDashPattern={[1]}
-        />
-      </MapView>
-    </View>
+          <Marker
+            coordinate={routeCoordinates[0]}
+            title="Start Location"
+            description={fromText}
+            pinColor="green"
+          >
+            <View style={styles.customMarker}>
+              <Ionicons name="location" size={24} color={AppColors.success} />
+            </View>
+          </Marker>
+          <Marker
+            coordinate={routeCoordinates[routeCoordinates.length - 1]}
+            title="Destination"
+            description={toText}
+            pinColor="red"
+          >
+            <View style={styles.customMarker}>
+              <Ionicons name="flag" size={24} color={AppColors.warning} />
+            </View>
+          </Marker>
+          <Polyline
+            coordinates={routeCoordinates}
+            strokeColor={AppColors.primary}
+            strokeWidth={4}
+            lineDashPattern={[1]}
+          />
+        </MapView>
+      </View>
+    </LinearGradient>
   </View>
 )}
 
@@ -611,14 +654,25 @@ export default function BusRouteResultsScreen({ route, navigation }: any) {
 
 {/* Bus Stops Along Route */}
 {busStops.length > 0 && (
-  <View style={styles.stopsContainer}>
-    <View style={styles.sectionHeader}>
-      <Ionicons name="location-outline" size={24} color={AppColors.primary} />
-      <Text style={styles.sectionTitle}>Bus Stops Along Route</Text>
-      <View style={styles.routeCount}>
-        <Text style={styles.routeCountText}>{busStops.length}</Text>
+  <View style={styles.stopsContainerWrapper}>
+    <LinearGradient
+      colors={['#FFFFFF', '#F8FAFF']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.stopsContainer}
+    >
+      <View style={styles.sectionHeader}>
+        <LinearGradient
+          colors={['#E7F1FF', '#F0F8FF']}
+          style={styles.sectionIconContainer}
+        >
+          <Ionicons name="location-outline" size={24} color={AppColors.primary} />
+        </LinearGradient>
+        <Text style={styles.sectionTitle}>Bus Stops Along Route</Text>
+        <View style={styles.routeCount}>
+          <Text style={styles.routeCountText}>{busStops.length}</Text>
+        </View>
       </View>
-    </View>
     
     {/* Simplified Statistics */}
     {realCalculatedDistance && (
@@ -696,6 +750,7 @@ export default function BusRouteResultsScreen({ route, navigation }: any) {
         Fare calculated using {calculationMethod === 'city_based' ? 'city data' : calculationMethod === 'transit_based' ? 'transit data' : 'distance estimation'}
       </Text>
     )}
+    </LinearGradient>
   </View>
 )}
 
@@ -725,30 +780,54 @@ export default function BusRouteResultsScreen({ route, navigation }: any) {
 )}
 
 {availableRoutes.length === 0 && fare !== null && !loading && (
-  <View style={styles.noRoutesCard}>
-    <View style={styles.noRoutesIcon}>
-      <Ionicons
-        name="information-circle-outline"
-        size={32}
-        color={AppColors.warning}
-      />
-    </View>
-    <Text style={styles.noRoutesTitle}>No Direct Routes Found</Text>
-    <Text style={styles.noRoutesText}>
-      Based on {numberOfStops} bus stops along this route, the estimated fare would be around Rs. {fare.toFixed(0)}. You may need to take connecting buses or alternative transport.
-    </Text>
+  <View style={styles.noRoutesCardWrapper}>
+    <LinearGradient
+      colors={['#FFFFFF', '#F8FAFF']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.noRoutesCard}
+    >
+      <View style={styles.noRoutesIconWrapper}>
+        <LinearGradient
+          colors={['#FFF3CD', '#FFF8E1']}
+          style={styles.noRoutesIcon}
+        >
+          <Ionicons
+            name="information-circle-outline"
+            size={32}
+            color={AppColors.warning}
+          />
+        </LinearGradient>
+      </View>
+      <Text style={styles.noRoutesTitle}>No Direct Routes Found</Text>
+      <Text style={styles.noRoutesText}>
+        Based on {numberOfStops} bus stops along this route, the estimated fare would be around Rs. {fare.toFixed(0)}. You may need to take connecting buses or alternative transport.
+      </Text>
+    </LinearGradient>
   </View>
 )}
 
 {fare === null && !loading && (
-  <View style={styles.errorCard}>
-    <View style={styles.errorIcon}>
-      <Ionicons name="alert-circle-outline" size={32} color={AppColors.warning} />
-    </View>
-    <Text style={styles.errorTitle}>Route Not Found</Text>
-    <Text style={styles.errorText}>
-      No route found between the selected locations. Please try different locations.
-    </Text>
+  <View style={styles.errorCardWrapper}>
+    <LinearGradient
+      colors={['#FFFFFF', '#F8FAFF']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.errorCard}
+    >
+      <View style={styles.errorIconWrapper}>
+        <LinearGradient
+          colors={['#FFE5E5', '#FFF0F0']}
+          style={styles.errorIcon}
+        >
+          <Ionicons name="alert-circle-outline" size={32} color={AppColors.warning} />
+        </LinearGradient>
+      </View>
+      <Text style={styles.errorTitle}>Route Not Found</Text>
+      <Text style={styles.errorText}>
+        No route found between the selected locations. Please try different locations.
+      </Text>
+    </LinearGradient>
   </View>
 )}
         </View>
@@ -759,6 +838,9 @@ export default function BusRouteResultsScreen({ route, navigation }: any) {
 }
 
 const styles = StyleSheet.create({
+  gradientContainer: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     backgroundColor: 'transparent',
@@ -767,34 +849,63 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 10,
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 16,
     backgroundColor: 'transparent',
   },
-  backButton: {
-    padding: 8,
+  iconBackground: {
+    width: 40,
+    height: 40,
     borderRadius: 20,
-    backgroundColor: "rgba(255,255,255,0.2)",
+    backgroundColor: "rgba(255,255,255,0.25)",
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.3)",
   },
   headerContent: {
     flex: 1,
-    marginLeft: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: "bold",
-    color: AppColors.card,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    letterSpacing: 0.5,
+    textAlign: 'center',
+  },
+  headerPlaceholder: {
+    width: 40,
+    height: 40,
   },
   headerSubtitle: {
     fontSize: 14,
-    color: "rgba(255,255,255,0.8)",
+    color: "rgba(255,255,255,0.9)",
     marginTop: 2,
+    fontWeight: "500",
   },
   scrollView: {
     flex: 1,
   },
   contentContainer: {
     padding: 20,
+  },
+  summaryCardWrapper: {
+    marginBottom: 16,
+    borderRadius: 16,
+    ...Platform.select({
+      android: {
+        elevation: 6,
+      },
+      ios: {
+        shadowColor: "#000",
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 6 },
+      },
+    }),
   },
   summaryCard: {
     backgroundColor: AppColors.card,
@@ -840,43 +951,101 @@ const styles = StyleSheet.create({
     marginLeft: 5,
     marginVertical: 4,
   },
+  loadingCardWrapper: {
+    marginBottom: 20,
+    borderRadius: 16,
+    ...Platform.select({
+      android: {
+        elevation: 6,
+      },
+      ios: {
+        shadowColor: "#000",
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 6 },
+      },
+    }),
+  },
   loadingContainer: {
-    backgroundColor: AppColors.card,
     borderRadius: 16,
     padding: 40,
     alignItems: "center",
+  },
+  loadingIconContainer: {
     marginBottom: 20,
+  },
+  loadingIconGradient: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
     ...Platform.select({
-      ios: {
-        shadowColor: AppColors.shadow,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
       android: {
-        elevation: 2,
+        elevation: 4,
+      },
+      ios: {
+        shadowColor: AppColors.primary,
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 4 },
       },
     }),
   },
   loadingText: {
     fontSize: 16,
-    color: AppColors.textSecondary,
+    color: AppColors.text,
     marginTop: 16,
-    fontWeight: "500",
+    fontWeight: "600",
+    textAlign: 'center',
+  },
+  mapContainerWrapper: {
+    marginBottom: 20,
+    borderRadius: 16,
+    ...Platform.select({
+      android: {
+        elevation: 6,
+      },
+      ios: {
+        shadowColor: "#000",
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 6 },
+      },
+    }),
   },
   mapContainer: {
-    marginBottom: 20,
+    borderRadius: 16,
+    padding: 16,
   },
   mapHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: 16,
+  },
+  mapHeaderIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+    ...Platform.select({
+      android: {
+        elevation: 2,
+      },
+      ios: {
+        shadowColor: AppColors.primary,
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 2 },
+      },
+    }),
   },
   mapTitle: {
     fontSize: 18,
-    fontWeight: "bold",
+    fontWeight: "700",
     color: AppColors.text,
-    marginLeft: 8,
   },
   mapWrapper: {
     borderRadius: 16,
@@ -968,12 +1137,31 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 16,
+    paddingBottom: 8,
+  },
+  sectionIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+    ...Platform.select({
+      android: {
+        elevation: 2,
+      },
+      ios: {
+        shadowColor: AppColors.primary,
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 2 },
+      },
+    }),
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: "bold",
+    fontWeight: "700",
     color: AppColors.text,
-    marginLeft: 8,
     flex: 1,
   },
   routeCount: {
@@ -1267,35 +1455,52 @@ const styles = StyleSheet.create({
     color: AppColors.textSecondary,
     lineHeight: 20,
   },
-  noRoutesCard: {
-    backgroundColor: AppColors.card,
-    borderRadius: 16,
-    padding: 24,
-    alignItems: "center",
+  noRoutesCardWrapper: {
     marginBottom: 20,
-    borderWidth: 1,
-    borderColor: AppColors.warning + "30",
+    borderRadius: 16,
     ...Platform.select({
-      ios: {
-        shadowColor: AppColors.shadow,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
       android: {
-        elevation: 2,
+        elevation: 6,
+      },
+      ios: {
+        shadowColor: "#000",
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 6 },
       },
     }),
   },
-  noRoutesIcon: {
-    backgroundColor: AppColors.warning + "20",
-    borderRadius: 30,
-    padding: 16,
+  noRoutesCard: {
+    borderRadius: 16,
+    padding: 24,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: AppColors.warning + "30",
+  },
+  noRoutesIconWrapper: {
     marginBottom: 16,
+  },
+  noRoutesIcon: {
+    borderRadius: 40,
+    width: 80,
+    height: 80,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...Platform.select({
+      android: {
+        elevation: 4,
+      },
+      ios: {
+        shadowColor: AppColors.warning,
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 4 },
+      },
+    }),
   },
   noRoutesTitle: {
     fontSize: 18,
-    fontWeight: "bold",
+    fontWeight: "700",
     color: AppColors.text,
     marginBottom: 8,
     textAlign: "center",
@@ -1306,35 +1511,52 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 20,
   },
-  errorCard: {
-    backgroundColor: AppColors.card,
-    borderRadius: 16,
-    padding: 24,
-    alignItems: "center",
+  errorCardWrapper: {
     marginBottom: 20,
-    borderWidth: 1,
-    borderColor: AppColors.warning + "30",
+    borderRadius: 16,
     ...Platform.select({
-      ios: {
-        shadowColor: AppColors.shadow,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
       android: {
-        elevation: 2,
+        elevation: 6,
+      },
+      ios: {
+        shadowColor: "#000",
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 6 },
       },
     }),
   },
-  errorIcon: {
-    backgroundColor: AppColors.warning + "20",
-    borderRadius: 30,
-    padding: 16,
+  errorCard: {
+    borderRadius: 16,
+    padding: 24,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: AppColors.warning + "30",
+  },
+  errorIconWrapper: {
     marginBottom: 16,
+  },
+  errorIcon: {
+    borderRadius: 40,
+    width: 80,
+    height: 80,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...Platform.select({
+      android: {
+        elevation: 4,
+      },
+      ios: {
+        shadowColor: AppColors.warning,
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 4 },
+      },
+    }),
   },
   errorTitle: {
     fontSize: 18,
-    fontWeight: "bold",
+    fontWeight: "700",
     color: AppColors.text,
     marginBottom: 8,
     textAlign: "center",
@@ -1345,8 +1567,24 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 20,
   },
-  stopsContainer: {
+  stopsContainerWrapper: {
     marginBottom: 20,
+    borderRadius: 16,
+    ...Platform.select({
+      android: {
+        elevation: 6,
+      },
+      ios: {
+        shadowColor: "#000",
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 6 },
+      },
+    }),
+  },
+  stopsContainer: {
+    borderRadius: 16,
+    padding: 16,
   },
   stopsCard: {
     backgroundColor: AppColors.card,
@@ -1545,23 +1783,8 @@ const styles = StyleSheet.create({
 
   // Compact Summary Card
   compactSummaryCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(222, 226, 230, 0.6)',
-    ...Platform.select({
-      ios: {
-        shadowColor: AppColors.shadow,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+    borderRadius: 16,
+    padding: 16,
   },
   compactLocationContainer: {
     flexDirection: 'row',
@@ -1574,30 +1797,34 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   compactLocationDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 8,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 10,
   },
   compactLocationText: {
-    fontSize: 14,
+    fontSize: 15,
     color: AppColors.text,
-    fontWeight: '500',
+    fontWeight: '600',
     flex: 1,
   },
   arrowIcon: {
     marginHorizontal: 12,
   },
 
-  // Gradient Container
-  gradientContainer: {
-    flex: 1,
-  },
-  
   // Header Gradient
   headerGradient: {
-    borderBottomWidth: 1,
-    borderBottomColor: AppColors.border,
+    ...Platform.select({
+      android: {
+        elevation: 8,
+      },
+      ios: {
+        shadowColor: "#000",
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 4 },
+      },
+    }),
   },
 
   // Track Buses Section
@@ -1618,5 +1845,23 @@ const styles = StyleSheet.create({
     marginHorizontal: 8,
     flex: 1,
     textAlign: 'center',
+  },
+
+  // Return Trip Badge
+  returnTripBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: AppColors.warning + '20',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginTop: 4,
+    alignSelf: 'flex-start',
+  },
+  returnTripText: {
+    fontSize: 11,
+    color: AppColors.warning,
+    fontWeight: '600',
+    marginLeft: 4,
   },
 });

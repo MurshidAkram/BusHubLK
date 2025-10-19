@@ -19,6 +19,7 @@ import Employees from './pages/dashboards/admin/Employees'
 import BusManaging from './pages/dashboards/admin/BusManaging'
 import RoutesMngmnt from './pages/dashboards/admin/RoutesMngmnt'
 import CommunicationHub from './pages/dashboards/depot-manager/communicationHub'
+import AdminNotifications from './pages/dashboards/admin/Notifications'
 
 
 
@@ -58,6 +59,7 @@ import DepotEscalateissues from './pages/dashboards/depot-engineer/DepotEscalate
 import Depotcommunityhub from './pages/dashboards/depot-engineer/communicationHub'
 import Depotinspection from './pages/dashboards/depot-engineer/DepotInspection'
 import DepotEngineerNotifications from './pages/dashboards/depot-engineer/Notifications'
+import DepotGenerateReports from './pages/dashboards/depot-engineer/Generate_reports'
 
 
 
@@ -69,6 +71,7 @@ import Inspectionschedular from './pages/dashboards/regional-tech/Inspectionsche
 import Rtoissuetracker from './pages/dashboards/regional-tech/Rtoissuetracker'
 import Regioncommunityhub from './pages/dashboards/regional-tech/communicationHub'  
 import RTONotifications from './pages/dashboards/regional-tech/RTONotifications'
+import RegionalGenerateReports from './pages/dashboards/regional-tech/Generate_reports'
 
 
 // Regional Operations Officer Components
@@ -81,6 +84,7 @@ import CrewOverview from './pages/dashboards/regional-ops/CrewOverview'
 import IncidentTracking from './pages/dashboards/regional-ops/IncidentTracking'
 import CommCenter from './pages/dashboards/regional-ops/communicationHub'
 import OpsReports from './pages/dashboards/regional-ops/OpsReports'
+import RegionalOpsNotifications from './pages/dashboards/regional-ops/RegionalOpsNotifications'
 
 // DGM Operations Components
 import DGMOperationsSidebarContent from './components/dgm-ops/DGMOperationsSidebarContent'
@@ -90,6 +94,7 @@ import CommunicationCenter from './pages/dashboards/dgm-ops/CommunicationHub'
 import Feedback from './pages/dashboards/dgm-ops/Feedback'
 import ExecutiveSettings from './pages/dashboards/dgm-ops/ExecutiveSettings'
 import CrewOversight from './pages/dashboards/dgm-ops/CrewOversight'
+import DGMOperationsNotifications from './pages/dashboards/dgm-ops/Notification'
 
 // DGM Technical Components
 import DGMTechnicalSidebarContent from './components/dgm-tech/DGMTechnicalSidebarContent'
@@ -173,6 +178,7 @@ const App = () => {
     <Route path="buses" element={<BusManaging />} />
     <Route path="routes" element={<RoutesMngmnt />} />
       <Route path="communication-hub" element={<CommunicationHub />} />
+    <Route path="notifications" element={<AdminNotifications />} />
     {/* Add more admin routes as needed */}
   </Route>
 </Route>
@@ -221,6 +227,7 @@ const App = () => {
           <Route path="Autoforwardbusstatus" element={<Autoforwardbusstatus />} />
           <Route path="DepotEscalateissues" element={<DepotEscalateissues />} />
           <Route path="Depotcommunityhub" element={<Depotcommunityhub />} />
+          <Route path="Depotreports" element={<DepotGenerateReports />} />
           {/* Add individual pages later */}
         </Route>
         </Route>
@@ -235,6 +242,7 @@ const App = () => {
           <Route path="Rtoissuetracker" element={<Rtoissuetracker />} />
           <Route path="Regioncommunityhub" element={<Regioncommunityhub />} />
           <Route path="notifications" element={<RTONotifications />} />
+          <Route path="Regionreports" element={<RegionalGenerateReports />} />
           {/* Add individual pages later */}
         </Route>
         </Route>
@@ -249,6 +257,7 @@ const App = () => {
     <Route path="crew-overview" element={<CrewOverview />} />
     <Route path="incident-tracking" element={<IncidentTracking />} />
     <Route path="communication-hub" element={<CommCenter />} />
+  <Route path="notifications" element={<RegionalOpsNotifications />} />
     <Route path="ops-reports" element={<OpsReports />} />
     
             {/* Add individual pages later */}
@@ -264,6 +273,7 @@ const App = () => {
     <Route path="feedback" element={<Feedback />} />
     <Route path="executive-settings" element={<ExecutiveSettings />} />
      <Route path="crew-oversight" element={<CrewOversight />} />
+    <Route path="notifications" element={<DGMOperationsNotifications />} />
     {/* Add individual pages later */}
   </Route>
 </Route>

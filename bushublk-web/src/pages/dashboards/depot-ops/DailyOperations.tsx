@@ -19,7 +19,10 @@ const DailyOperations: React.FC = () => {
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [assignmentDate, setAssignmentDate] = useState<string>(() => {
     const today = new Date();
-    return today.toISOString().slice(0, 10);
+    const localDateString = today.getFullYear() + '-' +
+      String(today.getMonth() + 1).padStart(2, '0') + '-' +
+      String(today.getDate()).padStart(2, '0');
+    return localDateString;
   });
 
   // Modal state
@@ -52,7 +55,7 @@ const DailyOperations: React.FC = () => {
       try {
         setIsLoading(true);
         setError('');
-        const routesRes = await fetch('http://localhost:5000/api/routes/', {
+        const routesRes = await fetch(`${import.meta.env.VITE_API_URL}/api/routes/`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (!routesRes.ok) throw new Error('Failed to fetch routes');
@@ -79,7 +82,7 @@ const DailyOperations: React.FC = () => {
       setError('');
       try {
         const res = await fetch(
-          `http://localhost:5000/api/assignments/route/${selectedRouteId}/daily-schedule?date=${assignmentDate}`,
+          `${import.meta.env.VITE_API_URL}/api/assignments/route/${selectedRouteId}/daily-schedule?date=${assignmentDate}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         if (!res.ok) throw new Error('Failed to fetch daily schedule');
@@ -111,7 +114,7 @@ const DailyOperations: React.FC = () => {
       try {
         // Buses
         const busesRes = await fetch(
-          `http://localhost:5000/api/assignments/available-buses?depot_id=${user.depot_id}&date=${assignmentDate}`,
+          `${import.meta.env.VITE_API_URL}/api/assignments/available-buses?depot_id=${user.depot_id}&date=${assignmentDate}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         const busesData = await busesRes.json();
@@ -119,7 +122,7 @@ const DailyOperations: React.FC = () => {
 
         // Drivers
         const driversRes = await fetch(
-          `http://localhost:5000/api/assignments/available-drivers?depot_id=${user.depot_id}&date=${assignmentDate}`,
+          `${import.meta.env.VITE_API_URL}/api/assignments/available-drivers?depot_id=${user.depot_id}&date=${assignmentDate}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         const driversData = await driversRes.json();
@@ -127,7 +130,7 @@ const DailyOperations: React.FC = () => {
 
         // Conductors
         const conductorsRes = await fetch(
-          `http://localhost:5000/api/assignments/available-conductors?depot_id=${user.depot_id}&date=${assignmentDate}`,
+          `${import.meta.env.VITE_API_URL}/api/assignments/available-conductors?depot_id=${user.depot_id}&date=${assignmentDate}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         const conductorsData = await conductorsRes.json();
@@ -196,7 +199,7 @@ const DailyOperations: React.FC = () => {
       // If assignment exists, update it
       if (modalSlot?.assignment) {
         const response = await fetch(
-          `http://localhost:5000/api/assignments/assign/${modalSlot.assignment.assignment_id}`,
+          `${import.meta.env.VITE_API_URL}/api/assignments/assign/${modalSlot.assignment.assignment_id}`,
           {
             method: 'PUT',
             headers: {
@@ -215,7 +218,7 @@ const DailyOperations: React.FC = () => {
       } else {
         // Assign from template (create a new assignment for the selected date)
         const response = await fetch(
-          `http://localhost:5000/api/assignments/assign-from-template/${modalSlot?.id}`,
+          `${import.meta.env.VITE_API_URL}/api/assignments/assign-from-template/${modalSlot?.id}`,
           {
             method: 'POST',
             headers: {
@@ -256,7 +259,7 @@ const DailyOperations: React.FC = () => {
     try {
       setIsLoading(true);
       const response = await fetch(
-        `http://localhost:5000/api/assignments/soft-delete/${assignmentId}`,
+        `${import.meta.env.VITE_API_URL}/api/assignments/soft-delete/${assignmentId}`,
         {
           method: 'PUT',
           headers: { Authorization: `Bearer ${token}` }
@@ -310,7 +313,7 @@ const DailyOperations: React.FC = () => {
       setIsLoading(true);
       setError('');
       const res = await fetch(
-        `http://localhost:5000/api/assignments/route/${selectedRouteId}/templates/${editSlot?.id}`,
+        `${import.meta.env.VITE_API_URL}/api/assignments/route/${selectedRouteId}/templates/${editSlot?.id}`,
         {
           method: 'PUT',
           headers: {
@@ -354,7 +357,7 @@ const DailyOperations: React.FC = () => {
       setIsLoading(true);
       setError('');
       const res = await fetch(
-        `http://localhost:5000/api/assignments/soft-delete/${slotId}`,
+        `${import.meta.env.VITE_API_URL}/api/assignments/soft-delete/${slotId}`,
         {
           method: 'PUT',
           headers: { Authorization: `Bearer ${token}` }
@@ -401,7 +404,7 @@ const DailyOperations: React.FC = () => {
       try {
         // Buses
         const busesRes = await fetch(
-          `http://localhost:5000/api/assignments/available-buses?depot_id=${user.depot_id}&date=${assignmentDate}`,
+          `${import.meta.env.VITE_API_URL}/api/assignments/available-buses?depot_id=${user.depot_id}&date=${assignmentDate}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         const busesData = await busesRes.json();
@@ -409,7 +412,7 @@ const DailyOperations: React.FC = () => {
 
         // Drivers
         const driversRes = await fetch(
-          `http://localhost:5000/api/assignments/available-drivers?depot_id=${user.depot_id}&date=${assignmentDate}`,
+          `${import.meta.env.VITE_API_URL}/api/assignments/available-drivers?depot_id=${user.depot_id}&date=${assignmentDate}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         const driversData = await driversRes.json();
@@ -417,7 +420,7 @@ const DailyOperations: React.FC = () => {
 
         // Conductors
         const conductorsRes = await fetch(
-          `http://localhost:5000/api/assignments/available-conductors?depot_id=${user.depot_id}&date=${assignmentDate}`,
+          `${import.meta.env.VITE_API_URL}/api/assignments/available-conductors?depot_id=${user.depot_id}&date=${assignmentDate}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         const conductorsData = await conductorsRes.json();
@@ -429,6 +432,9 @@ const DailyOperations: React.FC = () => {
 
     fetchAvailable();
   }, [user, token, assignmentDate]);
+
+  // Above your return, define today's date string:
+  const todayDateString = new Date().toISOString().split('T')[0];
 
   if (isLoading) return <div className="p-4 text-center">Loading data...</div>;
 
@@ -442,6 +448,7 @@ const DailyOperations: React.FC = () => {
           value={assignmentDate}
           onChange={e => setAssignmentDate(e.target.value)}
           className="border rounded px-2 py-1"
+          max={todayDateString}
         />
       </div>
 
@@ -561,7 +568,7 @@ const DailyOperations: React.FC = () => {
                 try {
                   setIsLoading(true);
                   setError('');
-                  const res = await fetch(`http://localhost:5000/api/assignments/route/${selectedRouteId}/templates`, {
+                  const res = await fetch(`${import.meta.env.VITE_API_URL}/api/assignments/route/${selectedRouteId}/templates`, {
                     method: 'POST',
                     headers: {
                       'Content-Type': 'application/json',
@@ -814,7 +821,7 @@ const DailyOperations: React.FC = () => {
                               {slot.assignment ? (
                                 <>
                                   <div className="font-medium">{slot.assignment.bus_registration}</div>
-                                  <div className="text-sm text-gray-500">{slot.assignment.bus_type}</div>
+                                  <div className="text-sm text-gray-500">Class {slot.assignment.bus_type}</div>
                                 </>
                               ) : (
                                 <span className="bg-red-100 text-red-800 px-2.5 py-0.5 rounded-full text-xs font-medium">Not assigned</span>
