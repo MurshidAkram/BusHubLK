@@ -566,7 +566,7 @@ const SparePartsInventory: React.FC = () => {
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Part ID</th> */}
+                  {/*    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Part ID</th>*/}
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Part Details</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Restocked</th>
@@ -577,9 +577,10 @@ const SparePartsInventory: React.FC = () => {
                 {filteredParts.length > 0 ? (
                   filteredParts.map((part) => (
                     <tr key={part.id} className="hover:bg-gray-50">
-                      {/* <td className="px-6 py-4">
+                   {/*   <td className="px-6 py-4">
                         <div className="font-medium text-blue-600">{part.part_id}</div>
-                      </td> */}
+                      </td>
+                   */}
                       <td className="px-6 py-4">
                         <div>
                           <div className="font-medium text-gray-900">{part.part_name}</div>

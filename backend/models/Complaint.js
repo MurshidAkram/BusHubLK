@@ -77,11 +77,15 @@ class Complaint {
       cb = () => {};
     }
 
+    // join users to return reporter email/phone alongside complaint row
     let query = `
-      SELECT *, COALESCE(updated_at, created_at) AS last_updated_at
-      FROM complaints
-      WHERE user_id = $1
-      ORDER BY COALESCE(updated_at, created_at) DESC
+      SELECT c.*, COALESCE(c.updated_at, c.created_at) AS last_updated_at,
+             u.email AS reporter_email,
+             u.phone AS reporter_phone
+      FROM complaints c
+      LEFT JOIN users u ON c.user_id = u.user_id
+      WHERE c.user_id = $1
+      ORDER BY COALESCE(c.updated_at, c.created_at) DESC
     `;
     const params = [userId];
 
@@ -102,10 +106,14 @@ class Complaint {
 
   // Get all complaints (admin only)
   static getAll(callback) {
+    // include reporter email/phone by joining users
     const query = `
-      SELECT *, COALESCE(updated_at, created_at) AS last_updated_at
-      FROM complaints
-      ORDER BY COALESCE(updated_at, created_at) DESC
+      SELECT c.*, COALESCE(c.updated_at, c.created_at) AS last_updated_at,
+             u.email AS reporter_email,
+             u.phone AS reporter_phone
+      FROM complaints c
+      LEFT JOIN users u ON c.user_id = u.user_id
+      ORDER BY COALESCE(c.updated_at, c.created_at) DESC
     `;
     db.query(query, (err, results) => {
       if (err) {
@@ -117,7 +125,15 @@ class Complaint {
 
   // Get complaint by ID
   static getById(id, callback) {
-    const query = 'SELECT * FROM complaints WHERE id = $1';
+    const query = `
+      SELECT c.*, COALESCE(c.updated_at, c.created_at) AS last_updated_at,
+             u.email AS reporter_email,
+             u.phone AS reporter_phone
+      FROM complaints c
+      LEFT JOIN users u ON c.user_id = u.user_id
+      WHERE c.id = $1
+      LIMIT 1
+    `;
     db.query(query, [id], (err, results) => {
       if (err) {
         return callback(err, null);

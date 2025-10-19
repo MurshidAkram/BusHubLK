@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { CheckCircle, AlertTriangle, X, Calendar, Filter, Download, Eye } from 'lucide-react';
 
-// API Configuration
-const API_BASE_URL = 'http://localhost:5000';
+// API Configuration derived from Vite env (adds `/api` once here)
+const API_BASE_URL = `${import.meta.env.VITE_API_URL}/api`;
 
 interface LostFoundReport {
   report_id: number;
@@ -44,6 +44,40 @@ interface Statistics {
   pending_reports: number;
 }
 
+const sanitizeReporterName = (report: LostFoundReport) => {
+  const invalidTokens = new Set([
+    '',
+    'null',
+    '[null]',
+    'undefined',
+    'n/a',
+    'na',
+    '-',
+    'none',
+    'passenger'
+  ]);
+
+  const rawName = (report.passenger_name ?? '').trim();
+  if (rawName && !invalidTokens.has(rawName.toLowerCase())) {
+    return rawName;
+  }
+
+  const contactEmail = (report.contact_email ?? '').trim();
+  if (contactEmail) {
+    const prefix = contactEmail.split('@')[0]?.trim();
+    if (prefix && !invalidTokens.has(prefix.toLowerCase())) {
+      return prefix;
+    }
+  }
+
+  const contactPhone = (report.contact_phone ?? '').trim();
+  if (contactPhone && !invalidTokens.has(contactPhone.toLowerCase())) {
+    return contactPhone;
+  }
+
+  return 'Not provided';
+};
+
 const IncidentManagement = () => {
   // State Management
   const [reports, setReports] = useState<LostFoundReport[]>([]);
@@ -79,6 +113,8 @@ const IncidentManagement = () => {
     pending_reports: 0
   });
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
+  // today's date (YYYY-MM-DD) used to prevent selecting future dates
+  const today = new Date().toISOString().slice(0, 10);
 
   // API Functions
   const fetchReports = useCallback(async () => {
@@ -96,7 +132,7 @@ const IncidentManagement = () => {
       if (statusFilter !== 'All') queryParams.append('status', statusFilter);
       if (dateFilter) queryParams.append('date', dateFilter);
 
-      const response = await fetch(`${API_BASE_URL}/api/incident-management/reports?${queryParams}`);
+  const response = await fetch(`${API_BASE_URL}/incident-management/reports?${queryParams}`);
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -106,14 +142,19 @@ const IncidentManagement = () => {
       console.log('📊 API Response:', data);
 
       if (data.success) {
-        setReports(data.data || []);
-        setPagination(data.pagination || {
-          current_page: 1,
-          total_pages: 1,
-          total_items: 0,
-          items_per_page: 20
+        // ensure latest incident_date first (server may return unsorted)
+        const rows = Array.isArray(data.data) ? data.data.slice() : [];
+        rows.sort((a: LostFoundReport, b: LostFoundReport) => {
+          return new Date(b.incident_date).getTime() - new Date(a.incident_date).getTime();
         });
-        console.log(`✅ Loaded ${data.data?.length || 0} reports`);
+        setReports(rows);
+         setPagination(data.pagination || {
+           current_page: 1,
+           total_pages: 1,
+           total_items: 0,
+           items_per_page: 20
+         });
+         console.log(`✅ Loaded ${data.data?.length || 0} reports`);
       } else {
         throw new Error(data.message || 'Failed to fetch reports');
       }
@@ -132,7 +173,7 @@ const IncidentManagement = () => {
       const queryParams = new URLSearchParams();
       if (dateFilter) queryParams.append('date', dateFilter);
 
-      const response = await fetch(`${API_BASE_URL}/api/incident-management/statistics?${queryParams}`);
+  const response = await fetch(`${API_BASE_URL}/incident-management/statistics?${queryParams}`);
       
       if (!response.ok) {
         console.warn('Failed to fetch statistics, using defaults');
@@ -152,7 +193,7 @@ const IncidentManagement = () => {
   const fetchAvailableCategories = useCallback(async () => {
     try {
       console.log('📦 Fetching available categories...');
-      const response = await fetch(`${API_BASE_URL}/api/incident-management/categories`);
+  const response = await fetch(`${API_BASE_URL}/incident-management/categories`);
       
       if (!response.ok) {
         console.warn('Failed to fetch categories, using defaults');
@@ -174,7 +215,7 @@ const IncidentManagement = () => {
   const handleResolveReport = async (reportId: number) => {
     try {
       console.log('🔄 Resolving report:', reportId);
-      const response = await fetch(`${API_BASE_URL}/api/incident-management/reports/${reportId}/resolve`, {
+  const response = await fetch(`${API_BASE_URL}/incident-management/reports/${reportId}/resolve`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -216,7 +257,7 @@ const IncidentManagement = () => {
       if (statusFilter !== 'All') queryParams.append('status', statusFilter);
       if (dateFilter) queryParams.append('date', dateFilter);
 
-      const response = await fetch(`${API_BASE_URL}/api/incident-management/export/csv?${queryParams}`);
+  const response = await fetch(`${API_BASE_URL}/incident-management/export/csv?${queryParams}`);
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -402,7 +443,13 @@ const IncidentManagement = () => {
                 type="date"
                 className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                 value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
+                max={today}
+                onChange={(e) => {
+                  // guard: prevent future dates if user manipulates value
+                  const v = e.target.value;
+                  if (v && v > today) return;
+                  setDateFilter(v);
+                }}
                 placeholder="Select date"
               />
             </div>
@@ -502,7 +549,7 @@ const IncidentManagement = () => {
                     Item Category
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Passenger Info
+                    Reporter Info
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     Status
@@ -517,7 +564,7 @@ const IncidentManagement = () => {
                   <tr key={report.report_id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <div className="font-medium text-gray-900">{formatDate(report.incident_date)}</div>
-                      <div className="text-xs text-gray-400">{report.incident_time}</div>
+                    
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex px-3 py-1 text-xs font-medium rounded-full ${getTypeColor(report.report_type)}`}>
@@ -530,7 +577,7 @@ const IncidentManagement = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{report.passenger_name}</div>
+                      <div className="text-sm font-medium text-gray-900">{sanitizeReporterName(report)}</div>
                       <div className="text-xs text-gray-500">{report.contact_phone}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -615,8 +662,8 @@ const IncidentManagement = () => {
 
       {/* Modal for Report Details */}
       {showModal && selectedReport && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+        <div className="fixed inset-0 backdrop-blur-sm bg-white/10 flex items-center justify-center z-50 p-4">
+   <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="p-8">
               <div className="flex justify-between items-center mb-8">
                 <h2 className="text-3xl font-bold text-gray-900">Report Details</h2>
@@ -678,11 +725,11 @@ const IncidentManagement = () => {
                   </div>
 
                   <div className="bg-gray-50 rounded-xl p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Passenger Information</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Reporter Information</h3>
                     <div className="space-y-4">
                       <div>
                         <label className="text-sm font-medium text-gray-500">Name</label>
-                        <p className="text-sm text-gray-900 mt-1 font-medium">{selectedReport.passenger_name}</p>
+                        <p className="text-sm text-gray-900 mt-1 font-medium">{sanitizeReporterName(selectedReport)}</p>
                       </div>
                       <div>
                         <label className="text-sm font-medium text-gray-500">Email</label>
@@ -695,21 +742,41 @@ const IncidentManagement = () => {
                     </div>
                   </div>
 
-                  {selectedReport.driver_name && selectedReport.driver_name !== 'N/A' && (
-                    <div className="bg-gray-50 rounded-xl p-6">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Driver Information</h3>
-                      <div className="space-y-4">
-                        <div>
-                          <label className="text-sm font-medium text-gray-500">Name</label>
-                          <p className="text-sm text-gray-900 mt-1 font-medium">{selectedReport.driver_name}</p>
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium text-gray-500">Phone</label>
-                          <p className="text-sm text-gray-900 mt-1 font-medium">{selectedReport.driver_phone}</p>
+                  {(() => {
+                    if (!selectedReport) return null;
+                    // If backend provides driver_id use it as the primary signal
+                    const hasDriverId = (selectedReport as any).driver_id !== undefined && (selectedReport as any).driver_id !== null;
+
+                    // Fallback: validate driver_name / driver_phone strings
+                    const rawName = typeof selectedReport.driver_name === 'string' ? selectedReport.driver_name.trim() : '';
+                    const rawPhone = typeof selectedReport.driver_phone === 'string' ? selectedReport.driver_phone.trim() : '';
+                    const invalids = ['', 'null', '[null]', 'undefined', 'n/a', 'na', '-', 'none'];
+                    const validName = rawName && !invalids.includes(rawName.toLowerCase());
+                    const validPhone = rawPhone && !invalids.includes(rawPhone.toLowerCase());
+
+                    // If there's no driver_id and neither name nor phone is valid => hide block
+                    if (!hasDriverId && !validName && !validPhone) return null;
+
+                    return (
+                      <div className="bg-gray-50 rounded-xl p-6">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Driver Information (item handed to depot)</h3>
+                        <div className="space-y-4">
+                          {validName && (
+                            <div>
+                              <label className="text-sm font-medium text-gray-500">Name</label>
+                              <p className="text-sm text-gray-900 mt-1 font-medium">{rawName}</p>
+                            </div>
+                          )}
+                          {validPhone && (
+                            <div>
+                              <label className="text-sm font-medium text-gray-500">Phone</label>
+                              <p className="text-sm text-gray-900 mt-1 font-medium">{rawPhone}</p>
+                            </div>
+                          )}
                         </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
 
                 {/* Right Column - Item Information and Image */}
@@ -731,22 +798,36 @@ const IncidentManagement = () => {
                   </div>
 
                   {/* Item Photo */}
-                  {selectedReport.item_photo_url && (
-                    <div className="bg-gray-50 rounded-xl p-6">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Item Photo</h3>
-                      <div className="border rounded-lg overflow-hidden">
-                        <img 
-                          src={selectedReport.item_photo_url} 
-                          alt="Item photo" 
-                          className="w-full h-64 object-cover"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.style.display = 'none';
-                          }}
-                        />
+                  {(() => {
+                    const url = selectedReport.item_photo_url;
+                    const isString = typeof url === 'string';
+                    const cleaned = isString ? url.trim() : '';
+                    const invalid = ['', 'null', '[null]', 'undefined', 'n/a', '/null'];
+                    if (!isString || invalid.includes(cleaned.toLowerCase())) return null;
+
+                    // build full src: if startsWith http use as-is, otherwise prepend API_BASE_URL
+                    const src = cleaned.startsWith('http')
+                      ? cleaned
+                      : `${import.meta.env.VITE_API_URL}${cleaned.startsWith('/') ? '' : '/'}${cleaned}`;
+
+                    return (
+                      <div className="bg-gray-50 rounded-xl p-6">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Item Photo</h3>
+                        <div className="border rounded-lg overflow-hidden">
+                          <img
+                            src={src}
+                            alt="Item photo"
+                            className="w-full h-64 object-cover"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              console.warn('Image load failed:', target.src);
+                              target.style.display = 'none';
+                            }}
+                          />
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
 
                   {selectedReport.resolution_notes && (
                     <div className="bg-gray-50 rounded-xl p-6">

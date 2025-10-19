@@ -11,6 +11,9 @@ interface CrewMember {
   status: CrewStatus;
 }
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE_URL = `${API_URL}/api`;
+
 const DriverManagement = () => {
   const [filterRole, setFilterRole] = useState<'All' | 'Driver' | 'Conductor'>('All');
   const [searchTerm, setSearchTerm] = useState('');
@@ -27,7 +30,7 @@ const DriverManagement = () => {
       try {
         const token = localStorage.getItem('token');
         const res = await fetch(
-          `http://localhost:5000/api/crew?depot_id=${depotId}&region_id=${regionId}`,
+          `${API_BASE_URL}/crew?depot_id=${depotId}&region_id=${regionId}`,
           {
             headers: {
               'Authorization': `Bearer ${token}`,

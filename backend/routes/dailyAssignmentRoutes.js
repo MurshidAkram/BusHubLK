@@ -20,13 +20,21 @@ const {
   getDailyScheduleForRoute
 } = require('../controllers/dailyAssignmentController');
 
-const { authenticateJWT, authorizeAdmin } = require('../middlewares/authMiddleware');
+const { authenticateJWT, authorizeAdmin, authorizeRole } = require('../middlewares/authMiddleware');
+
+const allowOperationsAccess = authorizeRole([
+  'admin',
+  'dgm_operations',
+  'regional_operations',
+  'depot_manager',
+  'depot_operations'
+]);
 
 console.log('dailyAssignmentRoutes.js loaded');
 
 
 // Get all assignments for depot
-router.get('/depot/:depot_id', authenticateJWT, authorizeAdmin, getAssignmentsByDepot);
+router.get('/depot/:depot_id', authenticateJWT, allowOperationsAccess, getAssignmentsByDepot);
 
 // Create new assignment
 router.post('/', authenticateJWT, authorizeAdmin, createAssignment);

@@ -79,6 +79,13 @@ interface ChecklistPartDetail {
   severity: string | null;
 }
 
+interface ChecklistIssueEntry {
+  checklist: DailyChecklist;
+  parts: ChecklistPartDetail[];
+  busName: string;
+  statusLabel: string;
+}
+
 interface Stats {
   total_services: number;
   pending_count: number;
@@ -171,6 +178,8 @@ const ServiceScheduleApp: React.FC = () => {
   const [maintenanceBuses, setMaintenanceBuses] = useState<Bus[]>([]);
   const [dailyChecklists, setDailyChecklists] = useState<DailyChecklist[]>([]);
   const [showMaintenanceChecklist, setShowMaintenanceChecklist] = useState<boolean>(false);
+  const [showActiveLowSeverity, setShowActiveLowSeverity] = useState<boolean>(false);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [stats, setStats] = useState<Stats>({
     total_services: 0,
     pending_count: 0,
@@ -796,16 +805,104 @@ const ServiceScheduleApp: React.FC = () => {
       });
   }, [services]);
 
-  const maintenanceChecklistIssues = React.useMemo(() => {
-    if (!dailyChecklists.length || !maintenanceBuses.length) {
-      return [] as Array<{ checklist: DailyChecklist; parts: ChecklistPartDetail[] }>;
+  const availableStatuses = React.useMemo(() => {
+    const statuses = new Set<string>();
+
+    services.forEach((service) => {
+      if (service.is_deleted) {
+        return;
+      }
+
+      const status = (service.calculated_status || service.status || '').trim();
+      if (status) {
+        statuses.add(status);
+      }
+    });
+
+    return Array.from(statuses).sort((a, b) => {
+      const priorityA = STATUS_PRIORITY[a] ?? 99;
+      const priorityB = STATUS_PRIORITY[b] ?? 99;
+      if (priorityA !== priorityB) {
+        return priorityA - priorityB;
+      }
+      return a.localeCompare(b);
+    });
+  }, [services]);
+
+  React.useEffect(() => {
+    setSelectedStatuses((prev) => {
+      const next = prev.filter((status) => availableStatuses.includes(status));
+      if (next.length === prev.length && next.every((status, index) => status === prev[index])) {
+        return prev;
+      }
+      return next;
+    });
+  }, [availableStatuses]);
+
+  const filteredServices = React.useMemo(() => {
+    if (!selectedStatuses.length) {
+      return sortedServices;
+    }
+
+    const selection = new Set(selectedStatuses.map((status) => status.trim()));
+    return sortedServices.filter((service) => {
+      const status = (service.calculated_status || service.status || '').trim();
+      return selection.has(status);
+    });
+  }, [sortedServices, selectedStatuses]);
+
+  const toggleStatusFilter = React.useCallback((status: string) => {
+    setSelectedStatuses((prev) => {
+      if (prev.includes(status)) {
+        return prev.filter((item) => item !== status);
+      }
+      return [...prev, status];
+    });
+  }, []);
+
+  const resetStatusFilters = React.useCallback(() => {
+    setSelectedStatuses([]);
+  }, []);
+
+  const openSchedulesByBus = React.useMemo(() => {
+    const counts = new Map<number, number>();
+
+    services.forEach((service) => {
+      if (service.is_deleted) {
+        return;
+      }
+
+      const busId = service.bus_id;
+      if (!busId) {
+        return;
+      }
+
+      const statusNormalized = (service.calculated_status || service.status || '').trim().toLowerCase();
+      const isClosed =
+        statusNormalized.startsWith('completed') ||
+        statusNormalized.startsWith('cancelled');
+
+      if (!isClosed) {
+        counts.set(busId, (counts.get(busId) ?? 0) + 1);
+      }
+    });
+
+    return counts;
+  }, [services]);
+
+  const { maintenanceChecklistIssues, activeLowSeverityIssues } = React.useMemo(() => {
+    if (!dailyChecklists.length) {
+      return {
+        maintenanceChecklistIssues: [] as ChecklistIssueEntry[],
+        activeLowSeverityIssues: [] as ChecklistIssueEntry[],
+      };
     }
 
     const maintenanceBusIds = new Set(maintenanceBuses.map((bus) => bus.bus_id));
     const latestChecklistByBus = new Map<number, DailyChecklist>();
 
     dailyChecklists.forEach((checklist) => {
-      if (!checklist.bus_id || !maintenanceBusIds.has(checklist.bus_id)) {
+      if (!checklist.bus_id) {
         return;
       }
 
@@ -818,7 +915,10 @@ const ServiceScheduleApp: React.FC = () => {
       }
     });
 
-    const issues = Array.from(latestChecklistByBus.values()).map((checklist) => {
+    const maintenanceIssues: ChecklistIssueEntry[] = [];
+    const activeLowIssues: ChecklistIssueEntry[] = [];
+
+    latestChecklistByBus.forEach((checklist) => {
       let parts: ChecklistPartDetail[] = [];
 
       if (Array.isArray(checklist.missed_part_details) && checklist.missed_part_details.length > 0) {
@@ -842,18 +942,57 @@ const ServiceScheduleApp: React.FC = () => {
         }));
       }
 
-      return {
-        checklist,
-        parts: parts.filter((part) => part.label),
-      };
-    }).filter(({ parts }) => parts.length > 0);
+      const filteredParts = parts.filter((part) => part.label);
+      if (!filteredParts.length) {
+        return;
+      }
 
-    return issues.sort((a, b) => {
-      const busA = a.checklist.registration_number || busLookup.get(a.checklist.bus_id)?.registration_number || String(a.checklist.bus_id);
-      const busB = b.checklist.registration_number || busLookup.get(b.checklist.bus_id)?.registration_number || String(b.checklist.bus_id);
-      return busA.localeCompare(busB);
+      const bus = busLookup.get(checklist.bus_id);
+      const busName = checklist.registration_number || bus?.registration_number || `Bus ${checklist.bus_id}`;
+      const statusRaw = (checklist.status_after_check || bus?.status || '').trim();
+      const statusLabel = statusRaw || bus?.status || 'Unknown';
+      const normalizedStatus = statusRaw.toLowerCase();
+      const severityLevels = filteredParts.map((part) => (part.severity || 'low').toLowerCase());
+      const hasHighSeverity = severityLevels.some((level) => level === 'high');
+      const hasOnlyLowSeverity = severityLevels.every((level) => level === 'low');
+      const isMaintenanceStatus = maintenanceBusIds.has(checklist.bus_id) || normalizedStatus.includes('maintenance');
+      const isActiveStatus = normalizedStatus === 'active' || normalizedStatus.startsWith('active');
+
+      const entry: ChecklistIssueEntry = {
+        checklist,
+        parts: filteredParts,
+        busName,
+        statusLabel,
+      };
+
+      if (isMaintenanceStatus) {
+        if (hasHighSeverity) {
+          return;
+        }
+
+        const openScheduleCount = openSchedulesByBus.get(checklist.bus_id) ?? 0;
+        const unresolvedIssues = filteredParts.length;
+        if (openScheduleCount >= unresolvedIssues && unresolvedIssues > 0) {
+          return;
+        }
+
+        maintenanceIssues.push(entry);
+        return;
+      }
+
+      if (isActiveStatus && hasOnlyLowSeverity) {
+        activeLowIssues.push(entry);
+      }
     });
-  }, [dailyChecklists, maintenanceBuses, busLookup]);
+
+    maintenanceIssues.sort((a, b) => a.busName.localeCompare(b.busName));
+    activeLowIssues.sort((a, b) => a.busName.localeCompare(b.busName));
+
+    return {
+      maintenanceChecklistIssues: maintenanceIssues,
+      activeLowSeverityIssues: activeLowIssues,
+    };
+  }, [dailyChecklists, maintenanceBuses, busLookup, openSchedulesByBus]);
 
   // Helper function to get bus details by ID
   const getBusDetails = (busId: string | number) => {
@@ -1063,35 +1202,36 @@ const extractIssueDescription = (serviceType: string): string => {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
-                        {maintenanceChecklistIssues.map(({ checklist, parts }) => {
-                          const busName = checklist.registration_number
-                            || busLookup.get(checklist.bus_id)?.registration_number
-                            || getBusDetails(checklist.bus_id);
-
-                          return (
-                            <tr key={checklist.checklist_id} className="bg-white">
-                              <td className="px-4 py-3 text-sm font-semibold text-gray-800">{busName}</td>
-                              <td className="px-4 py-3 text-sm text-gray-600">{formatDateForDisplay(checklist.check_date)}</td>
-                              <td className="px-4 py-3">
-                                <div className="space-y-3">
-                                  {parts.map((part, index) => (
-                                    <div key={`${part.key || part.label}-${index}`} className="border border-gray-200 rounded-md p-3 bg-gray-50">
-                                      <div className="flex flex-wrap items-center justify-between gap-2">
-                                        <span className="text-sm font-semibold text-gray-800">{part.label}</span>
-                                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getSeverityBadgeClasses(part.severity)}`}>
-                                          Severity: {formatSeverityLabel(part.severity)}
-                                        </span>
-                                      </div>
-                                      <p className="mt-2 text-sm text-gray-700">
-                                        <span className="font-medium text-gray-800">Description:</span> {part.notes || 'No description provided.'}
-                                      </p>
+                        {maintenanceChecklistIssues.map(({ checklist, parts, busName, statusLabel }) => (
+                          <tr key={checklist.checklist_id} className="bg-white">
+                            <td className="px-4 py-3 text-sm font-semibold text-gray-800">
+                              <div className="flex items-center gap-2">
+                                <span>{busName}</span>
+                                <span className="px-2 py-0.5 rounded-full bg-sky-100 text-sky-700 text-xs font-medium">
+                                  {statusLabel || 'Maintenance'}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-600">{formatDateForDisplay(checklist.check_date)}</td>
+                            <td className="px-4 py-3">
+                              <div className="space-y-3">
+                                {parts.map((part, index) => (
+                                  <div key={`${part.key || part.label}-${index}`} className="border border-gray-200 rounded-md p-3 bg-gray-50">
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                      <span className="text-sm font-semibold text-gray-800">{part.label}</span>
+                                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getSeverityBadgeClasses(part.severity)}`}>
+                                        Severity: {formatSeverityLabel(part.severity)}
+                                      </span>
                                     </div>
-                                  ))}
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
+                                    <p className="mt-2 text-sm text-gray-700">
+                                      <span className="font-medium text-gray-800">Description:</span> {part.notes || 'No description provided.'}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
                       </tbody>
                     </table>
                   ) : (
@@ -1099,6 +1239,80 @@ const extractIssueDescription = (serviceType: string): string => {
                       No maintenance issues recorded for buses currently in maintenance.
                     </div>
                   )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeLowSeverityIssues.length > 0 && (
+          <div className="mb-6 space-y-3">
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div className="flex items-start gap-3">
+                  <div className="mt-1">
+                    <FaExclamationCircle className="text-amber-500" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-semibold text-amber-800">
+                      Active buses with low-severity findings
+                    </h2>
+                    <p className="text-sm text-amber-700 mt-1">
+                      {activeLowSeverityIssues.length} {activeLowSeverityIssues.length === 1 ? 'bus is' : 'buses are'} currently active but still have outstanding low-severity findings logged during the latest checks. Review and schedule follow-up work if required.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowActiveLowSeverity((prev) => !prev)}
+                  className="self-start inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-amber-700 border border-amber-300 rounded-md hover:bg-amber-100 transition-colors"
+                >
+                  {showActiveLowSeverity ? 'Hide active low-severity findings' : `View low-severity findings (${activeLowSeverityIssues.length})`}
+                </button>
+              </div>
+
+              {showActiveLowSeverity && (
+                <div className="mt-4 bg-white border border-amber-100 rounded-lg p-4 overflow-x-auto shadow-sm">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th scope="col" className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Bus</th>
+                        <th scope="col" className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Last Checked</th>
+                        <th scope="col" className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Issues Logged</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {activeLowSeverityIssues.map(({ checklist, parts, busName, statusLabel }) => (
+                        <tr key={checklist.checklist_id} className="bg-white">
+                          <td className="px-4 py-3 text-sm font-semibold text-gray-800">
+                            <div className="flex items-center gap-2">
+                              <span>{busName}</span>
+                              <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-medium">
+                                {statusLabel || 'Active'}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{formatDateForDisplay(checklist.check_date)}</td>
+                          <td className="px-4 py-3">
+                            <div className="space-y-3">
+                              {parts.map((part, index) => (
+                                <div key={`${part.key || part.label}-${index}`} className="border border-amber-200 rounded-md p-3 bg-amber-50">
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <span className="text-sm font-semibold text-gray-800">{part.label}</span>
+                                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getSeverityBadgeClasses(part.severity)}`}>
+                                      Severity: {formatSeverityLabel(part.severity)}
+                                    </span>
+                                  </div>
+                                  <p className="mt-2 text-sm text-gray-700">
+                                    <span className="font-medium text-gray-800">Description:</span> {part.notes || 'No description provided.'}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>
@@ -1343,6 +1557,28 @@ const extractIssueDescription = (serviceType: string): string => {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           <div className="p-6">
             <h2 className="text-xl font-semibold text-gray-700 mb-6">Upcoming Services</h2>
+
+            <div className="flex flex-wrap items-center gap-2 mb-4">
+              <span className="text-sm font-medium text-gray-700">Filter by status:</span>
+              <button
+                onClick={resetStatusFilters}
+                className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${selectedStatuses.length === 0 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'}`}
+              >
+                All
+              </button>
+              {availableStatuses.map((status) => {
+                const isActive = selectedStatuses.includes(status);
+                return (
+                  <button
+                    key={status}
+                    onClick={() => toggleStatusFilter(status)}
+                    className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${isActive ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'}`}
+                  >
+                    {status}
+                  </button>
+                );
+              })}
+            </div>
             
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -1356,7 +1592,7 @@ const extractIssueDescription = (serviceType: string): string => {
                   </tr>
                 </thead>
                 <tbody>
-                  {sortedServices.map((service) => {
+                  {filteredServices.length > 0 ? filteredServices.map((service) => {
                     // Debug each service in the table
                     console.log('🏓 Table row for service:', {
                       id: service.id,
@@ -1445,7 +1681,13 @@ const extractIssueDescription = (serviceType: string): string => {
                       </td>
                     </tr>
                     );
-                  })}
+                  }) : (
+                    <tr>
+                      <td colSpan={5} className="py-6 px-4 text-center text-sm text-gray-600">
+                        No services match the selected status filters.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
