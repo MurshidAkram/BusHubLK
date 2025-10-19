@@ -5,14 +5,17 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   Platform,
   StatusBar,
   Alert,
+  Dimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useNotifications, Notification } from "../context/NotificationContext";
+
+const { width: screenWidth } = Dimensions.get("window");
 
 // App Color Palette
 const AppColors = {
@@ -20,25 +23,26 @@ const AppColors = {
   card: "#FFFFFF",
   primary: "#0056b3",
   primaryLight: "#0076e3",
+  primaryDark: "#003d82",
   primaryMuted: "rgba(0, 86, 179, 0.1)",
-  text: "#212529",
-  textSecondary: "#6C757D",
-  border: "#DEE2E6",
-  red: "#dc3545",
-  yellow: "#ffc107",
-  green: "#198754",
-  orange: "#fd7e14",
+  text: "#1F2937",
+  textSecondary: "#6B7280",
+  border: "#E5E7EB",
+  red: "#EF4444",
+  yellow: "#F59E0B",
+  green: "#10B981",
+  orange: "#F97316",
 };
 
 // Enhanced Header component
 const Header = ({ navigation, unreadCount }: { navigation: any; unreadCount: number }) => (
   <LinearGradient
-    colors={[AppColors.primary, AppColors.primaryLight]}
+    colors={['#0056b3', '#1976d2', '#42a5f5']}
     start={{ x: 0, y: 0 }}
-    end={{ x: 1, y: 1 }}
-    style={styles.header}
+    end={{ x: 1, y: 0 }}
+    style={styles.headerGradient}
   >
-    <View style={styles.headerContent}>
+    <View style={styles.header}>
       <TouchableOpacity
         style={styles.backButton}
         onPress={() => navigation.goBack()}
@@ -46,20 +50,16 @@ const Header = ({ navigation, unreadCount }: { navigation: any; unreadCount: num
         <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
       </TouchableOpacity>
       <View style={styles.headerCenter}>
-        <Ionicons
-          name="notifications"
-          size={24}
-          color="#FFFFFF"
-          style={{ marginRight: 8 }}
-        />
         <Text style={styles.headerTitle}>Notifications</Text>
         {unreadCount > 0 && (
           <View style={styles.headerBadge}>
-            <Text style={styles.headerBadgeText}>{unreadCount}</Text>
+            <Text style={styles.headerBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
           </View>
         )}
       </View>
-      <View style={styles.placeholder} />
+      <View style={styles.headerActions}>
+        <View style={styles.placeholder} />
+      </View>
     </View>
   </LinearGradient>
 );
@@ -88,18 +88,8 @@ const NotificationItem = ({ notification, onPress }: NotificationItemProps) => {
   const getIconColor = (type: Notification['type'], priority: Notification['priority']) => {
     if (priority === 'high') return AppColors.red;
     
-    switch (type) {
-      case 'reminder':
-        return AppColors.orange;
-      case 'assignment':
-        return AppColors.primary;
-      case 'warning':
-        return AppColors.yellow;
-      case 'info':
-        return AppColors.green;
-      default:
-        return AppColors.textSecondary;
-    }
+    // All notification icons are blue except high priority (red)
+    return AppColors.primary;
   };
 
   const formatTime = (timestamp: Date) => {
@@ -120,7 +110,7 @@ const NotificationItem = ({ notification, onPress }: NotificationItemProps) => {
   return (
     <TouchableOpacity
       style={[
-        styles.notificationItem,
+        styles.notificationCard,
         !notification.read && styles.unreadNotification,
         notification.priority === 'high' && styles.highPriorityNotification
       ]}
@@ -130,30 +120,40 @@ const NotificationItem = ({ notification, onPress }: NotificationItemProps) => {
       <View style={styles.notificationLeft}>
         <View style={[
           styles.notificationIcon,
-          { backgroundColor: `${getIconColor(notification.type, notification.priority)}20` }
+          { backgroundColor: `${getIconColor(notification.type, notification.priority)}15` }
         ]}>
           <Ionicons
             name={getIconName(notification.type) as any}
-            size={20}
+            size={24}
             color={getIconColor(notification.type, notification.priority)}
           />
         </View>
         <View style={styles.notificationContent}>
-          <Text style={[
-            styles.notificationTitle,
-            !notification.read && styles.unreadText
-          ]}>
-            {notification.title}
-          </Text>
-          <Text style={styles.notificationMessage}>
+          <View style={styles.notificationHeader}>
+            <Text style={[
+              styles.notificationTitle,
+              !notification.read && styles.unreadText
+            ]}>
+              {notification.title}
+            </Text>
+            {!notification.read && <View style={styles.unreadDot} />}
+          </View>
+          <Text style={styles.notificationMessage} numberOfLines={2}>
             {notification.message}
           </Text>
-          <Text style={styles.notificationTime}>
-            {formatTime(notification.timestamp)}
-          </Text>
+          <View style={styles.notificationFooter}>
+            <Text style={styles.notificationTime}>
+              {formatTime(notification.timestamp)}
+            </Text>
+            {notification.priority === 'high' && (
+              <View style={styles.priorityBadge}>
+                <Ionicons name="alert-circle" size={12} color={AppColors.red} />
+                <Text style={styles.priorityText}>High Priority</Text>
+              </View>
+            )}
+          </View>
         </View>
       </View>
-      {!notification.read && <View style={styles.unreadDot} />}
     </TouchableOpacity>
   );
 };
@@ -228,95 +228,118 @@ const NotificationScreen = ({ navigation }: NotificationScreenProps) => {
   });
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={AppColors.primary} />
-      <Header navigation={navigation} unreadCount={unreadCount} />
-      
-      {notifications.length > 0 && (
-        <View style={styles.actionBar}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={markAllAsRead}
-            disabled={unreadCount === 0}
-          >
-            <Ionicons name="checkmark-done" size={16} color={AppColors.primary} />
-            <Text style={[
-              styles.actionButtonText,
-              unreadCount === 0 && styles.disabledText
-            ]}>
-              Mark All Read
-            </Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={handleClearAll}
-          >
-            <Ionicons name="trash-outline" size={16} color={AppColors.red} />
-            <Text style={[styles.actionButtonText, { color: AppColors.red }]}>
-              Clear All
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-      >
-        {notifications.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="notifications-off-outline" size={64} color={AppColors.textSecondary} />
-            <Text style={styles.emptyTitle}>No Notifications</Text>
-            <Text style={styles.emptyMessage}>
-              You're all caught up! New notifications will appear here.
-            </Text>
-          </View>
-        ) : (
-          <View style={styles.notificationsList}>
-            {sortedNotifications.map((notification) => (
-              <NotificationItem
-                key={notification.id}
-                notification={notification}
-                onPress={() => handleNotificationPress(notification)}
+    <LinearGradient
+      colors={['#F8FAFF', '#E3F2FD', '#BBDEFB']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.gradientContainer}
+    >
+      <SafeAreaView style={styles.container} edges={["top"]}>
+        <StatusBar
+          backgroundColor="transparent"
+          barStyle="light-content"
+          translucent={false}
+        />
+        <Header navigation={navigation} unreadCount={unreadCount} />
+        
+        {notifications.length > 0 && (
+          <View style={styles.actionBar}>
+            <TouchableOpacity
+              style={[styles.actionButton, unreadCount === 0 && styles.disabledButton]}
+              onPress={markAllAsRead}
+              disabled={unreadCount === 0}
+            >
+              <Ionicons 
+                name="checkmark-done" 
+                size={18} 
+                color={unreadCount === 0 ? AppColors.textSecondary : AppColors.primary} 
               />
-            ))}
+              <Text style={[
+                styles.actionButtonText,
+                unreadCount === 0 && styles.disabledText
+              ]}>
+                Mark All Read
+              </Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={handleClearAll}
+            >
+              <Ionicons name="trash-outline" size={18} color={AppColors.red} />
+              <Text style={[styles.actionButtonText, { color: AppColors.red }]}>
+                Clear All
+              </Text>
+            </TouchableOpacity>
           </View>
         )}
-      </ScrollView>
-    </SafeAreaView>
+
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.contentContainer}
+          showsVerticalScrollIndicator={false}
+        >
+          {notifications.length === 0 ? (
+            <View style={styles.emptyStateCard}>
+              <View style={styles.emptyIconContainer}>
+                <Ionicons name="notifications-off-outline" size={72} color={AppColors.primaryMuted} />
+              </View>
+              <Text style={styles.emptyTitle}>No Notifications</Text>
+              <Text style={styles.emptyMessage}>
+                You're all caught up! New notifications will appear here.
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.notificationsList}>
+              {sortedNotifications.map((notification) => (
+                <NotificationItem
+                  key={notification.id}
+                  notification={notification}
+                  onPress={() => handleNotificationPress(notification)}
+                />
+              ))}
+            </View>
+          )}
+        </ScrollView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
+  gradientContainer: {
+    flex: 1,
+  },
   container: {
     flex: 1,
-    backgroundColor: AppColors.background,
+    backgroundColor: 'transparent',
   },
-  header: {
-    paddingHorizontal: 20,
-    paddingVertical: Platform.OS === "ios" ? 20 : 22,
+  headerGradient: {
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.2)',
     ...Platform.select({
       android: {
         elevation: 8,
       },
       ios: {
-        shadowColor: "#000",
+        shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.15,
         shadowRadius: 8,
       },
     }),
   },
-  headerContent: {
+  header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    minHeight: 44,
+    paddingHorizontal: 10,
+    paddingVertical: 12,
   },
   backButton: {
-    padding: 4,
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
   headerCenter: {
     flexDirection: "row",
@@ -326,107 +349,141 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: "#FFFFFF",
-    fontSize: Platform.OS === "ios" ? 21 : 20,
-    fontWeight: "600",
-    fontFamily: Platform.OS === "ios" ? "System" : "Roboto",
-    letterSpacing: 0.6,
-    textShadowColor: "rgba(0, 0, 0, 0.3)",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
+    fontSize: 20,
+    fontWeight: "700",
+    letterSpacing: 0.5,
   },
   headerBadge: {
-    backgroundColor: AppColors.red,
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
+    backgroundColor: AppColors.orange,
+    borderRadius: 12,
+    minWidth: 22,
+    height: 22,
     alignItems: "center",
     justifyContent: "center",
     marginLeft: 8,
+    paddingHorizontal: 6,
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
   },
   headerBadgeText: {
     color: "#FFFFFF",
-    fontSize: 12,
-    fontWeight: "bold",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: 8,
   },
   placeholder: {
-    width: 32,
+    width: 40,
   },
   actionBar: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    backgroundColor: AppColors.card,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderBottomWidth: 1,
     borderBottomColor: AppColors.border,
   },
   actionButton: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: 'rgba(0, 86, 179, 0.08)',
+    gap: 6,
+  },
+  disabledButton: {
+    backgroundColor: 'rgba(0, 0, 0, 0.03)',
   },
   actionButtonText: {
-    marginLeft: 4,
     fontSize: 14,
-    fontWeight: "500",
+    fontWeight: "600",
     color: AppColors.primary,
+    letterSpacing: 0.2,
   },
   disabledText: {
     color: AppColors.textSecondary,
   },
   scrollView: {
-    backgroundColor: AppColors.background,
+    flex: 1,
   },
   contentContainer: {
     paddingBottom: 100,
-  },
-  emptyState: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 60,
-    paddingHorizontal: 40,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: AppColors.text,
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  emptyMessage: {
-    fontSize: 16,
-    color: AppColors.textSecondary,
-    textAlign: "center",
-    lineHeight: 24,
-  },
-  notificationsList: {
     paddingTop: 8,
   },
-  notificationItem: {
+  emptyStateCard: {
     backgroundColor: AppColors.card,
-    marginHorizontal: 20,
-    marginVertical: 4,
-    borderRadius: 12,
-    padding: 16,
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
+    borderRadius: 20,
+    marginHorizontal: 16,
+    marginTop: 40,
+    padding: 40,
+    alignItems: "center",
+    justifyContent: "center",
     ...Platform.select({
       android: {
-        elevation: 2,
+        elevation: 4,
       },
       ios: {
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+    }),
+  },
+  emptyIconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: AppColors.primaryMuted,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 20,
+  },
+  emptyTitle: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: AppColors.text,
+    marginBottom: 10,
+  },
+  emptyMessage: {
+    fontSize: 15,
+    color: AppColors.textSecondary,
+    textAlign: "center",
+    lineHeight: 22,
+    paddingHorizontal: 20,
+  },
+  notificationsList: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+  },
+  notificationCard: {
+    backgroundColor: AppColors.card,
+    marginBottom: 12,
+    borderRadius: 16,
+    padding: 16,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    borderWidth: 0,
+    ...Platform.select({
+      android: {
+        elevation: 3,
+      },
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 6,
       },
     }),
   },
   unreadNotification: {
     borderLeftWidth: 4,
     borderLeftColor: AppColors.primary,
+    backgroundColor: AppColors.primaryMuted,
   },
   highPriorityNotification: {
     borderLeftColor: AppColors.red,
@@ -434,24 +491,42 @@ const styles = StyleSheet.create({
   notificationLeft: {
     flexDirection: "row",
     flex: 1,
+    gap: 12,
   },
   notificationIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 12,
+    ...Platform.select({
+      android: {
+        elevation: 2,
+      },
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      },
+    }),
   },
   notificationContent: {
     flex: 1,
+    gap: 6,
+  },
+  notificationHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 2,
   },
   notificationTitle: {
     fontSize: 16,
     fontWeight: "600",
     color: AppColors.text,
-    marginBottom: 4,
-    fontFamily: Platform.OS === "ios" ? "System" : "Roboto",
+    flex: 1,
+    letterSpacing: 0.2,
   },
   unreadText: {
     fontWeight: "700",
@@ -460,18 +535,39 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: AppColors.textSecondary,
     lineHeight: 20,
-    marginBottom: 8,
+  },
+  notificationFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 4,
   },
   notificationTime: {
     fontSize: 12,
     color: AppColors.textSecondary,
+    fontWeight: "500",
   },
   unreadDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     backgroundColor: AppColors.primary,
-    marginTop: 8,
+    marginLeft: 8,
+  },
+  priorityBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
+  },
+  priorityText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: AppColors.red,
+    letterSpacing: 0.3,
   },
 });
 

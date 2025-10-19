@@ -7,13 +7,14 @@ import {
   TouchableOpacity,
   TextInput,
   StatusBar,
-  SafeAreaView,
   Alert,
   ActivityIndicator,
   Image,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Dropdown } from 'react-native-element-dropdown';
 import * as ImagePicker from 'expo-image-picker';
 import { API_BASE_URL } from '../config/api';
@@ -68,13 +69,20 @@ interface FormErrors {
 
 // --- Color Theme ---
 const AppColors = {
-  background: '#F8F9FA',
+  background: '#F8FAFF',
   card: '#FFFFFF',
-  primary: '#005A9C',
-  primaryLight: '#4A90E2',
-  text: '#212529',
-  textSecondary: '#6C757D',
-  border: '#DEE2E6',
+  primary: '#0056b3',
+  primaryDark: '#003d82',
+  primaryLight: '#0076e3',
+  primaryMuted: 'rgba(0, 86, 179, 0.1)',
+  text: '#1F2937',
+  textSecondary: '#6B7280',
+  border: '#E5E7EB',
+  red: '#EF4444',
+  yellow: '#F59E0B',
+  green: '#10B981',
+  orange: '#F97316',
+  purple: '#8B5CF6',
   found: '#8A2BE2',
   inputBackground: '#FFFFFF',
   activeBlue: '#E7F1FF',
@@ -100,15 +108,22 @@ const itemCategories = [
 
 // --- Header Component ---
 const Header = ({ navigation }: { navigation: NavigationProp }) => (
-  <View style={styles.header}>
-    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}>
-      <Ionicons name="arrow-back" size={24} color="white" />
-    </TouchableOpacity>
-    
-    <Text style={styles.headerTitle}>Driver Found Items</Text>
+  <LinearGradient
+    colors={['#0056b3', '#1976d2', '#42a5f5']}
+    start={{ x: 0, y: 0 }}
+    end={{ x: 1, y: 0 }}
+    style={styles.headerGradient}
+  >
+    <View style={styles.header}>
+      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+        <Ionicons name="arrow-back-outline" size={24} color="white" />
+      </TouchableOpacity>
+      
+      <Text style={styles.headerTitle}>Driver Found Items</Text>
 
-    <View style={styles.headerButton} />
-  </View>
+      <View style={styles.headerButton} />
+    </View>
+  </LinearGradient>
 );
 
 // --- Styled Input Component ---
@@ -572,7 +587,7 @@ const LostAndFoundScreen = ({ navigation }: { navigation: NavigationProp }) => {
         { text: 'Cancel', style: 'cancel' },
         { 
           text: 'OK', 
-          onPress: (text) => {
+          onPress: (text?: string) => {
             if (text && /^\d{2}\/\d{2}\/\d{4}$/.test(text)) {
               updateFormData('date', text);
             } else {
@@ -594,7 +609,7 @@ const LostAndFoundScreen = ({ navigation }: { navigation: NavigationProp }) => {
         { text: 'Cancel', style: 'cancel' },
         { 
           text: 'OK', 
-          onPress: (text) => {
+          onPress: (text?: string) => {
             if (text && /^\d{2}:\d{2}$/.test(text)) {
               updateFormData('time', text);
             } else {
@@ -610,41 +625,40 @@ const LostAndFoundScreen = ({ navigation }: { navigation: NavigationProp }) => {
 
   // Navigation View
   const renderNavigation = () => (
-    <View style={styles.topNav}>
-      <TouchableOpacity 
-        style={[styles.topNavButton, activeView === 'myreports' && styles.activeTopNavButton]}
-        onPress={() => setActiveView('myreports')}
-      >
-        <Text style={[styles.topNavButtonText, activeView === 'myreports' && styles.activeTopNavButtonText]}>
-          My Reports
-        </Text>
-      </TouchableOpacity>
-      
-      <TouchableOpacity 
-        style={[styles.topNavButton, activeView === 'report' && styles.activeTopNavButton]}
-        onPress={() => { 
-          setActiveView('report'); 
-          setReportStep(1); 
-          setErrors({}); 
-        }}
-      >
-        <Text style={[styles.topNavButtonText, activeView === 'report' && styles.activeTopNavButtonText]}>
-          Report Found Item
-        </Text>
-      </TouchableOpacity>
-      
-      <TouchableOpacity 
-        style={styles.headerRightAction} 
-        onPress={async () => {
-          console.log('🔄 Manual refresh requested');
-          if (activeView === 'myreports') {
-            await loadMyReports();
-          }
-        }}
-        activeOpacity={0.7}
-      >
-        <Ionicons name="refresh-outline" size={20} color={AppColors.primary} />
-      </TouchableOpacity>
+    <View style={styles.tabContainerWrapper}>
+      <View style={styles.tabContainer}>
+        <TouchableOpacity 
+          style={[styles.tab, activeView === 'myreports' && styles.tabActive]}
+          onPress={() => setActiveView('myreports')}
+        >
+          <Ionicons 
+            name="document-text-outline" 
+            size={18} 
+            color={activeView === 'myreports' ? AppColors.primary : AppColors.textSecondary} 
+          />
+          <Text style={[styles.tabText, activeView === 'myreports' && styles.tabTextActive]}>
+            My Reports
+          </Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[styles.tab, activeView === 'report' && styles.tabActive]}
+          onPress={() => { 
+            setActiveView('report'); 
+            setReportStep(1); 
+            setErrors({}); 
+          }}
+        >
+          <Ionicons 
+            name="add-circle-outline" 
+            size={18} 
+            color={activeView === 'report' ? AppColors.primary : AppColors.textSecondary} 
+          />
+          <Text style={[styles.tabText, activeView === 'report' && styles.tabTextActive]}>
+            Report Found Item
+          </Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
@@ -652,8 +666,8 @@ const LostAndFoundScreen = ({ navigation }: { navigation: NavigationProp }) => {
   const renderMyReportsView = () => (
     <>
       <View style={styles.searchSection}>
-        <Text style={styles.sectionTitle}>My Found Item Reports</Text>
-        <Text style={styles.sectionSubtitle}>
+        <Text style={styles.sectionTitleCentered}>My Found Item Reports</Text>
+        <Text style={styles.sectionSubtitleCentered}>
           Track and manage your submitted found item reports.
         </Text>
       </View>
@@ -863,10 +877,12 @@ const LostAndFoundScreen = ({ navigation }: { navigation: NavigationProp }) => {
       </View>
 
       {/* Continue Button */}
-      <TouchableOpacity style={styles.modernPrimaryButton} onPress={validateAndProceed} activeOpacity={0.8}>
-        <Text style={styles.modernButtonText}>Continue</Text>
-        <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
-      </TouchableOpacity>
+      <View style={styles.modernButtonRow}>
+        <TouchableOpacity style={styles.modernPrimaryButton} onPress={validateAndProceed} activeOpacity={0.8}>
+          <Text style={styles.modernButtonText}>Continue</Text>
+          <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
@@ -894,16 +910,6 @@ const LostAndFoundScreen = ({ navigation }: { navigation: NavigationProp }) => {
         <Text style={styles.modernStepTitle}>Where & When?</Text>
         <Text style={styles.modernStepSubtitle}>Tell us when and where you found this item</Text>
       </View>
-
-      {/* Info Card - Auto-filled route and bus */}
-      {(formData.routeNumber || formData.busNumber) && (
-        <View style={styles.infoCard}>
-          <Ionicons name="information-circle" size={20} color={AppColors.primary} />
-          <Text style={styles.infoCardText}>
-            Route and bus details are auto-filled from your current assignment
-          </Text>
-        </View>
-      )}
 
       {/* Location Found Section */}
       <View style={styles.sectionContainer}>
@@ -1180,119 +1186,187 @@ const LostAndFoundScreen = ({ navigation }: { navigation: NavigationProp }) => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor="#005A9C" />
-      <Header navigation={navigation} />
-      
-      <View style={styles.container}>
-        {/* Navigation */}
-        {renderNavigation()}
+    <LinearGradient
+      colors={['#F8FAFF', '#E3F2FD', '#BBDEFB']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.gradientContainer}
+    >
+      <SafeAreaView style={styles.safeArea} edges={["top"]}>
+        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={false} />
+        <Header navigation={navigation} />
         
-        <ScrollView
-          contentContainerStyle={styles.contentContainer}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="none"
-          showsVerticalScrollIndicator={false}
-        >
-          {activeView === 'myreports' ? renderMyReportsView() : (
-            <View style={styles.reportContainer}>
-              {renderReportFlow()}
-            </View>
-          )}
-        </ScrollView>
+        <View style={styles.container}>
+          {/* Navigation */}
+          {renderNavigation()}
+          
+          <ScrollView
+            contentContainerStyle={styles.contentContainer}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="none"
+            showsVerticalScrollIndicator={false}
+          >
+            {activeView === 'myreports' ? renderMyReportsView() : (
+              <View style={styles.reportContainer}>
+                {renderReportFlow()}
+              </View>
+            )}
+          </ScrollView>
 
-        {/* Note: Date and Time pickers can be enhanced with proper date picker components */}
-      </View>
-    </SafeAreaView>
+          {/* Note: Date and Time pickers can be enhanced with proper date picker components */}
+        </View>
+      </SafeAreaView>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
+  gradientContainer: {
+    flex: 1,
+  },
   safeArea: {
     flex: 1,
-    backgroundColor: '#005A9C', 
+    backgroundColor: 'transparent',
   },
   container: { 
     flex: 1, 
-    backgroundColor: AppColors.background 
+    backgroundColor: 'transparent',
   },
   
   // Enhanced Header Styles
+  headerGradient: {
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.2)',
+    ...Platform.select({
+      android: {
+        elevation: 8,
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+      },
+    }),
+  },
   header: {
-    backgroundColor: '#005A9C',
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 10 : 15,
-    paddingBottom: 15,
-    paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    backgroundColor: 'transparent',
+  },
+  backButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
   headerTitle: {
     color: 'white',
     fontSize: 20,
     fontWeight: 'bold',
+    flex: 1,
+    textAlign: 'center',
   },
   headerButton: {
-    width: 24,
+    width: 40,
   },
 
-  // Navigation Styles
-  topNav: {
+  // Tab Container (matching EmergencyScreen)
+  tabContainerWrapper: {
+    paddingTop: 4,
+  },
+  tabContainer: {
     flexDirection: 'row',
+    padding: 6,
+    marginHorizontal: 16,
+    marginVertical: 8,
     backgroundColor: AppColors.card,
-    marginHorizontal: 0,
-    marginTop: 0,
-    borderBottomWidth: 1,
-    borderBottomColor: AppColors.border,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(229, 231, 235, 0.6)',
+    ...Platform.select({
+      android: {
+        elevation: 3,
+      },
+      ios: {
+        shadowColor: AppColors.shadow,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+    }),
+  },
+  tab: { 
+    flex: 1, 
+    paddingVertical: 12, 
+    borderRadius: 10, 
     alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
   },
-  topNavButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    marginRight: 8,
-    backgroundColor: 'transparent',
-  },
-  activeTopNavButton: {
+  tabActive: {
     backgroundColor: AppColors.activeBlue,
+    ...Platform.select({
+      android: {
+        elevation: 2,
+      },
+      ios: {
+        shadowColor: AppColors.primary,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
+      },
+    }),
   },
-  topNavButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
+  tabText: { 
+    fontSize: 14, 
+    fontWeight: '600', 
     color: AppColors.textSecondary,
   },
-  activeTopNavButtonText: {
-    color: AppColors.primary,
-  },
-  headerRightAction: {
-    marginLeft: 'auto',
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: AppColors.accent,
+  tabTextActive: { 
+    color: AppColors.primary, 
+    fontWeight: '700',
   },
 
   // Content Styles
   contentContainer: {
-    paddingBottom: 100, // Increased padding for better scrolling when photo is added
-    flexGrow: 1, // Allows content to grow beyond screen height for scrolling
+    paddingBottom: 120,
+    flexGrow: 1,
   },
   searchSection: {
     padding: 20,
-    backgroundColor: AppColors.card,
-    marginBottom: 8,
+    backgroundColor: 'transparent',
   },
   sectionTitle: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: '700',
     color: AppColors.text,
     marginBottom: 8,
+    letterSpacing: 0.3,
   },
   sectionSubtitle: {
     fontSize: 16,
     color: AppColors.textSecondary,
-    lineHeight: 22,
+    lineHeight: 24,
+    fontWeight: '500',
+  },
+  sectionTitleCentered: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: AppColors.text,
+    marginBottom: 8,
+    letterSpacing: 0.3,
+    textAlign: 'center',
+  },
+  sectionSubtitleCentered: {
+    fontSize: 16,
+    color: AppColors.textSecondary,
+    lineHeight: 24,
+    fontWeight: '500',
+    textAlign: 'center',
   },
 
   // Loading and Empty States
@@ -1331,14 +1405,22 @@ const styles = StyleSheet.create({
   itemCard: {
     backgroundColor: AppColors.card,
     marginHorizontal: 16,
-    marginBottom: 12,
-    borderRadius: 12,
-    padding: 16,
-    elevation: 2,
-    shadowColor: AppColors.shadow,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    marginBottom: 16,
+    borderRadius: 16,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 86, 179, 0.1)',
+    ...Platform.select({
+      android: {
+        elevation: 4,
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.12,
+        shadowRadius: 8,
+      },
+    }),
   },
   cardHeader: {
     flexDirection: 'row',
@@ -1449,13 +1531,21 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: AppColors.card,
     margin: 16,
-    borderRadius: 12,
-    padding: 20,
-    elevation: 2,
-    shadowColor: AppColors.shadow,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    borderRadius: 16,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 86, 179, 0.1)',
+    ...Platform.select({
+      android: {
+        elevation: 4,
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.12,
+        shadowRadius: 8,
+      },
+    }),
   },
   stepContainer: {
     paddingBottom: 20,
@@ -1527,7 +1617,7 @@ const styles = StyleSheet.create({
   modernCategoryCard: {
     width: '30%',
     aspectRatio: 1,
-    backgroundColor: AppColors.background,
+    backgroundColor: AppColors.card,
     borderRadius: 16,
     padding: 16,
     alignItems: 'center',
@@ -1535,10 +1625,32 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: AppColors.border,
     position: 'relative',
+    ...Platform.select({
+      android: {
+        elevation: 2,
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+    }),
   },
   activeCategoryCard: {
     backgroundColor: AppColors.primary,
     borderColor: AppColors.primary,
+    ...Platform.select({
+      android: {
+        elevation: 6,
+      },
+      ios: {
+        shadowColor: AppColors.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+    }),
   },
   categoryIconContainer: {
     width: 48,
@@ -1580,6 +1692,17 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     flexDirection: 'row',
     alignItems: 'center',
+    ...Platform.select({
+      android: {
+        elevation: 2,
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 3,
+      },
+    }),
   },
   modernTextArea: {
     flex: 1,
@@ -1609,12 +1732,13 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: AppColors.border,
     borderStyle: 'dashed',
+    minHeight: 180,
   },
   photoUploadIcon: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: AppColors.accent,
+    backgroundColor: AppColors.primaryMuted,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
@@ -1632,43 +1756,62 @@ const styles = StyleSheet.create({
   
   // Modern Buttons
   modernPrimaryButton: {
+    flex: 1,
     backgroundColor: AppColors.primary,
     borderRadius: 16,
     paddingVertical: 18,
-    paddingHorizontal: 32,
+    paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 32,
-    elevation: 4,
-    shadowColor: AppColors.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    ...Platform.select({
+      android: {
+        elevation: 6,
+      },
+      ios: {
+        shadowColor: AppColors.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+    }),
   },
   modernButtonText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#FFFFFF',
     marginRight: 8,
+    letterSpacing: 0.3,
   },
   modernSecondaryButton: {
     flex: 1,
-    backgroundColor: 'transparent',
+    backgroundColor: AppColors.card,
     borderRadius: 16,
     paddingVertical: 18,
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
     borderColor: AppColors.border,
+    ...Platform.select({
+      android: {
+        elevation: 2,
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+    }),
   },
   modernSecondaryButtonText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
     color: AppColors.text,
     marginLeft: 8,
+    letterSpacing: 0.3,
   },
   modernButtonRow: {
     flexDirection: 'row',
@@ -1714,12 +1857,24 @@ const styles = StyleSheet.create({
     borderColor: AppColors.border,
     paddingHorizontal: 16,
     paddingVertical: 16,
+    ...Platform.select({
+      android: {
+        elevation: 2,
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 3,
+      },
+    }),
   },
   dateTimeText: {
     flex: 1,
     fontSize: 16,
     color: AppColors.text,
     marginLeft: 12,
+    fontWeight: '500',
   },
   placeholderText: {
     color: AppColors.textSecondary,
@@ -1961,12 +2116,23 @@ const styles = StyleSheet.create({
   
   // Depot Information Card Styles
   depotInfoCard: {
-    backgroundColor: AppColors.accent,
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+    borderRadius: 16,
+    padding: 18,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: AppColors.success + '40',
+    borderColor: 'rgba(16, 185, 129, 0.2)',
+    ...Platform.select({
+      android: {
+        elevation: 2,
+      },
+      ios: {
+        shadowColor: AppColors.success,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+    }),
   },
   depotInfoHeader: {
     flexDirection: 'row',
@@ -1976,14 +2142,16 @@ const styles = StyleSheet.create({
   },
   depotInfoTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
     color: AppColors.text,
+    letterSpacing: 0.3,
   },
   depotInfoText: {
     fontSize: 15,
     color: AppColors.text,
     marginBottom: 8,
     lineHeight: 22,
+    fontWeight: '500',
   },
   depotInfoBold: {
     fontWeight: '700',
@@ -1994,10 +2162,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     marginVertical: 8,
-    paddingVertical: 8,
+    paddingVertical: 10,
     paddingHorizontal: 12,
     backgroundColor: AppColors.card,
-    borderRadius: 8,
+    borderRadius: 10,
+    ...Platform.select({
+      android: {
+        elevation: 1,
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+      },
+    }),
   },
   depotContactText: {
     fontSize: 14,

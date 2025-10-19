@@ -18,7 +18,6 @@ import SettingsScreen from "../screens/SettingScreen";
 import MapScreen from "../screens/MapScreen";
 import ScheduleScreen from "../screens/ScheduleScreen";
 import ChatScreen from "../screens/ChatScreen";
-import NotificationTestScreen from "../screens/NotificationTestScreen";
 
 // Create Stack Navigators for each tab
 const HomeStack = createStackNavigator();
@@ -83,7 +82,6 @@ const SettingsStackNavigator = () => {
       }}
     >
       <SettingsStack.Screen name="SettingsMain" component={SettingsScreen} />
-      <SettingsStack.Screen name="NotificationTest" component={NotificationTestScreen} />
     </SettingsStack.Navigator>
   );
 };

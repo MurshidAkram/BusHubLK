@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   Platform,
   StatusBar,
@@ -14,6 +13,7 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { driverAPI, storageAPI } from "../services/api";
@@ -74,28 +74,24 @@ interface DailyAssignment {
 }
 
 // Enhanced Header component
-const Header = ({ onRefresh }: { onRefresh: () => void }) => (
+const Header = ({ navigation }: { navigation: any }) => (
   <LinearGradient
-    colors={[AppColors.primary, AppColors.primaryLight]}
+    colors={['#0056b3', '#1976d2', '#42a5f5']}
     start={{ x: 0, y: 0 }}
-    end={{ x: 1, y: 1 }}
-    style={styles.header}
+    end={{ x: 1, y: 0 }}
+    style={styles.headerGradient}
   >
-    <View style={styles.headerContent}>
-      <View style={styles.titleContainer}>
-        <Ionicons
-          name="calendar-outline"
-          size={24}
-          color="#FFFFFF"
-          style={{ marginRight: 8 }}
-        />
+    <View style={styles.header}>
+      <TouchableOpacity
+        style={styles.backButton}
+        onPress={() => navigation.goBack()}
+      >
+        <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+      </TouchableOpacity>
+      <View style={styles.headerCenter}>
         <Text style={styles.headerTitle}>My Schedule</Text>
       </View>
-      <TouchableOpacity style={styles.headerActionButton} onPress={onRefresh}>
-        <View style={styles.iconBackgroundEnhanced}>
-          <Ionicons name="refresh-outline" size={20} color="#FFFFFF" />
-        </View>
-      </TouchableOpacity>
+      <View style={styles.placeholder} />
     </View>
   </LinearGradient>
 );
@@ -377,14 +373,11 @@ const ScheduleCard = ({ schedule, index, isTodayAssignment, navigation }: {
         },
       ]}
     >
-      <LinearGradient
-        colors={
-          isTodayAssignment
-            ? [AppColors.primary, AppColors.primaryLight]
-            : ["#FFFFFF", "#F8FAFF"]
-        }
-        style={styles.cardGradient}
-      >
+      {isTodayAssignment ? (
+        <LinearGradient
+          colors={[AppColors.primary, AppColors.primaryLight]}
+          style={styles.cardGradient}
+        >
         {/* Date Header */}
         <View style={styles.dateHeader}>
           <View style={styles.dateContainer}>
@@ -592,7 +585,136 @@ const ScheduleCard = ({ schedule, index, isTodayAssignment, navigation }: {
             )}
           </View>
         )}
-      </LinearGradient>
+        </LinearGradient>
+      ) : (
+        <View style={styles.cardGradient}>
+        {/* Date Header */}
+        <View style={styles.dateHeader}>
+          <View style={styles.dateContainer}>
+            <Text style={[styles.dayName, isTodayAssignment && styles.todayText]}>
+              {formatDateDisplay(schedule.assignment_date)}
+            </Text>
+            <Text style={[styles.dateText, isTodayAssignment && styles.todayText]}>
+              {new Date(schedule.assignment_date).toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+              })}
+            </Text>
+          </View>
+          <WeatherIcon weather={getWeatherForDay(schedule.assignment_date)} />
+        </View>
+
+        {/* Bus Assignment */}
+        <View style={styles.assignmentContainer}>
+          <View style={styles.busInfo}>
+            <LinearGradient
+              colors={[AppColors.primaryMuted, "rgba(0, 86, 179, 0.05)"]}
+              style={styles.busNumberBadge}
+            >
+              <Ionicons
+                name="bus-outline"
+                size={24}
+                color={AppColors.primary}
+              />
+              <Text style={styles.busNumber}>
+                {schedule.bus_registration || `Bus ${schedule.bus_id}`}
+              </Text>
+            </LinearGradient>
+          </View>
+
+          <View style={styles.routeInfo}>
+            <View style={styles.routeHeader}>
+              <Text style={styles.routeNumber}>
+                Route {schedule.route_number || schedule.route_id}
+              </Text>
+            </View>
+            <Text style={styles.routeName}>
+              {schedule.route_name 
+                ? (schedule.start_location && schedule.end_location 
+                    ? `${schedule.start_location} - ${schedule.end_location}`
+                    : schedule.route_name)
+                : `Route ${schedule.route_id}`}
+            </Text>
+          </View>
+        </View>
+
+        {/* Assignment Details */}
+        <View style={styles.detailsContainer}>
+          <View style={styles.detailRow}>
+            <View style={styles.detailItem}>
+              <Ionicons
+                name="person-outline"
+                size={18}
+                color={AppColors.primary}
+              />
+              <View style={styles.detailTextContainer}>
+                <Text style={styles.detailLabel}>
+                  Conductor
+                </Text>
+                <Text style={styles.detailValue}>
+                  {schedule.conductor_name || (schedule.conductor_id ? `Conductor ${schedule.conductor_id}` : 'Not Assigned')}
+                </Text>
+                {schedule.conductor_phone_number && (
+                  <View style={styles.detailRow}>
+                    <View style={styles.detailItem}>
+                      <Ionicons
+                        name="call-outline"
+                        size={18}
+                        color={AppColors.primary}
+                      />
+                      <View style={styles.detailTextContainer}>
+                        <Text style={styles.detailValue}>
+                          {schedule.conductor_phone_number}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                )}
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.detailRow}>
+            <View style={styles.detailItem}>
+              <Ionicons
+                name="location-outline"
+                size={18}
+                color={AppColors.primary}
+              />
+              <View style={styles.detailTextContainer}>
+                <Text style={styles.detailLabel}>
+                  Depot
+                </Text>
+                <Text style={styles.detailValue}>
+                  {schedule.depot_name || `Depot ${schedule.depot_id}`}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Shift Time */}
+          {(schedule.shift_start_time || schedule.shift_end_time) && (
+            <View style={styles.detailRow}>
+              <View style={styles.detailItem}>
+                <Ionicons
+                  name="time-outline"
+                  size={18}
+                  color={AppColors.primary}
+                />
+                <View style={styles.detailTextContainer}>
+                  <Text style={styles.detailLabel}>
+                    Shift Time
+                  </Text>
+                  <Text style={styles.detailValue}>
+                    {schedule.shift_start_time ? schedule.shift_start_time.slice(0, 5) : '--:--'} - {schedule.shift_end_time ? schedule.shift_end_time.slice(0, 5) : '--:--'}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
+        </View>
+        </View>
+      )}
     </Animated.View>
   );
 };
@@ -797,52 +919,51 @@ const ScheduleScreen = ({ navigation }: any) => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Enhanced Background */}
-      <LinearGradient
-        colors={["rgba(0, 86, 179, 0.05)", "rgba(0, 118, 227, 0.05)"]}
-        style={styles.backgroundGradient}
-      />
+    <LinearGradient
+      colors={['#F8FAFF', '#E3F2FD', '#BBDEFB']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.gradientContainer}
+    >
+      <SafeAreaView style={styles.container} edges={["top"]}>
+        <StatusBar
+          backgroundColor="transparent"
+          barStyle="light-content"
+          translucent={false}
+        />
 
-      <StatusBar
-        barStyle="light-content"
-        backgroundColor={AppColors.primary}
-        translucent={false}
-      />
+        <Header navigation={navigation} />
 
-      <Header onRefresh={onRefresh} />
-
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[AppColors.primary]}
-            tintColor={AppColors.primary}
-          />
-        }
-      >
+      <View style={styles.content}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.contentContainer}
+          showsVerticalScrollIndicator={false}
+          scrollEnabled={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[AppColors.primary]}
+              tintColor={AppColors.primary}
+            />
+          }
+        >
         {/* Welcome Message */}
         <Animated.View
           style={[
             { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
           ]}
         >
-          <LinearGradient
-            colors={[AppColors.primary, AppColors.primaryLight]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.welcomeContainer}
-          >
+          <View style={styles.welcomeContainer}>
             <View style={styles.welcomeContent}>
-              <Ionicons
-                name="checkmark-circle-outline"
-                size={28}
-                color="#FFFFFF"
-              />
+              <View style={styles.welcomeIconContainer}>
+                <Ionicons
+                  name="checkmark-circle"
+                  size={28}
+                  color={AppColors.primary}
+                />
+              </View>
               <View style={styles.welcomeTextContainer}>
                 <Text style={styles.welcomeTitle}>Ready to Drive!</Text>
                 <Text style={styles.welcomeSubtitle}>
@@ -850,7 +971,7 @@ const ScheduleScreen = ({ navigation }: any) => {
                 </Text>
               </View>
             </View>
-          </LinearGradient>
+          </View>
         </Animated.View>
 
         {/* Schedule Cards */}
@@ -888,81 +1009,65 @@ const ScheduleScreen = ({ navigation }: any) => {
         )}
 
        
-      </ScrollView>
-    </SafeAreaView>
+        </ScrollView>
+      </View>
+      </SafeAreaView>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
+  gradientContainer: {
+    flex: 1,
+  },
   container: {
     flex: 1,
-    backgroundColor: AppColors.background,
+    backgroundColor: 'transparent',
   },
-  backgroundGradient: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  header: {
-    paddingHorizontal: 20,
-    paddingVertical: Platform.OS === "ios" ? 20 : 22,
+  headerGradient: {
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.2)',
     ...Platform.select({
       android: {
         elevation: 8,
       },
       ios: {
-        shadowColor: "#000",
+        shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.15,
         shadowRadius: 8,
       },
     }),
   },
-  headerContent: {
+  header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    minHeight: 52,
-    marginTop: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 12,
   },
-  titleContainer: {
+  backButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  headerCenter: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 12,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.2)",
-    marginTop: 4,
+    flex: 1,
+    justifyContent: "center",
   },
   headerTitle: {
     color: "#FFFFFF",
-    fontSize: Platform.OS === "ios" ? 21 : 20,
-    fontWeight: "600",
-    fontFamily: Platform.OS === "ios" ? "System" : "Roboto",
-    letterSpacing: 0.6,
-    includeFontPadding: false,
-    textAlignVertical: "center",
-    textShadowColor: "rgba(0, 0, 0, 0.3)",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
+    fontSize: 20,
+    fontWeight: "700",
+    letterSpacing: 0.5,
   },
-  headerActionButton: {
-    padding: 4,
-    marginTop: 4,
-  },
-  iconBackgroundEnhanced: {
+  placeholder: {
     width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.25)",
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.3)",
+  },
+  content: {
+    flex: 1,
   },
   scrollView: {
     flex: 1,
@@ -973,48 +1078,11 @@ const styles = StyleSheet.create({
     paddingTop: 20,
   },
   welcomeContainer: {
-    borderRadius: 20,
+    backgroundColor: AppColors.card,
+    borderRadius: 18,
     padding: 20,
-    marginBottom: 24,
-    ...Platform.select({
-      android: {
-        elevation: 6,
-      },
-      ios: {
-        shadowColor: "#000",
-        shadowOpacity: 0.1,
-        shadowRadius: 12,
-        shadowOffset: { width: 0, height: 6 },
-      },
-    }),
-  },
-  welcomeContent: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  welcomeTextContainer: {
-    marginLeft: 16,
-    flex: 1,
-  },
-  welcomeTitle: {
-    color: "#FFFFFF",
-    fontSize: Platform.OS === "ios" ? 18 : 17,
-    fontWeight: "700",
-    marginBottom: 4,
-    fontFamily: Platform.OS === "ios" ? "System" : "Roboto",
-  },
-  welcomeSubtitle: {
-    color: "rgba(255, 255, 255, 0.9)",
-    fontSize: Platform.OS === "ios" ? 14 : 13,
-    fontWeight: "500",
-  },
-  schedulesContainer: {
-    marginBottom: 24,
-  },
-  scheduleCard: {
-    marginBottom: 16,
-    borderRadius: 20,
-    overflow: "hidden",
+    marginBottom: 20,
+    borderWidth: 0,
     ...Platform.select({
       android: {
         elevation: 4,
@@ -1027,21 +1095,81 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  todayCard: {
+  welcomeContent: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  welcomeIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: AppColors.primaryMuted,
+    justifyContent: "center",
+    alignItems: "center",
     ...Platform.select({
       android: {
-        elevation: 8,
+        elevation: 2,
+      },
+      ios: {
+        shadowColor: AppColors.primary,
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 2 },
+      },
+    }),
+  },
+  welcomeTextContainer: {
+    marginLeft: 16,
+    flex: 1,
+  },
+  welcomeTitle: {
+    color: AppColors.text,
+    fontSize: Platform.OS === "ios" ? 18 : 17,
+    fontWeight: "700",
+    marginBottom: 4,
+    fontFamily: Platform.OS === "ios" ? "System" : "Roboto",
+  },
+  welcomeSubtitle: {
+    color: AppColors.textSecondary,
+    fontSize: Platform.OS === "ios" ? 14 : 13,
+    fontWeight: "500",
+  },
+  schedulesContainer: {
+    marginBottom: 24,
+  },
+  scheduleCard: {
+    marginBottom: 16,
+    borderRadius: 18,
+    overflow: "hidden",
+    borderWidth: 0,
+    ...Platform.select({
+      android: {
+        elevation: 6,
       },
       ios: {
         shadowColor: "#000",
-        shadowOpacity: 0.15,
-        shadowRadius: 12,
-        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.1,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 5 },
+      },
+    }),
+  },
+  todayCard: {
+    ...Platform.select({
+      android: {
+        elevation: 10,
+      },
+      ios: {
+        shadowColor: AppColors.primary,
+        shadowOpacity: 0.25,
+        shadowRadius: 14,
+        shadowOffset: { width: 0, height: 8 },
       },
     }),
   },
   cardGradient: {
     padding: 20,
+    backgroundColor: AppColors.card,
   },
   dateHeader: {
     flexDirection: "row",

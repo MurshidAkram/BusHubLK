@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   TouchableOpacity,
   TextInput,
   FlatList,
@@ -12,8 +11,9 @@ import {
   StatusBar,
   ActivityIndicator,
   Alert,
-  Linking, // 👈 1. IMPORT Linking
+  Linking,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -258,35 +258,57 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={AppColors.primary} />
-      {/* 👇 6. MODIFY the header to include the call button */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={AppColors.card} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Chat with Depot</Text>
-        <TouchableOpacity
-          onPress={handleCall}
-          style={[styles.callButton, !depotPhoneNumber && styles.callButtonDisabled]}
-          disabled={!depotPhoneNumber}
+    <LinearGradient
+      colors={['#F8FAFF', '#E3F2FD', '#BBDEFB']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.gradientContainer}
+    >
+      <SafeAreaView style={styles.safeArea} edges={["top"]}>
+        <StatusBar
+          backgroundColor="transparent"
+          barStyle="light-content"
+          translucent={false}
+        />
+        
+        {/* Enhanced Header with Gradient */}
+        <LinearGradient
+          colors={['#0056b3', '#1976d2', '#42a5f5']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.header}
         >
-            <Ionicons name="call" size={23} color={AppColors.card} />
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Chat with Depot</Text>
+          <TouchableOpacity
+            onPress={handleCall}
+            style={[styles.callButton, !depotPhoneNumber && styles.callButtonDisabled]}
+            disabled={!depotPhoneNumber}
+          >
+            <Ionicons name="call" size={23} color="#10B981" />
+          </TouchableOpacity>
+        </LinearGradient>
 
       <KeyboardAvoidingView 
         style={{ flex: 1 }} 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
-        <FlatList<ChatMessage>
-          ref={flatListRef}
-          data={messages}
-          renderItem={renderMessage}
-          keyExtractor={(item) => item.id.toString()}
-          style={styles.chatArea}
-          contentContainerStyle={styles.chatListContent}
+        <LinearGradient
+          colors={['#FFFFFF', '#F8FAFF', '#E3F2FD']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={styles.chatAreaGradient}
+        >
+          <FlatList<ChatMessage>
+            ref={flatListRef}
+            data={messages}
+            renderItem={renderMessage}
+            keyExtractor={(item) => item.id.toString()}
+            style={styles.chatArea}
+            contentContainerStyle={styles.chatListContent}
           ListEmptyComponent={
             <View style={styles.emptyState}>
               <Ionicons name="chatbubble-ellipses" size={48} color={AppColors.textSecondary} />
@@ -297,6 +319,7 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
           onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
           onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
         />
+        </LinearGradient>
         
         <View style={styles.inputContainer}>
           <TextInput
@@ -311,27 +334,59 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 };
 
-// 👇 7. ADD styles for the new button
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: AppColors.background },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12,
-    backgroundColor: AppColors.primary, paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 12 : 20,
-    borderBottomWidth: 1, borderBottomColor: AppColors.primaryLight,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
-    elevation: 3,
+  gradientContainer: {
+    flex: 1,
   },
-  backButton: { padding: 4 },
-  callButton: { padding: 4 }, // Style for the call button
-  callButtonDisabled: { opacity: 0.5 },
-  headerTitle: { fontSize: 18, fontWeight: 'bold', color: AppColors.card },
+  safeArea: { 
+    flex: 1, 
+    backgroundColor: 'transparent',
+  },
+  header: {
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'space-between', 
+    paddingHorizontal: 16, 
+    paddingVertical: 16,
+    borderBottomWidth: 1, 
+    borderBottomColor: 'rgba(255, 255, 255, 0.2)',
+    ...Platform.select({
+      android: {
+        elevation: 8,
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOpacity: 0.2,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 4 },
+      },
+    }),
+  },
+  backButton: { 
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  callButton: { 
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+  },
+  callButtonDisabled: { 
+    opacity: 0.4,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  headerTitle: { 
+    fontSize: 20, 
+    fontWeight: '700', 
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
+  },
   reportCard: {
     marginHorizontal: 16,
     marginTop: 16,
@@ -369,7 +424,14 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   statusBadgeText: { fontSize: 12, fontWeight: '700' },
-  chatArea: { flex: 1, paddingHorizontal: 10, backgroundColor: AppColors.background },
+  chatAreaGradient: {
+    flex: 1,
+  },
+  chatArea: { 
+    flex: 1, 
+    paddingHorizontal: 10, 
+    backgroundColor: 'transparent',
+  },
   chatListContent: { paddingVertical: 12 },
   messageWrapper: { marginVertical: 5, maxWidth: '85%' },
   userWrapper: { alignSelf: 'flex-end' },
@@ -385,39 +447,123 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  userMessage: { borderBottomRightRadius: 6, borderColor: 'transparent', overflow: 'hidden' },
-  depotMessage: { backgroundColor: AppColors.card, borderBottomLeftRadius: 6, borderColor: AppColors.border },
+  userMessage: { 
+    borderBottomRightRadius: 6, 
+    borderColor: 'transparent', 
+    overflow: 'hidden',
+    ...Platform.select({
+      android: {
+        elevation: 3,
+      },
+      ios: {
+        shadowColor: AppColors.primary,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+      },
+    }),
+  },
+  depotMessage: { 
+    backgroundColor: '#FFFFFF', 
+    borderBottomLeftRadius: 6, 
+    borderColor: '#E5E7EB',
+    ...Platform.select({
+      android: {
+        elevation: 2,
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.08,
+        shadowRadius: 3,
+      },
+    }),
+  },
   messageText: { color: AppColors.text, fontSize: 16, lineHeight: 22 },
   timestampText: { color: AppColors.textSecondary, fontSize: 11, marginTop: 4, marginHorizontal: 6 },
   inputContainer: {
-    flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10,
-    borderTopWidth: 1, borderTopColor: AppColors.border, backgroundColor: AppColors.card,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 3,
-    elevation: 6,
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    paddingHorizontal: 16, 
+    paddingVertical: 12,
+    borderTopWidth: 1, 
+    borderTopColor: '#E5E7EB', 
+    backgroundColor: '#FFFFFF',
+    ...Platform.select({
+      android: {
+        elevation: 8,
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 6,
+      },
+    }),
   },
   input: {
-    flex: 1, backgroundColor: AppColors.background, color: AppColors.text, borderRadius: 22,
-    paddingHorizontal: 16, paddingVertical: Platform.OS === 'ios' ? 12 : 10,
-    fontSize: 16, marginRight: 8,
-    borderWidth: 1,
-    borderColor: AppColors.border,
+    flex: 1, 
+    backgroundColor: '#FFFFFF', 
+    color: AppColors.text, 
+    borderRadius: 22,
+    paddingHorizontal: 16, 
+    paddingVertical: Platform.OS === 'ios' ? 12 : 10,
+    fontSize: 16, 
+    marginRight: 8,
+    borderWidth: 1.5,
+    borderColor: '#D1D5DB',
   },
   sendButton: {
-    backgroundColor: AppColors.primary, borderRadius: 22, width: 44, height: 44,
-    justifyContent: 'center', alignItems: 'center',
+    backgroundColor: AppColors.primary, 
+    borderRadius: 22, 
+    width: 44, 
+    height: 44,
+    justifyContent: 'center', 
+    alignItems: 'center',
+    ...Platform.select({
+      android: {
+        elevation: 4,
+      },
+      ios: {
+        shadowColor: AppColors.primary,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+      },
+    }),
   },
-  sendButtonDisabled: { backgroundColor: AppColors.textSecondary },
+  sendButtonDisabled: { 
+    backgroundColor: AppColors.textSecondary,
+    ...Platform.select({
+      android: {
+        elevation: 0,
+      },
+      ios: {
+        shadowOpacity: 0,
+      },
+    }),
+  },
   userMessageText: { color: AppColors.card },
   emptyState: {
     alignItems: 'center',
-    paddingVertical: 60,
-    gap: 12,
+    paddingVertical: 80,
+    paddingHorizontal: 32,
   },
-  emptyTitle: { fontSize: 18, fontWeight: '600', color: AppColors.text },
-  emptySubtitle: { fontSize: 14, color: AppColors.textSecondary, textAlign: 'center', paddingHorizontal: 24 },
+  emptyTitle: { 
+    fontSize: 20, 
+    fontWeight: '700', 
+    color: AppColors.text,
+    marginTop: 16,
+    letterSpacing: 0.3,
+  },
+  emptySubtitle: { 
+    fontSize: 15, 
+    color: AppColors.textSecondary, 
+    textAlign: 'center', 
+    paddingHorizontal: 24,
+    marginTop: 8,
+    lineHeight: 22,
+  },
 });
 
 export default ChatScreen;

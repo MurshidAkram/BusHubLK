@@ -412,7 +412,7 @@ export default function TrackingScreen({ navigation }: any) {
                   {assignmentData.bus_registration}
                 </Text>
                 <Text style={styles.assignmentSubValue}>
-                  {assignmentData.bus_manufacturer} {assignmentData.bus_model} (Class {assignmentData.bus_class})
+                  {assignmentData.bus_manufacturer} {assignmentData.bus_model} • Class {assignmentData.bus_class}
                 </Text>
               </View>
 
@@ -451,7 +451,7 @@ export default function TrackingScreen({ navigation }: any) {
                 </View>
               </View>
 
-              <View style={styles.assignmentItem}>
+              <View style={styles.assignmentItemFull}>
                 <Text style={styles.assignmentLabel}>Depot</Text>
                 <Text style={styles.assignmentValue}>
                   {assignmentData.depot_name}
@@ -528,7 +528,7 @@ export default function TrackingScreen({ navigation }: any) {
           </View>
 
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Bus ID:</Text>
+            <Text style={styles.infoLabel}>Bus:</Text>
             <Text style={styles.infoValue}>
               {assignmentData ? assignmentData.bus_registration : (trackingStatus.busId || 'N/A')}
             </Text>
@@ -895,6 +895,14 @@ const styles = StyleSheet.create({
   },
   assignmentItem: {
     width: "48%",
+    backgroundColor: 'rgba(0, 86, 179, 0.04)',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 86, 179, 0.1)',
+  },
+  assignmentItemFull: {
+    width: "100%",
     backgroundColor: 'rgba(0, 86, 179, 0.04)',
     padding: 12,
     borderRadius: 12,
