@@ -14,6 +14,8 @@ import ComplaintsScreen from "../screens/ComplaintsScreen";
 import ComplaintHistoryScreen from "../screens/ComplaintHistoryScreen";
 import EmergencyScreen from "../screens/EmergencyAlertScreen";
 import EditProfileScreen from "../screens/EditProfileScreen";
+import TermsOfServiceScreen from "../screens/TermsOfServiceScreen";
+import PrivacyPolicyScreen from "../screens/PrivacyPolicyScreen";
 
 const Stack = createStackNavigator<any>();
 
@@ -50,6 +52,16 @@ export default function AppNavigator() {
       <Stack.Screen
         name="EditProfile"
         component={EditProfileScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="TermsOfService"
+        component={TermsOfServiceScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="PrivacyPolicy"
+        component={PrivacyPolicyScreen}
         options={{ headerShown: false }}
       />
     </Stack.Navigator>

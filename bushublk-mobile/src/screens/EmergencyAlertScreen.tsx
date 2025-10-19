@@ -283,15 +283,34 @@ const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
         setError(null);
         try {
             const response = await fetch(`${API_BASE_URL}/api/passengers/${passengerId}/contacts`);
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to fetch contacts');
+            }
+
             const data = await response.json();
-            setContacts(data.map((item: any) => ({
-                id: item.id, name: item.emergency_contact_name, phone: item.emergency_contact_phone,
-                relationship: item.relationship, email: item.email, isPrimary: item.is_primary,
-            })));
-            setStatus('succeeded');
+
+            // Check if data is an array before mapping
+            if (Array.isArray(data)) {
+                setContacts(data.map((item: any) => ({
+                    id: item.id,
+                    name: item.emergency_contact_name,
+                    phone: item.emergency_contact_phone,
+                    relationship: item.relationship,
+                    email: item.email,
+                    isPrimary: item.is_primary,
+                })));
+                setStatus('succeeded');
+            } else {
+                console.error('Unexpected response format:', data);
+                throw new Error('Invalid response format from server');
+            }
         } catch (err) {
+            console.error('Error fetching contacts:', err);
             setError((err as Error).message);
             setStatus('failed');
+            setContacts([]); // Set empty array on error
         } finally {
             setContactsLoading(false);
         }
@@ -348,16 +367,40 @@ const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
         }
         setAdding(true);
         try {
+            console.log('Adding contact for passenger:', passengerId);
             const response = await fetch(`${API_BASE_URL}/api/passengers/${passengerId}/contacts`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: newName.trim(), phone: newPhone.trim(), relationship: newRelationship.trim(), email: newEmail.trim(), isPrimary: newIsPrimary }),
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: newName.trim(),
+                    phone: newPhone.trim(),
+                    relationship: newRelationship.trim() || null,
+                    email: newEmail.trim() || null,
+                    isPrimary: newIsPrimary
+                }),
             });
-            if (!response.ok) throw new Error((await response.json()).message || 'Failed to add contact.');
+
+            console.log('Add contact response status:', response.status);
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                console.error('Add contact error:', errorData);
+                throw new Error(errorData.message || 'Failed to add contact.');
+            }
+
+            const result = await response.json();
+            console.log('Contact added successfully:', result);
+
             setShowAddModal(false);
-            setNewName(''); setNewPhone(''); setNewRelationship(''); setNewEmail(''); setNewIsPrimary(false);
-            fetchContacts();
+            setNewName('');
+            setNewPhone('');
+            setNewRelationship('');
+            setNewEmail('');
+            setNewIsPrimary(false);
+            await fetchContacts();
             Alert.alert('Success', 'Contact added successfully.');
         } catch (err) {
+            console.error('Error adding contact:', err);
             Alert.alert('Error', (err as Error).message);
         } finally {
             setAdding(false);

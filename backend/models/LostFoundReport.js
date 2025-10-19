@@ -126,8 +126,7 @@ class LostFoundReport {
           ELSE EXTRACT(DAY FROM NOW() - r.created_at) || ' days ago'
         END as time_ago
       FROM lost_found_reports r
-      LEFT JOIN passengers pas ON r.passenger_id = pas.passenger_id
-      LEFT JOIN users p ON pas.passenger_id = p.user_id
+      LEFT JOIN users p ON r.passenger_id = p.user_id
       LEFT JOIN users drv ON r.driver_id = drv.user_id
       LEFT JOIN routes rt ON r.route_number = rt.route_number
       LEFT JOIN regions reg ON r.region_id = reg.region_id
@@ -193,15 +192,12 @@ class LostFoundReport {
     const result = await db.query(query, values);
     return result.rows.map(row => ({
       ...new LostFoundReport(row),
-      first_name: row.first_name,
-      last_name: row.last_name,
-      driver_name: row.driver_name,
+      first_name: row.passenger_first_name,
+      last_name: row.passenger_last_name,
+      driver_name: row.driver_first_name ? `${row.driver_first_name} ${row.driver_last_name || ''}`.trim() : null,
       route_name: row.route_name,
       region_name: row.region_name,
       depot_name: row.depot_name,
-      depot_contact_phone: row.depot_contact_phone,
-      driver_depot_name: row.driver_depot_name,
-      driver_depot_phone: row.driver_depot_phone,
       handover_date: row.handover_date,
       handover_notes: row.handover_notes,
       time_ago: row.time_ago
@@ -230,8 +226,7 @@ class LostFoundReport {
           ELSE EXTRACT(DAY FROM NOW() - r.created_at) || ' days ago'
         END as time_ago
       FROM lost_found_reports r
-      LEFT JOIN passengers pas ON r.passenger_id = pas.passenger_id
-      LEFT JOIN users p ON pas.passenger_id = p.user_id
+      LEFT JOIN users p ON r.passenger_id = p.user_id
       LEFT JOIN users drv ON r.driver_id = drv.user_id
       LEFT JOIN routes rt ON r.route_number = rt.route_number
       LEFT JOIN regions reg ON r.region_id = reg.region_id
