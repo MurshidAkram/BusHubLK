@@ -55,28 +55,14 @@ const Navbar: React.FC = () => {
     try {
       let response;
       if (roleKey === 'admin') {
-        response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/notifications/unread-count`, {
+        response = await fetch('http://localhost:5000/api/admin/notifications/unread-count', {
           headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
         });
       } else if (roleKey === 'depot_engineer') {
-        response = await fetch(`${import.meta.env.VITE_API_URL}/api/depot-engineer/notifications/unread-count`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-      } else if (roleKey === 'dgm_operations') {
-        response = await fetch(`${import.meta.env.VITE_API_URL}/api/dgm-operations/notifications/unread-count`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-      } else if (roleKey === 'dgm_technical') {
-        response = await fetch(`${import.meta.env.VITE_API_URL}/api/dgm-technical/notifications/unread-count`, {
+        response = await fetch('http://localhost:5000/api/depot-engineer/notifications/unread-count', {
           headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -97,14 +83,7 @@ const Navbar: React.FC = () => {
           },
         });
       } else if (roleKey === 'regional_tech' || roleKey === 'regional_technical_officer') {
-        response = await fetch(`${import.meta.env.VITE_API_URL}/api/rto/notifications/unread-count`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-      } else if (isRegionalOps) {
-        response = await fetch(`${import.meta.env.VITE_API_URL}/api/regional-operations/notifications/unread-count`, {
+        response = await fetch('http://localhost:5000/api/rto/notifications/unread-count', {
           headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -122,7 +101,7 @@ const Navbar: React.FC = () => {
           headers: { Authorization: `Bearer ${token}` },
         });
       } else if (roleKey === 'depot_manager') {
-        response = await fetch(`${import.meta.env.VITE_API_URL}/api/depot-manager/notifications/unread-count`, {
+        response = await fetch('http://localhost:5000/api/depot-manager/notifications/unread-count', {
           headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',

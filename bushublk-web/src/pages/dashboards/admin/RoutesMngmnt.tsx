@@ -59,7 +59,7 @@ const RoutesMngmnt: React.FC = () => {
 
   const fetchRegions = async () => {
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/regions`, {
+      const res = await fetch('http://localhost:5000/api/regions', {
         headers: { Authorization: `Bearer ${context?.token}` },
       });
       const data = await res.json();
