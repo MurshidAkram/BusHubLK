@@ -185,6 +185,8 @@ try {
   console.log('✅ passengerRoutes loaded');
 } catch (error) {
   console.log('❌ passengerRoutes error:', error.message);
+  console.log('❌ Full error:', error);
+  console.log('❌ Stack trace:', error.stack);
 }
 
 
