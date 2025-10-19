@@ -1,14 +1,8 @@
-// src/pages/dashboards/ceo/WorkforceAnalyticsPage.tsx
-import React from 'react';
+import React, { useEffect, useState, useContext } from 'react';
+import axios from 'axios';
 import {
   HiUsers,
-  HiTrendingUp,
-  HiColorSwatch,
-  HiChartBar,
   HiBriefcase,
-  HiUser,
-  HiAcademicCap,
-  HiClipboardList,
 } from 'react-icons/hi';
 import {
   BarChart,
@@ -17,131 +11,117 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
   LineChart,
   Line,
-  Legend,
 } from 'recharts';
+import { AppContext } from '../../../context/AppContext'; // Assuming you store token here
 
-// --- Mock data ---
-const headcountByRegion = [
-  { region: 'Western', count: 3200 },
-  { region: 'Central', count: 2100 },
-  { region: 'Southern', count: 1800 },
-  { region: 'Eastern', count: 900 },
-  { region: 'North-Western', count: 1900 },
-  { region: 'Northern', count: 700 },
-  { region: 'North-Central', count: 900 },
-  { region: 'Uva', count: 1100 },
-  { region: 'Sabaragamu', count: 1800 },
-];
+const WorkforceAnalyticsPage: React.FC = () => {
+  const { token } = useContext(AppContext) || {};
+  const [summary, setSummary] = useState<any>({});
+  const [headcountByRegion, setHeadcountByRegion] = useState<any[]>([]);
+  const [headcountByDepot, setHeadcountByDepot] = useState<any[]>([]);
+  const [newEmployees, setNewEmployees] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-const headcountByDistrict = [
-  { region: 'Colombo', count: 320 },
-  { region: 'Gampaha', count: 210 },
-  { region: 'Kaluthara', count: 180 },
-  { region: 'Galle', count: 150 },
-  { region: 'Matara', count: 100 },
-  { region: 'Hambantota', count: 90 },
-  { region: 'Kandy', count: 220 },
-  { region: 'Nuwara Eliya', count: 80 },
-  { region: 'Mathale', count: 70 },
-  { region: 'Kurunegala', count: 230 },
-  { region: 'Puttalam', count: 100 },
-  { region: 'Rathnapura', count: 170 },
-  { region: 'Kegalle', count: 145 },
-  { region: 'Anuradhapura', count: 130 },
-  { region: 'Badulla', count: 85 },
-  { region: 'Jaffna', count: 160 },
-];
+  useEffect(() => {
+    const fetchWorkforceData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
 
-const departmentDistribution = [
-  { name: 'Operations', value: 45 },
-  { name: 'Maintenance', value: 25 },
-  { name: 'HR',         value: 15 },
-  { name: 'Finance',    value: 10 },
-  { name: 'IT',         value: 5  },
-];
+        const config = {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        };
 
+        const [summaryRes, regionRes, depotRes, newRes] = await Promise.all([
+          axios.get('/api/workforce/summary', config),
+          axios.get('/api/workforce/headcount/region', config),
+          axios.get('/api/workforce/headcount/depot', config),
+          axios.get('/api/workforce/new-employees', config),
+        ]);
 
-const numberOfEmployees = [
-  { month: 'Jan', count: 40 },
-  { month: 'Feb', count: 29 },
-  { month: 'Mar', count: 41 },
-  { month: 'Apr', count: 32 },
-  { month: 'May', count: 20},
-  { month: 'Jun', count: 14 },
-];
+        if (summaryRes.data.success) setSummary(summaryRes.data.data || {});
+        if (regionRes.data.success) setHeadcountByRegion(regionRes.data.data || []);
+        if (depotRes.data.success) setHeadcountByDepot(depotRes.data.data || []);
+        if (newRes.data.success) setNewEmployees(newRes.data.data || []);
+      } catch (err: any) {
+        console.error('Error loading workforce analytics:', err);
+        setError('Failed to load workforce analytics data.');
+      } finally {
+        setLoading(false);
+      }
+    };
 
-const ageDistribution = [
-  { ageGroup: '<25', count: 800 },
-  { ageGroup: '25–34', count: 2600 },
-  { ageGroup: '35–44', count: 2400 },
-  { ageGroup: '45–54', count: 1200 },
-  { ageGroup: '55+', count:   420 },
-];
+    if (token) fetchWorkforceData();
+  }, [token]);
 
-
-const COLORS = ['#60A5FA', '#34D399', '#FBBF24', '#F87171', '#A78BFA'];
-
-const WorkforceAnalyticsPage: React.FC = () => (
-  <div className="p-6 space-y-8">
-    {/* Header */}
-    <div className="flex items-center justify-between">
-      <h2 className="text-2xl font-semibold">Workforce Analytics</h2>
-      <div className="flex items-center space-x-4 text-gray-600">
-        <HiBriefcase className="h-6 w-6" />
-        <span>Comprehensive employee insights</span>
+  if (loading) {
+    return (
+      <div className="p-6">
+        <p className="text-gray-500">Loading workforce analytics...</p>
       </div>
-    </div>
+    );
+  }
 
-    {/* Top‑line KPIs */}
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-6">
-      <div className="bg-white rounded-xl shadow p-6 flex items-center">
-        <HiUsers className="h-8 w-8 text-purple-600 mr-4" />
-        <div>
-          <p className="text-sm text-gray-500">Total Employees</p>
-          <p className="text-xl font-bold text-gray-800">8,420</p>
+  if (error) {
+    return (
+      <div className="p-6">
+        <p className="text-red-600 bg-red-50 border border-red-200 p-4 rounded">
+          {error}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 space-y-8">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-semibold">Workforce Analytics</h2>
+        <div className="flex items-center space-x-4 text-gray-600">
+          <HiBriefcase className="h-6 w-6" />
+          <span>Comprehensive employee insights</span>
         </div>
       </div>
-      <div className="bg-white rounded-xl shadow p-6 flex items-center">
-        <HiUsers className="h-8 w-8 text-green-600 mr-4" />
-        <div>
-          <p className="text-sm text-gray-500"> Depot Managers</p>
-          <p className="text-xl font-bold text-gray-800">420</p>
-        </div>
-      </div>
-      <div className="bg-white rounded-xl shadow p-6 flex items-center">
-        <HiUsers className="h-8 w-8 text-orange-400 mr-4" />
-        <div>
-          <p className="text-sm text-gray-500"> Operational Managers</p>
-          <p className="text-xl font-bold text-gray-800">670</p>
-        </div>
-      </div>
-      <div className="bg-white rounded-xl shadow p-6 flex items-center">
-        <HiUsers className="h-8 w-8 text-yellow-600 mr-4" />
-        <div>
-          <p className="text-sm text-gray-500"> Depot Engineers</p>
-          <p className="text-xl font-bold text-gray-800">560</p>
-        </div>
-      </div>
-      <div className="bg-white rounded-xl shadow p-6 flex items-center">
-        <HiUsers className="h-8 w-8 text-red-600 mr-4" />
-        <div>
-          <p className="text-sm text-gray-500"> Drivers & Conductors</p>
-          <p className="text-xl font-bold text-gray-800">3,470</p>
-        </div>
-      </div>
-    </div>
 
-    {/* Charts Grid */}
-    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-      {/* Headcount by Region */}
-      <div className="bg-white rounded-xl shadow p-6 xl:col-span-2">
-        <h3 className="text-lg font-medium mb-4">Headcount by Region</h3>
-        <div className="h-48">
+      {/* KPI Summary */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+        <KPI
+          label="Total Employees"
+          value={summary.total_employees}
+          color="text-purple-600"
+        />
+        <KPI
+          label="Depot Managers"
+          value={summary.depot_managers}
+          color="text-green-600"
+        />
+        <KPI
+          label="Operational Managers"
+          value={summary.operational_managers}
+          color="text-orange-400"
+        />
+        <KPI
+          label="Depot Engineers"
+          value={summary.depot_engineers}
+          color="text-yellow-600"
+        />
+        <KPI
+          label="Drivers & Conductors"
+          value={summary.drivers_conductors}
+          color="text-red-600"
+        />
+      </div>
+
+      {/* Charts Grid */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        {/* Headcount by Region */}
+        <ChartCard title="Headcount by Region" span>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={headcountByRegion}>
               <XAxis dataKey="region" />
@@ -150,54 +130,63 @@ const WorkforceAnalyticsPage: React.FC = () => (
               <Bar dataKey="count" fill="#3B82F6" />
             </BarChart>
           </ResponsiveContainer>
-        </div>
-      </div>
+        </ChartCard>
 
-      {/* Training Hours Trend */}
-      <div className="bg-white rounded-xl shadow p-6">
-        <h3 className="text-lg font-medium mb-4">New Employees</h3>
-        <div className="h-48">
+        {/* New Employees */}
+        <ChartCard title="New Employees">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={numberOfEmployees}>
+            <LineChart data={newEmployees}>
               <XAxis dataKey="month" />
               <YAxis />
               <Tooltip />
-              <Line type="monotone" dataKey="count" stroke="#a11ccaff" strokeWidth={2} />
+              <Line
+                type="monotone"
+                dataKey="count"
+                stroke="#a11ccaff"
+                strokeWidth={2}
+              />
             </LineChart>
           </ResponsiveContainer>
-        </div>
-      </div>
+        </ChartCard>
 
-      <div className="bg-white rounded-xl shadow p-6 xl:col-span-3">
-        <h3 className="text-lg font-medium mb-4">Headcount by District</h3>
-        <div className="h-48">
+        {/* Headcount by Depot */}
+        <ChartCard title="Headcount by Depot" span>
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={headcountByDistrict}>
-              <XAxis dataKey="region" />
+            <BarChart data={headcountByDepot}>
+              <XAxis dataKey="depot" />
               <YAxis />
               <Tooltip />
-              <Bar dataKey="count" fill="#15e453ff" />
+              <Bar dataKey="count" fill="#10B981" />
             </BarChart>
           </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* Age Distribution */}
-      <div className="bg-white rounded-xl shadow p-6 xl:col-span-2">
-        <h3 className="text-lg font-medium mb-4">Age Distribution</h3>
-        <div className="h-48">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={ageDistribution}>
-              <XAxis dataKey="ageGroup" />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="count" fill="#F59E0B" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+        </ChartCard>
       </div>
     </div>
+  );
+};
 
+const KPI = ({ label, value, color }: { label: string; value: any; color: string }) => (
+  <div className="bg-white rounded-xl shadow p-6 flex items-center">
+    <HiUsers className={`h-8 w-8 ${color} mr-4`} />
+    <div>
+      <p className="text-sm text-gray-500">{label}</p>
+      <p className="text-xl font-bold text-gray-800">{value ?? '-'}</p>
+    </div>
+  </div>
+);
+
+const ChartCard = ({
+  title,
+  children,
+  span,
+}: {
+  title: string;
+  children: React.ReactNode;
+  span?: boolean;
+}) => (
+  <div className={`bg-white rounded-xl shadow p-6 ${span ? 'xl:col-span-2' : ''}`}>
+    <h3 className="text-lg font-medium mb-4">{title}</h3>
+    <div className="h-48">{children}</div>
   </div>
 );
 

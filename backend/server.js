@@ -168,8 +168,29 @@ try {
   console.log('❌ passwordReset error:', error.message);
 }
 
+try {
+  const ceoRoutes = require('./routes/ceoRoutes');
+  app.use('/api/ceo', ceoRoutes); // Mount explicitly at /api/ceo
+  console.log('✅ ceoRoutes loaded');
+} catch (error) {
+  console.log('❌ ceoRoutes error:', error.message);
+}
 
+try {
+  const workforceRoutes = require('./routes/workforceRoutes');
+  app.use('/api/workforce', workforceRoutes);
+  console.log('✅ workforceRoutes loaded');
+} catch (error) {
+  console.log('❌ workforceRoutes error:', error.message);
+}
 
+try {
+  const safetyRoutes = require('./routes/safetyRoutes');
+  app.use('/api/safety', safetyRoutes);
+  console.log('✅ safetyRoutes loaded');
+} catch (error) {
+  console.log('❌ safetyRoutes error:', error.message);
+}
 
 
 const regionDepotRoutes = require('./routes/regionDepotRoutes');
