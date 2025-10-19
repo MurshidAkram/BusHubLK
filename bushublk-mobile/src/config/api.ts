@@ -127,7 +127,7 @@ const getApiBaseUrl = (): string => {
   }
   
   // Production URL
-  const productionUrl = 'http://43.205.127.30:5000';
+  const productionUrl = 'https://your-production-api.com';
   console.log('🚀 Production API Base URL:', productionUrl);
   return productionUrl;
 };
