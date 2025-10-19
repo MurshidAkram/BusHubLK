@@ -510,7 +510,7 @@ server.listen(PORT, '0.0.0.0', () => {
     console.log(`🌐 Base URL for deep links/web access: ${baseURL}`);
     console.log(`🔐 Password reset endpoint: ${baseURL}/api/password-reset`);
   } catch (error) {
-    console.log(`🚀 Server is running on http://localhost:${PORT}`);
+    console.log(`🚀 Server is running on port:${PORT}`);
     console.log('❌ Network utils error:', error.message);
   }
 });

@@ -85,7 +85,7 @@ const BusManaging = () => {
   const fetchBuses = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:5000/api/buses', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/buses`, {
         headers: {
           'Authorization': `Bearer ${context?.token}`
         }
@@ -108,7 +108,7 @@ const BusManaging = () => {
   // Fetch regions and depots
   const fetchRegionsAndDepots = async () => {
     try {
-      const regionsResponse = await fetch('http://localhost:5000/api/regions', {
+      const regionsResponse = await fetch(`${import.meta.env.VITE_API_URL}/api/regions`, {
         headers: {
           'Authorization': `Bearer ${context?.token}`
         }
@@ -121,7 +121,7 @@ const BusManaging = () => {
       const regionsData = await regionsResponse.json();
       setRegions(regionsData.regions);
 
-      const depotsResponse = await fetch('http://localhost:5000/api/depots', {
+      const depotsResponse = await fetch(`${import.meta.env.VITE_API_URL}/api/depots`, {
         headers: {
           'Authorization': `Bearer ${context?.token}`
         }
@@ -264,7 +264,7 @@ const BusManaging = () => {
     }
     
     try {
-      const response = await fetch('http://localhost:5000/api/buses', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/buses`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${context?.token}`,
@@ -315,7 +315,7 @@ const BusManaging = () => {
     }
     
     try {
-      const response = await fetch(`http://localhost:5000/api/buses/${currentBus.bus_id}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/buses/${currentBus.bus_id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${context?.token}`,
@@ -346,7 +346,7 @@ const BusManaging = () => {
     if (!window.confirm('Are you sure you want to delete this bus?')) return;
 
     try {
-      const response = await fetch(`http://localhost:5000/api/buses/${busId}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/buses/${busId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${context?.token}`
