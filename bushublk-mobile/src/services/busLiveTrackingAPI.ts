@@ -4,7 +4,7 @@ import { API_BASE_URL } from '../config/api';
 
 const liveTrackingApi = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 15000, // Increased from 10s to 15s for better mobile connectivity
+  timeout: 8000, // Optimized for real-time tracking (reduced from 15s for faster response)
   headers: {
     'Content-Type': 'application/json',
   },
