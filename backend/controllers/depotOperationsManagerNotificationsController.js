@@ -42,11 +42,14 @@ const getDepotNotifications = async (req, res) => {
     const depotId = Number.parseInt(req.params.depot_id, 10);
     const managerUserId = req.user.userId;
 
+    console.log('📥 getDepotNotifications called:', { depotId, managerUserId, role: req.user.role });
+
     if (!Number.isFinite(depotId)) {
       return res.status(400).json({ success: false, error: 'Invalid depot id provided' });
     }
 
-    const managerInfoResult = await db.query(
+    // Try to find the manager - checking both possible column names
+    let managerInfoResult = await db.query(
       `SELECT depot_id, region_id
          FROM depot_operation_managers
         WHERE depot_op_manager_id = $1
@@ -54,13 +57,28 @@ const getDepotNotifications = async (req, res) => {
       [managerUserId]
     );
 
+    // If not found, the table might use a different structure
     if (managerInfoResult.rowCount === 0) {
+      console.log('⚠️ Not found with depot_op_manager_id, trying user_id column...');
+      managerInfoResult = await db.query(
+        `SELECT depot_id, region_id
+           FROM depot_operation_managers
+          WHERE user_id = $1
+          LIMIT 1`,
+        [managerUserId]
+      );
+    }
+
+    if (managerInfoResult.rowCount === 0) {
+      console.error('❌ Depot operations manager not found for userId:', managerUserId);
       return res.status(404).json({ success: false, error: 'Depot operations manager not found' });
     }
 
     const managerInfo = managerInfoResult.rows[0];
+    console.log('✅ Found manager info:', managerInfo);
 
     if (managerInfo.depot_id !== depotId) {
+      console.error('❌ Access denied: manager depot_id', managerInfo.depot_id, '!== requested', depotId);
       return res.status(403).json({ success: false, error: 'Access denied for the requested depot' });
     }
 
@@ -291,9 +309,10 @@ const getDepotNotifications = async (req, res) => {
       return dateB - dateA;
     });
 
+    console.log('✅ Returning notifications:', notifications.length);
     res.json({ success: true, notifications });
   } catch (err) {
-    console.error('Depot notifications error:', err);
+    console.error('❌ Depot notifications error:', err);
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 };
@@ -303,6 +322,14 @@ const markNotificationAsRead = async (req, res) => {
     const depotId = Number.parseInt(req.params.depot_id, 10);
     const managerUserId = req.user.userId;
     const { notification_type: notificationType, notification_id: notificationId } = req.body;
+
+    console.log('📥 markNotificationAsRead called:', { 
+      depotId, 
+      managerUserId, 
+      notificationType, 
+      notificationId,
+      role: req.user.role 
+    });
 
     if (!Number.isFinite(depotId)) {
       return res.status(400).json({ success: false, error: 'Invalid depot id provided' });
@@ -315,6 +342,40 @@ const markNotificationAsRead = async (req, res) => {
     const resolvedNotificationId = Number(notificationId);
     if (!Number.isFinite(resolvedNotificationId)) {
       return res.status(400).json({ success: false, error: 'Invalid notification id' });
+    }
+
+    // Try to find the manager - checking both possible column names
+    let managerInfoResult = await db.query(
+      `SELECT depot_id, region_id
+         FROM depot_operation_managers
+        WHERE depot_op_manager_id = $1
+        LIMIT 1`,
+      [managerUserId]
+    );
+
+    // If not found, the table might use a different structure
+    if (managerInfoResult.rowCount === 0) {
+      console.log('⚠️ Not found with depot_op_manager_id, trying user_id column...');
+      managerInfoResult = await db.query(
+        `SELECT depot_id, region_id
+           FROM depot_operation_managers
+          WHERE user_id = $1
+          LIMIT 1`,
+        [managerUserId]
+      );
+    }
+
+    if (managerInfoResult.rowCount === 0) {
+      console.error('❌ Depot operations manager not found for userId:', managerUserId);
+      return res.status(404).json({ success: false, error: 'Depot operations manager not found' });
+    }
+
+    const managerInfo = managerInfoResult.rows[0];
+    console.log('✅ Found manager info:', managerInfo);
+
+    if (managerInfo.depot_id !== depotId) {
+      console.error('❌ Access denied: manager depot_id', managerInfo.depot_id, '!== requested', depotId);
+      return res.status(403).json({ success: false, error: 'Access denied for the requested depot' });
     }
 
     await DepotOperationsManagerNotificationsReadModel.markAsRead(
@@ -334,9 +395,10 @@ const markNotificationAsRead = async (req, res) => {
       );
     }
 
+    console.log('✅ Notification marked as read successfully');
     res.json({ success: true });
   } catch (err) {
-    console.error('Depot notification read error:', err);
+    console.error('❌ Depot notification read error:', err);
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 };
