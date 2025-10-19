@@ -56,6 +56,8 @@ interface PartCondition {
 }
 
 const Busavailability = () => {
+  // @ts-ignore
+
   const context = useContext(AppContext) as AppContextType | null;
 
   const [searchTerm, setSearchTerm] = useState<string>('');

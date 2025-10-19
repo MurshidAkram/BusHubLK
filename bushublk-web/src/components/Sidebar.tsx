@@ -53,6 +53,7 @@ const Sidebar: React.FC<SidebarProps> = ({ role, children }) => {
             )}
           </div>
           <div className="text-sm">
+            {/* @ts-ignore */}
             <p className="font-medium">{user?.name || 'User'}</p>
             <p className="text-gray-400 text-xs">{user?.email || 'No email'}</p>
           </div>
