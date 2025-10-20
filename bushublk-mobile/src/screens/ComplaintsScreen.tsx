@@ -66,17 +66,8 @@ interface BusRouteSuggestion {
   bus_name?: string | null;
 }
 
-<<<<<<< HEAD
-interface RouteSuggestion {
-  route_id?: number;
-  route_number?: string;
-  route_name?: string;
-  registration_number?: string;
-  bus_registration?: string;
-}
 
-=======
->>>>>>> 0e32f9e0b0b0ffc0090705099780e18e0b847d44
+
 export default function ComplaintsScreen() {
   const navigation = useNavigation<ComplaintsScreenNavigationProp>();
 
