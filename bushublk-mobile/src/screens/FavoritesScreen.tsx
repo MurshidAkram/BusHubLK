@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, SafeAreaView, StatusBar } from 'react-native';
-import { Colors } from '../constants/colors'; // Import Colors
+import Colors from '../constants/colors'; // Import Colors
 
 const FavoritesScreen = () => {
   return (

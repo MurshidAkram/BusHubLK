@@ -51,8 +51,7 @@ const testApiEndpoint = async (ip: string, port: number): Promise<boolean> => {
  */
 const getExpoDebuggerIP = (): string | null => {
   try {
-    const debuggerHost = Constants.expoGoConfig?.debuggerHost || 
-                        Constants.manifest?.debuggerHost;
+    const debuggerHost = Constants.expoGoConfig?.debuggerHost;
     
     if (debuggerHost) {
       const ip = debuggerHost.split(':')[0];

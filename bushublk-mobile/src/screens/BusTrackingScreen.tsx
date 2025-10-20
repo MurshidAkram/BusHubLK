@@ -117,6 +117,7 @@ export default function BusTrackingScreen({ navigation, route }: Props) {
   const occupancyPollingRef = useRef<NodeJS.Timeout | null>(null);
   const isUserInteractingRef = useRef(false);
   const autoAdjustTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isMountedRef = useRef(true);
 
   // Enhanced: Load cached buses on startup
   const loadCachedBuses = async () => {
@@ -125,10 +126,12 @@ export default function BusTrackingScreen({ navigation, route }: Props) {
       if (cached) {
         const parsedBuses = JSON.parse(cached);
         console.log(`📦 Loaded ${parsedBuses.length} buses from cache`);
-        setCachedBuses(parsedBuses);
-        // Show cached data immediately
-        if (busLocations.length === 0) {
-          setBusLocations(parsedBuses);
+        if (isMountedRef.current) {
+          setCachedBuses(parsedBuses);
+          // Show cached data immediately
+          if (busLocations.length === 0) {
+            setBusLocations(parsedBuses);
+          }
         }
       }
     } catch (error) {
@@ -172,37 +175,38 @@ export default function BusTrackingScreen({ navigation, route }: Props) {
         timeInterval: 5000,
         distanceInterval: 10,
       });
-
+      
       const timeoutPromise = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('Location timeout')), 10000) // 10 second timeout
       );
-
+      
       const location = await Promise.race([locationPromise, timeoutPromise]) as Location.LocationObject;
       const { latitude, longitude } = location.coords;
       const locationTime = Date.now() - startTime;
-
+      
       console.log(`📍 User location obtained in ${locationTime}ms:`, { latitude, longitude });
-      setUserLocation({ latitude, longitude });
-      setMapRegion({
-        latitude,
-        longitude,
-        latitudeDelta: 0.05,
-        longitudeDelta: 0.05,
-      });
-      // Add null check for mapRef before animating
-      if (mapRef.current) {
-        mapRef.current.animateToRegion(
+      if (isMountedRef.current) {
+        setUserLocation({ latitude, longitude });
+        setMapRegion({
+          latitude,
+          longitude,
+          latitudeDelta: 0.05,
+          longitudeDelta: 0.05,
+        });
+        mapRef.current?.animateToRegion(
           { latitude, longitude, latitudeDelta: 0.05, longitudeDelta: 0.05 },
           1000
         );
+        
+        setFetchMetrics(prev => ({ ...prev, locationTime }));
       }
-
-      setFetchMetrics(prev => ({ ...prev, locationTime }));
     } catch (err: any) {
       console.warn('Location error:', err.message);
       // Don't block the app if location fails - use default Colombo location
-      setError('Using default location (Colombo). Enable GPS for accurate tracking.');
-      setUserLocation({ latitude: 6.9271, longitude: 79.8612 });
+      if (isMountedRef.current) {
+        setError('Using default location (Colombo). Enable GPS for accurate tracking.');
+        setUserLocation({ latitude: 6.9271, longitude: 79.8612 });
+      }
     }
   };
 
@@ -216,19 +220,25 @@ const fetchRoutes = async () => {
     }
     const data = await response.json();
     console.log('Fetched routes:', data);
-    setRoutes(data.map((item: any) => ({
-      routeNumber: item.route_number,
-      routeName: item.route_name,
-      startLocation: item.start_location,
-      endLocation: item.end_location,
-      activeBuses: item.active_buses || 0,
-      totalBuses: item.total_buses || 0,
-    })));
+    if (isMountedRef.current) {
+      setRoutes(data.map((item: any) => ({
+        routeNumber: item.route_number,
+        routeName: item.route_name,
+        startLocation: item.start_location,
+        endLocation: item.end_location,
+        activeBuses: item.active_buses || 0,
+        totalBuses: item.total_buses || 0,
+      })));
+    }
   } catch (err: any) {
     console.error('Error fetching routes:', err.message);
-    setError(`Failed to fetch routes: ${err.message}`);
+    if (isMountedRef.current) {
+      setError(`Failed to fetch routes: ${err.message}`);
+    }
   } finally {
-    setLoading(false);
+    if (isMountedRef.current) {
+      setLoading(false);
+    }
   }
 };
 
@@ -260,42 +270,21 @@ const fetchRoutes = async () => {
         lastUpdate: bus.updated_at
       })));
       
-      const mappedBuses = data.map((item: any) => {
-        try {
-          // Validate required fields
-          if (!item.bus_id || !item.latitude || !item.longitude) {
-            console.warn('⚠️ Skipping bus with missing required data:', item);
-            return null;
-          }
-
-          const latitude = parseFloat(item.latitude);
-          const longitude = parseFloat(item.longitude);
-          const distanceKm = parseFloat(item.distance);
-
-          // Validate coordinates
-          if (isNaN(latitude) || isNaN(longitude) || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
-            console.warn('⚠️ Skipping bus with invalid coordinates:', { latitude: item.latitude, longitude: item.longitude });
-            return null;
-          }
-
-          return {
-            busId: String(item.bus_id), // Ensure busId is string
-            registrationNumber: item.registration_number || 'Unknown',
-            routeNumber: item.route_number || null,
-            status: item.tracking_status || 'unknown',
-            latitude,
-            longitude,
-            lastUpdated: item.updated_at ? new Date(item.updated_at) : new Date(),
-            passengerCount: item.passenger_count || 0,
-            occupancyLevel: item.occupancy_level || 'Unknown',
-            confidence: item.confidence || 0.0,
-            distanceKm: isNaN(distanceKm) ? 0 : distanceKm,
-          };
-        } catch (error) {
-          console.error('❌ Error mapping bus data:', error, item);
-          return null;
-        }
-      }).filter((bus: BusLocation | null): bus is BusLocation => bus !== null);
+      const mappedBuses = data.map((item: any) => ({
+        busId: item.bus_id,
+        registrationNumber: item.registration_number,
+        routeNumber: item.route_number || null,
+        status: item.tracking_status,
+        latitude: parseFloat(item.latitude),
+        longitude: parseFloat(item.longitude),
+        lastUpdated: new Date(item.updated_at),
+        passengerCount: item.passenger_count,
+        occupancyLevel: item.occupancy_level || 'Unknown',
+        confidence: item.confidence || 0.0,
+        distanceKm: parseFloat(item.distance),
+      }));
+      
+      if (!isMountedRef.current) return;
       
       setBusLocations(mappedBuses);
       
@@ -303,6 +292,8 @@ const fetchRoutes = async () => {
       if (mappedBuses.length > 0) {
         saveBusesToCache(mappedBuses);
       }
+      
+      if (!isMountedRef.current) return;
       
       // Update last refresh time
       setLastRefreshTime(getCurrentSriLankaTime());
@@ -323,21 +314,29 @@ const fetchRoutes = async () => {
       // Show cached data if available
       if (cachedBuses.length > 0 && busLocations.length === 0) {
         console.log('� Using cached buses due to fetch failure');
-        setBusLocations(cachedBuses);
-        setError('⚠️ Showing cached data - connection issue');
+        if (isMountedRef.current) {
+          setBusLocations(cachedBuses);
+          setError('⚠️ Showing cached data - connection issue');
+        }
       } else if (!err.message.includes('timeout')) {
         // Only show non-timeout errors
         if (err.response?.status >= 400) {
-          setError(`Unable to fetch bus locations. Please try again.`);
+          if (isMountedRef.current) {
+            setError(`Unable to fetch bus locations. Please try again.`);
+          }
         }
       }
       
-      setFetchMetrics(prev => ({ ...prev, busesTime }));
+      if (isMountedRef.current) {
+        setFetchMetrics(prev => ({ ...prev, busesTime }));
+      }
       
     } finally {
-      setIsFetchingLive(false);
-      if (busLocations.length === 0 && cachedBuses.length === 0) {
-        setLoading(false);
+      if (isMountedRef.current) {
+        setIsFetchingLive(false);
+        if (busLocations.length === 0 && cachedBuses.length === 0) {
+          setLoading(false);
+        }
       }
     }
   };
@@ -345,34 +344,23 @@ const fetchRoutes = async () => {
   // Fetch dynamic occupancy data from passenger reports
   const fetchOccupancyData = async () => {
     if (busLocations.length === 0) return;
-
+    
     try {
-      const busIds = busLocations.map(bus => {
-        const id = parseInt(bus.busId);
-        if (isNaN(id)) {
-          console.warn(`⚠️ Invalid bus ID: ${bus.busId}, skipping`);
-          return null;
-        }
-        return id;
-      }).filter(id => id !== null) as number[];
-
-      if (busIds.length === 0) {
-        console.log('⚠️ No valid bus IDs to fetch occupancy data for');
-        return;
-      }
-
+      const busIds = busLocations.map(bus => parseInt(bus.busId));
       console.log('🔄 Fetching dynamic occupancy data for buses:', busIds);
-
+      
       const response = await busOccupancyAPI.getAverageOccupancyLevels(busIds, 15); // 15-minute window as required
-
+      
       console.log('📊 Raw occupancy API response:', JSON.stringify(response, null, 2));
       console.log('📊 Occupancy data structure:', response.data);
-
-      setOccupancyData(response.data);
-
+      
+      if (isMountedRef.current) {
+        setOccupancyData(response.data);
+      }
+      
       console.log('✅ Updated occupancy data for buses:', Object.keys(response.data).length);
       console.log('✅ Occupancy data keys:', Object.keys(response.data));
-
+      
       // Log sample of occupancy data for debugging
       Object.keys(response.data).forEach(busId => {
         console.log(`Bus ${busId} occupancy:`, response.data[busId]);
@@ -388,87 +376,73 @@ const fetchRoutes = async () => {
 
   // Merge dynamic occupancy data
   const enhanceBusesWithOccupancyData = useCallback((buses: BusLocation[]) => {
-    try {
-      console.log('🔀 Merging occupancy data for buses...');
-      console.log('🔀 Available occupancy data keys:', Object.keys(occupancyData));
-      console.log('🔀 Bus IDs to merge:', buses.map(b => b.busId));
-
-      return buses.map(bus => {
-        try {
-          const dynamicData = occupancyData[bus.busId];
-          console.log(`🔀 Bus ${bus.busId} (${bus.registrationNumber}):`, {
-            hasData: !!dynamicData,
-            data: dynamicData,
-            level: dynamicData?.calculated_occupancy_level,
-            reportCount: dynamicData?.report_count
-          });
-
-          // Include occupancy data if it exists and has reports (even if level is 'unknown')
-          // Show data as long as there's at least one report
-          if (dynamicData && dynamicData.report_count > 0) {
-            console.log(`✅ Adding occupancy data to bus ${bus.busId}: ${dynamicData.calculated_occupancy_level} (${dynamicData.report_count} reports)`);
-            return {
-              ...bus,
-              dynamicOccupancy: {
-                level: dynamicData.calculated_occupancy_level,
-                reportCount: dynamicData.report_count,
-                avgConfidence: dynamicData.avg_confidence,
-                dataFreshness: dynamicData.data_freshness,
-                lastReportTime: dynamicData.last_report_time ? new Date(dynamicData.last_report_time) : null,
-                minutesSinceLastReport: dynamicData.minutes_since_last_report,
-                // Simple fields for basic occupancy tracking
-                overallCondition: dynamicData.calculated_occupancy_level,
-                trendDirection: 'stable',
-                reliabilityScore: Math.min(dynamicData.report_count * 20 + dynamicData.avg_confidence, 100),
-                timeWeightedLevel: dynamicData.calculated_occupancy_level,
-                passengerFeedbackSummary: `${dynamicData.report_count} passenger report${dynamicData.report_count !== 1 ? 's' : ''} (${dynamicData.avg_confidence}% confidence)`
-              }
-            };
-          } else {
-            console.log(`❌ No valid occupancy data for bus ${bus.busId} (no reports)`);
-          }
-          return bus;
-        } catch (error) {
-          console.error(`Error enhancing bus ${bus?.busId} with occupancy data:`, error);
-          return bus; // Return bus without occupancy data if enhancement fails
-        }
+    console.log('🔀 Merging occupancy data for buses...');
+    console.log('🔀 Available occupancy data keys:', Object.keys(occupancyData));
+    console.log('🔀 Bus IDs to merge:', buses.map(b => b.busId));
+    
+    return buses.map(bus => {
+      const dynamicData = occupancyData[bus.busId];
+      console.log(`🔀 Bus ${bus.busId} (${bus.registrationNumber}):`, {
+        hasData: !!dynamicData,
+        data: dynamicData,
+        level: dynamicData?.calculated_occupancy_level,
+        reportCount: dynamicData?.report_count
       });
-    } catch (error) {
-      console.error('Error in enhanceBusesWithOccupancyData:', error);
-      return buses; // Return original buses if enhancement fails completely
-    }
+      
+      // Include occupancy data if it exists and has reports (even if level is 'unknown')
+      // Show data as long as there's at least one report
+      if (dynamicData && dynamicData.report_count > 0) {
+        console.log(`✅ Adding occupancy data to bus ${bus.busId}: ${dynamicData.calculated_occupancy_level} (${dynamicData.report_count} reports)`);
+        return {
+          ...bus,
+          dynamicOccupancy: {
+            level: dynamicData.calculated_occupancy_level,
+            reportCount: dynamicData.report_count,
+            avgConfidence: dynamicData.avg_confidence,
+            dataFreshness: dynamicData.data_freshness,
+            lastReportTime: dynamicData.last_report_time ? new Date(dynamicData.last_report_time) : null,
+            minutesSinceLastReport: dynamicData.minutes_since_last_report,
+            // Simple fields for basic occupancy tracking
+            overallCondition: dynamicData.calculated_occupancy_level,
+            trendDirection: 'stable',
+            reliabilityScore: Math.min(dynamicData.report_count * 20 + dynamicData.avg_confidence, 100),
+            timeWeightedLevel: dynamicData.calculated_occupancy_level,
+            passengerFeedbackSummary: `${dynamicData.report_count} passenger report${dynamicData.report_count !== 1 ? 's' : ''} (${dynamicData.avg_confidence}% confidence)`
+          }
+        };
+      } else {
+        console.log(`❌ No valid occupancy data for bus ${bus.busId} (no reports)`);
+      }
+      return bus;
+    });
   }, [occupancyData]);
 
   // Enhanced: Initialize with parallel fetching and cache loading
   useEffect(() => {
     const init = async () => {
-      try {
-        console.log('🚀 Starting parallel initialization...');
-        const initStartTime = Date.now();
-
-        // Load cached buses immediately (non-blocking)
-        loadCachedBuses();
-
-        // Request location permission
-        const hasPermission = await requestLocationPermission();
-        if (!hasPermission) return;
-
-        // Parallel execution: Get location, routes, and cached data
-        await Promise.allSettled([
-          getUserLocation(),
-          fetchRoutes(),
-        ]);
-
-        const initTime = Date.now() - initStartTime;
-        console.log(`✅ Initialization complete in ${initTime}ms`);
-      } catch (error) {
-        console.error('Error during initialization:', error);
-        setError('Failed to initialize bus tracking');
-      }
+      console.log('🚀 Starting parallel initialization...');
+      const initStartTime = Date.now();
+      
+      // Load cached buses immediately (non-blocking)
+      loadCachedBuses();
+      
+      // Request location permission
+      const hasPermission = await requestLocationPermission();
+      if (!hasPermission) return;
+      
+      // Parallel execution: Get location, routes, and cached data
+      await Promise.allSettled([
+        getUserLocation(),
+        fetchRoutes(),
+      ]);
+      
+      const initTime = Date.now() - initStartTime;
+      console.log(`✅ Initialization complete in ${initTime}ms`);
     };
     init();
 
     return () => {
+      isMountedRef.current = false;
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
       }
@@ -527,118 +501,97 @@ const fetchRoutes = async () => {
 
   // Enhanced: Filter buses with more forgiving criteria
   const filteredBuses = useMemo(() => {
-    try {
-      const enhancedBuses = enhanceBusesWithOccupancyData(busLocations);
-      console.log(`🔍 Filtering ${enhancedBuses.length} buses with occupancy data...`);
-
-      let filtered = enhancedBuses.filter(bus => {
-        try {
-          // Filter out buses with stale data (older than 1 minute)
-          const minutesOld = getMinutesSince(bus.lastUpdated);
-          if (isTimestampStale(bus.lastUpdated, 1)) {
-            console.log(`⏰ Filtering out bus ${bus.busId} (Route ${bus.routeNumber}) - data is too stale (${minutesOld} minutes old)`);
-            return false;
-          }
-
-          // Route filter (if selected)
-          if (selectedRoute && bus.routeNumber !== selectedRoute) {
-            console.log(`🛣️ Filtering out bus ${bus.busId} - route ${bus.routeNumber} doesn't match selected route ${selectedRoute}`);
-            return false;
-          }
-
-          // Search filter (if entered)
-          if (searchQuery) {
-            const matches = bus.routeNumber && bus.routeNumber.toLowerCase().includes(searchQuery.toLowerCase());
-            if (!matches) {
-              console.log(`🔍 Filtering out bus ${bus.busId} - route ${bus.routeNumber} doesn't match search "${searchQuery}"`);
-              return false;
-            }
-          }
-
-          // REMOVED: No longer filter by status - show all buses with visual indicators
-          // This allows inactive/break/offline buses to be shown if data is recent
-
-          console.log(`✅ Keeping bus ${bus.busId} (Route ${bus.routeNumber}) - ${minutesOld}m old, status: ${bus.status}`);
-          return true;
-        } catch (error) {
-          console.error(`Error filtering bus ${bus?.busId}:`, error);
-          return false; // Skip problematic buses
+    const enhancedBuses = enhanceBusesWithOccupancyData(busLocations);
+    console.log(`🔍 Filtering ${enhancedBuses.length} buses with occupancy data...`);
+    
+    let filtered = enhancedBuses.filter(bus => {
+      // Filter out buses with stale data (older than 1 minute)
+      const minutesOld = getMinutesSince(bus.lastUpdated);
+      if (isTimestampStale(bus.lastUpdated, 1)) {
+        console.log(`⏰ Filtering out bus ${bus.busId} (Route ${bus.routeNumber}) - data is too stale (${minutesOld} minutes old)`);
+        return false;
+      }
+      
+      // Route filter (if selected)
+      if (selectedRoute && bus.routeNumber !== selectedRoute) {
+        console.log(`🛣️ Filtering out bus ${bus.busId} - route ${bus.routeNumber} doesn't match selected route ${selectedRoute}`);
+        return false;
+      }
+      
+      // Search filter (if entered)
+      if (searchQuery) {
+        const matches = bus.routeNumber && bus.routeNumber.toLowerCase().includes(searchQuery.toLowerCase());
+        if (!matches) {
+          console.log(`🔍 Filtering out bus ${bus.busId} - route ${bus.routeNumber} doesn't match search "${searchQuery}"`);
+          return false;
         }
-      });
+      }
+      
+      // REMOVED: No longer filter by status - show all buses with visual indicators
+      // This allows inactive/break/offline buses to be shown if data is recent
+      
+      console.log(`✅ Keeping bus ${bus.busId} (Route ${bus.routeNumber}) - ${minutesOld}m old, status: ${bus.status}`);
+      return true;
+    });
 
-      // Sort by distance (closest first) and limit to 10 buses to prevent performance issues
-      filtered = filtered
-        .sort((a, b) => a.distanceKm - b.distanceKm)
-        .slice(0, 10);
+    // Sort by distance (closest first) and limit to 10 buses to prevent performance issues
+    filtered = filtered
+      .sort((a, b) => a.distanceKm - b.distanceKm)
+      .slice(0, 10);
 
-      console.log(`📊 Final result: ${filtered.length} buses after filtering from ${enhancedBuses.length} total (limited to 10 closest buses)`);
-      return filtered;
-    } catch (error) {
-      console.error('Error filtering buses:', error);
-      return [];
-    }
+    console.log(`📊 Final result: ${filtered.length} buses after filtering from ${enhancedBuses.length} total (limited to 10 closest buses)`);
+    return filtered;
   }, [busLocations, selectedRoute, searchQuery, enhanceBusesWithOccupancyData]);
 
   // Update map region when filtered buses change (only in normal view)
   // Use a ref to track the last adjusted region to prevent infinite loops
   const lastAdjustedRegionRef = useRef<{ latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number } | null>(null);
-
+  
   useEffect(() => {
-    try {
-      // Don't auto-adjust if user is manually interacting with the map
-      if (isUserInteractingRef.current) {
-        console.log('⏸️ Skipping auto-adjust - user is interacting with map');
-        return;
+    // Don't auto-adjust if user is manually interacting with the map
+    if (isUserInteractingRef.current) {
+      console.log('⏸️ Skipping auto-adjust - user is interacting with map');
+      return;
+    }
+
+    if (filteredBuses.length > 0 && userLocation && !isFullScreenMap) {
+      // Clear any pending auto-adjust
+      if (autoAdjustTimeoutRef.current) {
+        clearTimeout(autoAdjustTimeoutRef.current);
       }
 
-      if (filteredBuses.length > 0 && userLocation && !isFullScreenMap) {
-        // Clear any pending auto-adjust
-        if (autoAdjustTimeoutRef.current) {
-          clearTimeout(autoAdjustTimeoutRef.current);
+      // Debounce the auto-adjust to prevent rapid changes
+      autoAdjustTimeoutRef.current = setTimeout(() => {
+        // Only adjust region if we have buses and user location, and not in full screen
+        const latitudes = [userLocation.latitude, ...filteredBuses.map(bus => bus.latitude)];
+        const longitudes = [userLocation.longitude, ...filteredBuses.map(bus => bus.longitude)];
+        const minLat = Math.min(...latitudes);
+        const maxLat = Math.max(...latitudes);
+        const minLng = Math.min(...longitudes);
+        const maxLng = Math.max(...longitudes);
+
+        // Calculate new region
+        const newRegion = {
+          latitude: (minLat + maxLat) / 2,
+          longitude: (minLng + maxLng) / 2,
+          latitudeDelta: Math.max((maxLat - minLat) * 1.5, 0.05),
+          longitudeDelta: Math.max((maxLng - minLng) * 1.5, 0.05),
+        };
+
+        // Only update if the region has actually changed significantly compared to last adjustment
+        const lastRegion = lastAdjustedRegionRef.current;
+        const regionChanged = !lastRegion || 
+                             Math.abs(newRegion.latitude - lastRegion.latitude) > 0.005 ||
+                             Math.abs(newRegion.longitude - lastRegion.longitude) > 0.005 ||
+                             Math.abs(newRegion.latitudeDelta - lastRegion.latitudeDelta) > 0.02 ||
+                             Math.abs(newRegion.longitudeDelta - lastRegion.longitudeDelta) > 0.02;
+
+        if (regionChanged) {
+          console.log('🔄 Adjusting map region to fit buses and user location');
+          lastAdjustedRegionRef.current = newRegion;
+          mapRef.current?.animateToRegion(newRegion, 1000);
         }
-
-        // Debounce the auto-adjust to prevent rapid changes
-        autoAdjustTimeoutRef.current = setTimeout(() => {
-          try {
-            // Only adjust region if we have buses and user location, and not in full screen
-            const latitudes = [userLocation.latitude, ...filteredBuses.map(bus => bus.latitude)];
-            const longitudes = [userLocation.longitude, ...filteredBuses.map(bus => bus.longitude)];
-            const minLat = Math.min(...latitudes);
-            const maxLat = Math.max(...latitudes);
-            const minLng = Math.min(...longitudes);
-            const maxLng = Math.max(...longitudes);
-
-            // Calculate new region
-            const newRegion = {
-              latitude: (minLat + maxLat) / 2,
-              longitude: (minLng + maxLng) / 2,
-              latitudeDelta: Math.max((maxLat - minLat) * 1.5, 0.05),
-              longitudeDelta: Math.max((maxLng - minLng) * 1.5, 0.05),
-            };
-
-            // Only update if the region has actually changed significantly compared to last adjustment
-            const lastRegion = lastAdjustedRegionRef.current;
-            const regionChanged = !lastRegion ||
-                                  Math.abs(newRegion.latitude - lastRegion.latitude) > 0.005 ||
-                                  Math.abs(newRegion.longitude - lastRegion.longitude) > 0.005 ||
-                                  Math.abs(newRegion.latitudeDelta - lastRegion.latitudeDelta) > 0.02 ||
-                                  Math.abs(newRegion.longitudeDelta - lastRegion.longitudeDelta) > 0.02;
-
-            if (regionChanged) {
-              console.log('🔄 Adjusting map region to fit buses and user location');
-              lastAdjustedRegionRef.current = newRegion;
-              // Add null check for mapRef before animating
-              if (mapRef.current) {
-                mapRef.current.animateToRegion(newRegion, 1000);
-              }
-            }
-          } catch (error) {
-            console.error('Error adjusting map region:', error);
-          }
-        }, 1000); // Wait 1 second before adjusting
-      }
-    } catch (error) {
-      console.error('Error in map region adjustment effect:', error);
+      }, 1000); // Wait 1 second before adjusting
     }
 
     return () => {
@@ -653,22 +606,21 @@ const fetchRoutes = async () => {
   }, []);
 
   const focusOnBus = useCallback((bus: BusLocation) => {
-    setSelectedBus(bus);
-    const region = {
-      latitude: bus.latitude,
-      longitude: bus.longitude,
-      latitudeDelta: 0.02,
-      longitudeDelta: 0.02,
-    };
-    setMapRegion(region);
-    // Add null check for mapRef before animating
-    if (mapRef.current) {
-      mapRef.current.animateToRegion(region, 1000);
+    if (isMountedRef.current) {
+      setSelectedBus(bus);
+      const region = {
+        latitude: bus.latitude,
+        longitude: bus.longitude,
+        latitudeDelta: 0.02,
+        longitudeDelta: 0.02,
+      };
+      setMapRegion(region);
+      mapRef.current?.animateToRegion(region, 1000);
     }
   }, []);
 
   const showAllBuses = useCallback(() => {
-    if (filteredBuses.length > 0 && userLocation) {
+    if (filteredBuses.length > 0 && userLocation && isMountedRef.current) {
       const latitudes = [userLocation.latitude, ...filteredBuses.map(bus => bus.latitude)];
       const longitudes = [userLocation.longitude, ...filteredBuses.map(bus => bus.longitude)];
       const minLat = Math.min(...latitudes);
@@ -680,12 +632,9 @@ const fetchRoutes = async () => {
         longitude: (minLng + maxLng) / 2,
         latitudeDelta: Math.max((maxLat - minLat) * 1.5, 0.05),
         longitudeDelta: Math.max((maxLng - minLng) * 1.5, 0.05),
-      };
+    };
       setMapRegion(region);
-      // Add null check for mapRef before animating
-      if (mapRef.current) {
-        mapRef.current.animateToRegion(region, 1000);
-      }
+      mapRef.current?.animateToRegion(region, 1000);
     }
   }, [filteredBuses, userLocation]);
 
@@ -749,90 +698,85 @@ const fetchRoutes = async () => {
   };
 
   const getOccupancyDisplayText = (bus: BusLocation) => {
-    try {
-      // Only use passenger report data if available and has at least one report
-      if (bus.dynamicOccupancy && bus.dynamicOccupancy.reportCount > 0) {
-        // Check if last report is older than 5 minutes - show "No Recent Updates"
-        if (bus.dynamicOccupancy.level === 'no_recent_updates' ||
-            (bus.dynamicOccupancy.minutesSinceLastReport !== null && bus.dynamicOccupancy.minutesSinceLastReport > 5)) {
-          return {
-            text: 'No Recent Updates',
-            color: '#6c757d',
-            confidence: 0,
-            freshness: `${bus.dynamicOccupancy.reportCount} report${bus.dynamicOccupancy.reportCount !== 1 ? 's' : ''} (Last ${bus.dynamicOccupancy.minutesSinceLastReport}m ago)`,
-            source: 'passenger_reports',
-            overallCondition: {
-              label: 'No Recent Updates',
-              color: '#6c757d',
-              icon: '⏱️'
-            },
-            trendInfo: getTrendInfo('stable'),
-            reliabilityScore: 0,
-            reportCount: bus.dynamicOccupancy.reportCount
-          };
-        }
-
-        // Simple occupancy level mapping (for reports within last 5 minutes)
-        let simpleLevel = '';
-        let levelColor = '';
-        let icon = '❓';
-
-        switch (bus.dynamicOccupancy.level) {
-          case 'not_crowded':
-            simpleLevel = 'Not Crowded';
-            levelColor = '#28a745';
-            icon = '🟢';
-            break;
-          case 'not_too_crowded':
-            simpleLevel = 'Moderate';
-            levelColor = '#ffc107';
-            icon = '🟡';
-            break;
-          case 'crowded':
-            simpleLevel = 'Crowded';
-            levelColor = '#fd7e14';
-            icon = '🟠';
-            break;
-          case 'very_crowded':
-            simpleLevel = 'Very Crowded';
-            levelColor = '#dc3545';
-            icon = '🔴';
-            break;
-          case 'unknown':
-            // Even if level is unknown, show that we have reports
-            simpleLevel = `${bus.dynamicOccupancy.reportCount} Report${bus.dynamicOccupancy.reportCount !== 1 ? 's' : ''}`;
-            levelColor = '#17a2b8'; // Info color
-            icon = '📊';
-            break;
-          default:
-            simpleLevel = `${bus.dynamicOccupancy.reportCount} Report${bus.dynamicOccupancy.reportCount !== 1 ? 's' : ''}`;
-            levelColor = '#6c757d';
-            icon = '📊';
-        }
-
+    // Only use passenger report data if available and has at least one report
+    if (bus.dynamicOccupancy && bus.dynamicOccupancy.reportCount > 0) {
+      // Check if last report is older than 5 minutes - show "No Recent Updates"
+      if (bus.dynamicOccupancy.level === 'no_recent_updates' || 
+          (bus.dynamicOccupancy.minutesSinceLastReport !== null && bus.dynamicOccupancy.minutesSinceLastReport > 5)) {
         return {
-          text: simpleLevel,
-          color: levelColor,
-          confidence: bus.dynamicOccupancy.avgConfidence,
-          freshness: `${bus.dynamicOccupancy.reportCount} report${bus.dynamicOccupancy.reportCount !== 1 ? 's' : ''} (${bus.dynamicOccupancy.avgConfidence}% confidence)`,
+          text: 'No Recent Updates',
+          color: '#6c757d',
+          confidence: 0,
+          freshness: `${bus.dynamicOccupancy.reportCount} report${bus.dynamicOccupancy.reportCount !== 1 ? 's' : ''} (Last ${bus.dynamicOccupancy.minutesSinceLastReport}m ago)`,
           source: 'passenger_reports',
           overallCondition: {
-            label: simpleLevel,
-            color: levelColor,
-            icon: icon
+            label: 'No Recent Updates',
+            color: '#6c757d',
+            icon: '⏱️'
           },
-          trendInfo: getTrendInfo(bus.dynamicOccupancy.trendDirection),
-          reliabilityScore: bus.dynamicOccupancy.reliabilityScore,
+          trendInfo: getTrendInfo('stable'),
+          reliabilityScore: 0,
           reportCount: bus.dynamicOccupancy.reportCount
         };
       }
-
-      // If no passenger reports available, return null to indicate no data
-      return null;
-    } catch (error) {
-      console.error(`Error getting occupancy display text for bus ${bus?.busId}:`, error);
-      return null;
+      
+      // Simple occupancy level mapping (for reports within last 5 minutes)
+      let simpleLevel = '';
+      let levelColor = '';
+      let icon = '❓';
+      
+      switch (bus.dynamicOccupancy.level) {
+        case 'not_crowded':
+          simpleLevel = 'Not Crowded';
+          levelColor = '#28a745';
+          icon = '🟢';
+          break;
+        case 'not_too_crowded':
+          simpleLevel = 'Moderate';
+          levelColor = '#ffc107';
+          icon = '🟡';
+          break;
+        case 'crowded':
+          simpleLevel = 'Crowded';
+          levelColor = '#fd7e14';
+          icon = '🟠';
+          break;
+        case 'very_crowded':
+          simpleLevel = 'Very Crowded';
+          levelColor = '#dc3545';
+          icon = '🔴';
+          break;
+        case 'unknown':
+          // Even if level is unknown, show that we have reports
+          simpleLevel = `${bus.dynamicOccupancy.reportCount} Report${bus.dynamicOccupancy.reportCount !== 1 ? 's' : ''}`;
+          levelColor = '#17a2b8'; // Info color
+          icon = '📊';
+          break;
+        default:
+          simpleLevel = `${bus.dynamicOccupancy.reportCount} Report${bus.dynamicOccupancy.reportCount !== 1 ? 's' : ''}`;
+          levelColor = '#6c757d';
+          icon = '📊';
+      }
+      
+      return {
+        text: simpleLevel,
+        color: levelColor,
+        confidence: bus.dynamicOccupancy.avgConfidence,
+        freshness: `${bus.dynamicOccupancy.reportCount} report${bus.dynamicOccupancy.reportCount !== 1 ? 's' : ''} (${bus.dynamicOccupancy.avgConfidence}% confidence)`,
+        source: 'passenger_reports',
+        overallCondition: {
+          label: simpleLevel,
+          color: levelColor,
+          icon: icon
+        },
+        trendInfo: getTrendInfo(bus.dynamicOccupancy.trendDirection),
+        reliabilityScore: bus.dynamicOccupancy.reliabilityScore,
+        reportCount: bus.dynamicOccupancy.reportCount
+      };
     }
+    
+    // If no passenger reports available, return null to indicate no data
+    return null;
   };
 
   const renderRouteItem = ({ item }: { item: BusRoute }) => (
@@ -948,36 +892,29 @@ const fetchRoutes = async () => {
   // Always fetch user location and nearby buses when screen is focused
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', async () => {
-      try {
-        await requestLocationPermission();
-        await getUserLocation();
-        fetchBusLocations();
-      } catch (error) {
-        console.error('Error in navigation focus handler:', error);
-        setError('Failed to initialize location services');
-      }
+      await requestLocationPermission();
+      await getUserLocation();
+      fetchBusLocations();
     });
     return unsubscribe;
   }, [navigation]);
 
   // Handle route parameters from navigation (e.g., from BusRouteResultsScreen)
   useEffect(() => {
-    try {
-      if (route?.params) {
-        const { selectedRoute: routeFromParams, fromSearch, searchFrom, searchTo } = route.params;
-
-        if (routeFromParams) {
-          console.log(`🎯 Setting selected route from navigation: ${routeFromParams}`);
+    if (route?.params) {
+      const { selectedRoute: routeFromParams, fromSearch, searchFrom, searchTo } = route.params;
+      
+      if (routeFromParams) {
+        console.log(`🎯 Setting selected route from navigation: ${routeFromParams}`);
+        if (isMountedRef.current) {
           setSelectedRoute(routeFromParams);
         }
-
-        if (fromSearch) {
-          console.log(`🔍 Coming from search: ${searchFrom} → ${searchTo}`);
-          // You can use searchFrom and searchTo if needed for additional context
-        }
       }
-    } catch (error) {
-      console.error('Error handling route parameters:', error);
+      
+      if (fromSearch) {
+        console.log(`🔍 Coming from search: ${searchFrom} → ${searchTo}`);
+        // You can use searchFrom and searchTo if needed for additional context
+      }
     }
   }, [route?.params]);
 
@@ -1071,32 +1008,26 @@ const fetchRoutes = async () => {
           </View>
         )}
         <MapView
-           ref={mapRef}
-           provider={PROVIDER_DEFAULT}
-           style={styles.map}
-           region={mapRegion}
-           showsUserLocation={true}
-           showsMyLocationButton={true}
-           onRegionChangeComplete={(region) => {
-             try {
-               setMapRegion(region);
-               // Mark that user is interacting, then clear after 3 seconds
-               isUserInteractingRef.current = true;
-               setTimeout(() => {
-                 isUserInteractingRef.current = false;
-               }, 3000);
-             } catch (error) {
-               console.error('Error in onRegionChangeComplete:', error);
-             }
-           }}
-           onPanDrag={() => {
-             try {
-               isUserInteractingRef.current = true;
-             } catch (error) {
-               console.error('Error in onPanDrag:', error);
-             }
-           }}
-         >
+          ref={mapRef}
+          provider={PROVIDER_DEFAULT}
+          style={styles.map}
+          region={mapRegion}
+          showsUserLocation={true}
+          showsMyLocationButton={true}
+          onRegionChangeComplete={(region) => {
+            if (isMountedRef.current) {
+              setMapRegion(region);
+            }
+            // Mark that user is interacting, then clear after 3 seconds
+            isUserInteractingRef.current = true;
+            setTimeout(() => {
+              isUserInteractingRef.current = false;
+            }, 3000);
+          }}
+          onPanDrag={() => {
+            isUserInteractingRef.current = true;
+          }}
+        >
           {/* Show user's location marker explicitly */}
           {userLocation && (
             <Marker

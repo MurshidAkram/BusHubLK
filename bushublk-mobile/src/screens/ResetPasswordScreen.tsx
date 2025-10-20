@@ -18,11 +18,13 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { AuthStackParamList } from '../types/navigation';
 import { API_BASE_URL } from '../config/api';
 //const API_BASE_URL = 'http://YOUR_LOCAL_IP_ADDRESS:5000/api'; // <--- Make sure this is YOUR actual local IP or deployment URL
 
 export default function ResetPasswordScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<StackNavigationProp<AuthStackParamList>>();
   const route = useRoute(); // Get route params
 
   const [password, setPassword] = useState('');

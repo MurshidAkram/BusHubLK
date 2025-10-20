@@ -20,6 +20,7 @@ import { API_BASE_URL } from "../config/api";
 import { useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { RootStackParamList } from "../types/navigation";
+import { AppStackParamList } from "../types/navigation";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
@@ -53,7 +54,7 @@ const AppColors = {
   shadow: "rgba(0, 0, 0, 0.1)",
 };
 
-type ComplaintsScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Complaints'>;
+type ComplaintsScreenNavigationProp = StackNavigationProp<AppStackParamList, 'Complaints'>;
 
 interface BusRouteSuggestion {
   bus_route_id?: number;
