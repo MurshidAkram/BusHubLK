@@ -35,20 +35,39 @@ export default function ResetPasswordScreen() {
   useEffect(() => {
     const parseUrl = (url: string | null) => {
       if (!url) return false;
-      // Example: bushublkapp://reset-password?token=abc&email=test@example.com
+
+      console.log('🔗 Handling deep link:', url);
+
+      // Handle different URL formats:
+      // 1. bushublkapp://reset-password?token=abc&email=test@example.com
+      // 2. exp://10.23.0.103:8081/--/reset-password?token=abc&email=test@example.com
+      // 3. Any other deep link format
+
+      // Check if this is a password reset link
+      if (!url.includes('reset-password') && !url.includes('token=')) {
+        console.log('🤷‍♂️ Unknown deep link format:', url);
+        return false;
+      }
+
+      // Extract query parameters
       const urlParts = url.split('?');
       if (urlParts.length > 1) {
         const urlParams = new URLSearchParams(urlParts[1]);
         const deepLinkToken = urlParams.get('token');
         const deepLinkEmail = urlParams.get('email');
 
+        console.log('📧 Parsed params:', { token: deepLinkToken, email: deepLinkEmail });
+
         if (deepLinkToken && deepLinkEmail) {
           setToken(deepLinkToken);
           setEmail(deepLinkEmail);
           setIsReady(true);
+          console.log('✅ Reset password link parsed successfully');
           return true;
         }
       }
+
+      console.log('❌ Failed to parse reset password link');
       return false;
     };
 
@@ -129,6 +148,11 @@ export default function ResetPasswordScreen() {
 
     setIsLoading(true);
     try {
+      console.log('🔄 Sending password reset request...');
+      console.log('📍 API URL:', `${API_BASE_URL}/api/password-reset/reset`);
+      console.log('📧 Email:', email);
+      console.log('🔑 Token (first 10 chars):', token.substring(0, 10) + '...');
+
       // Corrected Endpoint to match backend router.post('/reset', ...)
       const response = await fetch(`${API_BASE_URL}/api/password-reset/reset`, {
         method: 'POST',
@@ -138,17 +162,43 @@ export default function ResetPasswordScreen() {
         body: JSON.stringify({ token, email, newPassword: password }),
       });
 
-      const data = await response.json();
+      console.log('📥 Response status:', response.status);
+
+      let data;
+      try {
+        data = await response.json();
+        console.log('📦 Response data:', data);
+      } catch (jsonError) {
+        console.error('❌ Failed to parse JSON response:', jsonError);
+        throw new Error('Invalid response from server');
+      }
 
       if (response.ok && data.success) { // Check both HTTP status and success flag from backend
+        console.log('✅ Password reset successful');
         Alert.alert('Success', data.message || 'Your password has been reset successfully!');
         navigation.navigate('Login'); // Navigate back to login
       } else {
-        Alert.alert('Error', data.error || data.message || 'Failed to reset password. The link might be expired or invalid.');
+        console.error('❌ Password reset failed:', {
+          status: response.status,
+          error: data.error,
+          message: data.message,
+          errors: data.errors
+        });
+
+        // Show detailed error message
+        let errorMessage = data.error || data.message || 'Failed to reset password.';
+
+        // If there are validation errors, show them
+        if (data.errors && Array.isArray(data.errors)) {
+          const errorDetails = data.errors.map((err: any) => err.msg || err.message).join('\n');
+          errorMessage += `\n\nDetails:\n${errorDetails}`;
+        }
+
+        Alert.alert('Error', errorMessage);
       }
     } catch (error) {
-      console.error('Network or API error:', error);
-      Alert.alert('Error', 'Could not connect to the server. Please try again.');
+      console.error('❌ Network or API error:', error);
+      Alert.alert('Error', `Could not connect to the server. Please check your internet connection and try again.\n\nError: ${(error as Error).message}`);
     } finally {
       setIsLoading(false);
     }

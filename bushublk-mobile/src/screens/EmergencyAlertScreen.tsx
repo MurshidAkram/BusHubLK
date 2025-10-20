@@ -76,37 +76,37 @@ const ContactCard: React.FC<ContactCardProps> = ({ contact, onEdit, onDelete, on
 <View style={styles.contactCard}>
     <View style={styles.contactCardHeader}>
         <View>
-            <Text style={styles.contactName}>{contact.name}</Text>
-            <Text style={styles.contactDetail}>{contact.relationship}</Text>
+            <Text style={styles.contactName}>{contact.name || ''}</Text>
+            <Text style={styles.contactDetail}>{contact.relationship || ''}</Text>
         </View>
         <View style={styles.contactActions}>
             <TouchableOpacity style={styles.actionButton} onPress={() => onEdit(contact)}>
-                <Text style={styles.editIcon}>✏️</Text>
+                <Text style={styles.editIcon}>{'✏️'}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionButton} onPress={() => onDelete(contact.id)}>
-                <Text style={styles.deleteIcon}>🗑️</Text>
+                <Text style={styles.deleteIcon}>{'🗑️'}</Text>
             </TouchableOpacity>
         </View>
     </View>
     <View style={styles.contactCardBody}>
-        <Text style={styles.contactDetail}>📞 {contact.phone}</Text>
-        <Text style={styles.contactDetail}>✉️ {contact.email}</Text>
+        <Text style={styles.contactDetail}>{`📞 ${contact.phone || ''}`}</Text>
+        <Text style={styles.contactDetail}>{`✉️ ${contact.email || ''}`}</Text>
     </View>
     <View style={styles.contactCardFooter}>
         {contact.isPrimary ? (
             <View style={styles.primaryBadge}>
-                <Text style={styles.primaryBadgeText}>⭐ Primary Contact</Text>
+                <Text style={styles.primaryBadgeText}>{'⭐ Primary Contact'}</Text>
             </View>
         ) : (
             <TouchableOpacity style={styles.setPrimaryButton} onPress={() => onSetPrimary(contact.id)}>
                 <Text style={styles.setPrimaryText}>Set as Primary</Text>
             </TouchableOpacity>
         )}
-        {contact.isPrimary && (
+        {contact.isPrimary ? (
             <TouchableOpacity style={styles.callButton} onPress={() => onCall(contact.phone)}>
                 <Text style={styles.callButtonText}>Call Now</Text>
             </TouchableOpacity>
-        )}
+        ) : null}
     </View>
 </View>
 );
@@ -120,47 +120,47 @@ const AlertCard: React.FC<AlertCardProps> = ({ alert }) => (
     <View style={styles.alertCard}>
         <View style={styles.alertCardHeader}>
             <View style={styles.alertIconBadge}>
-                <Text style={styles.alertIconText}>🚨</Text>
+                <Text style={styles.alertIconText}>{'🚨'}</Text>
             </View>
             <View style={styles.alertMainContent}>
-                <Text style={styles.alertType}>{alert.type}</Text>
+                <Text style={styles.alertType}>{alert.type || ''}</Text>
                 <Text style={styles.alertTimestamp}>
-                    {new Date(alert.timestamp).toLocaleDateString('en-US', { 
-                        month: 'short', 
-                        day: 'numeric', 
-                        year: 'numeric' 
-                    })} • {new Date(alert.timestamp).toLocaleTimeString('en-US', { 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
-                    })}
+                    {`${new Date(alert.timestamp).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric'
+                    })} • ${new Date(alert.timestamp).toLocaleTimeString('en-US', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    })}`}
                 </Text>
-                {alert.depotName && (
+                {alert.depotName ? (
                     <View style={styles.depotBadge}>
-                        <Text style={styles.depotBadgeIcon}>📍</Text>
+                        <Text style={styles.depotBadgeIcon}>{'📍'}</Text>
                         <Text style={styles.depotBadgeText}>{alert.depotName}</Text>
                     </View>
-                )}
+                ) : null}
             </View>
         </View>
-        {((alert.smsSentCount && alert.smsSentCount > 0) || (alert.emailSentCount && alert.emailSentCount > 0)) && (
+        {((alert.smsSentCount && alert.smsSentCount > 0) || (alert.emailSentCount && alert.emailSentCount > 0)) ? (
             <View style={styles.alertFooter}>
                 <Text style={styles.notificationLabel}>Notifications Sent</Text>
                 <View style={styles.notificationRow}>
-                    {(alert.smsSentCount && alert.smsSentCount > 0) && (
+                    {(alert.smsSentCount && alert.smsSentCount > 0) ? (
                         <View style={styles.notificationBadge}>
-                            <Text style={styles.badgeIcon}>📱</Text>
-                            <Text style={styles.badgeText}>{alert.smsSentCount} SMS</Text>
+                            <Text style={styles.badgeIcon}>{'📱'}</Text>
+                            <Text style={styles.badgeText}>{`${alert.smsSentCount} SMS`}</Text>
                         </View>
-                    )}
-                    {(alert.emailSentCount && alert.emailSentCount > 0) && (
+                    ) : null}
+                    {(alert.emailSentCount && alert.emailSentCount > 0) ? (
                         <View style={styles.notificationBadge}>
-                            <Text style={styles.badgeIcon}>✉️</Text>
-                            <Text style={styles.badgeText}>{alert.emailSentCount} Email{alert.emailSentCount > 1 ? 's' : ''}</Text>
+                            <Text style={styles.badgeIcon}>{'✉️'}</Text>
+                            <Text style={styles.badgeText}>{`${alert.emailSentCount} Email${alert.emailSentCount > 1 ? 's' : ''}`}</Text>
                         </View>
-                    )}
+                    ) : null}
                 </View>
             </View>
-        )}
+        ) : null}
     </View>
 );
 
@@ -457,29 +457,46 @@ const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
 
     const handleCall = async (phone: string) => {
         console.log('📞 handleCall called with phone:', phone);
-        
-        if (!phone) {
-            console.log('❌ No phone number provided');
-            return Alert.alert('Call Error', 'Phone number is missing.');
+
+        if (!phone || typeof phone !== 'string') {
+            console.log('❌ No phone number provided or invalid type');
+            return Alert.alert('Call Error', 'Phone number is missing or invalid.');
         }
-        
+
+        // Clean phone number - remove spaces, dashes, parentheses
+        const cleanedPhone = phone.trim().replace(/[\s\-\(\)]/g, '');
+
+        if (cleanedPhone.length === 0) {
+            console.log('❌ Phone number is empty after cleaning');
+            return Alert.alert('Call Error', 'Phone number is invalid.');
+        }
+
         const hasPermission = await requestCallPermission();
         console.log('🔐 Call permission granted:', hasPermission);
-        
+
         if (!hasPermission) {
-            return Alert.alert('Permission Required', 'Call permission is required.');
+            return Alert.alert('Permission Required', 'Call permission is required to make emergency calls. Please enable it in your device settings.');
         }
-        
+
         try {
-            const phoneUrl = `tel:${phone}`;
+            const phoneUrl = `tel:${cleanedPhone}`;
             console.log('📞 Opening phone URL:', phoneUrl);
-            
-            // Try to open directly without canOpenURL check (works better on some Android versions)
+
+            // Check if the device can open the URL
+            const canOpen = await Linking.canOpenURL(phoneUrl);
+            console.log('📱 Can open phone URL:', canOpen);
+
+            if (!canOpen) {
+                console.log('❌ Device cannot open phone URLs');
+                return Alert.alert('Call Error', 'Your device does not support making phone calls.');
+            }
+
+            // Open the phone dialer
             await Linking.openURL(phoneUrl);
-            console.log('✅ Phone dialer opened');
+            console.log('✅ Phone dialer opened successfully');
         } catch (error) {
             console.error('❌ Call error:', error);
-            Alert.alert('Call Error', `Failed to make call: ${(error as Error).message}`);
+            Alert.alert('Call Error', `Failed to open phone dialer: ${(error as Error).message || 'Unknown error'}`);
         }
     };
 
@@ -642,17 +659,19 @@ const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
     const renderEmergencyView = () => (
         <View style={styles.emergencyContainer}>
             <View style={styles.emergencyCard}>
-                <View style={styles.emergencyIcon}><Text style={styles.emergencyIconText}>⚠️</Text></View>
+                <View style={styles.emergencyIcon}>
+                    <Text style={styles.emergencyIconText}>{'⚠️'}</Text>
+                </View>
                 <Text style={styles.emergencyTitle}>Report Emergency</Text>
                 <View style={styles.emergencyDivider} />
                 <Text style={styles.emergencySubtitle}>Press the button below to send an immediate alert.</Text>
-                
-                {contactsLoading && (
+
+                {contactsLoading ? (
                     <View style={styles.loadingMessageContainer}>
                         <ActivityIndicator size="small" color={AppColors.primary} />
                         <Text style={styles.loadingMessageText}>Loading contacts...</Text>
                     </View>
-                )}
+                ) : null}
 
                 <View style={styles.emergencyButtonsArea}>
                     <TouchableOpacity
@@ -671,28 +690,28 @@ const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
                         style={[styles.emergencyButton, styles.policeCallButton]}
                         onPress={() => handleCall(POLICE_PHONE_NUMBER)}
                     >
-                        <Text style={styles.emergencyButtonText}>Call Police ({POLICE_PHONE_NUMBER})</Text>
+                        <Text style={styles.emergencyButtonText}>{`Call Police (${POLICE_PHONE_NUMBER})`}</Text>
                     </TouchableOpacity>
 
-                    {depotPhoneNumber && (
+                    {depotPhoneNumber ? (
                         <TouchableOpacity
                             style={[styles.emergencyButton, styles.depotCallButton]}
                             onPress={() => handleCall(depotPhoneNumber)}
                         >
                             <Text style={styles.emergencyButtonText}>Call Nearest Depot</Text>
                         </TouchableOpacity>
-                    )}
-                    {!depotPhoneNumber && currentLatitude !== null && currentLongitude !== null && (
+                    ) : null}
+                    {!depotPhoneNumber && currentLatitude !== null && currentLongitude !== null ? (
                         <Text style={styles.noPrimaryContactText}>Nearest depot phone number not available.</Text>
-                    )}
+                    ) : null}
                 </View>
 
-                {!contactsLoading && (contacts.length === 0 || !contacts.find(c => c.isPrimary)) && (
+                {!contactsLoading && (contacts.length === 0 || !contacts.find(c => c.isPrimary)) ? (
                     <Text style={styles.noPrimaryContactText}>Please add a primary contact on the "Contacts" tab to enable alerts.</Text>
-                )}
-                {!contactsLoading && (currentLatitude === null || currentLongitude === null) && (
+                ) : null}
+                {!contactsLoading && (currentLatitude === null || currentLongitude === null) ? (
                     <Text style={styles.noPrimaryContactText}>Location is required to send an alert. Please enable location services.</Text>
-                )}
+                ) : null}
             </View>
         </View>
     );
@@ -701,15 +720,25 @@ const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
     <View style={styles.listContainer}>
         <View style={styles.listHeader}>
             <Text style={styles.listTitle}>Emergency Contacts</Text>
-            <TouchableOpacity style={styles.addButton} onPress={() => setShowAddModal(true)}><Text style={styles.addButtonText}>+ Add</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.addButton} onPress={() => setShowAddModal(true)}>
+                <Text style={styles.addButtonText}>+ Add</Text>
+            </TouchableOpacity>
         </View>
-        {status === 'loading' && <ActivityIndicator size="large" color={AppColors.primary} />}
-        {status === 'failed' && <Text style={styles.errorText}>Error: {error}</Text>}
-        {status === 'succeeded' && (
+        {status === 'loading' ? (
+            <ActivityIndicator size="large" color={AppColors.primary} />
+        ) : null}
+        {status === 'failed' ? (
+            <Text style={styles.errorText}>{`Error: ${error || 'Unknown error'}`}</Text>
+        ) : null}
+        {status === 'succeeded' ? (
             <ScrollView style={styles.scrollableList} showsVerticalScrollIndicator={false}>
-                {contacts.length > 0 ? contacts.map(c => <ContactCard key={c.id} contact={c} onEdit={setEditContact} onDelete={setDeletingId} onSetPrimary={handleSetPrimaryContact} onCall={handleCall} />) : <Text style={styles.errorText}>No contacts found.</Text>}
+                {contacts.length > 0 ? (
+                    contacts.map(c => <ContactCard key={c.id} contact={c} onEdit={setEditContact} onDelete={setDeletingId} onSetPrimary={handleSetPrimaryContact} onCall={handleCall} />)
+                ) : (
+                    <Text style={styles.errorText}>No contacts found.</Text>
+                )}
             </ScrollView>
-        )}
+        ) : null}
     </View>
     );
 
@@ -717,19 +746,27 @@ const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
     <View style={styles.listContainer}>
         <View style={styles.listHeader}>
             <Text style={styles.listTitle}>Alert History</Text>
-            {status !== 'loading' && isHistoryFetched && alerts.length > 0 && (
+            {status !== 'loading' && isHistoryFetched && alerts.length > 0 ? (
                 <TouchableOpacity style={styles.clearButton} onPress={handleClearHistory}>
                     <Text style={styles.clearButtonText}>Clear All</Text>
                 </TouchableOpacity>
-            )}
+            ) : null}
         </View>
-        {status === 'loading' && <ActivityIndicator size="large" color={AppColors.primary} />}
-        {status === 'failed' && <Text style={styles.errorText}>Error: {error}</Text>}
-        {status === 'succeeded' && (
+        {status === 'loading' ? (
+            <ActivityIndicator size="large" color={AppColors.primary} />
+        ) : null}
+        {status === 'failed' ? (
+            <Text style={styles.errorText}>{`Error: ${error || 'Unknown error'}`}</Text>
+        ) : null}
+        {status === 'succeeded' ? (
             <ScrollView style={styles.scrollableList} showsVerticalScrollIndicator={false}>
-                {alerts.length > 0 ? alerts.map(a => <AlertCard key={a.id} alert={a} />) : <Text style={styles.errorText}>No alert history found.</Text>}
+                {alerts.length > 0 ? (
+                    alerts.map(a => <AlertCard key={a.id} alert={a} />)
+                ) : (
+                    <Text style={styles.errorText}>No alert history found.</Text>
+                )}
             </ScrollView>
-        )}
+        ) : null}
     </View>
     );
 
@@ -840,7 +877,7 @@ const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
                         <Ionicons name="arrow-back-outline" size={24} color="white" />
                     </TouchableOpacity>
                     <Text style={styles.pageHeaderTitle}>Emergency Alert</Text>
-                    <View style={{ width: 40 }} />
+                    <View style={{ width: 40 }}>{null}</View>
                 </View>
             </LinearGradient>
             <View style={styles.tabBar}>

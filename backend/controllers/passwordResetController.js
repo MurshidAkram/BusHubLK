@@ -97,10 +97,14 @@ const requestPasswordReset = async (req, res) => {
 };
 
 const resetPassword = async (req, res) => {
+  console.log('🔄 Password reset request received');
+  console.log('📋 Request body keys:', Object.keys(req.body));
+  console.log('📋 Request headers:', req.headers);
+
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     // THIS LINE IS CRUCIAL FOR DEBUGGING
-    console.error('Validation errors for password reset submission:', errors.array());
+    console.error('❌ Validation errors for password reset submission:', errors.array());
 
     return res.status(400).json({
       success: false,
@@ -112,7 +116,13 @@ const resetPassword = async (req, res) => {
   const { token, email, newPassword } = req.body; // Added email from req.body for better validation/lookup
 
   try {
-    console.log('Password reset attempt:', { token, email, hasPassword: !!newPassword });
+    console.log('✅ Validation passed');
+    console.log('📧 Password reset attempt:', {
+      token: token ? `${token.substring(0, 10)}...` : 'MISSING',
+      email: email || 'MISSING',
+      hasPassword: !!newPassword,
+      passwordLength: newPassword?.length || 0
+    });
 
     // Validate token
     const tokenData = resetTokens.get(token);
@@ -283,11 +293,18 @@ const resetPassword = async (req, res) => {
 
   } catch (error) {
     console.error('Password reset error:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      code: error.code
+    });
     // Ensure response is only sent once
     if (!res.headersSent) {
       res.status(500).json({
         success: false,
-        error: 'Server error. Please try again later.'
+        error: 'Server error. Please try again later.',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
   }

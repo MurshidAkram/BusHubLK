@@ -178,13 +178,13 @@ export const driverAPI = {
   },
 
   // Reset password with token
-  resetPassword: async (token: string, newPassword: string) => {
+  resetPassword: async (token: string, newPassword: string ,email: string) => {
     const response = await fetch(`${API_BASE_URL}/password-reset/reset`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ token, newPassword }),
+      body: JSON.stringify({ token, email, newPassword }),
     });
     return response.json();
   },
