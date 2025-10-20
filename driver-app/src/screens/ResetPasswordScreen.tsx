@@ -18,6 +18,7 @@ const ResetPasswordScreen = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [token, setToken] = useState("");
+  const [email, setEmail] = useState("");
   const [tokenValid, setTokenValid] = useState(false);
   const [validatingToken, setValidatingToken] = useState(true);
 
@@ -28,17 +29,26 @@ const ResetPasswordScreen = () => {
   useEffect(() => {
     // Show a brief loading message when the screen first loads
     const tokenFromParams = route.params?.token;
+    const emailFromParams = route.params?.email;
 
-    if (tokenFromParams) {
+    console.log("📋 ResetPasswordScreen received params:", {
+      hasToken: !!tokenFromParams,
+      hasEmail: !!emailFromParams,
+      email: emailFromParams
+    });
+
+    if (tokenFromParams && emailFromParams) {
       console.log("🔑 ResetPasswordScreen received token:", tokenFromParams);
+      console.log("📧 ResetPasswordScreen received email:", emailFromParams);
       setToken(tokenFromParams);
+      setEmail(emailFromParams);
 
       // Add a small delay to make the transition smoother
       setTimeout(() => {
         validateToken(tokenFromParams);
       }, 500);
     } else {
-      console.error("❌ No token provided to ResetPasswordScreen");
+      console.error("❌ Missing token or email in ResetPasswordScreen params");
       Alert.alert(
         "Error",
         "Invalid reset link. Please request a new password reset.",
@@ -100,11 +110,16 @@ const ResetPasswordScreen = () => {
   const handleResetPassword = async () => {
     if (!validatePassword()) return;
 
+    if (!email) {
+      Alert.alert("Error", "Email is missing. Please request a new reset link.");
+      return;
+    }
+
     try {
       setLoading(true);
-      console.log("🔄 Resetting password with token:", token);
+      console.log("🔄 Resetting password with token and email:", { token, email });
 
-      const response = await driverAPI.resetPassword(token, newPassword);
+      const response = await driverAPI.resetPassword(token, newPassword, email);
       console.log("✅ Password reset response:", response);
 
       if (response.success) {
