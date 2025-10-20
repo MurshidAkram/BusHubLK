@@ -260,19 +260,42 @@ const fetchRoutes = async () => {
         lastUpdate: bus.updated_at
       })));
       
-      const mappedBuses = data.map((item: any) => ({
-        busId: item.bus_id,
-        registrationNumber: item.registration_number,
-        routeNumber: item.route_number || null,
-        status: item.tracking_status,
-        latitude: parseFloat(item.latitude),
-        longitude: parseFloat(item.longitude),
-        lastUpdated: new Date(item.updated_at),
-        passengerCount: item.passenger_count,
-        occupancyLevel: item.occupancy_level || 'Unknown',
-        confidence: item.confidence || 0.0,
-        distanceKm: parseFloat(item.distance),
-      }));
+      const mappedBuses = data.map((item: any) => {
+        try {
+          // Validate required fields
+          if (!item.bus_id || !item.latitude || !item.longitude) {
+            console.warn('⚠️ Skipping bus with missing required data:', item);
+            return null;
+          }
+
+          const latitude = parseFloat(item.latitude);
+          const longitude = parseFloat(item.longitude);
+          const distanceKm = parseFloat(item.distance);
+
+          // Validate coordinates
+          if (isNaN(latitude) || isNaN(longitude) || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+            console.warn('⚠️ Skipping bus with invalid coordinates:', { latitude: item.latitude, longitude: item.longitude });
+            return null;
+          }
+
+          return {
+            busId: String(item.bus_id), // Ensure busId is string
+            registrationNumber: item.registration_number || 'Unknown',
+            routeNumber: item.route_number || null,
+            status: item.tracking_status || 'unknown',
+            latitude,
+            longitude,
+            lastUpdated: item.updated_at ? new Date(item.updated_at) : new Date(),
+            passengerCount: item.passenger_count || 0,
+            occupancyLevel: item.occupancy_level || 'Unknown',
+            confidence: item.confidence || 0.0,
+            distanceKm: isNaN(distanceKm) ? 0 : distanceKm,
+          };
+        } catch (error) {
+          console.error('❌ Error mapping bus data:', error, item);
+          return null;
+        }
+      }).filter((bus: BusLocation | null): bus is BusLocation => bus !== null);
       
       setBusLocations(mappedBuses);
       
@@ -322,21 +345,34 @@ const fetchRoutes = async () => {
   // Fetch dynamic occupancy data from passenger reports
   const fetchOccupancyData = async () => {
     if (busLocations.length === 0) return;
-    
+
     try {
-      const busIds = busLocations.map(bus => parseInt(bus.busId));
+      const busIds = busLocations.map(bus => {
+        const id = parseInt(bus.busId);
+        if (isNaN(id)) {
+          console.warn(`⚠️ Invalid bus ID: ${bus.busId}, skipping`);
+          return null;
+        }
+        return id;
+      }).filter(id => id !== null) as number[];
+
+      if (busIds.length === 0) {
+        console.log('⚠️ No valid bus IDs to fetch occupancy data for');
+        return;
+      }
+
       console.log('🔄 Fetching dynamic occupancy data for buses:', busIds);
-      
+
       const response = await busOccupancyAPI.getAverageOccupancyLevels(busIds, 15); // 15-minute window as required
-      
+
       console.log('📊 Raw occupancy API response:', JSON.stringify(response, null, 2));
       console.log('📊 Occupancy data structure:', response.data);
-      
+
       setOccupancyData(response.data);
-      
+
       console.log('✅ Updated occupancy data for buses:', Object.keys(response.data).length);
       console.log('✅ Occupancy data keys:', Object.keys(response.data));
-      
+
       // Log sample of occupancy data for debugging
       Object.keys(response.data).forEach(busId => {
         console.log(`Bus ${busId} occupancy:`, response.data[busId]);
@@ -352,45 +388,55 @@ const fetchRoutes = async () => {
 
   // Merge dynamic occupancy data
   const enhanceBusesWithOccupancyData = useCallback((buses: BusLocation[]) => {
-    console.log('🔀 Merging occupancy data for buses...');
-    console.log('🔀 Available occupancy data keys:', Object.keys(occupancyData));
-    console.log('🔀 Bus IDs to merge:', buses.map(b => b.busId));
-    
-    return buses.map(bus => {
-      const dynamicData = occupancyData[bus.busId];
-      console.log(`🔀 Bus ${bus.busId} (${bus.registrationNumber}):`, {
-        hasData: !!dynamicData,
-        data: dynamicData,
-        level: dynamicData?.calculated_occupancy_level,
-        reportCount: dynamicData?.report_count
-      });
-      
-      // Include occupancy data if it exists and has reports (even if level is 'unknown')
-      // Show data as long as there's at least one report
-      if (dynamicData && dynamicData.report_count > 0) {
-        console.log(`✅ Adding occupancy data to bus ${bus.busId}: ${dynamicData.calculated_occupancy_level} (${dynamicData.report_count} reports)`);
-        return {
-          ...bus,
-          dynamicOccupancy: {
-            level: dynamicData.calculated_occupancy_level,
-            reportCount: dynamicData.report_count,
-            avgConfidence: dynamicData.avg_confidence,
-            dataFreshness: dynamicData.data_freshness,
-            lastReportTime: dynamicData.last_report_time ? new Date(dynamicData.last_report_time) : null,
-            minutesSinceLastReport: dynamicData.minutes_since_last_report,
-            // Simple fields for basic occupancy tracking
-            overallCondition: dynamicData.calculated_occupancy_level,
-            trendDirection: 'stable',
-            reliabilityScore: Math.min(dynamicData.report_count * 20 + dynamicData.avg_confidence, 100),
-            timeWeightedLevel: dynamicData.calculated_occupancy_level,
-            passengerFeedbackSummary: `${dynamicData.report_count} passenger report${dynamicData.report_count !== 1 ? 's' : ''} (${dynamicData.avg_confidence}% confidence)`
+    try {
+      console.log('🔀 Merging occupancy data for buses...');
+      console.log('🔀 Available occupancy data keys:', Object.keys(occupancyData));
+      console.log('🔀 Bus IDs to merge:', buses.map(b => b.busId));
+
+      return buses.map(bus => {
+        try {
+          const dynamicData = occupancyData[bus.busId];
+          console.log(`🔀 Bus ${bus.busId} (${bus.registrationNumber}):`, {
+            hasData: !!dynamicData,
+            data: dynamicData,
+            level: dynamicData?.calculated_occupancy_level,
+            reportCount: dynamicData?.report_count
+          });
+
+          // Include occupancy data if it exists and has reports (even if level is 'unknown')
+          // Show data as long as there's at least one report
+          if (dynamicData && dynamicData.report_count > 0) {
+            console.log(`✅ Adding occupancy data to bus ${bus.busId}: ${dynamicData.calculated_occupancy_level} (${dynamicData.report_count} reports)`);
+            return {
+              ...bus,
+              dynamicOccupancy: {
+                level: dynamicData.calculated_occupancy_level,
+                reportCount: dynamicData.report_count,
+                avgConfidence: dynamicData.avg_confidence,
+                dataFreshness: dynamicData.data_freshness,
+                lastReportTime: dynamicData.last_report_time ? new Date(dynamicData.last_report_time) : null,
+                minutesSinceLastReport: dynamicData.minutes_since_last_report,
+                // Simple fields for basic occupancy tracking
+                overallCondition: dynamicData.calculated_occupancy_level,
+                trendDirection: 'stable',
+                reliabilityScore: Math.min(dynamicData.report_count * 20 + dynamicData.avg_confidence, 100),
+                timeWeightedLevel: dynamicData.calculated_occupancy_level,
+                passengerFeedbackSummary: `${dynamicData.report_count} passenger report${dynamicData.report_count !== 1 ? 's' : ''} (${dynamicData.avg_confidence}% confidence)`
+              }
+            };
+          } else {
+            console.log(`❌ No valid occupancy data for bus ${bus.busId} (no reports)`);
           }
-        };
-      } else {
-        console.log(`❌ No valid occupancy data for bus ${bus.busId} (no reports)`);
-      }
-      return bus;
-    });
+          return bus;
+        } catch (error) {
+          console.error(`Error enhancing bus ${bus?.busId} with occupancy data:`, error);
+          return bus; // Return bus without occupancy data if enhancement fails
+        }
+      });
+    } catch (error) {
+      console.error('Error in enhanceBusesWithOccupancyData:', error);
+      return buses; // Return original buses if enhancement fails completely
+    }
   }, [occupancyData]);
 
   // Enhanced: Initialize with parallel fetching and cache loading
@@ -486,33 +532,38 @@ const fetchRoutes = async () => {
       console.log(`🔍 Filtering ${enhancedBuses.length} buses with occupancy data...`);
 
       let filtered = enhancedBuses.filter(bus => {
-        // Filter out buses with stale data (older than 1 minute)
-        const minutesOld = getMinutesSince(bus.lastUpdated);
-        if (isTimestampStale(bus.lastUpdated, 1)) {
-          console.log(`⏰ Filtering out bus ${bus.busId} (Route ${bus.routeNumber}) - data is too stale (${minutesOld} minutes old)`);
-          return false;
-        }
-
-        // Route filter (if selected)
-        if (selectedRoute && bus.routeNumber !== selectedRoute) {
-          console.log(`🛣️ Filtering out bus ${bus.busId} - route ${bus.routeNumber} doesn't match selected route ${selectedRoute}`);
-          return false;
-        }
-
-        // Search filter (if entered)
-        if (searchQuery) {
-          const matches = bus.routeNumber && bus.routeNumber.toLowerCase().includes(searchQuery.toLowerCase());
-          if (!matches) {
-            console.log(`🔍 Filtering out bus ${bus.busId} - route ${bus.routeNumber} doesn't match search "${searchQuery}"`);
+        try {
+          // Filter out buses with stale data (older than 1 minute)
+          const minutesOld = getMinutesSince(bus.lastUpdated);
+          if (isTimestampStale(bus.lastUpdated, 1)) {
+            console.log(`⏰ Filtering out bus ${bus.busId} (Route ${bus.routeNumber}) - data is too stale (${minutesOld} minutes old)`);
             return false;
           }
+
+          // Route filter (if selected)
+          if (selectedRoute && bus.routeNumber !== selectedRoute) {
+            console.log(`🛣️ Filtering out bus ${bus.busId} - route ${bus.routeNumber} doesn't match selected route ${selectedRoute}`);
+            return false;
+          }
+
+          // Search filter (if entered)
+          if (searchQuery) {
+            const matches = bus.routeNumber && bus.routeNumber.toLowerCase().includes(searchQuery.toLowerCase());
+            if (!matches) {
+              console.log(`🔍 Filtering out bus ${bus.busId} - route ${bus.routeNumber} doesn't match search "${searchQuery}"`);
+              return false;
+            }
+          }
+
+          // REMOVED: No longer filter by status - show all buses with visual indicators
+          // This allows inactive/break/offline buses to be shown if data is recent
+
+          console.log(`✅ Keeping bus ${bus.busId} (Route ${bus.routeNumber}) - ${minutesOld}m old, status: ${bus.status}`);
+          return true;
+        } catch (error) {
+          console.error(`Error filtering bus ${bus?.busId}:`, error);
+          return false; // Skip problematic buses
         }
-
-        // REMOVED: No longer filter by status - show all buses with visual indicators
-        // This allows inactive/break/offline buses to be shown if data is recent
-
-        console.log(`✅ Keeping bus ${bus.busId} (Route ${bus.routeNumber}) - ${minutesOld}m old, status: ${bus.status}`);
-        return true;
       });
 
       // Sort by distance (closest first) and limit to 10 buses to prevent performance issues
@@ -698,85 +749,90 @@ const fetchRoutes = async () => {
   };
 
   const getOccupancyDisplayText = (bus: BusLocation) => {
-    // Only use passenger report data if available and has at least one report
-    if (bus.dynamicOccupancy && bus.dynamicOccupancy.reportCount > 0) {
-      // Check if last report is older than 5 minutes - show "No Recent Updates"
-      if (bus.dynamicOccupancy.level === 'no_recent_updates' || 
-          (bus.dynamicOccupancy.minutesSinceLastReport !== null && bus.dynamicOccupancy.minutesSinceLastReport > 5)) {
+    try {
+      // Only use passenger report data if available and has at least one report
+      if (bus.dynamicOccupancy && bus.dynamicOccupancy.reportCount > 0) {
+        // Check if last report is older than 5 minutes - show "No Recent Updates"
+        if (bus.dynamicOccupancy.level === 'no_recent_updates' ||
+            (bus.dynamicOccupancy.minutesSinceLastReport !== null && bus.dynamicOccupancy.minutesSinceLastReport > 5)) {
+          return {
+            text: 'No Recent Updates',
+            color: '#6c757d',
+            confidence: 0,
+            freshness: `${bus.dynamicOccupancy.reportCount} report${bus.dynamicOccupancy.reportCount !== 1 ? 's' : ''} (Last ${bus.dynamicOccupancy.minutesSinceLastReport}m ago)`,
+            source: 'passenger_reports',
+            overallCondition: {
+              label: 'No Recent Updates',
+              color: '#6c757d',
+              icon: '⏱️'
+            },
+            trendInfo: getTrendInfo('stable'),
+            reliabilityScore: 0,
+            reportCount: bus.dynamicOccupancy.reportCount
+          };
+        }
+
+        // Simple occupancy level mapping (for reports within last 5 minutes)
+        let simpleLevel = '';
+        let levelColor = '';
+        let icon = '❓';
+
+        switch (bus.dynamicOccupancy.level) {
+          case 'not_crowded':
+            simpleLevel = 'Not Crowded';
+            levelColor = '#28a745';
+            icon = '🟢';
+            break;
+          case 'not_too_crowded':
+            simpleLevel = 'Moderate';
+            levelColor = '#ffc107';
+            icon = '🟡';
+            break;
+          case 'crowded':
+            simpleLevel = 'Crowded';
+            levelColor = '#fd7e14';
+            icon = '🟠';
+            break;
+          case 'very_crowded':
+            simpleLevel = 'Very Crowded';
+            levelColor = '#dc3545';
+            icon = '🔴';
+            break;
+          case 'unknown':
+            // Even if level is unknown, show that we have reports
+            simpleLevel = `${bus.dynamicOccupancy.reportCount} Report${bus.dynamicOccupancy.reportCount !== 1 ? 's' : ''}`;
+            levelColor = '#17a2b8'; // Info color
+            icon = '📊';
+            break;
+          default:
+            simpleLevel = `${bus.dynamicOccupancy.reportCount} Report${bus.dynamicOccupancy.reportCount !== 1 ? 's' : ''}`;
+            levelColor = '#6c757d';
+            icon = '📊';
+        }
+
         return {
-          text: 'No Recent Updates',
-          color: '#6c757d',
-          confidence: 0,
-          freshness: `${bus.dynamicOccupancy.reportCount} report${bus.dynamicOccupancy.reportCount !== 1 ? 's' : ''} (Last ${bus.dynamicOccupancy.minutesSinceLastReport}m ago)`,
+          text: simpleLevel,
+          color: levelColor,
+          confidence: bus.dynamicOccupancy.avgConfidence,
+          freshness: `${bus.dynamicOccupancy.reportCount} report${bus.dynamicOccupancy.reportCount !== 1 ? 's' : ''} (${bus.dynamicOccupancy.avgConfidence}% confidence)`,
           source: 'passenger_reports',
           overallCondition: {
-            label: 'No Recent Updates',
-            color: '#6c757d',
-            icon: '⏱️'
+            label: simpleLevel,
+            color: levelColor,
+            icon: icon
           },
-          trendInfo: getTrendInfo('stable'),
-          reliabilityScore: 0,
+          trendInfo: getTrendInfo(bus.dynamicOccupancy.trendDirection),
+          reliabilityScore: bus.dynamicOccupancy.reliabilityScore,
           reportCount: bus.dynamicOccupancy.reportCount
         };
       }
-      
-      // Simple occupancy level mapping (for reports within last 5 minutes)
-      let simpleLevel = '';
-      let levelColor = '';
-      let icon = '❓';
-      
-      switch (bus.dynamicOccupancy.level) {
-        case 'not_crowded':
-          simpleLevel = 'Not Crowded';
-          levelColor = '#28a745';
-          icon = '🟢';
-          break;
-        case 'not_too_crowded':
-          simpleLevel = 'Moderate';
-          levelColor = '#ffc107';
-          icon = '🟡';
-          break;
-        case 'crowded':
-          simpleLevel = 'Crowded';
-          levelColor = '#fd7e14';
-          icon = '🟠';
-          break;
-        case 'very_crowded':
-          simpleLevel = 'Very Crowded';
-          levelColor = '#dc3545';
-          icon = '🔴';
-          break;
-        case 'unknown':
-          // Even if level is unknown, show that we have reports
-          simpleLevel = `${bus.dynamicOccupancy.reportCount} Report${bus.dynamicOccupancy.reportCount !== 1 ? 's' : ''}`;
-          levelColor = '#17a2b8'; // Info color
-          icon = '📊';
-          break;
-        default:
-          simpleLevel = `${bus.dynamicOccupancy.reportCount} Report${bus.dynamicOccupancy.reportCount !== 1 ? 's' : ''}`;
-          levelColor = '#6c757d';
-          icon = '📊';
-      }
-      
-      return {
-        text: simpleLevel,
-        color: levelColor,
-        confidence: bus.dynamicOccupancy.avgConfidence,
-        freshness: `${bus.dynamicOccupancy.reportCount} report${bus.dynamicOccupancy.reportCount !== 1 ? 's' : ''} (${bus.dynamicOccupancy.avgConfidence}% confidence)`,
-        source: 'passenger_reports',
-        overallCondition: {
-          label: simpleLevel,
-          color: levelColor,
-          icon: icon
-        },
-        trendInfo: getTrendInfo(bus.dynamicOccupancy.trendDirection),
-        reliabilityScore: bus.dynamicOccupancy.reliabilityScore,
-        reportCount: bus.dynamicOccupancy.reportCount
-      };
+
+      // If no passenger reports available, return null to indicate no data
+      return null;
+    } catch (error) {
+      console.error(`Error getting occupancy display text for bus ${bus?.busId}:`, error);
+      return null;
     }
-    
-    // If no passenger reports available, return null to indicate no data
-    return null;
   };
 
   const renderRouteItem = ({ item }: { item: BusRoute }) => (
