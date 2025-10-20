@@ -7,7 +7,6 @@
     "orientation": "portrait",
     "icon": "./assets/logoblue.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
     "splash": {
       "image": "./assets/logoblue.png",
       "resizeMode": "contain",
@@ -25,8 +24,8 @@
         "foregroundImage": "./assets/logoblue.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true,
       "package": "com.anonymous.bushublkmobile",
+      "edgeToEdgeEnabled": false,
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
@@ -49,7 +48,11 @@
       ]
     ],
     "extra": {
-      "apiUrl": "http://13.201.62.115:5000/api"
-    }
+      "apiUrl": "http://13.201.62.115:5000/api",
+      "eas": {
+        "projectId": "b7e172ad-fff1-4af7-b5fc-76c5f52a1c50"
+      }
+    },
+    "owner": "sangeerth2001"
   }
 }

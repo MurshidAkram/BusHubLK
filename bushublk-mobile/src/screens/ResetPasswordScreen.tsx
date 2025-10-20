@@ -40,7 +40,7 @@ export default function ResetPasswordScreen() {
 
       // Handle different URL formats:
       // 1. bushublkapp://reset-password?token=abc&email=test@example.com
-      // 2. exp://10.23.0.103:8081/--/reset-password?token=abc&email=test@example.com
+      // 2. exp://[IP_ADDRESS]:[PORT]/--/reset-password?token=abc&email=test@example.com
       // 3. Any other deep link format
 
       // Check if this is a password reset link

@@ -89,6 +89,7 @@ export default function BusRouteResultsScreen({ route, navigation }: any) {
   const [calculationMethod, setCalculationMethod] = useState<string>('');
   const [stopsDetected, setStopsDetected] = useState<number>(0);
   const [realCalculatedDistance, setRealCalculatedDistance] = useState<number | null>(null);
+  const [stopsExpanded, setStopsExpanded] = useState<boolean>(false);
 
   const mapRef = useRef(null);
 
@@ -480,16 +481,6 @@ export default function BusRouteResultsScreen({ route, navigation }: any) {
           <Text style={styles.metricValue}>{item.journey?.stops_count || 0}</Text>
           <Text style={styles.metricLabel}>Stops</Text>
         </View>
-        
-        <View style={styles.metricDivider} />
-        
-        <View style={styles.metricItem}>
-          <Ionicons name="time" size={16} color={AppColors.warning} />
-          <Text style={styles.metricValue}>
-            {item.estimated_duration_minutes ? `${item.estimated_duration_minutes}m` : 'N/A'}
-          </Text>
-          <Text style={styles.metricLabel}>Est. Time</Text>
-        </View>
       </View>
 
       {/* Track Buses Button */}
@@ -661,95 +652,69 @@ export default function BusRouteResultsScreen({ route, navigation }: any) {
       end={{ x: 1, y: 1 }}
       style={styles.stopsContainer}
     >
-      <View style={styles.sectionHeader}>
+      <TouchableOpacity
+        style={styles.collapsibleHeader}
+        onPress={() => setStopsExpanded(!stopsExpanded)}
+        activeOpacity={0.7}
+      >
         <LinearGradient
           colors={['#E7F1FF', '#F0F8FF']}
           style={styles.sectionIconContainer}
         >
-          <Ionicons name="location-outline" size={24} color={AppColors.primary} />
+          <Ionicons name="location-outline" size={20} color={AppColors.primary} />
         </LinearGradient>
         <Text style={styles.sectionTitle}>Bus Stops Along Route</Text>
         <View style={styles.routeCount}>
           <Text style={styles.routeCountText}>{busStops.length}</Text>
         </View>
-      </View>
-    
-    {/* Simplified Statistics */}
-    {realCalculatedDistance && (
-      <View style={styles.simplifiedStatsCard}>
-        <View style={styles.statItem}>
-          <Ionicons name="map" size={16} color={AppColors.success} />
-          <Text style={styles.statLabel}>Google Maps Calculation</Text>
-          <Text style={styles.statValue}>{realCalculatedDistance.toFixed(1)}km journey distance</Text>
+        <View style={styles.expandIcon}>
+          <Ionicons
+            name={stopsExpanded ? "chevron-up" : "chevron-down"}
+            size={20}
+            color={AppColors.primary}
+          />
         </View>
-      </View>
-    )}
-    
-    <View style={styles.stopsCard}>
-      {busStops.map((stop, index) => (
-        <View key={stop.place_id || stop.name || `stop-${index}`} style={[styles.stopItem, index === busStops.length - 1 && styles.stopItemLast]}>
-          <View style={styles.stopNumber}>
-            <Text style={styles.stopNumberText}>{index + 1}</Text>
+      </TouchableOpacity>
+
+      {stopsExpanded && (
+        <>
+          <View style={styles.stopsCard}>
+            {busStops.map((stop, index) => (
+              <View key={`${stop.place_id || stop.name || 'unknown'}-${index}`} style={[styles.stopItem, index === busStops.length - 1 && styles.stopItemLast]}>
+                <View style={styles.stopNumber}>
+                  <Text style={styles.stopNumberText}>{index + 1}</Text>
+                </View>
+                <View style={styles.stopContent}>
+                  <Text style={styles.stopName}>{stop.name || stop.stop_name}</Text>
+                  {stop.google_name && stop.google_name !== (stop.name || stop.stop_name) && (
+                    <Text style={styles.stopVicinity}>Google Maps: {stop.google_name}</Text>
+                  )}
+                  {stop.formatted_address && (
+                    <Text style={styles.stopVicinity}>{stop.formatted_address}</Text>
+                  )}
+                  {stop.vicinity && (
+                    <Text style={styles.stopVicinity}>{stop.vicinity}</Text>
+                  )}
+                  {stop.type && (
+                    <Text style={styles.stopType}>
+                      {stop.type === 'city' ? 'City/Town' :
+                       stop.type === 'transit_stop' ? 'Transit Stop' :
+                       stop.type === 'major_station' ? 'Major Station' : 'Bus Stop'}
+                    </Text>
+                  )}
+                </View>
+                <View style={[styles.stopIcon, stop.type === 'city' && styles.cityIcon]}>
+                  <Ionicons
+                    name={stop.type === 'city' ? 'location' : 'bus'}
+                    size={16}
+                    color={stop.type === 'city' ? AppColors.warning : AppColors.primary}
+                  />
+                </View>
+              </View>
+            ))}
           </View>
-          <View style={styles.stopContent}>
-            <Text style={styles.stopName}>{stop.name || stop.stop_name}</Text>
-            {stop.google_name && stop.google_name !== (stop.name || stop.stop_name) && (
-              <Text style={styles.stopVicinity}>Google Maps: {stop.google_name}</Text>
-            )}
-            {stop.formatted_address && (
-              <Text style={styles.stopVicinity}>{stop.formatted_address}</Text>
-            )}
-            {stop.vicinity && (
-              <Text style={styles.stopVicinity}>{stop.vicinity}</Text>
-            )}
-            {stop.type && (
-              <Text style={styles.stopType}>
-                {stop.type === 'city' ? 'City/Town' : 
-                 stop.type === 'transit_stop' ? 'Transit Stop' : 
-                 stop.type === 'major_station' ? 'Major Station' : 'Bus Stop'}
-              </Text>
-            )}
-            {stop.latitude && stop.longitude && (
-              <Text style={[styles.stopType, {color: AppColors.primary, fontSize: 10}]}>
-                📍 {stop.latitude.toFixed(4)}, {stop.longitude.toFixed(4)}
-              </Text>
-            )}
-            {stop.distanceFromPrevious && (
-              <Text style={styles.stopDistance}>
-                {stop.distanceFromPrevious}km from previous stop
-              </Text>
-            )}
-            {stop.cumulativeDistance && (
-              <Text style={[styles.stopDistance, {color: AppColors.textSecondary, fontSize: 10}]}>
-                Total: {stop.cumulativeDistance.toFixed(1)}km from origin
-              </Text>
-            )}
-          </View>
-          <View style={[styles.stopIcon, stop.type === 'city' && styles.cityIcon]}>
-            <Ionicons 
-              name={stop.type === 'city' ? 'location' : 'bus'} 
-              size={16} 
-              color={stop.type === 'city' ? AppColors.warning : AppColors.primary} 
-            />
-          </View>
-        </View>
-      ))}
-    </View>
-    {realCalculatedDistance && (
-      <Text style={styles.calculationNote}>
-        🎯 Journey distance: {realCalculatedDistance.toFixed(1)}km calculated between your selected stops using Google Maps
-      </Text>
-    )}
-    {busStops.some(stop => stop.distanceFromPrevious) && (
-      <Text style={styles.calculationNote}>
-        📏 Individual stop distances shown for reference
-      </Text>
-    )}
-    {calculationMethod && (
-      <Text style={styles.calculationNote}>
-        Fare calculated using {calculationMethod === 'city_based' ? 'city data' : calculationMethod === 'transit_based' ? 'transit data' : 'distance estimation'}
-      </Text>
-    )}
+        </>
+      )}
     </LinearGradient>
   </View>
 )}
@@ -1863,5 +1828,17 @@ const styles = StyleSheet.create({
     color: AppColors.warning,
     fontWeight: '600',
     marginLeft: 4,
+  },
+
+  // Collapsible Header
+  collapsibleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+  },
+  expandIcon: {
+    padding: 4,
   },
 });

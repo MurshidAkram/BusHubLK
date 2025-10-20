@@ -7,9 +7,63 @@ const { sendPasswordResetEmail } = require('../services/emailService');
 const db = require('../config/db'); // Use the same db connection as userModel
 const { getDynamicBaseURL } = require('../utils/networkUtils'); // Import utility for base URL
 
-// Store reset tokens temporarily (in production, use Redis or database)
-const resetTokens = new Map(); // IMPORTANT: This is an in-memory store and will be cleared on server restart.
-                               // For production, persist tokens in your database or a dedicated service like Redis.
+// Store reset tokens in database (persistent across server restarts)
+const storeResetToken = async (token, userId, email, expiry) => {
+  try {
+    await db.query(
+      'INSERT INTO password_reset_tokens (token, user_id, email, expiry) VALUES ($1, $2, $3, $4) ON CONFLICT (token) DO UPDATE SET user_id = $2, email = $3, expiry = $4',
+      [token, userId, email, new Date(expiry)]
+    );
+    console.log('✅ Reset token stored in database');
+  } catch (error) {
+    console.error('❌ Failed to store reset token:', error);
+    throw error;
+  }
+};
+
+const getResetToken = async (token) => {
+  try {
+    const result = await db.query(
+      'SELECT user_id, email, expiry FROM password_reset_tokens WHERE token = $1',
+      [token]
+    );
+
+    if (result.rows.length === 0) {
+      return null;
+    }
+
+    const tokenData = result.rows[0];
+    return {
+      userId: tokenData.user_id,
+      email: tokenData.email,
+      expiry: new Date(tokenData.expiry).getTime()
+    };
+  } catch (error) {
+    console.error('❌ Failed to retrieve reset token:', error);
+    throw error;
+  }
+};
+
+const deleteResetToken = async (token) => {
+  try {
+    await db.query('DELETE FROM password_reset_tokens WHERE token = $1', [token]);
+    console.log('✅ Reset token deleted from database');
+  } catch (error) {
+    console.error('❌ Failed to delete reset token:', error);
+    throw error;
+  }
+};
+
+const cleanupExpiredTokens = async () => {
+  try {
+    const result = await db.query('DELETE FROM password_reset_tokens WHERE expiry < CURRENT_TIMESTAMP');
+    if (result.rowCount > 0) {
+      console.log(`🧹 Cleaned up ${result.rowCount} expired reset tokens`);
+    }
+  } catch (error) {
+    console.error('❌ Failed to cleanup expired tokens:', error);
+  }
+};
 
 const requestPasswordReset = async (req, res) => {
   console.log('🔄 Password reset request received');
@@ -70,14 +124,10 @@ const requestPasswordReset = async (req, res) => {
     const resetToken = crypto.randomBytes(32).toString('hex');
     const resetTokenExpiry = Date.now() + 86400000; // 24 hours from now (increased from 1 hour)
 
-    // Store token with expiry
-    resetTokens.set(resetToken, {
-      userId: user.user_id,
-      email: user.email,
-      expiry: resetTokenExpiry
-    });
+    // Store token with expiry in database
+    await storeResetToken(resetToken, user.user_id, user.email, resetTokenExpiry);
 
-    console.log('✅ Reset token stored:', {
+    console.log('✅ Reset token stored in database:', {
       token: resetToken.substring(0, 10) + '...',
       userId: user.user_id,
       email: user.email,
@@ -175,10 +225,10 @@ const resetPassword = async (req, res) => {
       passwordLength: newPassword?.length || 0
     });
 
-    // Validate token
-    const tokenData = resetTokens.get(token);
+    // Validate token from database
+    const tokenData = await getResetToken(token);
     if (!tokenData) {
-      console.log('Token not found in memory store');
+      console.log('Token not found in database');
       // For form-urlencoded requests (web), redirect to an error page or show a message
       if (req.get('Content-Type') && req.get('Content-Type').includes('application/x-www-form-urlencoded')) {
         return res.status(400).send(`
@@ -216,8 +266,8 @@ const resetPassword = async (req, res) => {
 
     // Check if token is expired
     if (Date.now() > tokenData.expiry) {
-      resetTokens.delete(token); // Clean up expired token
-      console.log('Token expired');
+      await deleteResetToken(token); // Clean up expired token
+      console.log('Token expired and deleted from database');
 
       // Generate a new request link for convenience
       const baseURL = getDynamicBaseURL();
@@ -266,7 +316,7 @@ const resetPassword = async (req, res) => {
     // Get user from DB using userId from tokenData (more robust)
     const user = await User.findById(tokenData.userId);
     if (!user) {
-      resetTokens.delete(token); // Clean up invalid token
+      await deleteResetToken(token); // Clean up invalid token
       console.log('User not found for ID:', tokenData.userId);
       if (req.get('Content-Type') && req.get('Content-Type').includes('application/x-www-form-urlencoded')) {
         return res.send(`
@@ -326,9 +376,9 @@ const resetPassword = async (req, res) => {
       throw dbError;
     }
 
-    // Remove used token
-    resetTokens.delete(token);
-    console.log('Token removed from memory store');
+    // Remove used token from database
+    await deleteResetToken(token);
+    console.log('Token removed from database after successful reset');
 
     // Handle HTML response for form submissions (e.g., from web browser)
     if (req.get('Content-Type') && req.get('Content-Type').includes('application/x-www-form-urlencoded')) {
@@ -398,9 +448,9 @@ const validateResetToken = async (req, res) => {
   try {
     console.log('Validating token:', token);
 
-    const tokenData = resetTokens.get(token);
+    const tokenData = await getResetToken(token);
     if (!tokenData) {
-      console.log('Token not found');
+      console.log('Token not found in database');
       return res.status(400).json({
         success: false,
         error: 'Invalid reset token.'
@@ -408,8 +458,8 @@ const validateResetToken = async (req, res) => {
     }
 
     if (Date.now() > tokenData.expiry) {
-      resetTokens.delete(token); // Clean up expired token
-      console.log('Token expired');
+      await deleteResetToken(token); // Clean up expired token
+      console.log('Token expired and deleted from database');
       return res.status(400).json({
         success: false,
         error: 'Reset token has expired.'

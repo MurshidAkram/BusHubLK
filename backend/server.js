@@ -513,6 +513,11 @@ server.listen(PORT, '0.0.0.0', () => {
     console.log(`📧 Email service configured: ${process.env.EMAIL_SERVICE || 'smtp'}`);
     console.log(`🌐 Base URL for deep links/web access: ${baseURL}`);
     console.log(`🔐 Password reset endpoint: ${baseURL}/api/password-reset`);
+
+    // Start periodic cleanup of expired password reset tokens
+    const { cleanupExpiredTokens } = require('./controllers/passwordResetController');
+    setInterval(cleanupExpiredTokens, 60 * 60 * 1000); // Run every hour
+    console.log('🧹 Password reset token cleanup scheduled (every hour)');
   } catch (error) {
     console.log(`🚀 Server is running on port:${PORT}`);
     console.log('❌ Network utils error:', error.message);

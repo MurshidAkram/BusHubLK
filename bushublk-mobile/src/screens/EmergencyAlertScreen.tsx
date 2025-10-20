@@ -76,8 +76,8 @@ const ContactCard: React.FC<ContactCardProps> = ({ contact, onEdit, onDelete, on
 <View style={styles.contactCard}>
     <View style={styles.contactCardHeader}>
         <View>
-            <Text style={styles.contactName}>{contact.name}</Text>
-            <Text style={styles.contactDetail}>{contact.relationship}</Text>
+            <Text style={styles.contactName}>{contact.name || 'Unknown Contact'}</Text>
+            <Text style={styles.contactDetail}>{contact.relationship || 'Not specified'}</Text>
         </View>
         <View style={styles.contactActions}>
             <TouchableOpacity style={styles.actionButton} onPress={() => onEdit(contact)}>
@@ -89,8 +89,8 @@ const ContactCard: React.FC<ContactCardProps> = ({ contact, onEdit, onDelete, on
         </View>
     </View>
     <View style={styles.contactCardBody}>
-        <Text style={styles.contactDetail}>📞 {contact.phone}</Text>
-        <Text style={styles.contactDetail}>✉️ {contact.email}</Text>
+        <Text style={styles.contactDetail}>{`📞 ${contact.phone || 'No phone'}`}</Text>
+        <Text style={styles.contactDetail}>{`✉️ ${contact.email || 'No email'}`}</Text>
     </View>
     <View style={styles.contactCardFooter}>
         {contact.isPrimary ? (
@@ -123,16 +123,16 @@ const AlertCard: React.FC<AlertCardProps> = ({ alert }) => (
                 <Text style={styles.alertIconText}>🚨</Text>
             </View>
             <View style={styles.alertMainContent}>
-                <Text style={styles.alertType}>{alert.type}</Text>
+                <Text style={styles.alertType}>{alert.type || 'Emergency Alert'}</Text>
                 <Text style={styles.alertTimestamp}>
-                    {new Date(alert.timestamp).toLocaleDateString('en-US', { 
-                        month: 'short', 
-                        day: 'numeric', 
-                        year: 'numeric' 
-                    })} • {new Date(alert.timestamp).toLocaleTimeString('en-US', { 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
-                    })}
+                    {alert.timestamp ? `${new Date(alert.timestamp).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric'
+                        })} • ${new Date(alert.timestamp).toLocaleTimeString('en-US', {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        })}` : 'Unknown time'}
                 </Text>
                 {alert.depotName && (
                     <View style={styles.depotBadge}>
@@ -149,13 +149,13 @@ const AlertCard: React.FC<AlertCardProps> = ({ alert }) => (
                     {(alert.smsSentCount && alert.smsSentCount > 0) && (
                         <View style={styles.notificationBadge}>
                             <Text style={styles.badgeIcon}>📱</Text>
-                            <Text style={styles.badgeText}>{alert.smsSentCount} SMS</Text>
+                            <Text style={styles.badgeText}>{`${alert.smsSentCount} SMS`}</Text>
                         </View>
                     )}
                     {(alert.emailSentCount && alert.emailSentCount > 0) && (
                         <View style={styles.notificationBadge}>
                             <Text style={styles.badgeIcon}>✉️</Text>
-                            <Text style={styles.badgeText}>{alert.emailSentCount} Email{alert.emailSentCount > 1 ? 's' : ''}</Text>
+                            <Text style={styles.badgeText}>{`${alert.emailSentCount} Email${alert.emailSentCount > 1 ? 's' : ''}`}</Text>
                         </View>
                     )}
                 </View>
@@ -649,7 +649,7 @@ const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
                         style={[styles.emergencyButton, styles.policeCallButton]}
                         onPress={() => handleCall(POLICE_PHONE_NUMBER)}
                     >
-                        <Text style={styles.emergencyButtonText}>Call Police ({POLICE_PHONE_NUMBER})</Text>
+                        <Text style={styles.emergencyButtonText}>{`Call Police (${POLICE_PHONE_NUMBER})`}</Text>
                     </TouchableOpacity>
 
                     {depotPhoneNumber && (
@@ -679,7 +679,7 @@ const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
     <View style={styles.listContainer}>
         <View style={styles.listHeader}>
             <Text style={styles.listTitle}>Emergency Contacts</Text>
-            <TouchableOpacity style={styles.addButton} onPress={() => setShowAddModal(true)}><Text style={styles.addButtonText}>+ Add</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.addButton} onPress={() => setShowAddModal(true)}><Text style={styles.addButtonText}>{'+ Add'}</Text></TouchableOpacity>
         </View>
         {status === 'loading' && <ActivityIndicator size="large" color={AppColors.primary} />}
         {status === 'failed' && <Text style={styles.errorText}>Error: {error}</Text>}
@@ -697,8 +697,8 @@ const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
             <Text style={styles.listTitle}>Alert History</Text>
             {status !== 'loading' && isHistoryFetched && alerts.length > 0 && (
                 <TouchableOpacity style={styles.clearButton} onPress={handleClearHistory}>
-                    <Text style={styles.clearButtonText}>Clear All</Text>
-                </TouchableOpacity>
+                        <Text style={styles.clearButtonText}>{'Clear All'}</Text>
+                    </TouchableOpacity>
             )}
         </View>
         {status === 'loading' && <ActivityIndicator size="large" color={AppColors.primary} />}
@@ -729,7 +729,7 @@ const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
                                     <Switch trackColor={{ false: '#E5E7EB', true: AppColors.primary }} thumbColor={'#FFFFFF'} onValueChange={setNewIsPrimary} value={newIsPrimary} />
                                 </View>
                                 <View style={styles.modalActions}>
-                                    <TouchableOpacity onPress={() => setShowAddModal(false)} style={[styles.modalButton, styles.modalButtonSecondary]} disabled={adding}><Text style={[styles.modalButtonText, styles.modalButtonSecondaryText]}>Cancel</Text></TouchableOpacity>
+                                    <TouchableOpacity onPress={() => setShowAddModal(false)} style={[styles.modalButton, styles.modalButtonSecondary]} disabled={adding}><Text style={[styles.modalButtonText, styles.modalButtonSecondaryText]}>{'Cancel'}</Text></TouchableOpacity>
                                     <TouchableOpacity onPress={handleAddContact} style={[styles.modalButton, styles.modalButtonPrimary]} disabled={adding}><Text style={[styles.modalButtonText, styles.modalButtonPrimaryText]}>{adding ? 'Adding...' : 'Add'}</Text></TouchableOpacity>
                                 </View>
                             </ScrollView>
@@ -759,8 +759,8 @@ const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
                                     <Switch trackColor={{ false: '#E5E7EB', true: AppColors.primary }} thumbColor={'#FFFFFF'} onValueChange={isPrimary => setEditContact(c => c ? { ...c, isPrimary } : null)} value={!!editContact?.isPrimary} />
                                 </View>
                                 <View style={styles.modalActions}>
-                                    <TouchableOpacity onPress={() => setEditContact(null)} style={[styles.modalButton, styles.modalButtonSecondary]}><Text style={[styles.modalButtonText, styles.modalButtonSecondaryText]}>Cancel</Text></TouchableOpacity>
-                                    <TouchableOpacity onPress={handleUpdateContact} style={[styles.modalButton, styles.modalButtonPrimary]}><Text style={[styles.modalButtonText, styles.modalButtonPrimaryText]}>Save</Text></TouchableOpacity>
+                                    <TouchableOpacity onPress={() => setEditContact(null)} style={[styles.modalButton, styles.modalButtonSecondary]}><Text style={[styles.modalButtonText, styles.modalButtonSecondaryText]}>{'Cancel'}</Text></TouchableOpacity>
+                                    <TouchableOpacity onPress={handleUpdateContact} style={[styles.modalButton, styles.modalButtonPrimary]}><Text style={[styles.modalButtonText, styles.modalButtonPrimaryText]}>{'Save'}</Text></TouchableOpacity>
                                 </View>
                             </ScrollView>
                         </View>
@@ -780,8 +780,8 @@ const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
                         <Text style={styles.modalTitle}>Delete Contact?</Text>
                         <Text style={styles.modalConfirmationText}>This action cannot be undone.</Text>
                         <View style={styles.modalActions}>
-                            <TouchableOpacity onPress={() => setDeletingId(null)} style={[styles.modalButton, styles.modalButtonSecondary]}><Text style={[styles.modalButtonText, styles.modalButtonSecondaryText]}>Cancel</Text></TouchableOpacity>
-                            <TouchableOpacity onPress={handleDeleteContact} style={[styles.modalButton, styles.modalButtonDelete]}><Text style={[styles.modalButtonText, styles.modalButtonPrimaryText]}>Delete</Text></TouchableOpacity>
+                            <TouchableOpacity onPress={() => setDeletingId(null)} style={[styles.modalButton, styles.modalButtonSecondary]}><Text style={[styles.modalButtonText, styles.modalButtonSecondaryText]}>{'Cancel'}</Text></TouchableOpacity>
+                            <TouchableOpacity onPress={handleDeleteContact} style={[styles.modalButton, styles.modalButtonDelete]}><Text style={[styles.modalButtonText, styles.modalButtonPrimaryText]}>{'Delete'}</Text></TouchableOpacity>
                         </View>
                     </View>
                 </TouchableWithoutFeedback>
