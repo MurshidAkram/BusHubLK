@@ -148,28 +148,69 @@ export const driverAPI = {
   },
 
   requestPasswordReset: async (email: string) => {
+    const requestUrl = `${API_BASE_URL}/password-reset/request`;
+    console.log('🔄 Requesting password reset for:', email);
+    console.log('📍 Full API URL:', requestUrl);
+    console.log('🌐 API_BASE_URL:', API_BASE_URL);
+
     try {
-      const response = await fetch(`${API_BASE_URL}/password-reset/request`, {
+      // Create abort controller for timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+
+      const response = await fetch(requestUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Accept": "application/json",
         },
         body: JSON.stringify({ email }),
+        signal: controller.signal,
       });
-      
+
+      clearTimeout(timeoutId);
+
+      console.log('📥 Response status:', response.status);
+      console.log('📥 Response ok:', response.ok);
+
       const data = await response.json();
-      
+      console.log('📦 Response data:', data);
+
       if (!response.ok) {
-        console.error('Password reset request failed:', data);
+        console.error('❌ Password reset request failed:', data);
         return {
           success: false,
           error: data.error || data.message || 'Failed to send reset email'
         };
       }
-      
+
       return data;
-    } catch (error) {
-      console.error('Password reset request error:', error);
+    } catch (error: any) {
+      console.error('❌ Password reset request error:', error);
+
+      // Check if it's a timeout error
+      if (error?.name === 'AbortError') {
+        console.error('⏱️ Request timed out');
+        return {
+          success: false,
+          error: 'Request timed out. Please check your internet connection and try again.'
+        };
+      }
+
+      // Check if it's a network error
+      if (error?.message === 'Network request failed') {
+        console.error('🌐 Network request failed - possible causes:');
+        console.error('  1. Server is not running');
+        console.error('  2. Wrong server URL:', requestUrl);
+        console.error('  3. No internet connection');
+        console.error('  4. CORS issue');
+
+        return {
+          success: false,
+          error: `Cannot connect to server at ${API_BASE_URL}. Please check:\n1. Server is running\n2. Internet connection\n3. Server URL is correct`
+        };
+      }
+
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Network error. Please check your connection.'
