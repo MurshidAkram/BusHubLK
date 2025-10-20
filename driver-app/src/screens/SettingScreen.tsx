@@ -7,18 +7,19 @@ import {
   TouchableOpacity,
   Switch,
   Alert,
-  SafeAreaView,
   Platform,
   StatusBar,
   Linking,
+  RefreshControl,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useDriver } from "../context/DriverContext";
 import { driverAPI, storageAPI } from "../services/api";
 
-// App Color Palette (matching HomeScreen)
+// App Color Palette (matching TrackingScreen)
 const AppColors = {
   background: "#F8F9FA",
   card: "#FFFFFF",
@@ -30,24 +31,27 @@ const AppColors = {
   red: "#dc3545",
   yellow: "#ffc107",
   green: "#198754",
+  success: "#198754",
+  danger: "#dc3545",
 };
 
-// Enhanced Header component with gradient
-const Header = () => (
+// Enhanced Header component with gradient (matching TrackingScreen style)
+const Header = ({ navigation }: { navigation: any }) => (
   <LinearGradient
-    colors={[AppColors.primary, "#0076e3"]}
+    colors={['#0056b3', '#1976d2', '#42a5f5']}
     start={{ x: 0, y: 0 }}
-    end={{ x: 1, y: 1 }}
-    style={styles.header}
+    end={{ x: 1, y: 0 }}
+    style={styles.headerGradient}
   >
     <View style={styles.headerContent}>
-      <Ionicons
-        name="settings-outline"
-        size={24}
-        color="#FFFFFF"
-        style={{ marginRight: 8 }}
-      />
+      <TouchableOpacity
+        style={styles.backButton}
+        onPress={() => navigation.goBack()}
+      >
+        <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+      </TouchableOpacity>
       <Text style={styles.headerTitle}>Settings</Text>
+      <View style={styles.headerSpacer} />
     </View>
   </LinearGradient>
 );
@@ -68,32 +72,56 @@ interface SettingsScreenProps {
 const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
   const { driverData } = useDriver();
   const [autoSync, setAutoSync] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    // Simulate refresh delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    setRefreshing(false);
+  };
 
   const handleLogout = async () => {
-    Alert.alert("Logout", "Are you sure you want to logout?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Logout",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            // Call API logout to blacklist token
-            const result = await driverAPI.logout();
-            
-            if (result.success) {
-              // The RootNavigator checks auth status every second,
-              // so it will automatically redirect to login screen
-              Alert.alert("Success", "You have been logged out successfully.");
-            } else {
-              Alert.alert("Warning", "Logged out locally, but could not reach server.");
-            }
-          } catch (error) {
-            console.error("Logout error:", error);
-            Alert.alert("Error", "Failed to logout. Please try again.");
-          }
+    Alert.alert(
+      "🚪 Logout", 
+      "Are you sure you want to logout from BusHubLK Driver App?\n\nYou will need to login again to access the app.", 
+      [
+        { 
+          text: "Cancel", 
+          style: "cancel" 
         },
-      },
-    ]);
+        {
+          text: "Logout",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              // Call API logout to blacklist token
+              const result = await driverAPI.logout();
+              
+              if (result.success) {
+                // The RootNavigator checks auth status every second,
+                // so it will automatically redirect to login screen
+                Alert.alert(
+                  "✅ Success", 
+                  "You have been logged out successfully.\n\nThank you for using BusHubLK!"
+                );
+              } else {
+                Alert.alert(
+                  "⚠️ Warning", 
+                  "Logged out locally, but could not reach server.\n\nPlease check your internet connection."
+                );
+              }
+            } catch (error) {
+              console.error("Logout error:", error);
+              Alert.alert(
+                "❌ Error", 
+                "Failed to logout. Please try again.\n\nIf the problem persists, contact your depot manager."
+              );
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleChangePassword = () => {
@@ -102,10 +130,13 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
 
   const handleClearCache = async () => {
     Alert.alert(
-      "Clear Cache",
-      "This will clear all cached data. Are you sure?",
+      "🗑️ Clear Cache",
+      "This will clear all cached data including:\n\n• Temporary files\n• Cached images\n• Offline data\n\nAre you sure you want to continue?",
       [
-        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Cancel", 
+          style: "cancel" 
+        },
         {
           text: "Clear",
           style: "destructive",
@@ -113,9 +144,15 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
             try {
               // Use the proper storageAPI.clearCache method
               await storageAPI.clearCache();
-              Alert.alert("Success", "Cache cleared successfully!");
+              Alert.alert(
+                "✅ Success", 
+                "Cache cleared successfully!\n\nThe app may run faster now."
+              );
             } catch (error) {
-              Alert.alert("Error", "Failed to clear cache");
+              Alert.alert(
+                "❌ Error", 
+                "Failed to clear cache.\n\nPlease try again later."
+              );
             }
           },
         },
@@ -125,12 +162,16 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
 
   const handleEmergencyCall = (number: string) => {
     Alert.alert(
-      "Emergency Call", 
-      `Call ${number}?`, 
+      "📞 Emergency Call", 
+      `Are you sure you want to call ${number}?\n\nThis will open your phone's dialer.`, 
       [
-        { text: "Cancel", style: "cancel" },
         { 
-          text: "Call", 
+          text: "Cancel", 
+          style: "cancel" 
+        },
+        { 
+          text: "Call Now", 
+          style: "default",
           onPress: () => Linking.openURL(`tel:${number}`) 
         }
       ]
@@ -143,9 +184,26 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
       : "your depot manager";
     
     Alert.alert(
-      "Help & Support",
-      `• Check your daily assignments in the Schedule tab\n• Track your bus location in real-time\n• Report any bus issues immediately\n• Contact ${depotManagerInfo} for operational queries\n• Use emergency contacts for urgent situations\n\nFor technical support, contact ${depotManagerInfo}.`,
-      [{ text: "OK" }]
+      "📖 Driver Guidelines",
+      `Welcome to BusHubLK Driver App!\n\n` +
+      `✅ Daily Assignments\n` +
+      `Check your daily assignments in the Schedule tab\n\n` +
+      `📍 Real-Time Tracking\n` +
+      `Track your bus location in real-time during trips\n\n` +
+      `🚨 Report Issues\n` +
+      `Report any bus issues immediately through the app\n\n` +
+      `📞 Operational Queries\n` +
+      `Contact ${depotManagerInfo} for operational queries\n\n` +
+      `🆘 Emergency Situations\n` +
+      `Use emergency contacts for urgent situations\n\n` +
+      `💡 Technical Support\n` +
+      `For technical support, contact ${depotManagerInfo}`,
+      [
+        { 
+          text: "Got it!", 
+          style: "default"
+        }
+      ]
     );
   };
 
@@ -165,7 +223,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
     >
       <View style={styles.settingLeft}>
         <View style={[styles.settingIcon, { backgroundColor: AppColors.primaryMuted }]}>
-          <Ionicons name={icon as any} size={20} color={AppColors.primary} />
+          <Ionicons name={icon as any} size={22} color={AppColors.primary} />
         </View>
         <View style={styles.settingText}>
           <Text style={styles.settingTitle}>{title}</Text>
@@ -181,21 +239,63 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
     </TouchableOpacity>
   );
 
+  const EmergencyContactItem = ({ 
+    icon, 
+    title, 
+    subtitle, 
+    onPress 
+  }: SettingItemProps) => (
+    <TouchableOpacity 
+      style={styles.settingItem} 
+      onPress={onPress} 
+      activeOpacity={0.7}
+    >
+      <View style={styles.settingLeft}>
+        <View style={[styles.settingIcon, { backgroundColor: 'rgba(220, 53, 69, 0.1)' }]}>
+          <Ionicons name={icon as any} size={22} color={AppColors.danger} />
+        </View>
+        <View style={styles.settingText}>
+          <Text style={styles.settingTitle}>{title}</Text>
+          {subtitle && <Text style={styles.settingSubtitle}>{subtitle}</Text>}
+        </View>
+      </View>
+      <View style={styles.settingRight}>
+        <Ionicons name="call" size={20} color={AppColors.danger} />
+      </View>
+    </TouchableOpacity>
+  );
+
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={AppColors.primary} />
-      <Header />
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-      >
+    <LinearGradient
+      colors={['#F8FAFF', '#E3F2FD', '#BBDEFB']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.gradientContainer}
+    >
+      <SafeAreaView style={styles.container} edges={["top"]}>
+        <StatusBar
+          backgroundColor="transparent"
+          barStyle="light-content"
+          translucent={false}
+        />
+        <Header navigation={navigation} />
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.contentContainer}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        >
         
 
         {/* App Settings */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>App Settings</Text>
-          <View style={styles.sectionContent}>
+          <View style={styles.sectionHeader}>
+            <MaterialCommunityIcons name="cog-outline" size={20} color={AppColors.primary} />
+            <Text style={styles.sectionTitle}>App Settings</Text>
+          </View>
+          <View style={styles.card}>
             <SettingItem
               icon="sync-outline"
               title="Auto Sync Data"
@@ -221,8 +321,11 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
 
         {/* Account Settings */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Account</Text>
-          <View style={styles.sectionContent}>
+          <View style={styles.sectionHeader}>
+            <MaterialCommunityIcons name="account-outline" size={20} color={AppColors.primary} />
+            <Text style={styles.sectionTitle}>Account</Text>
+          </View>
+          <View style={styles.card}>
             <SettingItem
               icon="person-outline"
               title="Edit Profile"
@@ -240,21 +343,24 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
 
         {/* Emergency Contacts */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Emergency Contacts</Text>
-          <View style={styles.sectionContent}>
-            <SettingItem
+          <View style={styles.sectionHeader}>
+            <MaterialCommunityIcons name="phone-alert" size={20} color={AppColors.danger} />
+            <Text style={styles.sectionTitle}>Emergency Contacts</Text>
+          </View>
+          <View style={styles.card}>
+            <EmergencyContactItem
               icon="call-outline"
               title={driverData?.depot_manager_name ? `${driverData.depot_manager_name} (Depot Manager)` : "Depot Manager"}
               subtitle={driverData?.depot_name ? `${driverData.depot_name} Depot` : "Contact your depot manager"}
               onPress={() => handleEmergencyCall(driverData?.depot_manager_phone || "0112-345-678")}
             />
-            <SettingItem
+            <EmergencyContactItem
               icon="medical-outline"
               title="Emergency Services"
               subtitle="Police, Fire, Ambulance"
               onPress={() => handleEmergencyCall("119")}
             />
-            <SettingItem
+            <EmergencyContactItem
               icon="bus-outline"
               title="Transport Authority"
               subtitle="SLTB Head Office"
@@ -265,8 +371,11 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
 
         {/* Help & Support */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Help & Support</Text>
-          <View style={styles.sectionContent}>
+          <View style={styles.sectionHeader}>
+            <MaterialCommunityIcons name="help-circle-outline" size={20} color={AppColors.primary} />
+            <Text style={styles.sectionTitle}>Help & Support</Text>
+          </View>
+          <View style={styles.card}>
             <SettingItem
               icon="help-circle-outline"
               title="Driver Guidelines"
@@ -278,8 +387,20 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
               title="About BusHubLK"
               subtitle="Version 1.0.0"
               onPress={() => Alert.alert(
-                "About BusHubLK", 
-                "BusHubLK Driver App\nVersion 1.0.0\n\nDeveloped for Sri Lanka Transport Board\n\nFor technical support, contact your depot manager."
+                "ℹ️ About BusHubLK", 
+                `🚍 BusHubLK Driver App\n` +
+                `📱 Version 1.0.0\n\n` +
+                `Developed for Sri Lanka Transport Board (SLTB)\n\n` +
+                `This application helps drivers manage their daily assignments, track routes, and communicate effectively with depot managers.\n\n` +
+                `🔧 Technical Support\n` +
+                `For technical support and queries, please contact your depot manager.\n\n` +
+                `© 2025 BusHubLK. All rights reserved.`,
+                [
+                  { 
+                    text: "Close", 
+                    style: "cancel"
+                  }
+                ]
               )}
             />
           </View>
@@ -287,32 +408,44 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
 
         {/* Logout */}
         <View style={styles.section}>
-          <View style={styles.sectionContent}>
-            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-              <Ionicons name="log-out-outline" size={20} color={AppColors.red} />
-              <Text style={styles.logoutText}>Logout</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity 
+            style={styles.logoutButtonContainer} 
+            onPress={handleLogout}
+            activeOpacity={0.8}
+          >
+            <View style={styles.logoutButton}>
+              <View style={styles.logoutContent}>
+                <View style={styles.logoutIconContainer}>
+                  <Ionicons name="log-out-outline" size={22} color="#FFFFFF" />
+                </View>
+                <Text style={styles.logoutText}>Logout from Account</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
         </View>
       </ScrollView>
-    </SafeAreaView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
+  gradientContainer: {
+    flex: 1,
+  },
   container: {
     flex: 1,
-    backgroundColor: AppColors.background,
+    backgroundColor: 'transparent',
   },
-  header: {
-    paddingHorizontal: 20,
-    paddingVertical: Platform.OS === "ios" ? 20 : 22,
+  headerGradient: {
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.2)',
     ...Platform.select({
       android: {
         elevation: 8,
       },
       ios: {
-        shadowColor: "#000",
+        shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.15,
         shadowRadius: 8,
@@ -322,78 +455,67 @@ const styles = StyleSheet.create({
   headerContent: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    minHeight: 44,
+    justifyContent: "space-between",
+    paddingHorizontal: 10,
+    paddingVertical: 12,
+  },
+  backButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
   headerTitle: {
     color: "#FFFFFF",
-    fontSize: Platform.OS === "ios" ? 21 : 20,
-    fontWeight: "600",
-    fontFamily: Platform.OS === "ios" ? "System" : "Roboto",
+    fontSize: 20,
+    fontWeight: "bold",
     letterSpacing: 0.6,
-    textShadowColor: "rgba(0, 0, 0, 0.3)",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
+    flex: 1,
+    textAlign: 'center',
+    marginHorizontal: 8,
+  },
+  headerSpacer: {
+    width: 40,
   },
   scrollView: {
-    backgroundColor: AppColors.background,
+    flex: 1,
   },
   contentContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 20,
+    padding: 16,
     paddingBottom: 100,
   },
   section: {
-    marginBottom: 24,
+    marginBottom: 20,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingHorizontal: 4,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
+    fontSize: 17,
+    fontWeight: "700",
     color: AppColors.text,
-    marginBottom: 12,
-    fontFamily: Platform.OS === "ios" ? "System" : "Roboto",
+    marginLeft: 8,
+    letterSpacing: 0.3,
   },
-  sectionContent: {
+  card: {
     backgroundColor: AppColors.card,
     borderRadius: 16,
-    overflow: "hidden",
+    marginHorizontal: 4,
+    borderWidth: 0,
+    overflow: 'hidden',
     ...Platform.select({
       android: {
-        elevation: 2,
+        elevation: 6,
       },
       ios: {
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
+        shadowOpacity: 0.12,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 4 },
       },
     }),
-  },
-  driverInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 16,
-  },
-  driverAvatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: AppColors.primaryMuted,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 16,
-  },
-  driverName: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: AppColors.text,
-    marginBottom: 4,
-    fontFamily: Platform.OS === "ios" ? "System" : "Roboto",
-  },
-  driverDetail: {
-    fontSize: 14,
-    color: AppColors.textSecondary,
-    marginBottom: 2,
   },
   settingItem: {
     flexDirection: "row",
@@ -401,8 +523,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: AppColors.border,
+    borderBottomWidth: 0.5,
+    borderBottomColor: 'rgba(0, 0, 0, 0.08)',
   },
   settingLeft: {
     flexDirection: "row",
@@ -410,12 +532,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   settingIcon: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 12,
+    marginRight: 14,
   },
   settingText: {
     flex: 1,
@@ -424,30 +546,65 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: AppColors.text,
-    marginBottom: 2,
-    fontFamily: Platform.OS === "ios" ? "System" : "Roboto",
+    marginBottom: 3,
+    letterSpacing: 0.2,
   },
   settingSubtitle: {
     fontSize: 13,
     color: AppColors.textSecondary,
+    lineHeight: 18,
+    fontWeight: '500',
   },
   settingRight: {
     flexDirection: "row",
     alignItems: "center",
   },
+  logoutButtonContainer: {
+    marginHorizontal: 4,
+    borderRadius: 14,
+    overflow: 'hidden',
+    ...Platform.select({
+      android: {
+        elevation: 6,
+      },
+      ios: {
+        shadowColor: AppColors.primary,
+        shadowOpacity: 0.25,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 4 },
+      },
+    }),
+  },
   logoutButton: {
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    backgroundColor: AppColors.primary,
+  },
+  logoutContent: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 16,
-    paddingHorizontal: 16,
+  },
+  logoutIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   logoutText: {
+    flex: 1,
     fontSize: 16,
-    fontWeight: "600",
-    color: AppColors.red,
-    marginLeft: 8,
-    fontFamily: Platform.OS === "ios" ? "System" : "Roboto",
+    fontWeight: "700",
+    color: "#FFFFFF",
+    letterSpacing: 0.4,
+    textShadowColor: 'rgba(0, 0, 0, 0.2)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
 });
 
