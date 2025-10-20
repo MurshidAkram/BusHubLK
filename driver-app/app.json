@@ -62,11 +62,11 @@
       "package": "com.anonymous.driverapp"
     },
     "extra": {
-      "apiUrl": "http://43.205.127.30:5000/api",
+      "apiUrl": "http://13.201.62.115:5000/api",
       "eas": {
-        "projectId": "4c247601-9e90-4153-853b-d3a10b8eb91e"
+        "projectId": "e0962b44-a476-4bf2-ad2e-3dbe8de82b44"
       }
     },
-    "owner": "bushublk"
+    "owner": "sangeerth2001"
   }
 }

@@ -40,7 +40,7 @@ const getDynamicBaseURL = () => {
 
   // Always use the hosted backend URL for password reset links
   // This ensures links work from emails regardless of environment
-  const hostedUrl = process.env.BACKEND_URL || `http://43.205.127.30:${port}`;
+  const hostedUrl = process.env.BACKEND_URL || `http://13.201.62.115:${port}`;
 
   // For development, also provide local IP option for testing
   if (process.env.NODE_ENV === 'development' && process.env.USE_LOCAL_IP === 'true') {

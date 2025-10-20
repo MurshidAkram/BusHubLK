@@ -502,7 +502,12 @@ const getRoutes = async (req, res) => {
       SELECT route_number, route_name, start_location, end_location
       FROM routes 
       WHERE is_active = true
-      ORDER BY CAST(route_number AS INTEGER)
+      ORDER BY 
+        CASE 
+          WHEN route_number ~ '^[0-9]+$' THEN CAST(route_number AS INTEGER)
+          ELSE 999999
+        END,
+        route_number
     `;
 
     const result = await db.query(query);

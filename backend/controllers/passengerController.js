@@ -497,6 +497,23 @@ const testEmailSending = async (req, res) => {
 };
 
 
+// Clear all alerts for a passenger (soft delete)
+const clearAllAlerts = async (req, res) => {
+  const { id } = req.params; // passengerId
+
+  try {
+    const clearedCount = await Passenger.clearAllAlerts(id);
+    res.status(200).json({ 
+      message: 'Alerts cleared successfully', 
+      clearedCount 
+    });
+  } catch (error) {
+    console.error('Error clearing alerts (controller):', error);
+    res.status(500).json({ message: 'Server Error', error: error.message });
+  }
+};
+
+
 module.exports = {
   addEmergencyContact,
   getEmergencyContacts,
