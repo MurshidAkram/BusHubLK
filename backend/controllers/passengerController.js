@@ -8,7 +8,7 @@ const emergencySmsLogService = require('../services/emergencySmsLogService');
 // Create email transporter using Nodemailer (same config as emailService.js)
 let emailTransporter = null;
 if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
-  emailTransporter = nodemailer.createTransporter({
+  emailTransporter = nodemailer.createTransport({
     host: process.env.EMAIL_HOST || 'smtp.gmail.com',
     port: parseInt(process.env.EMAIL_PORT) || 587,
     secure: process.env.EMAIL_SECURE === 'true',
@@ -45,26 +45,38 @@ const addEmergencyContact = async (req, res) => {
     const { id } = req.params; // This is passengerId
     const { name, phone, relationship, email, isPrimary } = req.body;
 
+    console.log('[addEmergencyContact] Adding contact for passenger_id:', id);
+    console.log('[addEmergencyContact] Contact data:', { name, phone, relationship, email, isPrimary });
+
     if (!name || !phone) {
       return res.status(400).json({ message: 'Name and phone are required.' });
     }
 
     // For now, storing as provided, formatting happens during SMS sending
     const newContact = await Passenger.addEmergencyContact(id, name, phone, relationship, email, isPrimary);
+    console.log('[addEmergencyContact] Contact created successfully:', newContact);
+
     res.status(201).json(newContact);
   } catch (error) {
-    console.error('Error in addEmergencyContact (controller):', error);
-    res.status(500).json({ message: 'Server Error', error: error.message });
+    console.error('[addEmergencyContact] Error:', error);
+    console.error('[addEmergencyContact] Error code:', error.code);
+    console.error('[addEmergencyContact] Stack:', error.stack);
+    res.status(500).json({ message: 'Server Error', error: error.message, code: error.code });
   }
 };
 
 const getEmergencyContacts = async (req, res) => {
   try {
     const { id } = req.params; // This is passengerId
+    console.log('[getEmergencyContacts] Fetching contacts for passenger_id:', id);
+
     const contacts = await Passenger.getEmergencyContacts(id);
+    console.log('[getEmergencyContacts] Found', contacts.length, 'contacts');
+
     res.status(200).json(contacts);
   } catch (error) {
-    console.error('Error in getEmergencyContacts (controller):', error);
+    console.error('[getEmergencyContacts] Error:', error);
+    console.error('[getEmergencyContacts] Stack:', error.stack);
     res.status(500).json({ message: 'Server Error', error: error.message });
   }
 };
@@ -97,6 +109,21 @@ const deleteEmergencyContact = async (req, res) => {
     res.json({ success: true, message: 'Contact deleted successfully.' });
   } catch (error) {
     console.error('Error in deleteEmergencyContact (controller):', error);
+    res.status(500).json({ message: 'Server Error', error: error.message });
+  }
+};
+
+const setPrimaryContact = async (req, res) => {
+  try {
+    const { id, contactId } = req.params;
+    const updated = await Passenger.setPrimaryContact(id, contactId);
+
+    if (!updated) {
+      return res.status(404).json({ message: 'Contact not found or does not belong to this passenger.' });
+    }
+    res.json({ success: true, message: 'Primary contact set successfully.', contact: updated });
+  } catch (error) {
+    console.error('Error in setPrimaryContact (controller):', error);
     res.status(500).json({ message: 'Server Error', error: error.message });
   }
 };
@@ -441,6 +468,7 @@ module.exports = {
   getEmergencyContacts,
   updateEmergencyContact,
   deleteEmergencyContact,
+  setPrimaryContact,
   notifyEmergencyContacts,
   createAlert,
   getAlertsByPassenger,

@@ -3,7 +3,7 @@ import { io, Socket } from 'socket.io-client';
 import { AppContext } from '../../../context/AppContext';
 import { Send, Users, Plus, MessageSquare, AlertCircle } from 'lucide-react';
 
-const API_URL = 'http://localhost:5000';
+const API_URL = `${import.meta.env.VITE_API_URL}`;
 
 // Type definitions
 interface User {

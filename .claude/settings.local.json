@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -c controllers/passengerController.js)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

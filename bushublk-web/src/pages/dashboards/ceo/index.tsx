@@ -41,7 +41,7 @@ const CEODashboard = () => {
         if (!token) throw new Error('No authentication token found');
 
         // Fetch fleet summary data from CEO API
-        const response = await fetch('http://localhost:5000/api/ceo/fleet-summary', {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/ceo/fleet-summary`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'

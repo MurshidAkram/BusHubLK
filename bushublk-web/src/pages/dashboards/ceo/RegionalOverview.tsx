@@ -47,7 +47,7 @@ const RegionalOverviewPage: React.FC = () => {
         setLoading(true);
         
         // Fetch regions from CEO API (no auth required)
-        const regionsResponse = await fetch('http://localhost:5000/api/ceo/regions');
+        const regionsResponse = await fetch(`${import.meta.env.VITE_API_URL}/api/ceo/regions`);
         
         if (!regionsResponse.ok) {
           throw new Error(`Regions API error! status: ${regionsResponse.status}`);
@@ -56,7 +56,7 @@ const RegionalOverviewPage: React.FC = () => {
         const regionsResult = await regionsResponse.json();
         
         // Fetch depots from CEO API (no auth required)
-        const depotsResponse = await fetch('http://localhost:5000/api/ceo/depots');
+        const depotsResponse = await fetch(`${import.meta.env.VITE_API_URL}/api/ceo/depots`);
         
         if (!depotsResponse.ok) {
           throw new Error(`Depots API error! status: ${depotsResponse.status}`);

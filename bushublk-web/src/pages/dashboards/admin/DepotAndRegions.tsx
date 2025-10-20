@@ -67,7 +67,7 @@ const DepotAndRegions = () => {
     setLoading(true);
     try {
       // Fetch regions
-      const regionsResponse = await fetch('http://localhost:5000/api/regions', {
+      const regionsResponse = await fetch(`${import.meta.env.VITE_API_URL}/api/regions`, {
         headers: {
           'Authorization': `Bearer ${context?.token}`
         }
@@ -81,7 +81,7 @@ const DepotAndRegions = () => {
       setRegions(regionsData.regions);
 
       // Fetch depots
-      const depotsResponse = await fetch('http://localhost:5000/api/depots', {
+      const depotsResponse = await fetch(`${import.meta.env.VITE_API_URL}/api/depots`, {
         headers: {
           'Authorization': `Bearer ${context?.token}`
         }
@@ -189,11 +189,13 @@ const DepotAndRegions = () => {
       let response;
       const url = activeTab === 'depots' 
         ? editMode 
-          ? `http://localhost:5000/api/depots/${currentItem?.depot_id}`
-          : 'http://localhost:5000/api/depots'
+        // @ts-ignore
+
+          ? `${import.meta.env.VITE_API_URL}/api/depots/${currentItem?.depot_id}`
+          : `${import.meta.env.VITE_API_URL}/api/depots`
         : editMode
-          ? `http://localhost:5000/api/regions/${currentItem?.region_id}`
-          : 'http://localhost:5000/api/regions';
+          ? `${import.meta.env.VITE_API_URL}/api/regions/${currentItem?.region_id}`
+          : `${import.meta.env.VITE_API_URL}/api/regions`;
 
       const method = editMode ? 'PUT' : 'POST';
       const body = activeTab === 'depots'
@@ -281,8 +283,8 @@ const DepotAndRegions = () => {
 
     try {
       const url = activeTab === 'depots' 
-        ? `http://localhost:5000/api/depots/${id}`
-        : `http://localhost:5000/api/regions/${id}`;
+        ? `${import.meta.env.VITE_API_URL}/api/depots/${id}`
+        : `${import.meta.env.VITE_API_URL}/api/regions/${id}`;
 
       const response = await fetch(url, {
         method: 'DELETE',

@@ -71,6 +71,7 @@ interface StatsResponse {
 
 const Autoforwardbusstatus = () => {
   const navigate = useNavigate();
+  // @ts-ignore
   const context = useContext(AppContext) as AppContextType | null;
   
   const [statusFilter, setStatusFilter] = useState<string>('all');

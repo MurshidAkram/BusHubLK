@@ -51,6 +51,22 @@ const Passenger = {
     return rows[0];
   },
 
+  setPrimaryContact: async (passengerId, contactId) => {
+    // First, set all contacts for this passenger to non-primary
+    await pool.query({
+      text: `UPDATE emergency_contacts SET is_primary = false WHERE passenger_id = $1`,
+      values: [passengerId],
+    });
+
+    // Then set the specified contact as primary
+    const query = {
+      text: `UPDATE emergency_contacts SET is_primary = true WHERE id = $1 AND passenger_id = $2 RETURNING *`,
+      values: [contactId, passengerId],
+    };
+    const { rows } = await pool.query(query);
+    return rows[0];
+  },
+
   // === Alert Functions ===
   createAlertForPassenger: async (passengerId, emergencyType, passengerLatitude, passengerLongitude, depotId) => {
     const query = {

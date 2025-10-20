@@ -495,6 +495,13 @@ export class BackgroundLocationService {
                 routeId
               });
 
+              console.log('✅ [Expo Go] Location update prepared:', {
+                coords: `${location.coords.latitude.toFixed(6)}, ${location.coords.longitude.toFixed(6)}`,
+                driverId,
+                busId,
+                routeId
+              });
+
               // Try to send location update immediately
               const success = await sendLocationUpdate(locationUpdate);
 

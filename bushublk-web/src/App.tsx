@@ -1,4 +1,4 @@
-import React, { useContext } from 'react'
+import { useContext } from 'react'
 import { Route, Routes, useLocation } from 'react-router-dom'
 import { AppContext } from './context/AppContext'
 import Home from './pages/Home'
@@ -15,7 +15,6 @@ import ProtectedRoute from './components/ProtectedRoute'
 import AdminSidebarContent from './components/admin/AdminSidebarContent'
 import CreateAccount from './pages/dashboards/admin/CreateAccount'
 import AdminDashboard from './pages/dashboards/admin'
-import ManageRoles from './pages/dashboards/admin/DepotAndRegions'
 import Employees from './pages/dashboards/admin/Employees'
 import BusManaging from './pages/dashboards/admin/BusManaging'
 import RoutesMngmnt from './pages/dashboards/admin/RoutesMngmnt'
@@ -63,6 +62,7 @@ import DepotEngineerNotifications from './pages/dashboards/depot-engineer/Notifi
 import DepotGenerateReports from './pages/dashboards/depot-engineer/Generate_reports'
 
 
+//sample comment
 
 // Regional Technical Officer Components
 import RegionalTechnicalOfficerSidebarContent from './components/regional-tech/RegionalTechnicalOfficerSidebarContent'

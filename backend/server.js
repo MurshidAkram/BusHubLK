@@ -112,6 +112,8 @@ const depotmanagerDashboardRoutes = require('./routes/depotmanagerDashboardRoute
 app.use('/api/depot-dashboard', depotmanagerDashboardRoutes);
 console.log('✅ depotmanagerDashboardRoutes loaded');
 
+
+
 try {
   const busLiveTrackingRoutes = require('./routes/busLiveTrackingRoutes');
   app.use('/api/live-tracking', busLiveTrackingRoutes);
@@ -183,6 +185,8 @@ try {
   console.log('✅ passengerRoutes loaded');
 } catch (error) {
   console.log('❌ passengerRoutes error:', error.message);
+  console.log('❌ Full error:', error);
+  console.log('❌ Stack trace:', error.stack);
 }
 
 
@@ -510,7 +514,7 @@ server.listen(PORT, '0.0.0.0', () => {
     console.log(`🌐 Base URL for deep links/web access: ${baseURL}`);
     console.log(`🔐 Password reset endpoint: ${baseURL}/api/password-reset`);
   } catch (error) {
-    console.log(`🚀 Server is running on http://localhost:${PORT}`);
+    console.log(`🚀 Server is running on port:${PORT}`);
     console.log('❌ Network utils error:', error.message);
   }
 });

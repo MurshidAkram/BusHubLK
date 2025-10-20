@@ -10,11 +10,10 @@ import {
 } from 'react-icons/hi';
 import { AppContext } from '../../../context/AppContext';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5000';
 
-const buildDepotNotificationsUrl = (depotId: number | string) => `${API_BASE_URL}/api/depot/${depotId}/notifications`;
+const buildDepotNotificationsUrl = (depotId: number | string) => `${import.meta.env.VITE_API_URL}/api/depot/${depotId}/notifications`;
 
-const buildDepotReadUrl = (depotId: number | string) => `${API_BASE_URL}/api/depot/${depotId}/notifications/read`;
+const buildDepotReadUrl = (depotId: number | string) => `${import.meta.env.VITE_API_URL}/api/depot/${depotId}/notifications/read`;
 
 type NotificationType = 'complaint' | 'lost_found' | 'announcement' | 'direct_message';
 
