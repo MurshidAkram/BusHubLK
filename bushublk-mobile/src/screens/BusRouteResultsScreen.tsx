@@ -480,16 +480,6 @@ export default function BusRouteResultsScreen({ route, navigation }: any) {
           <Text style={styles.metricValue}>{item.journey?.stops_count || 0}</Text>
           <Text style={styles.metricLabel}>Stops</Text>
         </View>
-        
-        <View style={styles.metricDivider} />
-        
-        <View style={styles.metricItem}>
-          <Ionicons name="time" size={16} color={AppColors.warning} />
-          <Text style={styles.metricValue}>
-            {item.estimated_duration_minutes ? `${item.estimated_duration_minutes}m` : 'N/A'}
-          </Text>
-          <Text style={styles.metricLabel}>Est. Time</Text>
-        </View>
       </View>
 
       {/* Track Buses Button */}
