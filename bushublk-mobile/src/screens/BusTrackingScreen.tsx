@@ -29,6 +29,9 @@ import {
   getCurrentSriLankaTime 
 } from '../utils/timeUtils';
 
+// Allow location updates up to 10 minutes old before treating them as stale
+const LOCATION_STALE_THRESHOLD_MINUTES = 10;
+
 type Props = StackScreenProps<HomeStackParamList, 'BusTracking'>;
 
 const AppColors = {
@@ -382,7 +385,7 @@ const fetchRoutes = async () => {
     let filtered = enhancedBuses.filter(bus => {
       // Filter out buses with old data (older than 3 minutes) using Sri Lanka time
       const minutesOld = getMinutesSince(bus.lastUpdated);
-      if (isTimestampStale(bus.lastUpdated, 3)) {
+      if (isTimestampStale(bus.lastUpdated, LOCATION_STALE_THRESHOLD_MINUTES)) {
         console.log(`⏰ Filtering out bus ${bus.busId} (Route ${bus.routeNumber}) - data is stale (${minutesOld} minutes old)`);
         return false;
       }

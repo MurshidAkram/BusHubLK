@@ -115,7 +115,7 @@ interface Bus {
 }
 
 // Import API base URL from config
-import { API_BASE_URL, initializeApiConnection, getApiEndpoints } from '../config/api';
+import { API_BASE_URL, initializeApiConnection, getApiEndpoints, checkApiHealth, refreshApiConfiguration } from '../config/api';
 
 export default function LostAndFoundScreen({ navigation }: { navigation: any }) {
   const [activeView, setActiveView] = useState('list'); // 'list', 'report', 'myreports'
@@ -186,13 +186,16 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
     
     const initializeApp = async () => {
       if (isInitialized) return; // Prevent duplicate initialization
-      
+
       try {
         console.log('🔄 Initializing API connection...');
-        await initializeApiConnection();
+        const initializedUrl = await initializeApiConnection();
+        console.log('✅ API connection initialized with URL:', initializedUrl);
+        console.log('📡 Current API_BASE_URL after initialization:', API_BASE_URL);
+
         setApiInitialized(true);
         isInitialized = true;
-        
+
         console.log('📱 Loading initial data...');
         await Promise.all([
           loadUserData(),
@@ -200,11 +203,22 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
           loadRegions(),
           loadDepots()
         ]);
-        
+
         // Load reports after API is initialized
         await loadReports();
       } catch (error) {
         console.error('❌ Failed to initialize app:', error);
+        console.error('❌ API initialization failed, but continuing with fallback URL:', API_BASE_URL);
+
+        // Try to refresh API configuration as a fallback
+        try {
+          console.log('🔄 Attempting to refresh API configuration...');
+          await initializeApiConnection();
+          console.log('✅ API configuration refreshed successfully');
+        } catch (refreshError) {
+          console.error('❌ API configuration refresh also failed:', refreshError);
+        }
+
         // Still set as initialized to allow fallback behavior
         setApiInitialized(true);
       }
@@ -227,23 +241,35 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
   // Define loadReports with useCallback to prevent recreation on every render
   const loadReports = useCallback(async () => {
     if (!apiInitialized) {
-      console.log('⚠️  API not initialized yet, skipping loadReports');
+      console.log('⚠️  API not initialized yet, skipping loadReports (will load automatically after initialization)');
       return;
     }
 
     try {
       setLoading(true);
+
+      // First check if the server is healthy before making the full request
+      const isHealthy = await checkApiHealth();
+      if (!isHealthy) {
+        console.log('❌ Server health check failed, skipping reports request');
+        throw new Error('Server health check failed. The server may be temporarily unavailable.');
+      }
+
+      console.log('✅ Server health check passed, proceeding with reports request');
       const params = new URLSearchParams();
       if (selectedCategory !== 'all') params.append('item_category', selectedCategory);
       if (debouncedSearchQuery.trim()) params.append('search', debouncedSearchQuery.trim());
-      
-      const url = `${API_BASE_URL}/api/lost-found/reports?${params}`;
+
+      // Make sure we're using the latest API_BASE_URL after initialization
+      const currentApiUrl = API_BASE_URL;
+      const url = `${currentApiUrl}/api/lost-found/reports?${params}`;
       console.log('📡 API Request URL:', url);
       console.log('🔍 Filters:', { selectedCategory, searchQuery: debouncedSearchQuery });
-      
+      console.log('🌐 Current API Base URL:', currentApiUrl);
+
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-      
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // Increased to 15 second timeout
+
       const response = await fetch(url, {
         signal: controller.signal,
         headers: {
@@ -251,16 +277,32 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
           'Content-Type': 'application/json'
         }
       });
-      
+
       clearTimeout(timeoutId);
       
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error('❌ HTTP Error Response:', {
+          status: response.status,
+          statusText: response.statusText,
+          url: url,
+          errorBody: errorText.substring(0, 500) // Limit error body length
+        });
+
+        if (response.status === 500) {
+          throw new Error('Server is experiencing issues (HTTP 500). The reports service may be temporarily unavailable. Please try again in a few minutes.');
+        } else if (response.status === 404) {
+          throw new Error('Reports endpoint not found (HTTP 404). The server may be under maintenance.');
+        } else if (response.status >= 500) {
+          throw new Error(`Server error (${response.status}): The server is experiencing issues. Please try again later.`);
+        } else {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
       }
-      
+
       const data = await response.json();
       console.log('📥 API Response:', data);
-      
+
       if (data.success) {
         setReports(data.data.reports || []);
         console.log('✅ Reports loaded:', data.data.reports?.length || 0);
@@ -270,9 +312,77 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
       }
     } catch (error: any) {
       console.error('❌ Network Error loading reports:', error);
-      const errorMessage = error?.name === 'AbortError' 
-        ? 'Request timed out. Please check your connection.'
-        : 'Failed to connect to server. Please check your internet connection.';
+
+      let errorMessage = 'Failed to connect to server. Please check your internet connection.';
+
+      if (error?.message?.includes('HTTP 500')) {
+        errorMessage = 'The server is experiencing technical difficulties. Please try again in a few minutes.';
+
+        // For 500 errors, don't retry automatically as it's a server issue
+        console.log('💡 Tip: This is a server-side issue. Other app features may still work normally.');
+
+        Alert.alert(
+          'Server Error',
+          'The reports service is temporarily unavailable. Other features may still work normally. Would you like to try again?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Retry',
+              onPress: () => {
+                console.log('🔄 User requested retry after server error');
+                setTimeout(() => loadReports(), 1000);
+              }
+            }
+          ]
+        );
+        return; // Don't show the generic error dialog
+      } else if (error?.name === 'AbortError') {
+        errorMessage = 'Request timed out after 15 seconds. The server may be busy or unreachable.';
+
+        // Try to refresh API configuration and retry once
+        console.log('🔄 Attempting to refresh API configuration after timeout...');
+        try {
+          await refreshApiConfiguration();
+          console.log('✅ API configuration refreshed, retrying request...');
+
+          // Retry the request once with the new configuration
+          const retryParams = new URLSearchParams();
+          if (selectedCategory !== 'all') retryParams.append('item_category', selectedCategory);
+          if (debouncedSearchQuery.trim()) retryParams.append('search', debouncedSearchQuery.trim());
+
+          const retryUrl = `${API_BASE_URL}/api/lost-found/reports?${retryParams}`;
+          const retryController = new AbortController();
+          const retryTimeoutId = setTimeout(() => retryController.abort(), 10000);
+
+          const retryResponse = await fetch(retryUrl, {
+            signal: retryController.signal,
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json'
+            }
+          });
+
+          clearTimeout(retryTimeoutId);
+
+          if (retryResponse.ok) {
+            const retryData = await retryResponse.json();
+            if (retryData.success) {
+              setReports(retryData.data);
+              console.log('✅ Retry successful - reports loaded:', retryData.data.length);
+              return; // Exit early since retry was successful
+            }
+          }
+        } catch (retryError) {
+          console.error('❌ Retry attempt also failed:', retryError);
+        }
+      } else if (error?.message?.includes('Network request failed')) {
+        errorMessage = 'Network request failed. Please check your internet connection and ensure the server is running.';
+      } else if (error?.message?.includes('ECONNREFUSED')) {
+        errorMessage = 'Connection refused. The server may not be running or is blocking connections.';
+      } else if (error?.message?.includes('ENOTFOUND')) {
+        errorMessage = 'Host not found. Please check your network configuration and DNS settings.';
+      }
+
       Alert.alert('Network Error', errorMessage);
     } finally {
       setLoading(false);
@@ -284,6 +394,8 @@ export default function LostAndFoundScreen({ navigation }: { navigation: any }) 
     if (apiInitialized) {
       console.log('🔄 Loading reports due to filter change:', { selectedCategory, debouncedSearchQuery });
       loadReports();
+    } else {
+      console.log('⏳ Waiting for API initialization before loading reports...');
     }
   }, [selectedCategory, debouncedSearchQuery, apiInitialized, loadReports]);
 

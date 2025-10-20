@@ -22,7 +22,7 @@ import {
 
 import * as Location from 'expo-location';
 
-import { API_BASE_URL } from '../config/api';
+import { API_BASE_URL, initializeApiConnection } from '../config/api';
 import { storageAPI } from '../services/api';
 
 const AppColors = {
@@ -189,7 +189,15 @@ const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
 
     useEffect(() => {
         let isMounted = true;
-        const loadUserData = async () => {
+        const initializeApp = async () => {
+            try {
+                console.log('🔄 EmergencyAlert: Initializing API connection...');
+                await initializeApiConnection();
+                console.log('✅ EmergencyAlert: API connection initialized');
+            } catch (error) {
+                console.error('❌ EmergencyAlert: API initialization failed:', error);
+            }
+
             const userData = await storageAPI.getUserData();
             if (!isMounted) {
                 return;
@@ -200,7 +208,7 @@ const EmergencyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
                 setPassengerId(null);
             }
         };
-        loadUserData();
+        initializeApp();
         return () => {
             isMounted = false;
         };

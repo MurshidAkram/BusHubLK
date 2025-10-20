@@ -33,16 +33,21 @@ const API_PORT = 5000;
 const testApiEndpoint = async (ip: string, port: number): Promise<boolean> => {
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
-    
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // Increased to 5 second timeout
+
+    console.log(`⏳ Testing API endpoint: http://${ip}:${port}/api/health`);
+
     const response = await fetch(`http://${ip}:${port}/api/health`, {
       method: 'GET',
       signal: controller.signal,
     });
-    
+
     clearTimeout(timeoutId);
-    return response.ok;
-  } catch (error) {
+    const isOk = response.ok;
+    console.log(`✅ API endpoint test result for ${ip}:${port}: ${isOk ? 'SUCCESS' : 'FAILED'}`);
+    return isOk;
+  } catch (error: any) {
+    console.log(`❌ API endpoint test failed for ${ip}:${port}:`, error?.message || 'Unknown error');
     return false;
   }
 };
@@ -104,11 +109,20 @@ const discoverApiEndpoint = async (): Promise<string> => {
     }
   }
 
-  // Fallback to Expo IP or localhost
+  // Try production URL as fallback
+  console.log('🌐 Testing production URL as fallback...');
+  const productionUrl = 'http://43.205.127.30:5000';
+  if (await testApiEndpoint('43.205.127.30', API_PORT)) {
+    console.log('✅ Production API is reachable:', productionUrl);
+    cachedApiBaseUrl = productionUrl;
+    return productionUrl;
+  }
+
+  // Final fallback to Expo IP or localhost
   const fallbackIP = expoIP || (Platform.OS === 'android' ? '10.0.2.2' : 'localhost');
   const fallbackUrl = `http://${fallbackIP}:${API_PORT}`;
-  console.log('⚠️  No working API found, using fallback:', fallbackUrl);
-  
+  console.log('⚠️  No working API found, using final fallback:', fallbackUrl);
+
   cachedApiBaseUrl = fallbackUrl;
   return fallbackUrl;
 };
@@ -123,6 +137,7 @@ const getApiBaseUrl = (): string => {
   // First priority: Configured API URL from app.json or environment
   if (API_URL) {
     console.log('📱 Using configured API URL:', API_URL);
+    cachedApiBaseUrl = API_URL;
     return API_URL;
   }
 
@@ -146,6 +161,13 @@ export let API_BASE_URL = getApiBaseUrl();
 
 // Function to dynamically update the API base URL
 export const initializeApiConnection = async (): Promise<string> => {
+  if (API_URL) {
+    API_BASE_URL = API_URL;
+    cachedApiBaseUrl = API_URL;
+    console.log('🔒 Using explicitly configured API URL. Skipping discovery.');
+    return API_BASE_URL;
+  }
+
   if (__DEV__) {
     console.log('🔄 Initializing dynamic API connection...');
     const discoveredUrl = await discoverApiEndpoint();
@@ -170,16 +192,23 @@ export const checkApiHealth = async (customUrl?: string): Promise<boolean> => {
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
-    
-    const response = await fetch(`${urlToCheck}/health`, {
+
+  const response = await fetch(`${urlToCheck}/api/health`, {
       method: 'GET',
       signal: controller.signal,
     });
-    
+
     clearTimeout(timeoutId);
     return response.ok;
   } catch (error) {
     console.error('❌ API Health check failed for', urlToCheck, ':', error);
+
+    // If the health check fails, clear the cache to force rediscovery
+    if (!customUrl) {
+      console.log('🔄 Clearing API cache due to health check failure');
+      cachedApiBaseUrl = null;
+    }
+
     return false;
   }
 };
@@ -188,10 +217,10 @@ export const checkApiHealth = async (customUrl?: string): Promise<boolean> => {
 export const refreshApiConfiguration = async (): Promise<void> => {
   cachedApiBaseUrl = null;
   await initializeApiConnection();
-  console.log('� API configuration refreshed. New URL:', API_BASE_URL);
+  console.log('API configuration refreshed. New URL:', API_BASE_URL);
 };
 
-console.log('�📡 API Configuration loaded:', {
+console.log('API configuration loaded:', {
   initialBaseUrl: API_BASE_URL,
   isDev: __DEV__,
   platform: Platform.OS,
