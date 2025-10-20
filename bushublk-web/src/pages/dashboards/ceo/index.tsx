@@ -1,162 +1,177 @@
-import React from 'react';
+import React, { useState, useEffect, useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   HiGlobeAlt,
   HiOfficeBuilding,
-  HiCurrencyDollar,
   HiTrendingUp,
   HiUsers,
   HiTruck,
   HiChartSquareBar,
-  HiShieldCheck,
   HiExclamationCircle,
-  HiCheckCircle,
-  HiClock,
   HiArrowUp,
   HiArrowDown,
-  HiLightBulb,
-  HiFlag
+  HiLocationMarker
 } from 'react-icons/hi';
+import { AppContext } from '../../../context/AppContext';
+
+interface Region {
+  region_id: number;
+  region_name: string;
+  depot_count: number;
+  bus_count: number;
+  active_buses: number;
+  maintenance_buses: number;
+  out_of_service_buses: number;
+  efficiency?: number;
+}
 
 const CEODashboard = () => {
-  // Mock data - replace with actual API calls
-  const executiveMetrics = {
-    totalRevenue: 2450000000, // in LKR
-    totalDepots: 45,
-    totalFleet: 2850,
-    totalEmployees: 8420,
-    totalRoutes: 320,
-    totalPassengers: 185000, // daily
-    operationalEfficiency: 87,
-    customerSatisfaction: 82,
-    safetyScore: 94,
-    complianceScore: 91
-  };
+  const navigate = useNavigate();
+  const context = useContext(AppContext);
+  const token = context?.token;
 
-  const regionalData = [
-    { 
-      id: 1, 
-      name: 'Western Province', 
-      depots: 12, 
-      vehicles: 720, 
-      revenue: 680000000, 
-      efficiency: 89, 
-      growth: 5.2,
-      status: 'excellent',
-      criticalIssues: 2
-    },
-    { 
-      id: 2, 
-      name: 'Central Province', 
-      depots: 8, 
-      vehicles: 480, 
-      revenue: 420000000, 
-      efficiency: 85, 
-      growth: 3.8,
-      status: 'good',
-      criticalIssues: 1
-    },
-    { 
-      id: 3, 
-      name: 'Southern Province', 
-      depots: 10, 
-      vehicles: 650, 
-      revenue: 580000000, 
-      efficiency: 88, 
-      growth: 4.5,
-      status: 'excellent',
-      criticalIssues: 0
-    },
-    { 
-      id: 4, 
-      name: 'Northern Province', 
-      depots: 6, 
-      vehicles: 380, 
-      revenue: 320000000, 
-      efficiency: 82, 
-      growth: 2.1,
-      status: 'fair',
-      criticalIssues: 4
-    },
-    { 
-      id: 5, 
-      name: 'Eastern Province', 
-      depots: 5, 
-      vehicles: 320, 
-      revenue: 280000000, 
-      efficiency: 79, 
-      growth: 1.8,
-      status: 'needs_attention',
-      criticalIssues: 6
-    },
-    { 
-      id: 6, 
-      name: 'North Western Province', 
-      depots: 4, 
-      vehicles: 300, 
-      revenue: 170000000, 
-      efficiency: 84, 
-      growth: 3.2,
-      status: 'good',
-      criticalIssues: 1
-    }
-  ];
+  const [regions, setRegions] = useState<Region[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const keyAlerts = [
-    { id: 1, type: 'financial', message: 'Q4 revenue target 98% achieved', priority: 'low', time: '2 hours ago' },
-    { id: 2, type: 'operational', message: 'Eastern Province efficiency below target', priority: 'high', time: '4 hours ago' },
-    { id: 3, type: 'compliance', message: 'Annual safety audit completed successfully', priority: 'low', time: '1 day ago' },
-    { id: 4, type: 'strategic', message: 'New depot construction project on schedule', priority: 'medium', time: '1 day ago' },
-    { id: 5, type: 'technical', message: 'Fleet modernization program 75% complete', priority: 'medium', time: '2 days ago' }
-  ];
+  // Fetch data from backend
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
 
-  const performanceIndicators = [
-    { title: 'Revenue Growth', value: '8.5%', trend: 'up', target: '10%', status: 'on-track' },
-    { title: 'Operational Costs', value: 'Rs. 18.2/km', trend: 'down', target: 'Rs. 17.5/km', status: 'improving' },
-    { title: 'Fleet Utilization', value: '91%', trend: 'up', target: '93%', status: 'on-track' },
-    { title: 'Employee Satisfaction', value: '78%', trend: 'up', target: '80%', status: 'on-track' },
-    { title: 'Safety Incidents', value: '0.08/1000km', trend: 'down', target: '0.05/1000km', status: 'improving' },
-    { title: 'On-Time Performance', value: '87%', trend: 'up', target: '90%', status: 'on-track' }
-  ];
+        if (!token) {
+          navigate('/login');
+          return;
+        }
 
-  const formatCurrency = (amount: number) => {
-    if (amount >= 1000000000) {
-      return `Rs. ${(amount / 1000000000).toFixed(1)}B`;
-    } else if (amount >= 1000000) {
-      return `Rs. ${(amount / 1000000).toFixed(1)}M`;
+        // Fetch regions
+        const regionsResponse = await fetch('/api/ceo/regions', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!regionsResponse.ok) {
+          throw new Error('Failed to fetch regions');
+        }
+
+        const regionsResult = await regionsResponse.json();
+
+        // Fetch depots to calculate region stats
+        const depotsResponse = await fetch('/api/ceo/depots', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!depotsResponse.ok) {
+          throw new Error('Failed to fetch depots');
+        }
+
+        const depotsResult = await depotsResponse.json();
+
+        if (regionsResult.success && depotsResult.success) {
+          // Calculate stats for each region
+          const regionStats = regionsResult.data.map((region: any) => {
+            const regionDepots = depotsResult.data.filter(
+              (d: any) => d.region_name === region.region_name
+            );
+
+            const totalBuses = regionDepots.reduce((sum: number, d: any) => sum + (d.bus_count || 0), 0);
+            const activeBuses = regionDepots.reduce((sum: number, d: any) => sum + (d.active_buses || 0), 0);
+            const maintenanceBuses = regionDepots.reduce((sum: number, d: any) => sum + (d.maintenance_buses || 0), 0);
+            const outOfServiceBuses = regionDepots.reduce((sum: number, d: any) => sum + (d.out_of_service_buses || 0), 0);
+
+            // Calculate efficiency as percentage of active buses
+            const efficiency = totalBuses > 0 ? Math.round((activeBuses / totalBuses) * 100) : 0;
+
+            return {
+              region_id: region.region_id,
+              region_name: region.region_name,
+              depot_count: regionDepots.length,
+              bus_count: totalBuses,
+              active_buses: activeBuses,
+              maintenance_buses: maintenanceBuses,
+              out_of_service_buses: outOfServiceBuses,
+              efficiency
+            };
+          });
+
+          setRegions(regionStats);
+        }
+      } catch (err) {
+        console.error('Error fetching data:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (token) {
+      fetchData();
     } else {
-      return `Rs. ${amount.toLocaleString()}`;
+      navigate('/login');
     }
+  }, [token, navigate]);
+
+  // Calculate executive metrics from regions
+  const executiveMetrics = {
+    totalDepots: regions.reduce((sum, r) => sum + r.depot_count, 0),
+    totalFleet: regions.reduce((sum, r) => sum + r.bus_count, 0),
+    activeFleet: regions.reduce((sum, r) => sum + r.active_buses, 0),
+    maintenanceFleet: regions.reduce((sum, r) => sum + r.maintenance_buses, 0),
+    outOfServiceFleet: regions.reduce((sum, r) => sum + r.out_of_service_buses, 0),
+    averageEfficiency: regions.length > 0 
+      ? Math.round(regions.reduce((sum, r) => sum + (r.efficiency || 0), 0) / regions.length)
+      : 0
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'excellent': return 'text-green-700 bg-green-100';
-      case 'good': return 'text-blue-700 bg-blue-100';
-      case 'fair': return 'text-yellow-700 bg-yellow-100';
-      case 'needs_attention': return 'text-red-700 bg-red-100';
-      default: return 'text-gray-700 bg-gray-100';
-    }
+  const getStatusColor = (efficiency: number) => {
+    if (efficiency >= 90) return 'text-green-700 bg-green-100';
+    if (efficiency >= 80) return 'text-blue-700 bg-blue-100';
+    if (efficiency >= 70) return 'text-yellow-700 bg-yellow-100';
+    return 'text-red-700 bg-red-100';
   };
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'high': return 'text-red-600 bg-red-50 border-red-200';
-      case 'medium': return 'text-yellow-600 bg-yellow-50 border-yellow-200';
-      case 'low': return 'text-green-600 bg-green-50 border-green-200';
-      default: return 'text-gray-600 bg-gray-50 border-gray-200';
-    }
+  const getStatusText = (efficiency: number) => {
+    if (efficiency >= 90) return 'Excellent';
+    if (efficiency >= 80) return 'Good';
+    if (efficiency >= 70) return 'Fair';
+    return 'Needs Attention';
   };
 
-  const getAlertIcon = (type: string) => {
-    switch (type) {
-      case 'financial': return <HiCurrencyDollar className="h-4 w-4" />;
-      case 'operational': return <HiTrendingUp className="h-4 w-4" />;
-      case 'compliance': return <HiShieldCheck className="h-4 w-4" />;
-      case 'strategic': return <HiLightBulb className="h-4 w-4" />;
-      case 'technical': return <HiTruck className="h-4 w-4" />;
-      default: return <HiFlag className="h-4 w-4" />;
-    }
-  };
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-96">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+          <p className="text-gray-600 font-medium">Loading executive dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-96">
+        <div className="text-center max-w-md">
+          <HiExclamationCircle className="mx-auto text-6xl text-red-400 mb-4" />
+          <h2 className="text-xl font-semibold text-gray-800 mb-2">Failed to Load Dashboard</h2>
+          <p className="text-red-700 mb-4">{error}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -164,7 +179,7 @@ const CEODashboard = () => {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Executive Dashboard</h1>
-          <p className="text-gray-600 mt-1">Strategic overview of BusHubLK operations nationwide</p>
+          <p className="text-gray-600 mt-1">Strategic overview of SLTB operations nationwide</p>
         </div>
         <div className="text-right">
           <p className="text-sm text-gray-500">Last updated</p>
@@ -173,17 +188,29 @@ const CEODashboard = () => {
       </div>
 
       {/* Executive KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-      
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl shadow-lg p-6 text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-blue-100 text-sm font-medium">Total Regions</p>
+              <p className="text-3xl font-bold">{regions.length}</p>
+              <p className="text-blue-100 text-xs mt-1">Nationwide</p>
+            </div>
+            <div className="p-3 bg-blue-500 bg-opacity-30 rounded-full">
+              <HiLocationMarker className="h-8 w-8" />
+            </div>
+          </div>
+        </div>
+
         <div className="bg-gradient-to-br from-green-600 to-green-700 rounded-xl shadow-lg p-6 text-white">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-green-100 text-sm font-medium">Total Depots</p>
-              <p className="text-2xl font-bold">{executiveMetrics.totalDepots}</p>
-              <p className="text-green-100 text-xs mt-1">Nationwide</p>
+              <p className="text-3xl font-bold">{executiveMetrics.totalDepots}</p>
+              <p className="text-green-100 text-xs mt-1">All Regions</p>
             </div>
             <div className="p-3 bg-green-500 bg-opacity-30 rounded-full">
-              <HiOfficeBuilding className="h-6 w-6" />
+              <HiOfficeBuilding className="h-8 w-8" />
             </div>
           </div>
         </div>
@@ -191,12 +218,12 @@ const CEODashboard = () => {
         <div className="bg-gradient-to-br from-purple-600 to-purple-700 rounded-xl shadow-lg p-6 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-purple-100 text-sm font-medium">Fleet Size</p>
-              <p className="text-2xl font-bold">{executiveMetrics.totalFleet.toLocaleString()}</p>
-              <p className="text-purple-100 text-xs mt-1">Active Vehicles</p>
+              <p className="text-purple-100 text-sm font-medium">Total Fleet</p>
+              <p className="text-3xl font-bold">{executiveMetrics.totalFleet.toLocaleString()}</p>
+              <p className="text-purple-100 text-xs mt-1">All Buses</p>
             </div>
             <div className="p-3 bg-purple-500 bg-opacity-30 rounded-full">
-              <HiTruck className="h-6 w-6" />
+              <HiTruck className="h-8 w-8" />
             </div>
           </div>
         </div>
@@ -204,164 +231,177 @@ const CEODashboard = () => {
         <div className="bg-gradient-to-br from-orange-600 to-orange-700 rounded-xl shadow-lg p-6 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-orange-100 text-sm font-medium">Total Employees</p>
-              <p className="text-2xl font-bold">{executiveMetrics.totalEmployees.toLocaleString()}</p>
-              <p className="text-orange-100 text-xs mt-1">All Roles</p>
+              <p className="text-orange-100 text-sm font-medium">Active Fleet</p>
+              <p className="text-3xl font-bold">{executiveMetrics.activeFleet.toLocaleString()}</p>
+              <p className="text-orange-100 text-xs mt-1">{executiveMetrics.averageEfficiency}% Avg Efficiency</p>
             </div>
             <div className="p-3 bg-orange-500 bg-opacity-30 rounded-full">
-              <HiUsers className="h-6 w-6" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 rounded-xl shadow-lg p-6 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-indigo-100 text-sm font-medium">Daily Passengers</p>
-              <p className="text-2xl font-bold">{executiveMetrics.totalPassengers.toLocaleString()}</p>
-              <p className="text-indigo-100 text-xs mt-1">Per Day</p>
-            </div>
-            <div className="p-3 bg-indigo-500 bg-opacity-30 rounded-full">
-              <HiGlobeAlt className="h-6 w-6" />
+              <HiTrendingUp className="h-8 w-8" />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Performance Indicators */}
+      {/* Fleet Status Overview */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Key Performance Indicators</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {performanceIndicators.map((indicator, index) => (
-            <div key={index} className="p-4 rounded-lg bg-gray-50 border border-gray-100">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-medium text-gray-700">{indicator.title}</p>
-                {indicator.trend === 'up' ? (
-                  <HiArrowUp className="h-4 w-4 text-green-600" />
-                ) : (
-                  <HiArrowDown className="h-4 w-4 text-red-600" />
-                )}
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Fleet Status Overview</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="p-4 rounded-lg bg-green-50 border border-green-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-green-700">Active Buses</p>
+                <p className="text-2xl font-bold text-green-900">{executiveMetrics.activeFleet}</p>
+                <p className="text-xs text-green-600 mt-1">
+                  {executiveMetrics.totalFleet > 0 
+                    ? `${Math.round((executiveMetrics.activeFleet / executiveMetrics.totalFleet) * 100)}% of fleet`
+                    : '0% of fleet'}
+                </p>
               </div>
-              <div className="flex items-center justify-between">
-                <p className="text-xl font-bold text-gray-900">{indicator.value}</p>
-                <div className="text-right">
-                  <p className="text-xs text-gray-500">Target: {indicator.target}</p>
-                  <span className={`text-xs px-2 py-1 rounded-full ${
-                    indicator.status === 'on-track' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-                  }`}>
-                    {indicator.status.replace('-', ' ')}
-                  </span>
-                </div>
-              </div>
+              <HiArrowUp className="h-8 w-8 text-green-600" />
             </div>
-          ))}
+          </div>
+
+          <div className="p-4 rounded-lg bg-yellow-50 border border-yellow-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-yellow-700">Under Maintenance</p>
+                <p className="text-2xl font-bold text-yellow-900">{executiveMetrics.maintenanceFleet}</p>
+                <p className="text-xs text-yellow-600 mt-1">
+                  {executiveMetrics.totalFleet > 0 
+                    ? `${Math.round((executiveMetrics.maintenanceFleet / executiveMetrics.totalFleet) * 100)}% of fleet`
+                    : '0% of fleet'}
+                </p>
+              </div>
+              <HiTruck className="h-8 w-8 text-yellow-600" />
+            </div>
+          </div>
+
+          <div className="p-4 rounded-lg bg-red-50 border border-red-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-red-700">Out of Service</p>
+                <p className="text-2xl font-bold text-red-900">{executiveMetrics.outOfServiceFleet}</p>
+                <p className="text-xs text-red-600 mt-1">
+                  {executiveMetrics.totalFleet > 0 
+                    ? `${Math.round((executiveMetrics.outOfServiceFleet / executiveMetrics.totalFleet) * 100)}% of fleet`
+                    : '0% of fleet'}
+                </p>
+              </div>
+              <HiArrowDown className="h-8 w-8 text-red-600" />
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Regional Overview and Key Alerts */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Regional Overview */}
-        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Regional Performance Overview</h3>
-            <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">View Details</button>
+      {/* Regional Performance Overview */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900">Regional Performance Overview</h3>
+          <button 
+            onClick={() => navigate('/ceo/regional-overview')}
+            className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center"
+          >
+            View Details
+            <HiChartSquareBar className="ml-1 h-4 w-4" />
+          </button>
+        </div>
+        
+        {regions.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            <HiLocationMarker className="mx-auto text-5xl mb-3 text-gray-300" />
+            <p>No regional data available</p>
           </div>
+        ) : (
           <div className="space-y-4">
-            {regionalData.map((region) => (
-              <div key={region.id} className="p-4 rounded-lg border border-gray-100 hover:border-gray-200 transition-colors">
-                <div className="flex items-center justify-between mb-2">
+            {regions.map((region) => (
+              <div 
+                key={region.region_id} 
+                className="p-4 rounded-lg border border-gray-100 hover:border-blue-200 hover:shadow-sm transition-all cursor-pointer"
+                onClick={() => navigate('/ceo/regional-overview')}
+              >
+                <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center space-x-3">
-                    <h4 className="font-medium text-gray-900">{region.name}</h4>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(region.status)}`}>
-                      {region.status.replace('_', ' ')}
+                    <HiLocationMarker className="h-5 w-5 text-blue-600" />
+                    <h4 className="font-semibold text-gray-900">{region.region_name}</h4>
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(region.efficiency || 0)}`}>
+                      {getStatusText(region.efficiency || 0)}
                     </span>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <span className={`text-sm font-medium ${region.growth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {region.growth >= 0 ? '+' : ''}{region.growth}%
-                    </span>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600">
-                  <div>
-                    <p className="text-xs text-gray-500">Depots</p>
-                    <p className="font-medium text-gray-900">{region.depots}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Vehicles</p>
-                    <p className="font-medium text-gray-900">{region.vehicles}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Revenue</p>
-                    <p className="font-medium text-gray-900">{formatCurrency(region.revenue)}</p>
-                  </div>
-                  <div>
+                  <div className="text-right">
+                    <p className="text-sm font-semibold text-gray-900">{region.efficiency}%</p>
                     <p className="text-xs text-gray-500">Efficiency</p>
-                    <p className="font-medium text-gray-900">{region.efficiency}%</p>
                   </div>
                 </div>
-                {region.criticalIssues > 0 && (
-                  <div className="mt-2 flex items-center text-red-600">
-                    <HiExclamationCircle className="h-4 w-4 mr-1" />
-                    <span className="text-xs">{region.criticalIssues} critical issue(s) require attention</span>
+                
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">Depots</p>
+                    <p className="text-lg font-semibold text-gray-900">{region.depot_count}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">Total Buses</p>
+                    <p className="text-lg font-semibold text-gray-900">{region.bus_count}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">Active</p>
+                    <p className="text-lg font-semibold text-green-600">{region.active_buses}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">Maintenance</p>
+                    <p className="text-lg font-semibold text-yellow-600">{region.maintenance_buses}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">Out of Service</p>
+                    <p className="text-lg font-semibold text-red-600">{region.out_of_service_buses}</p>
+                  </div>
+                </div>
+
+                {region.out_of_service_buses > 0 && region.out_of_service_buses >= region.bus_count * 0.1 && (
+                  <div className="mt-3 pt-3 border-t border-gray-100 flex items-center text-red-600">
+                    <HiExclamationCircle className="h-4 w-4 mr-2" />
+                    <span className="text-xs font-medium">
+                      High out-of-service rate ({Math.round((region.out_of_service_buses / region.bus_count) * 100)}%) - requires attention
+                    </span>
                   </div>
                 )}
               </div>
             ))}
           </div>
-        </div>
-
-        {/* Key Alerts */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Key Alerts</h3>
-            <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">View All</button>
-          </div>
-          <div className="space-y-3">
-            {keyAlerts.map((alert) => (
-              <div key={alert.id} className={`p-3 rounded-lg border ${getPriorityColor(alert.priority)}`}>
-                <div className="flex items-start space-x-2">
-                  <div className="flex-shrink-0 mt-0.5">
-                    {getAlertIcon(alert.type)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900">{alert.message}</p>
-                    <p className="text-xs text-gray-500 mt-1">{alert.time}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        )}
       </div>
 
       {/* Quick Actions */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Executive Actions</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          <button className="flex flex-col items-center p-4 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors">
-            <HiChartSquareBar className="h-8 w-8 text-blue-600 mb-2" />
-            <span className="text-sm font-medium text-gray-700">Strategic Dashboard</span>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Access</h3>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <button 
+            onClick={() => navigate('/ceo/regional-overview')}
+            className="flex flex-col items-center p-4 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors"
+          >
+            <HiGlobeAlt className="h-8 w-8 text-blue-600 mb-2" />
+            <span className="text-sm font-medium text-gray-700">Regional Overview</span>
           </button>
-          <button className="flex flex-col items-center p-4 rounded-lg border border-gray-200 hover:border-green-300 hover:bg-green-50 transition-colors">
-            <HiCurrencyDollar className="h-8 w-8 text-green-600 mb-2" />
-            <span className="text-sm font-medium text-gray-700">Financial Reports</span>
+          
+          <button 
+            onClick={() => navigate('/ceo/depot-overview')}
+            className="flex flex-col items-center p-4 rounded-lg border border-gray-200 hover:border-green-300 hover:bg-green-50 transition-colors"
+          >
+            <HiOfficeBuilding className="h-8 w-8 text-green-600 mb-2" />
+            <span className="text-sm font-medium text-gray-700">Depot Overview</span>
           </button>
-          <button className="flex flex-col items-center p-4 rounded-lg border border-gray-200 hover:border-purple-300 hover:bg-purple-50 transition-colors">
-            <HiGlobeAlt className="h-8 w-8 text-purple-600 mb-2" />
-            <span className="text-sm font-medium text-gray-700">Regional Analysis</span>
+          
+          <button 
+            className="flex flex-col items-center p-4 rounded-lg border border-gray-200 hover:border-purple-300 hover:bg-purple-50 transition-colors"
+          >
+            <HiTruck className="h-8 w-8 text-purple-600 mb-2" />
+            <span className="text-sm font-medium text-gray-700">Fleet Management</span>
           </button>
-          <button className="flex flex-col items-center p-4 rounded-lg border border-gray-200 hover:border-orange-300 hover:bg-orange-50 transition-colors">
-            <HiUsers className="h-8 w-8 text-orange-600 mb-2" />
-            <span className="text-sm font-medium text-gray-700">Workforce Analytics</span>
-          </button>
-          <button className="flex flex-col items-center p-4 rounded-lg border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50 transition-colors">
-            <HiShieldCheck className="h-8 w-8 text-indigo-600 mb-2" />
-            <span className="text-sm font-medium text-gray-700">Compliance Review</span>
-          </button>
-          <button className="flex flex-col items-center p-4 rounded-lg border border-gray-200 hover:border-yellow-300 hover:bg-yellow-50 transition-colors">
-            <HiLightBulb className="h-8 w-8 text-yellow-600 mb-2" />
-            <span className="text-sm font-medium text-gray-700">Innovation Hub</span>
+          
+          <button 
+            className="flex flex-col items-center p-4 rounded-lg border border-gray-200 hover:border-orange-300 hover:bg-orange-50 transition-colors"
+          >
+            <HiChartSquareBar className="h-8 w-8 text-orange-600 mb-2" />
+            <span className="text-sm font-medium text-gray-700">Analytics</span>
           </button>
         </div>
       </div>
@@ -369,4 +409,4 @@ const CEODashboard = () => {
   );
 };
 
-export default CEODashboard
+export default CEODashboard;
