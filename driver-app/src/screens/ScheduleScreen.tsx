@@ -939,7 +939,6 @@ const ScheduleScreen = ({ navigation }: any) => {
           style={styles.scrollView}
           contentContainerStyle={styles.contentContainer}
           showsVerticalScrollIndicator={false}
-          scrollEnabled={false}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}

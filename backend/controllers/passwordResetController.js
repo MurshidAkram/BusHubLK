@@ -12,9 +12,12 @@ const resetTokens = new Map(); // IMPORTANT: This is an in-memory store and will
                                // For production, persist tokens in your database or a dedicated service like Redis.
 
 const requestPasswordReset = async (req, res) => {
+  console.log('🔄 Password reset request received');
+  console.log('📧 Request body:', req.body);
+
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    console.error('Validation errors for password reset request:', errors.array()); // Added log for request
+    console.error('❌ Validation errors for password reset request:', errors.array());
     return res.status(400).json({
       success: false,
       errors: errors.array()
@@ -22,24 +25,31 @@ const requestPasswordReset = async (req, res) => {
   }
 
   const { email } = req.body;
+  console.log('📧 Processing password reset for email:', email);
 
   try {
     // Find user by email
+    console.log('🔍 Looking up user in database...');
     const user = await User.findByEmail(email);
-    // IMPORTANT SECURITY NOTE: Do NOT differentiate responses if email exists or not.
-    // Always send a "success" message regardless to prevent email enumeration.
+
     if (!user) {
-      console.log(`Password reset requested for non-existent email: ${email}`);
+      console.log(`⚠️ Password reset requested for non-existent email: ${email}`);
       return res.json({
         success: true,
         message: 'If an account with that email exists, a password reset link has been sent to your email.'
       });
     }
 
-    // Check if user is a driver (assuming this context is only for drivers)
-    // If you have different user roles, adjust this logic.
-    if (user.role_name !== 'driver' && user.role_name !== 'passenger' && user.role_name !== 'admin') { // Added other roles for more general use
-      console.log(`Password reset requested for unsupported role: ${user.role_name} for email: ${email}`);
+    console.log('✅ User found:', {
+      user_id: user.user_id,
+      email: user.email,
+      role: user.role_name,
+      is_active: user.is_active
+    });
+
+    // Check if user role is supported
+    if (user.role_name !== 'driver' && user.role_name !== 'passenger' && user.role_name !== 'admin') {
+      console.log(`⚠️ Password reset requested for unsupported role: ${user.role_name} for email: ${email}`);
       return res.json({
         success: true,
         message: 'If an account with that email exists, a password reset link has been sent to your email.'
@@ -48,7 +58,7 @@ const requestPasswordReset = async (req, res) => {
 
     // Check if user is active
     if (!user.is_active) {
-      console.log(`Attempted password reset for deactivated account: ${email}`);
+      console.log(`❌ Attempted password reset for deactivated account: ${email}`);
       return res.status(400).json({
         success: false,
         error: 'Account is deactivated. Please contact administrator.'
@@ -56,8 +66,9 @@ const requestPasswordReset = async (req, res) => {
     }
 
     // Generate reset token
+    console.log('🔑 Generating reset token...');
     const resetToken = crypto.randomBytes(32).toString('hex');
-    const resetTokenExpiry = Date.now() + 3600000; // 1 hour from now (in milliseconds)
+    const resetTokenExpiry = Date.now() + 3600000; // 1 hour from now
 
     // Store token with expiry
     resetTokens.set(resetToken, {
@@ -66,21 +77,25 @@ const requestPasswordReset = async (req, res) => {
       expiry: resetTokenExpiry
     });
 
-    console.log('Reset token stored:', {
-      token: resetToken,
+    console.log('✅ Reset token stored:', {
+      token: resetToken.substring(0, 10) + '...',
       userId: user.user_id,
       email: user.email,
       expiry: new Date(resetTokenExpiry).toISOString()
     });
 
     // Construct the universal reset link
-    // This link will be `http://YOUR_LOCAL_IP:5000/api/password-reset/universal/:token?email=:email`
-    const baseURL = getDynamicBaseURL(); // Get your dynamic backend base URL
+    console.log('🌐 Getting base URL...');
+    const baseURL = getDynamicBaseURL();
+    console.log('📍 Base URL:', baseURL);
+
     const resetLink = `${baseURL}/api/password-reset/universal/${resetToken}?email=${encodeURIComponent(user.email)}`;
-    console.log('Generated Reset Link:', resetLink);
+    console.log('🔗 Generated Reset Link:', resetLink);
 
     // Send reset email
+    console.log('📧 Sending reset email...');
     await sendPasswordResetEmail(user.email, user.first_name, resetLink);
+    console.log('✅ Reset email sent successfully');
 
     res.json({
       success: true,
@@ -88,10 +103,18 @@ const requestPasswordReset = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Password reset request error:', error);
+    console.error('❌ Password reset request error:', error);
+    console.error('❌ Error stack:', error.stack);
+    console.error('❌ Error details:', {
+      name: error.name,
+      message: error.message,
+      code: error.code
+    });
+
     res.status(500).json({
       success: false,
-      error: 'Server error. Please try again later.'
+      error: 'Server error. Please try again later.',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };

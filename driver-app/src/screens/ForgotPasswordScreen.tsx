@@ -47,7 +47,7 @@ export default function ForgotPasswordScreen() {
   const handleResetRequest = async () => {
     if (!email.trim()) {
       Alert.alert(
-        "⚠️ Error", 
+        "⚠️ Error",
         "Please enter your email address to continue."
       );
       return;
@@ -57,7 +57,7 @@ export default function ForgotPasswordScreen() {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email.trim())) {
       Alert.alert(
-        "⚠️ Invalid Email", 
+        "⚠️ Invalid Email",
         "Please enter a valid email address.\n\nExample: driver@sltb.lk"
       );
       return;
@@ -66,7 +66,9 @@ export default function ForgotPasswordScreen() {
     setIsLoading(true);
 
     try {
+      console.log("🔄 Requesting password reset for:", email.trim());
       const response = await driverAPI.requestPasswordReset(email.trim());
+      console.log("📦 Password reset response:", response);
 
       if (response.success) {
         Alert.alert(
@@ -80,16 +82,23 @@ export default function ForgotPasswordScreen() {
           ]
         );
       } else {
+        console.error("❌ Password reset failed:", response.error);
         Alert.alert(
           "❌ Error",
           response.error || "Failed to send reset email. Please try again.\n\nIf the problem persists, contact your depot manager."
         );
       }
     } catch (error) {
-      console.error("Password reset request error:", error);
+      console.error("❌ Password reset request error:", error);
+      console.error("Error details:", {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
+
       Alert.alert(
         "❌ Network Error",
-        "Unable to connect to the server. Please check your internet connection and try again."
+        `Unable to connect to the server. Please check your internet connection and try again.\n\nError: ${error.message || 'Unknown error'}`
       );
     } finally {
       setIsLoading(false);
