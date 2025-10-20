@@ -17,6 +17,16 @@ if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
       pass: process.env.EMAIL_PASS
     }
   });
+
+  // Verify the transporter configuration
+  emailTransporter.verify((error, success) => {
+    if (error) {
+      console.error('[passengerController] Email transporter verification failed:', error.message);
+      emailTransporter = null; // Disable email sending if verification fails
+    } else {
+      console.log('[passengerController] Email transporter verified successfully');
+    }
+  });
   console.log('[passengerController] Email transporter initialized with Nodemailer');
 } else {
   console.warn('[passengerController] Email credentials not configured. Emergency emails will fail.');
@@ -222,6 +232,7 @@ const notifyEmergencyContacts = async (req, res) => {
 
     if (contact.email) {
       if (emailTransporter) {
+        console.log(`[passengerController] Attempting to send email to ${contact.email} for contact ${contact.name}`);
         const emailMessage = {
           from: `"${process.env.EMAIL_FROM_NAME || 'BusHubLK Support'}" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
           to: contact.email,
@@ -231,18 +242,19 @@ const notifyEmergencyContacts = async (req, res) => {
         };
         notificationPromises.push(
           emailTransporter.sendMail(emailMessage)
-            .then(() => { 
+            .then((info) => { 
               notificationSummary.emailsSentToContacts++; 
-              console.log(`[passengerController] Email sent to ${contact.email}`);
+              console.log(`[passengerController] Email sent successfully to ${contact.email}. Message ID: ${info.messageId}`);
             })
             .catch(err => {
               console.error(`[passengerController] Email to ${contact.email} failed:`, err.message);
+              console.error(`[passengerController] Email error details:`, err);
               notificationSummary.overallSuccess = false;
               notificationSummary.detailedMessage.push(`Failed to send email to ${contact.name}: ${err.message || 'Email send failed'}`);
             })
         );
       } else {
-        console.warn(`[passengerController] Email transporter not configured, skipping email to ${contact.email}`);
+        console.warn(`[passengerController] Email transporter not available, skipping email to ${contact.email}`);
         notificationSummary.detailedMessage.push(`Email to ${contact.name} skipped: Email service not configured`);
       }
     }
@@ -445,20 +457,42 @@ const getNearestDepot = async (req, res) => {
     }
 };
 
-// === Clear All Alerts Controller ===
-const clearAllAlerts = async (req, res) => {
-  const { id } = req.params; // passengerId
+// === Test Email Endpoint ===
+const testEmailSending = async (req, res) => {
+  const { testEmail } = req.body;
+
+  if (!testEmail) {
+    return res.status(400).json({ message: 'testEmail is required.' });
+  }
+
+  if (!emailTransporter) {
+    return res.status(500).json({ message: 'Email transporter not configured.' });
+  }
 
   try {
-    const clearedCount = await Passenger.clearAllAlerts(id);
+    const testMessage = {
+      from: `"${process.env.EMAIL_FROM_NAME || 'BusHubLK Support'}" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
+      to: testEmail,
+      subject: 'BusHubLK Email Test',
+      text: 'This is a test email from BusHubLK emergency alert system.',
+      html: '<strong>This is a test email from BusHubLK emergency alert system.</strong>',
+    };
+
+    const info = await emailTransporter.sendMail(testMessage);
+    console.log('[passengerController] Test email sent successfully:', info.messageId);
+
     res.status(200).json({ 
-      success: true, 
-      message: `${clearedCount} alert(s) cleared successfully.`,
-      clearedCount 
+      message: 'Test email sent successfully.', 
+      messageId: info.messageId,
+      accepted: info.accepted,
+      rejected: info.rejected
     });
   } catch (error) {
-    console.error('Error clearing alerts (controller):', error);
-    res.status(500).json({ message: 'Server Error', error: error.message });
+    console.error('[passengerController] Test email failed:', error);
+    res.status(500).json({ 
+      message: 'Failed to send test email.', 
+      error: error.message 
+    });
   }
 };
 
@@ -474,4 +508,5 @@ module.exports = {
   getAlertsByPassenger,
   clearAllAlerts,
   getNearestDepot, // Export the new function
+  testEmailSending, // Export test email function
 };

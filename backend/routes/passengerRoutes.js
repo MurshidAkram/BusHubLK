@@ -11,6 +11,7 @@ const {
     getAlertsByPassenger,
     clearAllAlerts,
     getNearestDepot,
+    testEmailSending,
 } = require('../controllers/passengerController');
 
 // --- Passenger Contact Routes ---
@@ -26,6 +27,7 @@ router.post('/:id/alerts', createAlert); // Endpoint for creating an alert recor
 router.get('/:id/alerts', getAlertsByPassenger); // Endpoint for fetching alert history
 router.delete('/:id/alerts', clearAllAlerts); // Endpoint for clearing all alerts (soft delete)
 router.get('/:id/nearest-depot', getNearestDepot);
+router.post('/test-email', testEmailSending); // Test email endpoint
 
 
 module.exports = router;
