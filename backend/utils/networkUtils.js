@@ -36,17 +36,16 @@ const getLocalIPAddress = () => {
 };
 
 const getDynamicBaseURL = () => {
-  const ip = getLocalIPAddress();
   const port = process.env.PORT || 5000;
-  
+
   // Always use HTTP for development to avoid SSL issues
   // In production, you should use HTTPS
   if (process.env.NODE_ENV === 'production') {
-    return process.env.BACKEND_URL || `https://${ip}:${port}`;
+    return process.env.BACKEND_URL || `https://43.205.127.30:${port}`;
   }
-  
-  // For development, always use HTTP
-  return `http://${ip}:${port}`;
+
+  // For development, use the hosted backend URL if available, otherwise local IP
+  return process.env.BACKEND_URL || `http://43.205.127.30:${port}`;
 };
 
 module.exports = {
