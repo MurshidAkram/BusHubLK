@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import MapView, { Marker, PROVIDER_GOOGLE, Circle } from 'react-native-maps';
+import MapView, { Marker, PROVIDER_DEFAULT, Circle } from 'react-native-maps';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StackScreenProps } from '@react-navigation/stack';
 import * as Location from 'expo-location';
@@ -172,15 +172,15 @@ export default function BusTrackingScreen({ navigation, route }: Props) {
         timeInterval: 5000,
         distanceInterval: 10,
       });
-      
+
       const timeoutPromise = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('Location timeout')), 10000) // 10 second timeout
       );
-      
+
       const location = await Promise.race([locationPromise, timeoutPromise]) as Location.LocationObject;
       const { latitude, longitude } = location.coords;
       const locationTime = Date.now() - startTime;
-      
+
       console.log(`📍 User location obtained in ${locationTime}ms:`, { latitude, longitude });
       setUserLocation({ latitude, longitude });
       setMapRegion({
@@ -189,11 +189,14 @@ export default function BusTrackingScreen({ navigation, route }: Props) {
         latitudeDelta: 0.05,
         longitudeDelta: 0.05,
       });
-      mapRef.current?.animateToRegion(
-        { latitude, longitude, latitudeDelta: 0.05, longitudeDelta: 0.05 },
-        1000
-      );
-      
+      // Add null check for mapRef before animating
+      if (mapRef.current) {
+        mapRef.current.animateToRegion(
+          { latitude, longitude, latitudeDelta: 0.05, longitudeDelta: 0.05 },
+          1000
+        );
+      }
+
       setFetchMetrics(prev => ({ ...prev, locationTime }));
     } catch (err: any) {
       console.warn('Location error:', err.message);
@@ -393,24 +396,29 @@ const fetchRoutes = async () => {
   // Enhanced: Initialize with parallel fetching and cache loading
   useEffect(() => {
     const init = async () => {
-      console.log('🚀 Starting parallel initialization...');
-      const initStartTime = Date.now();
-      
-      // Load cached buses immediately (non-blocking)
-      loadCachedBuses();
-      
-      // Request location permission
-      const hasPermission = await requestLocationPermission();
-      if (!hasPermission) return;
-      
-      // Parallel execution: Get location, routes, and cached data
-      await Promise.allSettled([
-        getUserLocation(),
-        fetchRoutes(),
-      ]);
-      
-      const initTime = Date.now() - initStartTime;
-      console.log(`✅ Initialization complete in ${initTime}ms`);
+      try {
+        console.log('🚀 Starting parallel initialization...');
+        const initStartTime = Date.now();
+
+        // Load cached buses immediately (non-blocking)
+        loadCachedBuses();
+
+        // Request location permission
+        const hasPermission = await requestLocationPermission();
+        if (!hasPermission) return;
+
+        // Parallel execution: Get location, routes, and cached data
+        await Promise.allSettled([
+          getUserLocation(),
+          fetchRoutes(),
+        ]);
+
+        const initTime = Date.now() - initStartTime;
+        console.log(`✅ Initialization complete in ${initTime}ms`);
+      } catch (error) {
+        console.error('Error during initialization:', error);
+        setError('Failed to initialize bus tracking');
+      }
     };
     init();
 
@@ -473,97 +481,113 @@ const fetchRoutes = async () => {
 
   // Enhanced: Filter buses with more forgiving criteria
   const filteredBuses = useMemo(() => {
-    const enhancedBuses = enhanceBusesWithOccupancyData(busLocations);
-    console.log(`🔍 Filtering ${enhancedBuses.length} buses with occupancy data...`);
-    
-    let filtered = enhancedBuses.filter(bus => {
-      // Filter out buses with stale data (older than 1 minute)
-      const minutesOld = getMinutesSince(bus.lastUpdated);
-      if (isTimestampStale(bus.lastUpdated, 1)) {
-        console.log(`⏰ Filtering out bus ${bus.busId} (Route ${bus.routeNumber}) - data is too stale (${minutesOld} minutes old)`);
-        return false;
-      }
-      
-      // Route filter (if selected)
-      if (selectedRoute && bus.routeNumber !== selectedRoute) {
-        console.log(`🛣️ Filtering out bus ${bus.busId} - route ${bus.routeNumber} doesn't match selected route ${selectedRoute}`);
-        return false;
-      }
-      
-      // Search filter (if entered)
-      if (searchQuery) {
-        const matches = bus.routeNumber && bus.routeNumber.toLowerCase().includes(searchQuery.toLowerCase());
-        if (!matches) {
-          console.log(`🔍 Filtering out bus ${bus.busId} - route ${bus.routeNumber} doesn't match search "${searchQuery}"`);
+    try {
+      const enhancedBuses = enhanceBusesWithOccupancyData(busLocations);
+      console.log(`🔍 Filtering ${enhancedBuses.length} buses with occupancy data...`);
+
+      let filtered = enhancedBuses.filter(bus => {
+        // Filter out buses with stale data (older than 1 minute)
+        const minutesOld = getMinutesSince(bus.lastUpdated);
+        if (isTimestampStale(bus.lastUpdated, 1)) {
+          console.log(`⏰ Filtering out bus ${bus.busId} (Route ${bus.routeNumber}) - data is too stale (${minutesOld} minutes old)`);
           return false;
         }
-      }
-      
-      // REMOVED: No longer filter by status - show all buses with visual indicators
-      // This allows inactive/break/offline buses to be shown if data is recent
-      
-      console.log(`✅ Keeping bus ${bus.busId} (Route ${bus.routeNumber}) - ${minutesOld}m old, status: ${bus.status}`);
-      return true;
-    });
 
-    // Sort by distance (closest first) and limit to 10 buses to prevent performance issues
-    filtered = filtered
-      .sort((a, b) => a.distanceKm - b.distanceKm)
-      .slice(0, 10);
+        // Route filter (if selected)
+        if (selectedRoute && bus.routeNumber !== selectedRoute) {
+          console.log(`🛣️ Filtering out bus ${bus.busId} - route ${bus.routeNumber} doesn't match selected route ${selectedRoute}`);
+          return false;
+        }
 
-    console.log(`📊 Final result: ${filtered.length} buses after filtering from ${enhancedBuses.length} total (limited to 10 closest buses)`);
-    return filtered;
+        // Search filter (if entered)
+        if (searchQuery) {
+          const matches = bus.routeNumber && bus.routeNumber.toLowerCase().includes(searchQuery.toLowerCase());
+          if (!matches) {
+            console.log(`🔍 Filtering out bus ${bus.busId} - route ${bus.routeNumber} doesn't match search "${searchQuery}"`);
+            return false;
+          }
+        }
+
+        // REMOVED: No longer filter by status - show all buses with visual indicators
+        // This allows inactive/break/offline buses to be shown if data is recent
+
+        console.log(`✅ Keeping bus ${bus.busId} (Route ${bus.routeNumber}) - ${minutesOld}m old, status: ${bus.status}`);
+        return true;
+      });
+
+      // Sort by distance (closest first) and limit to 10 buses to prevent performance issues
+      filtered = filtered
+        .sort((a, b) => a.distanceKm - b.distanceKm)
+        .slice(0, 10);
+
+      console.log(`📊 Final result: ${filtered.length} buses after filtering from ${enhancedBuses.length} total (limited to 10 closest buses)`);
+      return filtered;
+    } catch (error) {
+      console.error('Error filtering buses:', error);
+      return [];
+    }
   }, [busLocations, selectedRoute, searchQuery, enhanceBusesWithOccupancyData]);
 
   // Update map region when filtered buses change (only in normal view)
   // Use a ref to track the last adjusted region to prevent infinite loops
   const lastAdjustedRegionRef = useRef<{ latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number } | null>(null);
-  
-  useEffect(() => {
-    // Don't auto-adjust if user is manually interacting with the map
-    if (isUserInteractingRef.current) {
-      console.log('⏸️ Skipping auto-adjust - user is interacting with map');
-      return;
-    }
 
-    if (filteredBuses.length > 0 && userLocation && !isFullScreenMap) {
-      // Clear any pending auto-adjust
-      if (autoAdjustTimeoutRef.current) {
-        clearTimeout(autoAdjustTimeoutRef.current);
+  useEffect(() => {
+    try {
+      // Don't auto-adjust if user is manually interacting with the map
+      if (isUserInteractingRef.current) {
+        console.log('⏸️ Skipping auto-adjust - user is interacting with map');
+        return;
       }
 
-      // Debounce the auto-adjust to prevent rapid changes
-      autoAdjustTimeoutRef.current = setTimeout(() => {
-        // Only adjust region if we have buses and user location, and not in full screen
-        const latitudes = [userLocation.latitude, ...filteredBuses.map(bus => bus.latitude)];
-        const longitudes = [userLocation.longitude, ...filteredBuses.map(bus => bus.longitude)];
-        const minLat = Math.min(...latitudes);
-        const maxLat = Math.max(...latitudes);
-        const minLng = Math.min(...longitudes);
-        const maxLng = Math.max(...longitudes);
-
-        // Calculate new region
-        const newRegion = {
-          latitude: (minLat + maxLat) / 2,
-          longitude: (minLng + maxLng) / 2,
-          latitudeDelta: Math.max((maxLat - minLat) * 1.5, 0.05),
-          longitudeDelta: Math.max((maxLng - minLng) * 1.5, 0.05),
-        };
-
-        // Only update if the region has actually changed significantly compared to last adjustment
-        const lastRegion = lastAdjustedRegionRef.current;
-        const regionChanged = !lastRegion || 
-                             Math.abs(newRegion.latitude - lastRegion.latitude) > 0.005 ||
-                             Math.abs(newRegion.longitude - lastRegion.longitude) > 0.005 ||
-                             Math.abs(newRegion.latitudeDelta - lastRegion.latitudeDelta) > 0.02 ||
-                             Math.abs(newRegion.longitudeDelta - lastRegion.longitudeDelta) > 0.02;
-
-        if (regionChanged) {
-          console.log('🔄 Adjusting map region to fit buses and user location');
-          lastAdjustedRegionRef.current = newRegion;
-          mapRef.current?.animateToRegion(newRegion, 1000);
+      if (filteredBuses.length > 0 && userLocation && !isFullScreenMap) {
+        // Clear any pending auto-adjust
+        if (autoAdjustTimeoutRef.current) {
+          clearTimeout(autoAdjustTimeoutRef.current);
         }
-      }, 1000); // Wait 1 second before adjusting
+
+        // Debounce the auto-adjust to prevent rapid changes
+        autoAdjustTimeoutRef.current = setTimeout(() => {
+          try {
+            // Only adjust region if we have buses and user location, and not in full screen
+            const latitudes = [userLocation.latitude, ...filteredBuses.map(bus => bus.latitude)];
+            const longitudes = [userLocation.longitude, ...filteredBuses.map(bus => bus.longitude)];
+            const minLat = Math.min(...latitudes);
+            const maxLat = Math.max(...latitudes);
+            const minLng = Math.min(...longitudes);
+            const maxLng = Math.max(...longitudes);
+
+            // Calculate new region
+            const newRegion = {
+              latitude: (minLat + maxLat) / 2,
+              longitude: (minLng + maxLng) / 2,
+              latitudeDelta: Math.max((maxLat - minLat) * 1.5, 0.05),
+              longitudeDelta: Math.max((maxLng - minLng) * 1.5, 0.05),
+            };
+
+            // Only update if the region has actually changed significantly compared to last adjustment
+            const lastRegion = lastAdjustedRegionRef.current;
+            const regionChanged = !lastRegion ||
+                                  Math.abs(newRegion.latitude - lastRegion.latitude) > 0.005 ||
+                                  Math.abs(newRegion.longitude - lastRegion.longitude) > 0.005 ||
+                                  Math.abs(newRegion.latitudeDelta - lastRegion.latitudeDelta) > 0.02 ||
+                                  Math.abs(newRegion.longitudeDelta - lastRegion.longitudeDelta) > 0.02;
+
+            if (regionChanged) {
+              console.log('🔄 Adjusting map region to fit buses and user location');
+              lastAdjustedRegionRef.current = newRegion;
+              // Add null check for mapRef before animating
+              if (mapRef.current) {
+                mapRef.current.animateToRegion(newRegion, 1000);
+              }
+            }
+          } catch (error) {
+            console.error('Error adjusting map region:', error);
+          }
+        }, 1000); // Wait 1 second before adjusting
+      }
+    } catch (error) {
+      console.error('Error in map region adjustment effect:', error);
     }
 
     return () => {
@@ -586,7 +610,10 @@ const fetchRoutes = async () => {
       longitudeDelta: 0.02,
     };
     setMapRegion(region);
-    mapRef.current?.animateToRegion(region, 1000);
+    // Add null check for mapRef before animating
+    if (mapRef.current) {
+      mapRef.current.animateToRegion(region, 1000);
+    }
   }, []);
 
   const showAllBuses = useCallback(() => {
@@ -604,7 +631,10 @@ const fetchRoutes = async () => {
         longitudeDelta: Math.max((maxLng - minLng) * 1.5, 0.05),
       };
       setMapRegion(region);
-      mapRef.current?.animateToRegion(region, 1000);
+      // Add null check for mapRef before animating
+      if (mapRef.current) {
+        mapRef.current.animateToRegion(region, 1000);
+      }
     }
   }, [filteredBuses, userLocation]);
 
@@ -862,27 +892,36 @@ const fetchRoutes = async () => {
   // Always fetch user location and nearby buses when screen is focused
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', async () => {
-      await requestLocationPermission();
-      await getUserLocation();
-      fetchBusLocations();
+      try {
+        await requestLocationPermission();
+        await getUserLocation();
+        fetchBusLocations();
+      } catch (error) {
+        console.error('Error in navigation focus handler:', error);
+        setError('Failed to initialize location services');
+      }
     });
     return unsubscribe;
   }, [navigation]);
 
   // Handle route parameters from navigation (e.g., from BusRouteResultsScreen)
   useEffect(() => {
-    if (route?.params) {
-      const { selectedRoute: routeFromParams, fromSearch, searchFrom, searchTo } = route.params;
-      
-      if (routeFromParams) {
-        console.log(`🎯 Setting selected route from navigation: ${routeFromParams}`);
-        setSelectedRoute(routeFromParams);
+    try {
+      if (route?.params) {
+        const { selectedRoute: routeFromParams, fromSearch, searchFrom, searchTo } = route.params;
+
+        if (routeFromParams) {
+          console.log(`🎯 Setting selected route from navigation: ${routeFromParams}`);
+          setSelectedRoute(routeFromParams);
+        }
+
+        if (fromSearch) {
+          console.log(`🔍 Coming from search: ${searchFrom} → ${searchTo}`);
+          // You can use searchFrom and searchTo if needed for additional context
+        }
       }
-      
-      if (fromSearch) {
-        console.log(`🔍 Coming from search: ${searchFrom} → ${searchTo}`);
-        // You can use searchFrom and searchTo if needed for additional context
-      }
+    } catch (error) {
+      console.error('Error handling route parameters:', error);
     }
   }, [route?.params]);
 
@@ -976,24 +1015,32 @@ const fetchRoutes = async () => {
           </View>
         )}
         <MapView
-          ref={mapRef}
-          provider={PROVIDER_GOOGLE}
-          style={styles.map}
-          region={mapRegion}
-          showsUserLocation={true}
-          showsMyLocationButton={true}
-          onRegionChangeComplete={(region) => {
-            setMapRegion(region);
-            // Mark that user is interacting, then clear after 3 seconds
-            isUserInteractingRef.current = true;
-            setTimeout(() => {
-              isUserInteractingRef.current = false;
-            }, 3000);
-          }}
-          onPanDrag={() => {
-            isUserInteractingRef.current = true;
-          }}
-        >
+           ref={mapRef}
+           provider={PROVIDER_DEFAULT}
+           style={styles.map}
+           region={mapRegion}
+           showsUserLocation={true}
+           showsMyLocationButton={true}
+           onRegionChangeComplete={(region) => {
+             try {
+               setMapRegion(region);
+               // Mark that user is interacting, then clear after 3 seconds
+               isUserInteractingRef.current = true;
+               setTimeout(() => {
+                 isUserInteractingRef.current = false;
+               }, 3000);
+             } catch (error) {
+               console.error('Error in onRegionChangeComplete:', error);
+             }
+           }}
+           onPanDrag={() => {
+             try {
+               isUserInteractingRef.current = true;
+             } catch (error) {
+               console.error('Error in onPanDrag:', error);
+             }
+           }}
+         >
           {/* Show user's location marker explicitly */}
           {userLocation && (
             <Marker
