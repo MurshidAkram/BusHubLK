@@ -119,6 +119,8 @@ class LostFoundReport {
         drv.last_name           AS driver_last_name,
         drv.phone               AS driver_phone,
         drv.email               AS driver_email,
+        dep.depot_name          AS driver_depot_name,
+        dep.contact_phone       AS driver_depot_phone,
         CASE
           WHEN r.created_at > NOW() - INTERVAL '1 minute' THEN 'Just now'
           WHEN r.created_at > NOW() - INTERVAL '1 hour' THEN EXTRACT(MINUTE FROM NOW() - r.created_at) || ' minutes ago'
@@ -128,6 +130,8 @@ class LostFoundReport {
       FROM lost_found_reports r
       LEFT JOIN users p ON r.passenger_id = p.user_id
       LEFT JOIN users drv ON r.driver_id = drv.user_id
+      LEFT JOIN drivers dr ON r.driver_id = dr.driver_id
+      LEFT JOIN depots dep ON dr.depot_id = dep.depot_id
       LEFT JOIN routes rt ON r.route_number = rt.route_number
       LEFT JOIN regions reg ON r.region_id = reg.region_id
       LEFT JOIN depots d ON r.handed_to_depot_id = d.depot_id
@@ -200,6 +204,8 @@ class LostFoundReport {
       depot_name: row.depot_name,
       handover_date: row.handover_date,
       handover_notes: row.handover_notes,
+      driver_depot_name: row.driver_depot_name,
+      driver_depot_phone: row.driver_depot_phone,
       time_ago: row.time_ago
     }));
   }

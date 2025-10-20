@@ -17,7 +17,7 @@ import MapView, { Marker, PROVIDER_GOOGLE, Circle } from 'react-native-maps';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StackScreenProps } from '@react-navigation/stack';
 import * as Location from 'expo-location';
-import { HomeStackParamList } from '../navigation/navigationTypes';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { busLiveTrackingAPI } from '../services/busLiveTrackingAPI';
 import { busOccupancyAPI, AverageOccupancyData } from '../services/busOccupancyAPI';
 import { API_BASE_URL } from '../config/api';
@@ -29,7 +29,7 @@ import {
   getCurrentSriLankaTime 
 } from '../utils/timeUtils';
 
-type Props = StackScreenProps<HomeStackParamList, 'BusTracking'>;
+type Props = StackScreenProps<any, 'BusTracking'>;
 
 const AppColors = {
   background: '#F8F9FA',
@@ -101,10 +101,50 @@ export default function BusTrackingScreen({ navigation, route }: Props) {
   const [occupancyData, setOccupancyData] = useState<{ [busId: string]: AverageOccupancyData }>({});
   const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null);
   const [isFullScreenMap, setIsFullScreenMap] = useState(false);
+  
+  // Enhanced: Caching and performance tracking
+  const [cachedBuses, setCachedBuses] = useState<BusLocation[]>([]);
+  const [isFetchingLive, setIsFetchingLive] = useState(false);
+  const [fetchMetrics, setFetchMetrics] = useState<{
+    locationTime: number;
+    busesTime: number;
+    occupancyTime: number;
+    totalTime: number;
+  }>({ locationTime: 0, busesTime: 0, occupancyTime: 0, totalTime: 0 });
 
   const mapRef = useRef<MapView>(null);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const occupancyPollingRef = useRef<NodeJS.Timeout | null>(null);
+  const isUserInteractingRef = useRef(false);
+  const autoAdjustTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Enhanced: Load cached buses on startup
+  const loadCachedBuses = async () => {
+    try {
+      const cached = await AsyncStorage.getItem('cached_buses');
+      if (cached) {
+        const parsedBuses = JSON.parse(cached);
+        console.log(`📦 Loaded ${parsedBuses.length} buses from cache`);
+        setCachedBuses(parsedBuses);
+        // Show cached data immediately
+        if (busLocations.length === 0) {
+          setBusLocations(parsedBuses);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading cached buses:', error);
+    }
+  };
+
+  // Enhanced: Save buses to cache
+  const saveBusesToCache = async (buses: BusLocation[]) => {
+    try {
+      await AsyncStorage.setItem('cached_buses', JSON.stringify(buses));
+      console.log(`💾 Saved ${buses.length} buses to cache`);
+    } catch (error) {
+      console.error('Error saving buses to cache:', error);
+    }
+  };
 
   // Request location permission
   const requestLocationPermission = async () => {
@@ -122,16 +162,26 @@ export default function BusTrackingScreen({ navigation, route }: Props) {
     }
   };
 
-  // Get user's current location
+  // Enhanced: Get user's current location with timeout
   const getUserLocation = async () => {
+    const startTime = Date.now();
     try {
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
-        timeInterval: 10000,
+      // Create a timeout promise
+      const locationPromise = Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced, // Faster than High accuracy
+        timeInterval: 5000,
         distanceInterval: 10,
       });
+      
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Location timeout')), 10000) // 10 second timeout
+      );
+      
+      const location = await Promise.race([locationPromise, timeoutPromise]) as Location.LocationObject;
       const { latitude, longitude } = location.coords;
-      console.log('User location:', { latitude, longitude });
+      const locationTime = Date.now() - startTime;
+      
+      console.log(`📍 User location obtained in ${locationTime}ms:`, { latitude, longitude });
       setUserLocation({ latitude, longitude });
       setMapRegion({
         latitude,
@@ -143,9 +193,13 @@ export default function BusTrackingScreen({ navigation, route }: Props) {
         { latitude, longitude, latitudeDelta: 0.05, longitudeDelta: 0.05 },
         1000
       );
-    } catch (err) {
-      console.warn(err);
-      setError('Unable to fetch your location');
+      
+      setFetchMetrics(prev => ({ ...prev, locationTime }));
+    } catch (err: any) {
+      console.warn('Location error:', err.message);
+      // Don't block the app if location fails - use default Colombo location
+      setError('Using default location (Colombo). Enable GPS for accurate tracking.');
+      setUserLocation({ latitude: 6.9271, longitude: 79.8612 });
     }
   };
 
@@ -176,58 +230,87 @@ const fetchRoutes = async () => {
 };
 
 
-  // Fetch nearby buses from bus_live_tracking
-  const fetchBusLocations = async () => {
-    if (!userLocation) return;
+  // Enhanced: Fetch nearby buses with retry logic and metrics
+  const fetchBusLocations = async (retryCount = 0) => {
+    if (!userLocation) {
+      console.log('⏸️ Skipping bus fetch - no user location yet');
+      return;
+    }
+    
+    const startTime = Date.now();
     try {
-      // Only show loading on first fetch, not on polling updates
-      if (busLocations.length === 0) {
+      setIsFetchingLive(true);
+      
+      // Only show loading spinner on first fetch, not on background updates
+      if (busLocations.length === 0 && cachedBuses.length === 0) {
         setLoading(true);
       }
       
-      console.log(`🔄 Fetching bus locations at ${new Date().toLocaleTimeString('en-LK')} (Sri Lanka time)`);
+      console.log(`🔄 Fetching bus locations (attempt ${retryCount + 1}) at ${new Date().toLocaleTimeString('en-LK')}`);
       const data = await busLiveTrackingAPI.getNearbyBuses(userLocation.latitude, userLocation.longitude, 5);
-      console.log(`✅ Fetched ${data.length} nearby buses:`, data.map((bus: any) => ({
+      const busesTime = Date.now() - startTime;
+      
+      console.log(`✅ Fetched ${data.length} nearby buses in ${busesTime}ms:`, data.map((bus: any) => ({
         id: bus.bus_id,
         route: bus.route_number,
         status: bus.tracking_status,
         lastUpdate: bus.updated_at
       })));
       
-      setBusLocations(data.map((item: any) => ({
+      const mappedBuses = data.map((item: any) => ({
         busId: item.bus_id,
         registrationNumber: item.registration_number,
         routeNumber: item.route_number || null,
         status: item.tracking_status,
         latitude: parseFloat(item.latitude),
         longitude: parseFloat(item.longitude),
-        lastUpdated: new Date(item.updated_at), // Fixed: use updated_at instead of last_update
+        lastUpdated: new Date(item.updated_at),
         passengerCount: item.passenger_count,
         occupancyLevel: item.occupancy_level || 'Unknown',
         confidence: item.confidence || 0.0,
-        distanceKm: parseFloat(item.distance), // Fixed: use distance instead of distance_km
-      })));
+        distanceKm: parseFloat(item.distance),
+      }));
+      
+      setBusLocations(mappedBuses);
+      
+      // Save to cache for next time
+      if (mappedBuses.length > 0) {
+        saveBusesToCache(mappedBuses);
+      }
       
       // Update last refresh time
       setLastRefreshTime(getCurrentSriLankaTime());
+      setFetchMetrics(prev => ({ ...prev, busesTime, totalTime: Date.now() - startTime }));
+      setError(null); // Clear any previous errors
+      
     } catch (err: any) {
-      console.error('Error fetching nearby buses:', err.message, err.response?.data);
+      const busesTime = Date.now() - startTime;
+      console.error(`❌ Error fetching nearby buses (${busesTime}ms):`, err.message);
       
-      // Don't show timeout errors to users - they're usually due to network issues
-      // and the app should continue working without showing error messages
-      if (err.message && err.message.includes('timeout')) {
-        console.log('🕐 API timeout - continuing silently without showing error to user');
-        return; // Don't set error state for timeouts
+      // Retry logic for timeouts (up to 2 retries)
+      if (err.message && err.message.includes('timeout') && retryCount < 2) {
+        console.log(`🔄 Retrying fetch (attempt ${retryCount + 2}/3)...`);
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s before retry
+        return fetchBusLocations(retryCount + 1);
       }
       
-      // Only show errors for actual failures (4xx, 5xx responses)
-      if (err.response?.status >= 400) {
-        setError(`Unable to fetch bus locations. Please try again.`);
-      } else {
-        console.log('🌐 Network connectivity issue - continuing silently');
+      // Show cached data if available
+      if (cachedBuses.length > 0 && busLocations.length === 0) {
+        console.log('� Using cached buses due to fetch failure');
+        setBusLocations(cachedBuses);
+        setError('⚠️ Showing cached data - connection issue');
+      } else if (!err.message.includes('timeout')) {
+        // Only show non-timeout errors
+        if (err.response?.status >= 400) {
+          setError(`Unable to fetch bus locations. Please try again.`);
+        }
       }
+      
+      setFetchMetrics(prev => ({ ...prev, busesTime }));
+      
     } finally {
-      if (busLocations.length === 0) {
+      setIsFetchingLive(false);
+      if (busLocations.length === 0 && cachedBuses.length === 0) {
         setLoading(false);
       }
     }
@@ -307,14 +390,27 @@ const fetchRoutes = async () => {
     });
   }, [occupancyData]);
 
-  // Initialize and set up polling
+  // Enhanced: Initialize with parallel fetching and cache loading
   useEffect(() => {
     const init = async () => {
+      console.log('🚀 Starting parallel initialization...');
+      const initStartTime = Date.now();
+      
+      // Load cached buses immediately (non-blocking)
+      loadCachedBuses();
+      
+      // Request location permission
       const hasPermission = await requestLocationPermission();
-      if (hasPermission) {
-        await getUserLocation();
-      }
-      await fetchRoutes();
+      if (!hasPermission) return;
+      
+      // Parallel execution: Get location, routes, and cached data
+      await Promise.allSettled([
+        getUserLocation(),
+        fetchRoutes(),
+      ]);
+      
+      const initTime = Date.now() - initStartTime;
+      console.log(`✅ Initialization complete in ${initTime}ms`);
     };
     init();
 
@@ -328,21 +424,22 @@ const fetchRoutes = async () => {
     };
   }, []); // Remove userLocation dependency to prevent multiple initializations
 
-  // Separate effect for handling location-dependent bus fetching
+  // Enhanced: Faster polling for real-time tracking (15 seconds instead of 50)
   useEffect(() => {
     if (!userLocation) return;
 
     // Initial fetch when location is available
     fetchBusLocations();
 
-    // Start polling for bus locations
+    // Start polling for bus locations with faster interval
     if (pollingIntervalRef.current) {
       clearInterval(pollingIntervalRef.current);
     }
     
     pollingIntervalRef.current = setInterval(() => {
+      console.log('⏰ Auto-refresh triggered (15s interval)');
       fetchBusLocations();
-    }, 50000); // Poll every 50 seconds
+    }, 15000); // Poll every 15 seconds for live tracking (reduced from 50s)
 
     return () => {
       if (pollingIntervalRef.current) {
@@ -374,24 +471,26 @@ const fetchRoutes = async () => {
     };
   }, [busLocations.length]); // Re-run when number of buses changes
 
-  // Filter buses using useMemo to prevent unnecessary re-renders
+  // Enhanced: Filter buses with more forgiving criteria
   const filteredBuses = useMemo(() => {
     const enhancedBuses = enhanceBusesWithOccupancyData(busLocations);
     console.log(`🔍 Filtering ${enhancedBuses.length} buses with occupancy data...`);
     
     let filtered = enhancedBuses.filter(bus => {
-      // Filter out buses with old data (older than 3 minutes) using Sri Lanka time
+      // Filter out buses with stale data (older than 1 minute)
       const minutesOld = getMinutesSince(bus.lastUpdated);
-      if (isTimestampStale(bus.lastUpdated, 3)) {
-        console.log(`⏰ Filtering out bus ${bus.busId} (Route ${bus.routeNumber}) - data is stale (${minutesOld} minutes old)`);
+      if (isTimestampStale(bus.lastUpdated, 1)) {
+        console.log(`⏰ Filtering out bus ${bus.busId} (Route ${bus.routeNumber}) - data is too stale (${minutesOld} minutes old)`);
         return false;
       }
       
+      // Route filter (if selected)
       if (selectedRoute && bus.routeNumber !== selectedRoute) {
         console.log(`🛣️ Filtering out bus ${bus.busId} - route ${bus.routeNumber} doesn't match selected route ${selectedRoute}`);
         return false;
       }
       
+      // Search filter (if entered)
       if (searchQuery) {
         const matches = bus.routeNumber && bus.routeNumber.toLowerCase().includes(searchQuery.toLowerCase());
         if (!matches) {
@@ -400,10 +499,8 @@ const fetchRoutes = async () => {
         }
       }
       
-      if (bus.status !== 'active') {
-        console.log(`🚌 Filtering out bus ${bus.busId} - status is ${bus.status} (not active)`);
-        return false;
-      }
+      // REMOVED: No longer filter by status - show all buses with visual indicators
+      // This allows inactive/break/offline buses to be shown if data is recent
       
       console.log(`✅ Keeping bus ${bus.busId} (Route ${bus.routeNumber}) - ${minutesOld}m old, status: ${bus.status}`);
       return true;
@@ -423,39 +520,58 @@ const fetchRoutes = async () => {
   const lastAdjustedRegionRef = useRef<{ latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number } | null>(null);
   
   useEffect(() => {
-    if (filteredBuses.length > 0 && userLocation && !isFullScreenMap) {
-      // Only adjust region if we have buses and user location, and not in full screen
-      const latitudes = [userLocation.latitude, ...filteredBuses.map(bus => bus.latitude)];
-      const longitudes = [userLocation.longitude, ...filteredBuses.map(bus => bus.longitude)];
-      const minLat = Math.min(...latitudes);
-      const maxLat = Math.max(...latitudes);
-      const minLng = Math.min(...longitudes);
-      const maxLng = Math.max(...longitudes);
-
-      // Calculate new region
-      const newRegion = {
-        latitude: (minLat + maxLat) / 2,
-        longitude: (minLng + maxLng) / 2,
-        latitudeDelta: Math.max((maxLat - minLat) * 1.5, 0.05),
-        longitudeDelta: Math.max((maxLng - minLng) * 1.5, 0.05),
-      };
-
-      // Only update if the region has actually changed significantly compared to last adjustment
-      const lastRegion = lastAdjustedRegionRef.current;
-      const regionChanged = !lastRegion || 
-                           Math.abs(newRegion.latitude - lastRegion.latitude) > 0.001 ||
-                           Math.abs(newRegion.longitude - lastRegion.longitude) > 0.001 ||
-                           Math.abs(newRegion.latitudeDelta - lastRegion.latitudeDelta) > 0.01 ||
-                           Math.abs(newRegion.longitudeDelta - lastRegion.longitudeDelta) > 0.01;
-
-      if (regionChanged) {
-        console.log('🔄 Adjusting map region to fit buses and user location');
-        lastAdjustedRegionRef.current = newRegion;
-        setMapRegion(newRegion);
-        mapRef.current?.animateToRegion(newRegion, 1000);
-      }
+    // Don't auto-adjust if user is manually interacting with the map
+    if (isUserInteractingRef.current) {
+      console.log('⏸️ Skipping auto-adjust - user is interacting with map');
+      return;
     }
-  }, [filteredBuses, userLocation, isFullScreenMap]);
+
+    if (filteredBuses.length > 0 && userLocation && !isFullScreenMap) {
+      // Clear any pending auto-adjust
+      if (autoAdjustTimeoutRef.current) {
+        clearTimeout(autoAdjustTimeoutRef.current);
+      }
+
+      // Debounce the auto-adjust to prevent rapid changes
+      autoAdjustTimeoutRef.current = setTimeout(() => {
+        // Only adjust region if we have buses and user location, and not in full screen
+        const latitudes = [userLocation.latitude, ...filteredBuses.map(bus => bus.latitude)];
+        const longitudes = [userLocation.longitude, ...filteredBuses.map(bus => bus.longitude)];
+        const minLat = Math.min(...latitudes);
+        const maxLat = Math.max(...latitudes);
+        const minLng = Math.min(...longitudes);
+        const maxLng = Math.max(...longitudes);
+
+        // Calculate new region
+        const newRegion = {
+          latitude: (minLat + maxLat) / 2,
+          longitude: (minLng + maxLng) / 2,
+          latitudeDelta: Math.max((maxLat - minLat) * 1.5, 0.05),
+          longitudeDelta: Math.max((maxLng - minLng) * 1.5, 0.05),
+        };
+
+        // Only update if the region has actually changed significantly compared to last adjustment
+        const lastRegion = lastAdjustedRegionRef.current;
+        const regionChanged = !lastRegion || 
+                             Math.abs(newRegion.latitude - lastRegion.latitude) > 0.005 ||
+                             Math.abs(newRegion.longitude - lastRegion.longitude) > 0.005 ||
+                             Math.abs(newRegion.latitudeDelta - lastRegion.latitudeDelta) > 0.02 ||
+                             Math.abs(newRegion.longitudeDelta - lastRegion.longitudeDelta) > 0.02;
+
+        if (regionChanged) {
+          console.log('🔄 Adjusting map region to fit buses and user location');
+          lastAdjustedRegionRef.current = newRegion;
+          mapRef.current?.animateToRegion(newRegion, 1000);
+        }
+      }, 1000); // Wait 1 second before adjusting
+    }
+
+    return () => {
+      if (autoAdjustTimeoutRef.current) {
+        clearTimeout(autoAdjustTimeoutRef.current);
+      }
+    };
+  }, [filteredBuses.length, isFullScreenMap]); // Only depend on length and fullscreen mode
 
   const selectRoute = useCallback((routeNumber: string) => {
     setSelectedRoute(prev => prev === routeNumber ? null : routeNumber);
@@ -641,21 +757,10 @@ const fetchRoutes = async () => {
       ]}
       onPress={() => selectRoute(item.routeNumber)}
     >
-      <View style={styles.routeHeader}>
-        <Text style={[styles.routeNumber, selectedRoute === item.routeNumber && styles.routeNumberSelected]}>
-          {item.routeNumber}
-        </Text>
-        <View style={styles.busCount}>
-          <Text style={[styles.busCountText, selectedRoute === item.routeNumber && styles.routeTextSelected]}>
-            {item.activeBuses}/{item.totalBuses} buses
-          </Text>
-          <View style={[
-            styles.statusDot,
-            { backgroundColor: item.activeBuses > 0 ? (selectedRoute === item.routeNumber ? 'white' : AppColors.success) : AppColors.textSecondary }
-          ]} />
-        </View>
-      </View>
-      <Text style={[styles.routeName, selectedRoute === item.routeNumber && styles.routeTextSelected]}>
+      <Text style={[styles.routeNumber, selectedRoute === item.routeNumber && styles.routeNumberSelected]}>
+        {item.routeNumber}
+      </Text>
+      <Text style={[styles.routeName, selectedRoute === item.routeNumber && styles.routeTextSelected]} numberOfLines={1}>
         {item.routeName}
       </Text>
     </TouchableOpacity>
@@ -671,16 +776,6 @@ const fetchRoutes = async () => {
     const distanceText = dynamicDistance < 1000 
       ? `${Math.round(dynamicDistance)}m` 
       : `${(dynamicDistance / 1000).toFixed(1)}km`;
-
-    // Debug logging
-    console.log(`🎨 Rendering bus card for ${item.registrationNumber}:`, {
-      hasOccupancyDisplay: !!occupancyDisplay,
-      hasDynamicOccupancy: !!item.dynamicOccupancy,
-      reportCount: item.dynamicOccupancy?.reportCount,
-      occupancyLevel: item.dynamicOccupancy?.level,
-      displayText: occupancyDisplay?.text,
-      displayIcon: occupancyDisplay?.overallCondition?.icon
-    });
 
     return (
       <TouchableOpacity
@@ -853,7 +948,6 @@ const fetchRoutes = async () => {
             style={styles.routeFilterGradient}
           >
             <View style={styles.routeFilterContainer}>
-            <Text style={styles.filterTitle}>Routes:</Text>
             <FlatList
               data={routes}
               horizontal
@@ -888,7 +982,17 @@ const fetchRoutes = async () => {
           region={mapRegion}
           showsUserLocation={true}
           showsMyLocationButton={true}
-          onRegionChangeComplete={setMapRegion}
+          onRegionChangeComplete={(region) => {
+            setMapRegion(region);
+            // Mark that user is interacting, then clear after 3 seconds
+            isUserInteractingRef.current = true;
+            setTimeout(() => {
+              isUserInteractingRef.current = false;
+            }, 3000);
+          }}
+          onPanDrag={() => {
+            isUserInteractingRef.current = true;
+          }}
         >
           {/* Show user's location marker explicitly */}
           {userLocation && (
@@ -1038,9 +1142,16 @@ const fetchRoutes = async () => {
                 Nearby Buses ({filteredBuses.length})
               </Text>
               {lastRefreshTime && (
-                <Text style={styles.lastRefreshText}>
-                  Your location last updated: {formatTimeSince(lastRefreshTime)}
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Text style={styles.lastRefreshText}>
+                    {isFetchingLive ? '🔄 Updating...' : `Updated ${formatTimeSince(lastRefreshTime)}`}
+                  </Text>
+                  {!isFetchingLive && error && error.includes('cached') && (
+                    <Text style={[styles.lastRefreshText, { color: AppColors.warning }]}>
+                      (Cached)
+                    </Text>
+                  )}
+                </View>
               )}
             </View>
             {selectedRoute && (
@@ -1258,13 +1369,13 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   routeFilterGradient: {
-    paddingVertical: 12,
+    paddingVertical: 6,
     borderBottomWidth: 1,
     borderBottomColor: AppColors.border,
   },
   routeFilterContainer: {
     backgroundColor: 'transparent',
-    paddingVertical: 12,
+    paddingVertical: 6,
   },
   filterTitle: {
     fontSize: 14,
@@ -1278,10 +1389,11 @@ const styles = StyleSheet.create({
   },
   routeCard: {
     backgroundColor: AppColors.background,
-    borderRadius: 8,
-    padding: 12,
-    marginHorizontal: 4,
-    minWidth: 120,
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginHorizontal: 3,
+    minWidth: 90,
     borderWidth: 1,
     borderColor: AppColors.border,
   },
@@ -1296,9 +1408,10 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   routeNumber: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: 'bold',
     color: AppColors.text,
+    marginBottom: 2,
   },
   routeNumberSelected: {
     color: 'white',
@@ -1321,9 +1434,8 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   routeName: {
-    fontSize: 12,
+    fontSize: 10,
     color: AppColors.textSecondary,
-    marginBottom: 2,
   },
   mapContainer: {
     flex: 1,
@@ -1734,9 +1846,9 @@ const styles = StyleSheet.create({
   busCardNew: {
     backgroundColor: AppColors.card,
     marginHorizontal: 16,
-    marginVertical: 6,
-    padding: 16,
-    borderRadius: 12,
+    marginVertical: 4,
+    padding: 12,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: AppColors.border,
     shadowColor: '#000',
@@ -1749,8 +1861,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
-    paddingBottom: 12,
+    marginBottom: 10,
+    paddingBottom: 10,
     borderBottomWidth: 1,
     borderBottomColor: AppColors.border + '40',
   },
@@ -1758,18 +1870,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   busCardNumber: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: AppColors.text,
-    marginBottom: 4,
+    marginBottom: 3,
   },
   busCardRouteContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 3,
   },
   busCardRoute: {
-    fontSize: 13,
+    fontSize: 12,
     color: AppColors.primary,
     fontWeight: '600',
   },
@@ -1780,45 +1892,45 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: AppColors.primary + '10',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    gap: 3,
   },
   busCardDistanceText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     color: AppColors.primary,
   },
   busCardOccupancySection: {
-    marginBottom: 12,
+    marginBottom: 8,
   },
   busCardOccupancyBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    borderRadius: 10,
-    borderWidth: 2,
-    marginBottom: 6,
+    padding: 8,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    marginBottom: 4,
   },
   busCardOccupancyIcon: {
-    fontSize: 32,
-    marginRight: 12,
+    fontSize: 22,
+    marginRight: 8,
   },
   busCardOccupancyTextContainer: {
     flex: 1,
   },
   busCardOccupancyLevel: {
-    fontSize: 16,
+    fontSize: 12,
     fontWeight: 'bold',
-    marginBottom: 2,
+    marginBottom: 1,
   },
   busCardOccupancySubtext: {
-    fontSize: 12,
+    fontSize: 10,
     color: AppColors.textSecondary,
   },
   busCardOccupancyTime: {
-    fontSize: 11,
+    fontSize: 9,
     color: AppColors.textSecondary,
     fontStyle: 'italic',
     textAlign: 'right',
@@ -1830,13 +1942,13 @@ const styles = StyleSheet.create({
   busCardNoOccupancy: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
+    padding: 8,
     backgroundColor: AppColors.background,
-    borderRadius: 8,
-    gap: 8,
+    borderRadius: 6,
+    gap: 5,
   },
   busCardNoOccupancyText: {
-    fontSize: 13,
+    fontSize: 11,
     color: AppColors.textSecondary,
     fontStyle: 'italic',
   },
@@ -1844,28 +1956,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 8,
+    paddingTop: 6,
     borderTopWidth: 1,
     borderTopColor: AppColors.border + '40',
   },
   busCardStatusContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
   },
   busCardStatusDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   busCardStatusText: {
-    fontSize: 12,
+    fontSize: 11,
     color: AppColors.textSecondary,
     textTransform: 'capitalize',
     fontWeight: '500',
   },
   busCardStaleWarning: {
-    fontSize: 11,
+    fontSize: 10,
     color: AppColors.warning,
     fontWeight: '600',
   },

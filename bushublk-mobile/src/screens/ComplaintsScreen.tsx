@@ -56,16 +56,17 @@ const AppColors = {
 type ComplaintsScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Complaints'>;
 
 interface BusRouteSuggestion {
-  bus_route_id: number;
-  bus_id: number | null;
-  route_id: number | null;
-  registration_number: string | null;
+  bus_route_id?: number;
+  bus_id?: number | null;
+  route_id?: number | null;
+  registration_number?: string | null;
   bus_registration?: string | null;
-  route_number: string | null;
+  route_number?: string | null;
   route_name?: string | null;
   bus_name?: string | null;
 }
 
+<<<<<<< HEAD
 interface RouteSuggestion {
   route_id?: number;
   route_number?: string;
@@ -74,6 +75,8 @@ interface RouteSuggestion {
   bus_registration?: string;
 }
 
+=======
+>>>>>>> 0e32f9e0b0b0ffc0090705099780e18e0b847d44
 export default function ComplaintsScreen() {
   const navigation = useNavigation<ComplaintsScreenNavigationProp>();
 
@@ -331,7 +334,7 @@ export default function ComplaintsScreen() {
     setTimeout(() => setBusSuggestions([]), 150);
   }, []);
 
-  const handleSelectSuggestion = useCallback((suggestion: RouteSuggestion | BusRouteSuggestion, mode: "route" | "bus") => {
+  const handleSelectSuggestion = useCallback((suggestion: BusRouteSuggestion, mode: "route" | "bus") => {
     const derivedRoute = suggestion.route_number ?? "";
     const derivedBus = (suggestion as BusRouteSuggestion).registration_number ?? (suggestion as BusRouteSuggestion).bus_registration ?? "";
 
@@ -339,13 +342,11 @@ export default function ComplaintsScreen() {
       // Only set route number when selecting from route suggestions
       if (derivedRoute) {
         setRouteNumber(derivedRoute);
-        setIsValidRoute(true);
       }
     } else {
       // Set both route and bus when selecting from bus suggestions
       if (derivedRoute) {
         setRouteNumber(derivedRoute);
-        setIsValidRoute(true);
       }
       if (derivedBus) {
         setBusNumber(derivedBus);
