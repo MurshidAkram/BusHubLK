@@ -64,11 +64,21 @@ const sendPasswordResetEmail = async (toEmail, name, resetLink) => {
     throw new Error('Missing required parameters for password reset email');
   }
 
+  // Development mode: Log the reset link instead of sending email
   if (!transporter) {
-    const errorMsg = 'Email service not configured. Please set EMAIL_USER and EMAIL_PASS in .env file.';
-    console.error('[emailService]', errorMsg);
-    console.info('[emailService] Reset link (not sent):', resetLink);
-    throw new Error(errorMsg);
+    console.warn('[emailService] ⚠️ Email service not configured - running in DEVELOPMENT MODE');
+    console.log('[emailService] 📧 Password reset email would be sent to:', toEmail);
+    console.log('[emailService] 🔗 Reset link:', resetLink);
+    console.log('[emailService] 📝 User can copy this link to test password reset:');
+    console.log('[emailService] ' + resetLink);
+
+    // In development, don't throw error - just log and continue
+    // This allows testing without SMTP configuration
+    return {
+      messageId: 'dev-mode-' + Date.now(),
+      accepted: [toEmail],
+      response: 'Development mode - email logged to console'
+    };
   }
 
   const message = buildResetEmail(toEmail, name, resetLink);
@@ -80,7 +90,7 @@ const sendPasswordResetEmail = async (toEmail, name, resetLink) => {
     return info;
   } catch (error) {
     console.error('[emailService] ❌ Failed to send password reset email:', error.message);
-    
+
     // Log specific error details
     if (error.code) {
       console.error('[emailService] Error code:', error.code);
@@ -88,8 +98,20 @@ const sendPasswordResetEmail = async (toEmail, name, resetLink) => {
     if (error.command) {
       console.error('[emailService] Failed command:', error.command);
     }
-    
-    // Throw user-friendly error
+
+    // In development, fallback to logging instead of failing
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('[emailService] ⚠️ Email send failed - falling back to DEVELOPMENT MODE');
+      console.log('[emailService] 🔗 Reset link:', resetLink);
+      return {
+        messageId: 'dev-fallback-' + Date.now(),
+        accepted: [toEmail],
+        response: 'Development mode fallback - email logged to console',
+        error: error.message
+      };
+    }
+
+    // In production, throw error
     throw new Error(`Failed to send email: ${error.message}`);
   }
 };

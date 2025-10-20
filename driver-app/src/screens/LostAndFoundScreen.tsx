@@ -119,7 +119,7 @@ const Header = ({ navigation }: { navigation: NavigationProp }) => (
         <Ionicons name="arrow-back-outline" size={24} color="white" />
       </TouchableOpacity>
       
-      <Text style={styles.headerTitle}>Driver Found Items</Text>
+      <Text style={styles.headerTitle}>Report Founded Items</Text>
 
       <View style={styles.headerButton} />
     </View>
