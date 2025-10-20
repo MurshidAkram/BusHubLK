@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   TouchableOpacity,
   TextInput,
   Alert,
@@ -15,6 +14,7 @@ import {
   Platform,
   StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -61,12 +61,6 @@ interface QuickIncident {
 type IncidentType = 'Accident' | 'Medical' | 'Fire' | 'Breakdown' | 'Theft' | 'Hazard' | 'Panic Alert';
 type EmergencyHistoryItem = HistoryItemProps['item'];
 type EmergencyScreenProps = { navigation: any };
-type IncidentButtonProps = {
-  icon: keyof typeof MaterialCommunityIcons.glyphMap;
-  text: string;
-  isSelected: boolean;
-  onPress: () => void;
-};
 
 // History Item Component
 type HistoryItemProps = {
@@ -82,37 +76,33 @@ type HistoryItemProps = {
 const HistoryItem = ({ item, onPress }: HistoryItemProps) => {
   const getStatusInfo = (status: string) => {
     switch (status) {
-      case 'Resolved': return { color: '#22c55e', icon: 'checkmark-circle' };
-      case 'Acknowledged': return { color: '#f59e0b', icon: 'eye' };
-      default: return { color: '#ef4444', icon: 'alert-circle' };
+      case 'Resolved': return { color: '#10B981', icon: 'checkmark-circle' };
+      case 'Acknowledged': return { color: '#F59E0B', icon: 'eye' };
+      default: return { color: '#EF4444', icon: 'alert-circle' };
     }
   };
 
-  const getIncidentIcon = (incidentType: string) => {
+  const getIncidentInfo = (incidentType: string) => {
     switch (incidentType) {
-      case 'Accident': return 'car-emergency';
-      case 'Medical': return 'medical-bag';
-      case 'Fire': return 'fire-truck';
-      case 'Breakdown': return 'engine-off-outline';
-      case 'Theft': return 'lock-alert';
-      case 'Hazard': return 'alert-decagram';
-      default: return 'shield-alert-outline';
+      case 'Accident': return { icon: 'car-emergency', color: '#EF4444' };
+      case 'Medical': return { icon: 'medical-bag', color: '#8B5CF6' };
+      case 'Fire': return { icon: 'fire-truck', color: '#F97316' };
+      case 'Breakdown': return { icon: 'engine-off-outline', color: '#F59E0B' };
+      case 'Theft': return { icon: 'lock-alert', color: '#DC2626' };
+      case 'Hazard': return { icon: 'alert-decagram', color: '#EF4444' };
+      case 'Panic Alert': return { icon: 'shield-alert', color: '#DC2626' };
+      default: return { icon: 'shield-alert-outline', color: AppColors.primary };
     }
   };
 
   const statusInfo = getStatusInfo(item.status);
-  const incidentIcon = getIncidentIcon(item.incident_type);
+  const incidentInfo = getIncidentInfo(item.incident_type);
 
   return (
     <Pressable style={({ pressed }) => [styles.historyItem, pressed && styles.historyItemPressed]} onPress={onPress}>
-      <LinearGradient 
-        colors={['#E7F1FF', '#F8FAFF']} 
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.historyIconContainer}
-      >
-        <MaterialCommunityIcons name={incidentIcon as keyof typeof MaterialCommunityIcons.glyphMap} size={28} color={AppColors.primary} />
-      </LinearGradient>
+      <View style={[styles.historyIconContainer, { backgroundColor: `${incidentInfo.color}15` }]}>
+        <MaterialCommunityIcons name={incidentInfo.icon as keyof typeof MaterialCommunityIcons.glyphMap} size={26} color={incidentInfo.color} />
+      </View>
       <View style={styles.historyDetails}>
         <Text style={styles.historyTitle} numberOfLines={1}>{item.incident_type}</Text>
         <View style={styles.historyStatus}>
@@ -422,19 +412,6 @@ const EmergencyScreen = ({ navigation }: EmergencyScreenProps) => {
     }
   };
 
-  const IncidentButton = ({ icon, text, isSelected, onPress }: IncidentButtonProps) => (
-    <TouchableOpacity style={[styles.incidentButton, isSelected && styles.incidentButtonSelected]} onPress={onPress} activeOpacity={0.7}>
-      <LinearGradient
-        colors={isSelected ? ['#0056b3', '#0076e3'] : ['#E7F1FF', '#F8FAFF']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.incidentButtonGradient}>
-        <MaterialCommunityIcons name={icon} size={48} color={isSelected ? '#ffffff' : '#0056b3'} />
-        <Text style={[styles.incidentButtonText, isSelected && styles.incidentButtonTextSelected]}>{text}</Text>
-      </LinearGradient>
-    </TouchableOpacity>
-  );
-
   const renderNewReport = () => (
     <KeyboardAvoidingView
       style={styles.flexOne}
@@ -447,203 +424,211 @@ const EmergencyScreen = ({ navigation }: EmergencyScreenProps) => {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.container}>
-          {/* Enhanced Panic Button with Blue Gradient */}
-          <View style={styles.panicContainer}>
+          {/* Panic Button Card */}
+          <View style={styles.panicCard}>
             <TouchableOpacity 
-              style={[styles.panicButton, isPanicMode && styles.panicButtonActive]} 
+              style={styles.panicButton} 
               onPress={handlePanicButton}
               disabled={isSubmitting}
+              activeOpacity={0.8}
             >
               <LinearGradient
-                colors={isPanicMode ? ['#DC2626', '#EF4444', '#F87171'] : ['#DC2626', '#EF4444']}
+                colors={['#DC2626', '#EF4444']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.panicButtonGradient}
               >
                 <MaterialCommunityIcons 
                   name="shield-alert" 
-                  size={40} 
+                  size={36} 
                   color="#ffffff" 
                 />
                 <Text style={styles.panicButtonText}>
-                  {countdown !== null ? (<Text>PANIC ({countdown}s)</Text>) : (<Text>PANIC BUTTON</Text>)}
+                  {countdown !== null ? `PANIC (${countdown}s)` : 'PANIC BUTTON'}
                 </Text>
                 {countdown !== null && (
                   <Text style={styles.panicSubText}>
-                    <Text>Auto-sending in {countdown}s</Text>
+                    Auto-sending in {countdown}s
                   </Text>
                 )}
               </LinearGradient>
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.sectionTitle}>Select Incident Type</Text>
-          
-          {/* Quick Action Incidents - Consolidated */}
-          <View style={styles.quickIncidentGrid}>
-            {quickIncidents.map((incident) => (
-              <TouchableOpacity
-                key={incident.id}
-                style={[
-                  styles.quickIncidentButton,
-                  selectedIncident === incident.text && styles.quickIncidentButtonSelected
-                ]}
-                onPress={() => {
-                  setSelectedIncident(incident.text as IncidentType);
-                  // Auto-set urgency based on incident type
-                  if (incident.text === 'Fire') setUrgencyLevel('critical');
-                  else if (incident.text === 'Accident') setUrgencyLevel('high');
-                  else setUrgencyLevel('medium');
-                }}
-              >
-                <LinearGradient
-                  colors={selectedIncident === incident.text ? 
-                    ['#0056b3', '#0076e3'] : 
-                    ['#E7F1FF', '#F8FAFF']
-                  }
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.quickIncidentGradient}
+          {/* Incident Type Card */}
+          <View style={styles.sectionCard}>
+            <Text style={styles.cardTitle}>Select Incident Type</Text>
+            <View style={styles.quickIncidentGrid}>
+              {quickIncidents.map((incident) => (
+                <TouchableOpacity
+                  key={incident.id}
+                  style={styles.quickIncidentButton}
+                  onPress={() => {
+                    setSelectedIncident(incident.text as IncidentType);
+                    if (incident.text === 'Fire') setUrgencyLevel('critical');
+                    else if (incident.text === 'Accident') setUrgencyLevel('high');
+                    else setUrgencyLevel('medium');
+                  }}
+                  activeOpacity={0.7}
                 >
-                  <MaterialCommunityIcons 
-                    name={incident.icon} 
-                    size={32} 
-                    color={selectedIncident === incident.text ? '#ffffff' : '#0056b3'} 
-                  />
-                  <Text style={[
-                    styles.quickIncidentText,
-                    selectedIncident === incident.text && styles.quickIncidentTextSelected
+                  <View style={[
+                    styles.incidentContent,
+                    { backgroundColor: selectedIncident === incident.text ? incident.color : '#F0F8FF' }
                   ]}>
-                    {incident.text}
-                  </Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            ))}
+                    <MaterialCommunityIcons 
+                      name={incident.icon} 
+                      size={28} 
+                      color={selectedIncident === incident.text ? '#FFFFFF' : incident.color} 
+                    />
+                    <Text style={[
+                      styles.incidentText,
+                      { color: selectedIncident === incident.text ? '#FFFFFF' : incident.color }
+                    ]}>
+                      {incident.text}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
 
-          {/* Urgency Level Selection */}
-          <Text style={styles.sectionTitle}>Urgency Level</Text>
-          <View style={styles.urgencyContainer}>
-            {[
-              { level: 'low', label: 'Low', icon: 'information' },
-              { level: 'medium', label: 'Medium', icon: 'alert' },
-              { level: 'high', label: 'High', icon: 'alert-circle' },
-              { level: 'critical', label: 'Critical', icon: 'alarm-light' }
-            ].map(({ level, label, icon }) => (
-              <TouchableOpacity
-                key={level}
-                style={[
-                  styles.urgencyButton,
-                  urgencyLevel === level && styles.urgencyButtonSelected
-                ]}
-                onPress={() => setUrgencyLevel(level as any)}
-              >
-                <MaterialCommunityIcons 
-                  name={icon as any} 
-                  size={20} 
-                  color='#0056b3'
-                />
-                <Text style={styles.urgencyText}>
-                  {label}
-                </Text>
-              </TouchableOpacity>
-            ))}
+          {/* Urgency Level Card */}
+          <View style={styles.sectionCard}>
+            <Text style={styles.cardTitle}>Urgency Level</Text>
+            <View style={styles.urgencyGrid}>
+              {[
+                { level: 'low', label: 'Low', icon: 'information', color: '#10B981' },
+                { level: 'medium', label: 'Medium', icon: 'alert', color: '#F59E0B' },
+                { level: 'high', label: 'High', icon: 'alert-circle', color: '#F97316' },
+                { level: 'critical', label: 'Critical', icon: 'alarm-light', color: '#EF4444' }
+              ].map(({ level, label, icon, color }) => (
+                <TouchableOpacity
+                  key={level}
+                  style={styles.urgencyButton}
+                  onPress={() => setUrgencyLevel(level as any)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[
+                    styles.urgencyContent,
+                    { 
+                      backgroundColor: urgencyLevel === level ? color : `${color}15`,
+                      borderColor: urgencyLevel === level ? color : `${color}40`
+                    }
+                  ]}>
+                    <MaterialCommunityIcons 
+                      name={icon as any} 
+                      size={18} 
+                      color={urgencyLevel === level ? '#FFFFFF' : color}
+                    />
+                    <Text style={[
+                      styles.urgencyText,
+                      { color: urgencyLevel === level ? '#FFFFFF' : color }
+                    ]}>
+                      {label}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
 
-          {/* Bus Information Display */}
+          {/* Bus Information Card */}
           {busInfo && busInfo.busNumber && (
-            <View style={styles.busInfoContainer}>
-              <Text style={styles.sectionTitle}>Vehicle Information</Text>
-              <LinearGradient 
-                colors={['#E7F1FF', '#F8FAFF']} 
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.busInfoBox}
-              >
-                <View style={styles.busInfoRow}>
-                  <MaterialCommunityIcons name="bus" size={20} color={AppColors.primary} />
-                  <Text style={styles.busInfoText}>
-                    <Text>Bus: {busInfo?.busNumber || 'Unknown'}</Text>
-                  </Text>
-                </View>
-                <View style={styles.busInfoRow}>
-                  <MaterialCommunityIcons name="map-marker-path" size={20} color={AppColors.primary} />
-                  <Text style={styles.busInfoText}>
-                    <Text>Route: {busInfo?.routeNumber || 'Unknown'}</Text>
-                  </Text>
-                </View>
-                <View style={styles.busInfoRow}>
-                  <MaterialCommunityIcons name="account" size={20} color={AppColors.primary} />
-                  <Text style={styles.busInfoText}>
-                    <Text>Driver: {busInfo?.driverName || 'Unknown Driver'}</Text>
-                  </Text>
-                </View>
-              </LinearGradient>
+            <View style={styles.sectionCard}>
+              <Text style={styles.cardTitle}>Vehicle Information</Text>
+              <View style={styles.busInfoRow}>
+                <MaterialCommunityIcons name="bus" size={18} color={AppColors.primary} />
+                <Text style={styles.busInfoText}>
+                  {busInfo.busNumber}
+                </Text>
+              </View>
+              <View style={styles.busInfoRow}>
+                <MaterialCommunityIcons name="map-marker-path" size={18} color={AppColors.primary} />
+                <Text style={styles.busInfoText}>
+                  Route {busInfo.routeNumber}
+                </Text>
+              </View>
+              <View style={styles.busInfoRow}>
+                <MaterialCommunityIcons name="account" size={18} color={AppColors.primary} />
+                <Text style={styles.busInfoText}>
+                  {busInfo.driverName}
+                </Text>
+              </View>
             </View>
           )}
 
-          <Text style={styles.sectionTitle}>Additional Details (Optional)</Text>
-          <TextInput
-            style={[styles.input, isInputFocused && styles.inputFocused]}
-            value={description}
-            onChangeText={setDescription}
-            placeholder="e.g., Two vehicles involved, minor damage..."
-            placeholderTextColor="#9ca3af"
-            multiline
-            onFocus={() => setIsInputFocused(true)}
-            onBlur={() => setIsInputFocused(false)}
-          />
-          <Text style={styles.sectionTitle}>Enhanced Location Status</Text>
-          <LinearGradient 
-            colors={['#E7F1FF', '#F8FAFF']} 
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.locationBox}
-          >
-            {isLocationTracking ? (
-              <>
-                <ActivityIndicator color={AppColors.yellow} />
-                <Text style={[styles.locationText, { color: AppColors.yellow }]}>
-                  Acquiring high-accuracy GPS location...
-                </Text>
-              </>
-            ) : location ? (
-              <>
-                <Ionicons name="location" size={20} color={AppColors.green} />
-                <View style={styles.locationDetails}>
-                  <Text style={[styles.locationText, { color: AppColors.green }]}>
-                    📍 Location captured successfully
+          {/* Description Card */}
+          <View style={styles.sectionCard}>
+            <Text style={styles.cardTitle}>Additional Details (Optional)</Text>
+            <TextInput
+              style={[styles.input, isInputFocused && styles.inputFocused]}
+              value={description}
+              onChangeText={setDescription}
+              placeholder="e.g., Two vehicles involved, minor damage..."
+              placeholderTextColor="#9ca3af"
+              multiline
+              numberOfLines={3}
+              onFocus={() => setIsInputFocused(true)}
+              onBlur={() => setIsInputFocused(false)}
+            />
+          </View>
+
+          {/* Location Card */}
+          <View style={styles.sectionCard}>
+            <Text style={styles.cardTitle}>Location Status</Text>
+            <View style={styles.locationBox}>
+              {isLocationTracking ? (
+                <View style={styles.locationRow}>
+                  <ActivityIndicator color={AppColors.yellow} />
+                  <Text style={[styles.locationText, { color: AppColors.yellow, marginLeft: 12 }]}>
+                    Acquiring GPS location...
+                  </Text>
+                </View>
+              ) : location ? (
+                <>
+                  <View style={styles.locationRow}>
+                    <Ionicons name="location" size={18} color={AppColors.green} />
+                    <Text style={[styles.locationText, { color: AppColors.green, marginLeft: 8 }]}>
+                      Location captured successfully
+                    </Text>
+                  </View>
+                  <Text style={styles.locationSubText}>
+                    Accuracy: ±{Math.round(location.coords.accuracy || 0)}m
                   </Text>
                   <Text style={styles.locationSubText}>
-                    Accuracy: ±{Math.round(location.coords.accuracy || 0)}m • 
-                    Coords: {location.coords.latitude.toFixed(6)}, {location.coords.longitude.toFixed(6)}
+                    {location.coords.latitude.toFixed(6)}, {location.coords.longitude.toFixed(6)}
                   </Text>
-                  {location.coords.speed && location.coords.speed > 0 && (
-                    <Text style={styles.locationSubText}>
-                      Speed: {Math.round(location.coords.speed * 3.6)} km/h
-                    </Text>
-                  )}
+                </>
+              ) : (
+                <View style={styles.locationRow}>
+                  <Ionicons name="location-outline" size={18} color={AppColors.red} />
+                  <Text style={[styles.locationText, { color: AppColors.red, marginLeft: 8 }]}>
+                    {locationError || 'Location unavailable'}
+                  </Text>
                 </View>
-              </>
-            ) : (
-              <>
-                <Ionicons name="location-outline" size={20} color={AppColors.red} />
-                <Text style={[styles.locationText, { color: AppColors.red }]}>
-                  {locationError || 'Location unavailable - emergency services may have limited location info'}
-                </Text>
-              </>
-            )}
-          </LinearGradient>
-          <TouchableOpacity style={styles.submitButtonWrapper} onPress={() => handleSubmit(false)} disabled={isSubmitting}>
+              )}
+            </View>
+          </View>
+          {/* Submit Button */}
+          <TouchableOpacity 
+            style={styles.submitButtonWrapper} 
+            onPress={() => handleSubmit(false)} 
+            disabled={isSubmitting}
+            activeOpacity={0.8}
+          >
             <LinearGradient
-              colors={isSubmitting ? ['#CED4DA', '#ADB5BD'] : ['#0056b3', '#0076e3']}
+              colors={isSubmitting ? ['#9CA3AF', '#6B7280'] : ['#0056b3', '#0076e3']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
-              style={styles.submitButton}>
-              {isSubmitting ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.submitButtonText}>Send Emergency Report</Text>}
+              style={styles.submitButton}
+            >
+              {isSubmitting ? (
+                <ActivityIndicator color="#ffffff" />
+              ) : (
+                <Text style={styles.submitButtonText}>Send Emergency Report</Text>
+              )}
             </LinearGradient>
           </TouchableOpacity>
-          <View style={styles.bottomSpacer} />
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -688,22 +673,41 @@ const EmergencyScreen = ({ navigation }: EmergencyScreenProps) => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={AppColors.primary} />
-      
-      {/* AppHeader with Emergency Icon */}
-      <AppHeader 
-        title="Emergency Center"
-        showBackButton={true}
-        onBackPress={() => navigation.goBack()}
-      />
-      
-      {/* Enhanced Tab Container with Gradient */}
-      <LinearGradient
-        colors={['rgba(0, 86, 179, 0.02)', 'transparent']}
-        style={styles.tabContainerWrapper}
-      >
-        <View style={styles.tabContainer}>
+    <LinearGradient
+      colors={['#F8FAFF', '#E3F2FD', '#BBDEFB']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.gradientContainer}
+    >
+      <SafeAreaView style={styles.safeArea} edges={["top"]}>
+        <StatusBar
+          backgroundColor="transparent"
+          barStyle="light-content"
+          translucent={false}
+        />
+        
+        {/* Enhanced Header with Gradient */}
+        <LinearGradient
+          colors={['#0056b3', '#1976d2', '#42a5f5']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.headerGradient}
+        >
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <View style={styles.headerCenter}>
+            <Text style={styles.headerTitle}>Emergency Center</Text>
+          </View>
+          <View style={{ width: 40 }} />
+        </LinearGradient>
+        
+        {/* Enhanced Tab Container with Gradient */}
+        <LinearGradient
+          colors={['rgba(0, 86, 179, 0.02)', 'transparent']}
+          style={styles.tabContainerWrapper}
+        >
+          <View style={styles.tabContainer}>
           <TouchableOpacity 
             style={[styles.tab, activeTab === 'new' && styles.tabActive]} 
             onPress={() => setActiveTab('new')} 
@@ -740,35 +744,68 @@ const EmergencyScreen = ({ navigation }: EmergencyScreenProps) => {
       <View style={styles.content}>
         {activeTab === 'new' ? renderNewReport() : renderHistory()}
       </View>
-    </SafeAreaView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
+  // Main Container Styles
+  gradientContainer: {
+    flex: 1,
+  },
   safeArea: { 
     flex: 1, 
-    backgroundColor: AppColors.background,
+    backgroundColor: 'transparent',
   },
-  header: {
-    paddingTop: Platform.OS === 'android' ? 40 : 60,
-    paddingBottom: 24,
-    paddingHorizontal: 24,
-  },
-  headerTitleContainer: {
+  headerGradient: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.2)',
+    ...Platform.select({
+      android: { elevation: 8 },
+      ios: {
+        shadowColor: '#000',
+        shadowOpacity: 0.2,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 4 },
+      },
+    }),
+  },
+  backButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 26,
+    fontSize: 20,
     fontWeight: '700',
-    color: AppColors.card,
+    color: '#FFFFFF',
     letterSpacing: 0.5,
   },
-  content: { flex: 1 },
+  content: { 
+    flex: 1 
+  },
+  flexOne: { 
+    flex: 1 
+  },
+  formContent: { 
+    paddingBottom: 20 
+  },
+  container: { 
+    paddingHorizontal: 16,
+    paddingTop: 8,
+  },
   
-  // Enhanced Tab Container with Gradient
+  // Tab Container
   tabContainerWrapper: {
     paddingTop: 4,
   },
@@ -825,131 +862,189 @@ const styles = StyleSheet.create({
     color: AppColors.primary, 
     fontWeight: '700',
   },
-  flexOne: { flex: 1 },
-  formContent: { paddingBottom: 40 },
-  container: { paddingHorizontal: 16 },
   
-  sectionTitle: { 
-    fontSize: 17, 
-    fontWeight: '700', 
-    color: AppColors.text, 
-    marginBottom: 14, 
-    marginTop: 16,
+  // Card Styles
+  panicCard: {
+    marginBottom: 12,
+  },
+  sectionCard: {
+    backgroundColor: AppColors.card,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(229, 231, 235, 0.4)',
+    ...Platform.select({
+      android: { elevation: 3 },
+      ios: {
+        shadowColor: AppColors.shadow,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 6,
+      },
+    }),
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: AppColors.text,
+    marginBottom: 12,
+    letterSpacing: 0.3,
+  },
+  
+  // Panic Button
+  panicButton: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    ...Platform.select({
+      android: { elevation: 6 },
+      ios: {
+        shadowColor: AppColors.red,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+    }),
+  },
+  panicButtonGradient: {
+    paddingVertical: 18,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 12,
+  },
+  panicButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  panicSubText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  
+  // Incident Type Styles
+  quickIncidentGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  quickIncidentButton: {
+    flex: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  incidentContent: {
+    paddingVertical: 16,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    minHeight: 90,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  incidentText: {
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginTop: 8,
+    letterSpacing: 0.3,
+  },
+  
+  // Urgency Level Styles
+  urgencyGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  urgencyButton: {
+    flex: 1,
+    minWidth: '45%',
+  },
+  urgencyContent: {
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 10,
+    borderWidth: 2,
+    flexDirection: 'row',
+    gap: 6,
+  },
+  urgencyText: {
+    fontSize: 13,
+    fontWeight: '700',
     letterSpacing: 0.2,
   },
   
-  incidentGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 12 },
-  incidentButton: {
-    width: '30%',
-    borderRadius: 14,
-    marginBottom: 12,
-    overflow: 'hidden',
-  },
-  incidentButtonGradient: {
-    paddingVertical: 20,
+  // Bus Info Styles
+  busInfoRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(229, 231, 235, 0.4)',
+    paddingVertical: 8,
+    gap: 10,
   },
-  incidentButtonSelected: { 
-    borderColor: AppColors.primary,
-    borderWidth: 2,
-  },
-  incidentButtonText: { 
-    marginTop: 8, 
-    color: AppColors.text, 
-    fontWeight: '600', 
-    fontSize: 13, 
-    textAlign: 'center',
-  },
-  incidentButtonTextSelected: { 
-    color: AppColors.card,
-    fontWeight: '700',
+  busInfoText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: AppColors.text,
+    flex: 1,
   },
   
+  // Input Styles
   input: {
     backgroundColor: AppColors.inputBackground,
     color: AppColors.text,
-    borderRadius: 14,
-    padding: 16,
+    borderRadius: 12,
+    padding: 14,
     fontSize: 15,
-    height: 100,
+    minHeight: 80,
     textAlignVertical: 'top',
-    borderWidth: 1,
-    borderColor: 'rgba(229, 231, 235, 0.6)',
-    ...Platform.select({
-      android: {
-        elevation: 2,
-      },
-      ios: {
-        shadowColor: AppColors.shadow,
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
-      },
-    }),
+    borderWidth: 1.5,
+    borderColor: '#D1D5DB',
   },
   inputFocused: {
     borderColor: AppColors.primary,
-    ...Platform.select({
-      android: {
-        elevation: 4,
-      },
-      ios: {
-        shadowColor: AppColors.primary,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.2,
-        shadowRadius: 4,
-      },
-    }),
-  },
-  locationBox: {
-    borderRadius: 14,
-    padding: 18,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    borderWidth: 1,
-    borderColor: 'rgba(196, 226, 255, 0.6)',
-    marginTop: 8,
-    ...Platform.select({
-      android: {
-        elevation: 2,
-      },
-      ios: {
-        shadowColor: AppColors.shadow,
-        shadowOpacity: 0.08,
-        shadowRadius: 4,
-        shadowOffset: { width: 0, height: 2 },
-      },
-    }),
-  },
-  locationDetails: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  locationText: { 
-    fontSize: 15, 
-    fontWeight: '600',
-    letterSpacing: 0.2,
-  },
-  locationSubText: {
-    fontSize: 13,
-    color: AppColors.textSecondary,
-    marginTop: 6,
-    fontWeight: '500',
-    lineHeight: 18,
+    borderWidth: 2,
   },
   
+  // Location Styles
+  locationBox: {
+    backgroundColor: '#F0F8FF',
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#C4E2FF',
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  locationText: {
+    fontSize: 14,
+    fontWeight: '600',
+    flex: 1,
+  },
+  locationSubText: {
+    fontSize: 12,
+    color: AppColors.textSecondary,
+    marginTop: 4,
+    fontWeight: '500',
+  },
+  
+  // Submit Button
   submitButtonWrapper: {
-    marginVertical: 24,
-    marginHorizontal: 4,
+    marginTop: 20,
+    marginBottom: 8,
     borderRadius: 14,
     overflow: 'hidden',
     ...Platform.select({
-      android: {
-        elevation: 6,
-      },
+      android: { elevation: 6 },
       ios: {
         shadowColor: AppColors.primary,
         shadowOffset: { width: 0, height: 4 },
@@ -958,20 +1053,24 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  submitButton: { 
-    paddingVertical: 18, 
-    borderRadius: 14, 
+  submitButton: {
+    paddingVertical: 16,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  submitButtonText: { 
-    color: AppColors.card, 
-    fontSize: 16, 
-    fontWeight: '700', 
+  submitButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
     letterSpacing: 0.5,
   },
-  bottomSpacer: { height: 32 },
-  loader: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  historyList: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 24 },
+  
+  // History Styles
+  historyList: { 
+    paddingHorizontal: 16, 
+    paddingTop: 8, 
+    paddingBottom: 24 
+  },
   
   historyItem: {
     flexDirection: 'row',
@@ -1118,212 +1217,6 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     fontWeight: '500',
     paddingHorizontal: 16,
-  },
-  
-  // Enhanced Panic Button Styles
-  panicContainer: {
-    marginVertical: 20,
-    marginHorizontal: 4,
-    alignItems: 'center',
-  },
-  panicButton: {
-    width: '85%',
-    borderRadius: 16,
-    overflow: 'hidden',
-    ...Platform.select({
-      android: {
-        elevation: 8,
-      },
-      ios: {
-        shadowColor: AppColors.red,
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.35,
-        shadowRadius: 12,
-      },
-    }),
-  },
-  panicButtonActive: {
-    transform: [{ scale: 0.96 }],
-  },
-  panicButtonGradient: {
-    paddingVertical: 22,
-    paddingHorizontal: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  panicButtonText: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: '800',
-    letterSpacing: 1.2,
-    marginTop: 8,
-  },
-  panicSubText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '600',
-    marginTop: 6,
-    opacity: 0.95,
-  },
-
-  // Quick Incident Styles
-  quickIncidentGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-    gap: 10,
-  },
-  quickIncidentButton: {
-    flex: 1,
-    borderRadius: 14,
-    overflow: 'hidden',
-    borderWidth: 1.5,
-    borderColor: 'rgba(229, 231, 235, 0.6)',
-    ...Platform.select({
-      android: {
-        elevation: 2,
-      },
-      ios: {
-        shadowColor: AppColors.shadow,
-        shadowOpacity: 0.06,
-        shadowRadius: 4,
-        shadowOffset: { width: 0, height: 2 },
-      },
-    }),
-  },
-  quickIncidentButtonSelected: {
-    borderColor: AppColors.primary,
-    borderWidth: 2,
-    ...Platform.select({
-      android: {
-        elevation: 4,
-      },
-      ios: {
-        shadowColor: AppColors.primary,
-        shadowOpacity: 0.2,
-        shadowRadius: 6,
-        shadowOffset: { width: 0, height: 3 },
-      },
-    }),
-  },
-  quickIncidentGradient: {
-    paddingVertical: 18,
-    paddingHorizontal: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 100,
-  },
-  quickIncidentText: {
-    fontSize: 13,
-    fontWeight: '600',
-    textAlign: 'center',
-    marginTop: 10,
-    color: AppColors.text,
-    letterSpacing: 0.2,
-  },
-  quickIncidentTextSelected: {
-    color: '#ffffff',
-    fontWeight: '700',
-  },
-
-  // Urgency Level Styles
-  urgencyContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-    gap: 8,
-  },
-  urgencyButton: {
-    flex: 1,
-    paddingVertical: 14,
-    paddingHorizontal: 6,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: '#B8D4F1',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#E7F1FF',
-    ...Platform.select({
-      android: {
-        elevation: 1,
-      },
-      ios: {
-        shadowColor: AppColors.shadow,
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
-        shadowOffset: { width: 0, height: 1 },
-      },
-    }),
-  },
-  urgencyButtonSelected: {
-    borderColor: '#0056b3',
-    borderWidth: 2.5,
-    backgroundColor: '#D0E4F8',
-    ...Platform.select({
-      android: {
-        elevation: 3,
-      },
-      ios: {
-        shadowColor: AppColors.primary,
-        shadowOpacity: 0.2,
-        shadowRadius: 4,
-        shadowOffset: { width: 0, height: 2 },
-      },
-    }),
-  },
-  urgencyButtonBackground: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  urgencyText: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 6,
-    textAlign: 'center',
-    color: '#0056b3',
-    letterSpacing: 0.2,
-  },
-  urgencyTextSelected: {
-    color: '#ffffff',
-    fontWeight: '700',
-  },
-
-  // Bus Info Styles
-  busInfoContainer: {
-    marginBottom: 16,
-  },
-  busInfoBox: {
-    borderRadius: 14,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(229, 231, 235, 0.6)',
-    ...Platform.select({
-      android: {
-        elevation: 2,
-      },
-      ios: {
-        shadowColor: AppColors.shadow,
-        shadowOpacity: 0.08,
-        shadowRadius: 4,
-        shadowOffset: { width: 0, height: 2 },
-      },
-    }),
-  },
-  busInfoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  busInfoText: {
-    marginLeft: 14,
-    fontSize: 15,
-    fontWeight: '500',
-    color: AppColors.text,
-    flex: 1,
-    letterSpacing: 0.2,
   },
 });
 

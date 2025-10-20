@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { useFocusEffect } from "@react-navigation/native";
@@ -341,42 +342,57 @@ export default function TrackingScreen({ navigation }: any) {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
-      <StatusBar
-        backgroundColor={AppColors.primary}
-        barStyle="light-content"
-        translucent={false}
-      />
-      
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
+    <LinearGradient
+      colors={['#F8FAFF', '#E3F2FD', '#BBDEFB']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.gradientContainer}
+    >
+      <SafeAreaView style={styles.container} edges={["top"]}>
+        <StatusBar
+          backgroundColor="transparent"
+          barStyle="light-content"
+          translucent={false}
+        />
+        
+        {/* Enhanced Header with Gradient */}
+        <LinearGradient
+          colors={['#0056b3', '#1976d2', '#42a5f5']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.headerGradient}
         >
-          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Tracking Data</Text>
-        <TouchableOpacity
-          style={styles.refreshButton}
-          onPress={onRefresh}
-        >
-          <Ionicons name="refresh" size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.mapToggleButton}
-          onPress={() => setShowMap(!showMap)}
-        >
-          <Ionicons name={showMap ? "list" : "map"} size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-      </View>
+          <View style={styles.header}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}
+            >
+              <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Tracking Data</Text>
+            <View style={styles.headerActions}>
+              <TouchableOpacity
+                style={styles.headerActionButton}
+                onPress={onRefresh}
+              >
+                <Ionicons name="refresh" size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.headerActionButton}
+                onPress={() => setShowMap(!showMap)}
+              >
+                <Ionicons name={showMap ? "list" : "map"} size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </LinearGradient>
 
-      <ScrollView
-        style={styles.content}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
+        <ScrollView
+          style={styles.content}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        >
         {/* Daily Assignment Card */}
         {assignmentData && (
           <View style={styles.card}>
@@ -396,7 +412,7 @@ export default function TrackingScreen({ navigation }: any) {
                   {assignmentData.bus_registration}
                 </Text>
                 <Text style={styles.assignmentSubValue}>
-                  {assignmentData.bus_manufacturer} {assignmentData.bus_model} (Class {assignmentData.bus_class})
+                  {assignmentData.bus_manufacturer} {assignmentData.bus_model} • Class {assignmentData.bus_class}
                 </Text>
               </View>
 
@@ -435,7 +451,7 @@ export default function TrackingScreen({ navigation }: any) {
                 </View>
               </View>
 
-              <View style={styles.assignmentItem}>
+              <View style={styles.assignmentItemFull}>
                 <Text style={styles.assignmentLabel}>Depot</Text>
                 <Text style={styles.assignmentValue}>
                   {assignmentData.depot_name}
@@ -512,7 +528,7 @@ export default function TrackingScreen({ navigation }: any) {
           </View>
 
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Bus ID:</Text>
+            <Text style={styles.infoLabel}>Bus:</Text>
             <Text style={styles.infoValue}>
               {assignmentData ? assignmentData.bus_registration : (trackingStatus.busId || 'N/A')}
             </Text>
@@ -610,82 +626,101 @@ export default function TrackingScreen({ navigation }: any) {
           </View>
         )}
       </ScrollView>
-    </SafeAreaView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
+  gradientContainer: {
+    flex: 1,
+  },
   container: {
     flex: 1,
-    backgroundColor: AppColors.background,
+    backgroundColor: 'transparent',
+  },
+  headerGradient: {
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.2)',
+    ...Platform.select({
+      android: {
+        elevation: 8,
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+      },
+    }),
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: AppColors.primary,
-    paddingHorizontal: 15,
-    paddingVertical: Platform.OS === "ios" ? 15 : 16,
-    height: Platform.OS === "ios" ? 70 : 65,
-    ...Platform.select({
-      android: {
-        elevation: 4,
-      },
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-    }),
+    backgroundColor: 'transparent',
+    paddingHorizontal: 10,
+    paddingVertical: 12,
   },
   backButton: {
-    padding: 5,
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
   headerTitle: {
     color: "#FFFFFF",
-    fontSize: Platform.OS === "ios" ? 18 : 16,
-    fontWeight: "600",
+    fontSize: 20,
+    fontWeight: "bold",
+    flex: 1,
+    textAlign: 'center',
+    marginHorizontal: 8,
   },
-  refreshButton: {
-    padding: 5,
+  headerActions: {
+    flexDirection: 'row',
+    gap: 8,
   },
-  mapToggleButton: {
-    padding: 5,
+  headerActionButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
   content: {
     flex: 1,
-    padding: 20,
+    padding: 16,
   },
   card: {
     backgroundColor: AppColors.card,
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 16,
+    padding: 20,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: AppColors.border,
+    marginHorizontal: 4,
+    borderWidth: 0,
     ...Platform.select({
       android: {
-        elevation: 2,
+        elevation: 6,
       },
       ios: {
         shadowColor: "#000",
-        shadowOpacity: 0.06,
-        shadowRadius: 4,
-        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.12,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 4 },
       },
     }),
   },
   cardHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: 20,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
   },
   cardTitle: {
-    fontSize: 18,
-    fontWeight: "600",
+    fontSize: 19,
+    fontWeight: "700",
     color: AppColors.text,
-    marginLeft: 8,
+    marginLeft: 10,
+    letterSpacing: 0.3,
   },
   statusRow: {
     flexDirection: "row",
@@ -699,14 +734,26 @@ const styles = StyleSheet.create({
     color: AppColors.text,
   },
   statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 20,
+    ...Platform.select({
+      android: {
+        elevation: 2,
+      },
+      ios: {
+        shadowColor: "#000",
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 2 },
+      },
+    }),
   },
   statusText: {
     color: "#FFFFFF",
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 0.5,
   },
   infoRow: {
     flexDirection: "row",
@@ -725,17 +772,20 @@ const styles = StyleSheet.create({
   infoMessage: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: AppColors.primaryMuted,
-    padding: 12,
-    borderRadius: 8,
+    backgroundColor: 'rgba(0, 86, 179, 0.08)',
+    padding: 16,
+    borderRadius: 12,
     marginTop: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 86, 179, 0.2)',
   },
   infoMessageText: {
-    fontSize: 13,
+    fontSize: 14,
     color: AppColors.textSecondary,
-    marginLeft: 8,
+    marginLeft: 10,
     flex: 1,
-    lineHeight: 18,
+    lineHeight: 20,
+    fontWeight: '500',
   },
   toggleButton: {
     marginTop: 16,
@@ -749,18 +799,21 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   locationNameContainer: {
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    backgroundColor: AppColors.primaryMuted,
-    borderRadius: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    backgroundColor: 'rgba(0, 86, 179, 0.1)',
+    borderRadius: 12,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 86, 179, 0.15)',
   },
   locationName: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: AppColors.text,
+    fontSize: 17,
+    fontWeight: "700",
+    color: AppColors.primary,
     textAlign: "center",
-    lineHeight: 22,
+    lineHeight: 24,
+    letterSpacing: 0.2,
   },
   locationGrid: {
     flexDirection: "row",
@@ -799,61 +852,101 @@ const styles = StyleSheet.create({
     color: AppColors.text,
   },
   historyItem: {
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: AppColors.border,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    marginBottom: 8,
+    backgroundColor: 'rgba(0, 86, 179, 0.03)',
+    borderRadius: 10,
+    borderLeftWidth: 3,
+    borderLeftColor: AppColors.primary,
   },
   historyHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 4,
+    marginBottom: 6,
   },
   historyTime: {
     fontSize: 14,
-    fontWeight: "500",
-    color: AppColors.text,
+    fontWeight: "600",
+    color: AppColors.primary,
   },
   historyIndex: {
     fontSize: 12,
+    fontWeight: "600",
     color: AppColors.textSecondary,
+    backgroundColor: 'rgba(0, 86, 179, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
   },
   historyLocation: {
     fontSize: 15,
     color: AppColors.text,
-    fontWeight: "500",
+    fontWeight: "600",
     marginTop: 4,
-    lineHeight: 20,
+    lineHeight: 21,
+    letterSpacing: 0.2,
   },
   assignmentGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
-    marginBottom: 16,
+    gap: 12,
   },
   assignmentItem: {
     width: "48%",
-    marginBottom: 16,
+    backgroundColor: 'rgba(0, 86, 179, 0.04)',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 86, 179, 0.1)',
+  },
+  assignmentItemFull: {
+    width: "100%",
+    backgroundColor: 'rgba(0, 86, 179, 0.04)',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 86, 179, 0.1)',
   },
   assignmentLabel: {
     fontSize: 12,
     color: AppColors.textSecondary,
-    marginBottom: 4,
-    fontWeight: "500",
+    marginBottom: 6,
+    fontWeight: "600",
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   assignmentValue: {
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "700",
     color: AppColors.text,
-    marginBottom: 2,
+    marginBottom: 4,
+    letterSpacing: 0.2,
   },
   assignmentSubValue: {
-    fontSize: 12,
+    fontSize: 13,
     color: AppColors.textSecondary,
+    lineHeight: 18,
+    fontWeight: '500',
   },
   mapContainer: {
-    height: 250,
-    borderRadius: 8,
+    height: 280,
+    borderRadius: 12,
     overflow: "hidden",
+    borderWidth: 2,
+    borderColor: 'rgba(0, 86, 179, 0.15)',
+    ...Platform.select({
+      android: {
+        elevation: 4,
+      },
+      ios: {
+        shadowColor: "#000",
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 3 },
+      },
+    }),
   },
   map: {
     ...StyleSheet.absoluteFillObject,

@@ -385,23 +385,24 @@ const useEnhancedBusDetection = (userLocation: UserLocation | null, buses: Bus[]
         console.log(`✅ Bus ${bus.registration_number} movement correlation: ${(correlation * 100).toFixed(0)}% - adding ${correlationBonus.toFixed(0)} points`);
       }
       
-      console.log(`📊 Bus ${bus.registration_number} final score: ${finalScore.toFixed(0)} (threshold: ${SYNC_CORRELATION_THRESHOLD * 100})`);
+      console.log(`📊 Bus ${bus.registration_number} final score: ${finalScore.toFixed(0)} (current best: ${bestScore.toFixed(0)})`);
       
+      // Only update if this bus has a BETTER score than the current best match
       if (finalScore > bestScore && finalScore > SYNC_CORRELATION_THRESHOLD * 100) {
         bestMatch = bus;
         bestScore = finalScore;
-        bestReason = `Bus detection successful`;
+        bestReason = `Bus detection successful - highest confidence match`;
         console.log(`🎯 New best match: ${bus.registration_number} with score ${finalScore.toFixed(0)}`);
       }
     });
     
-    const result = { 
+    const result: DetectionResult = { 
       bus: bestMatch, 
       confidence: Math.min(bestScore, 100), 
       reason: bestReason || 'No suitable bus match found' 
     };
     
-    console.log(`🔍 Detection result:`, result);
+    console.log(`🔍 Detection result - Selected bus: ${result.bus?.registration_number || 'None'}, Confidence: ${result.confidence}%`);
     return result;
   };
 
@@ -445,6 +446,9 @@ export default function BusOccupancyScreen() {
   
   // Cache for bus route information to persist even when buses go offline
   const [busRouteCache, setBusRouteCache] = useState<{[busId: string]: {route_number: string, route_name: string}}>({});
+  
+  // Track last update time for each bus (15-minute cooldown per bus)
+  const [lastUpdatePerBus, setLastUpdatePerBus] = useState<{[busId: string]: number}>({});
 
   const movementIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const locationWatchRef = useRef<Location.LocationSubscription | null>(null);
@@ -455,11 +459,19 @@ export default function BusOccupancyScreen() {
   const performOccupancyUpdate = useCallback(async (level: string) => {
     if (!currentBus) return;
     
-    if (lastOccupancyUpdate) {
-      const timeSinceLastUpdate = Date.now() - new Date(lastOccupancyUpdate).getTime();
-      if (timeSinceLastUpdate < 120000) {
-        const remainingTime = Math.ceil((120000 - timeSinceLastUpdate) / 1000);
-        Alert.alert('Too Soon', `Please wait ${remainingTime} seconds before updating again.`);
+    // Check 15-minute cooldown for this specific bus
+    const busId = currentBus.bus_id.toString();
+    const lastUpdateTime = lastUpdatePerBus[busId];
+    const cooldownPeriod = 15 * 60 * 1000; // 15 minutes in milliseconds
+    
+    if (lastUpdateTime) {
+      const timeSinceLastUpdate = Date.now() - lastUpdateTime;
+      if (timeSinceLastUpdate < cooldownPeriod) {
+        const remainingTime = Math.ceil((cooldownPeriod - timeSinceLastUpdate) / 60000); // Convert to minutes
+        Alert.alert(
+          'Too Soon', 
+          `You can update occupancy for Bus ${currentBus.registration_number} again in ${remainingTime} minute${remainingTime > 1 ? 's' : ''}.\n\nYou can update different buses without waiting.`
+        );
         return;
       }
     }
@@ -475,13 +487,19 @@ export default function BusOccupancyScreen() {
       },
     }));
     
+    // Update the last update time for this specific bus
+    setLastUpdatePerBus(prev => ({
+      ...prev,
+      [busId]: Date.now()
+    }));
+    
     setLastOccupancyUpdate(new Date().toISOString());
     setShowOccupancyModal(false);
     
     const levelInfo = OCCUPANCY_LEVELS.find(l => l.value === level);
     Alert.alert(
       'Updated! ✅', 
-      `Occupancy set to ${levelInfo?.label?.toUpperCase() || 'UNKNOWN'}`
+      `Occupancy set to ${levelInfo?.label?.toUpperCase() || 'UNKNOWN'} for Bus ${currentBus.registration_number}\n\nYou can update this bus again in 15 minutes.`
     );
 
     setStatus('loading');
@@ -555,7 +573,7 @@ export default function BusOccupancyScreen() {
       setStatus('failed');
       Alert.alert('Error', `Failed to update occupancy: ${err.message}`);
     }
-  }, [currentBus, userLocation, confidence]);
+  }, [currentBus, userLocation, confidence, lastUpdatePerBus]);
 
   const fetchAllOccupancies = useCallback(async () => {
     setStatus('loading');
@@ -1036,6 +1054,29 @@ export default function BusOccupancyScreen() {
                 <Text style={styles.currentOccupancyTime}>Updated at {busStatuses[currentBus.id].updatedAt}</Text>
               </View>
             )}
+            
+            {/* Cooldown indicator */}
+            {(() => {
+              const busId = currentBus.bus_id.toString();
+              const lastUpdateTime = lastUpdatePerBus[busId];
+              const cooldownPeriod = 15 * 60 * 1000; // 15 minutes
+              
+              if (lastUpdateTime) {
+                const timeSinceLastUpdate = Date.now() - lastUpdateTime;
+                if (timeSinceLastUpdate < cooldownPeriod) {
+                  const remainingTime = Math.ceil((cooldownPeriod - timeSinceLastUpdate) / 60000);
+                  return (
+                    <View style={styles.cooldownIndicator}>
+                      <Text style={styles.cooldownText}>
+                        ⏱️ You can update this bus again in {remainingTime} minute{remainingTime > 1 ? 's' : ''}
+                      </Text>
+                    </View>
+                  );
+                }
+              }
+              return null;
+            })()}
+            
             <View style={styles.occupancyButtonsContainer}>
               {OCCUPANCY_LEVELS.map((level) => (
                 <TouchableOpacity
@@ -1962,5 +2003,21 @@ const styles = StyleSheet.create({
   },
   occupancyUpdatesContainer: {
     marginTop: 8,
+  },
+  cooldownIndicator: {
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    borderLeftWidth: 4,
+    borderLeftColor: '#F59E0B',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+    marginTop: 8,
+  },
+  cooldownText: {
+    fontSize: 13,
+    color: '#D97706',
+    fontWeight: '600',
+    textAlign: 'center',
+    letterSpacing: 0.2,
   },
 });

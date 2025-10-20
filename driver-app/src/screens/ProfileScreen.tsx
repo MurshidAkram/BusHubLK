@@ -7,23 +7,23 @@ import {
   TouchableOpacity,
   Alert,
   TextInput,
-  SafeAreaView,
   ActivityIndicator,
   Platform,
   StatusBar,
+  RefreshControl,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useDriver } from "../context/DriverContext";
 import { driverAPI, storageAPI } from "../services/api";
-import AppHeader from "../components/AppHeader";
 
-// App Color Palette (matching HomeScreen)
+// App Color Palette (matching TrackingScreen)
 const AppColors = {
-  background: "#F8FAFF",
+  background: "#F8F9FA",
   card: "#FFFFFF",
   primary: "#0056b3",
-  primaryLight: "#0076e3",
+  primaryLight: "#1976d2",
   primaryMuted: "rgba(0, 86, 179, 0.1)",
   text: "#212529",
   textSecondary: "#6C757D",
@@ -31,6 +31,7 @@ const AppColors = {
   red: "#dc3545",
   yellow: "#ffc107",
   green: "#198754",
+  success: "#198754",
 };
 
 interface ProfileInfoRowProps {
@@ -59,6 +60,7 @@ const ProfileInfoRow = ({
         onChangeText={onChangeText}
         keyboardType={keyboardType}
         placeholder={`Enter ${label.toLowerCase()}`}
+        placeholderTextColor={AppColors.textSecondary}
       />
     ) : (
       <Text style={styles.infoValue}>{value || "Not provided"}</Text>
@@ -66,7 +68,7 @@ const ProfileInfoRow = ({
   </View>
 );
 
-const ProfileScreen = () => {
+const ProfileScreen = ({ navigation }: any) => {
   const { driverData, isLoading, error, refreshDriverData, setDriverData } = useDriver();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -181,228 +183,390 @@ const ProfileScreen = () => {
     setIsEditing(false);
   };
 
-  const handleRefresh = () => {
-    refreshDriverData();
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await refreshDriverData();
+    setIsRefreshing(false);
   };
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <AppHeader 
-          title="My Profile"
-          rightIcon={isRefreshing ? "sync" : "refresh"}
-          onRightPress={handleRefresh}
-          rightIconDisabled={isRefreshing}
-        />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={AppColors.primary} />
-          <Text style={styles.loadingText}>Loading Profile...</Text>
-        </View>
-      </SafeAreaView>
+      <LinearGradient
+        colors={['#F8FAFF', '#E3F2FD', '#BBDEFB']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.gradientContainer}
+      >
+        <SafeAreaView style={styles.container} edges={["top"]}>
+          <StatusBar
+            backgroundColor="transparent"
+            barStyle="light-content"
+            translucent={false}
+          />
+          {/* Enhanced Header with Gradient */}
+          <LinearGradient
+            colors={['#0056b3', '#1976d2', '#42a5f5']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.headerGradient}
+          >
+            <View style={styles.header}>
+              <TouchableOpacity
+                style={styles.backButton}
+                onPress={() => navigation.goBack()}
+              >
+                <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+              <Text style={styles.headerTitle}>My Profile</Text>
+              <View style={styles.headerActions}>
+                <TouchableOpacity
+                  style={styles.headerActionButton}
+                  onPress={handleRefresh}
+                  disabled={isRefreshing}
+                >
+                  <Ionicons name="refresh" size={24} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </LinearGradient>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={AppColors.primary} />
+            <Text style={styles.loadingText}>Loading Profile...</Text>
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
     );
   }
 
   if (error || !driverData) {
     return (
-      <SafeAreaView style={styles.container}>
-        <AppHeader 
-          title="My Profile"
-          rightIcon={isRefreshing ? "sync" : "refresh"}
-          onRightPress={handleRefresh}
-          rightIconDisabled={isRefreshing}
-        />
-        <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle-outline" size={64} color={AppColors.red} />
-          <Text style={styles.errorTitle}>Profile Error</Text>
-          <Text style={styles.errorText}>
-            {error || "Unable to load profile data"}
-          </Text>
-          <TouchableOpacity style={styles.retryButton} onPress={handleRefresh}>
-            <Text style={styles.retryButtonText}>Try Again</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
+      <LinearGradient
+        colors={['#F8FAFF', '#E3F2FD', '#BBDEFB']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.gradientContainer}
+      >
+        <SafeAreaView style={styles.container} edges={["top"]}>
+          <StatusBar
+            backgroundColor="transparent"
+            barStyle="light-content"
+            translucent={false}
+          />
+          {/* Enhanced Header with Gradient */}
+          <LinearGradient
+            colors={['#0056b3', '#1976d2', '#42a5f5']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.headerGradient}
+          >
+            <View style={styles.header}>
+              <TouchableOpacity
+                style={styles.backButton}
+                onPress={() => navigation.goBack()}
+              >
+                <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+              <Text style={styles.headerTitle}>My Profile</Text>
+              <View style={styles.headerActions}>
+                <TouchableOpacity
+                  style={styles.headerActionButton}
+                  onPress={handleRefresh}
+                  disabled={isRefreshing}
+                >
+                  <Ionicons name="refresh" size={24} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </LinearGradient>
+          <View style={styles.errorContainer}>
+            <Ionicons name="alert-circle-outline" size={64} color={AppColors.red} />
+            <Text style={styles.errorTitle}>Profile Error</Text>
+            <Text style={styles.errorText}>
+              {error || "Unable to load profile data"}
+            </Text>
+            <TouchableOpacity style={styles.retryButton} onPress={handleRefresh}>
+              <Text style={styles.retryButtonText}>Try Again</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={AppColors.primary} />
-      <AppHeader 
-        title="My Profile"
-        rightIcon={isRefreshing ? "sync" : "refresh"}
-        onRightPress={handleRefresh}
-        rightIconDisabled={isRefreshing}
-      />
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Profile Header Card */}
-        <View style={styles.profileHeader}>
-          <LinearGradient
-            colors={[AppColors.primary, AppColors.primaryLight]}
-            style={styles.avatarContainer}
-          >
-            <Ionicons name="person" size={48} color="#FFFFFF" />
-          </LinearGradient>
-          <Text style={styles.driverName}>
-            {driverData.first_name} {driverData.last_name}
-          </Text>
-          <Text style={styles.driverRole}>Certified SLTB Bus Driver</Text>
-          <View style={styles.driverIdBadge}>
-            <Text style={styles.driverIdText}>Your ID: DRV-{driverData.driver_id}</Text>
-          </View>
-        </View>
-
-        {/* Profile Information Section */}
-        <View style={styles.infoContainer}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Personal Information</Text>
-            <TouchableOpacity 
-              onPress={() => (isEditing ? handleCancel() : setIsEditing(true))}
-              style={styles.editButton}
+    <LinearGradient
+      colors={['#F8FAFF', '#E3F2FD', '#BBDEFB']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.gradientContainer}
+    >
+      <SafeAreaView style={styles.container} edges={["top"]}>
+        <StatusBar
+          backgroundColor="transparent"
+          barStyle="light-content"
+          translucent={false}
+        />
+        
+        {/* Enhanced Header with Gradient */}
+        <LinearGradient
+          colors={['#0056b3', '#1976d2', '#42a5f5']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.headerGradient}
+        >
+          <View style={styles.header}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}
             >
-              <Ionicons
-                name={isEditing ? "close-circle" : "pencil"}
+              <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>My Profile</Text>
+            <View style={styles.headerActions}>
+              {/* Refresh button removed */}
+            </View>
+          </View>
+        </LinearGradient>
+
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.contentContainer}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl 
+              refreshing={isRefreshing} 
+              onRefresh={handleRefresh}
+              tintColor={AppColors.primary}
+              colors={[AppColors.primary]}
+            />
+          }
+        >
+          {/* Profile Header Card */}
+          <View style={styles.card}>
+            <LinearGradient
+              colors={[AppColors.primary, AppColors.primaryLight]}
+              style={styles.profileHeaderGradient}
+            >
+              <Text style={styles.driverName}>
+                {driverData.first_name} {driverData.last_name}
+              </Text>
+              <Text style={styles.driverRole}>Certified SLTB Bus Driver</Text>
+              <View style={styles.driverIdBadge}>
+                <MaterialCommunityIcons name="badge-account" size={16} color="#FFFFFF" />
+                <Text style={styles.driverIdText}>ID: DRV-{driverData.driver_id}</Text>
+              </View>
+            </LinearGradient>
+          </View>
+
+          {/* Personal Information Card */}
+          <View style={styles.card}>
+            <View style={styles.cardHeaderCentered}>
+              <MaterialCommunityIcons
+                name="account-details"
                 size={24}
                 color={AppColors.primary}
               />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.infoCard}>
-            {/* Read-only fields */}
-            <ProfileInfoRow
-              label="First Name"
-              value={driverData.first_name || ""}
-              isEditing={false}
-              editable={false}
-            />
-            <ProfileInfoRow
-              label="Last Name"
-              value={driverData.last_name || ""}
-              isEditing={false}
-              editable={false}
-            />
-            <ProfileInfoRow
-              label="Username"
-              value={driverData.username || ""}
-              isEditing={false}
-              editable={false}
-            />
-            
-            {/* Editable fields */}
-            <ProfileInfoRow
-              label="Email"
-              value={isEditing ? editedData.email : driverData.email || ""}
-              isEditing={isEditing}
-              keyboardType="email-address"
-              onChangeText={(text) => handleInputChange("email", text)}
-              editable={true}
-            />
-            <ProfileInfoRow
-              label="Phone"
-              value={isEditing ? editedData.phone : driverData.phone || ""}
-              isEditing={isEditing}
-              keyboardType="phone-pad"
-              onChangeText={(text) => handleInputChange("phone", text)}
-              editable={true}
-            />
-            
-            {/* Organizational Information */}
-            <ProfileInfoRow
-              label="Depot"
-              value={driverData.depot_name || `Depot ID: ${driverData.depot_id}`}
-              isEditing={false}
-              editable={false}
-            />
-            {driverData.depot_location && (
-              <ProfileInfoRow
-                label="Depot Location"
-                value={driverData.depot_location}
-                isEditing={false}
-                editable={false}
-              />
-            )}
-            <ProfileInfoRow
-              label="Region"
-              value={driverData.region_name || `Region ID: ${driverData.region_id}`}
-              isEditing={false}
-              editable={false}
-            />
-            {driverData.depot_manager_name && (
-              <ProfileInfoRow
-                label="Depot Manager"
-                value={driverData.depot_manager_name}
-                isEditing={false}
-                editable={false}
-              />
-            )}
-            {driverData.depot_manager_phone && (
-              <ProfileInfoRow
-                label="Manager Phone"
-                value={driverData.depot_manager_phone}
-                isEditing={false}
-                editable={false}
-              />
-            )}
-            {driverData.depot_manager_email && (
-              <ProfileInfoRow
-                label="Manager Email"
-                value={driverData.depot_manager_email}
-                isEditing={false}
-                editable={false}
-              />
-            )}
-            <ProfileInfoRow
-              label="License Number"
-              value={driverData.license_number || "Not provided"}
-              isEditing={false}
-              editable={false}
-            />
-          </View>
-
-          {isEditing && (
-            <View style={styles.buttonContainer}>
+              <Text style={styles.cardTitleCentered}>Personal Information</Text>
               <TouchableOpacity 
-                style={[styles.saveButton, isSaving && styles.saveButtonDisabled]} 
-                onPress={handleSave}
-                disabled={isSaving}
+                onPress={() => (isEditing ? handleCancel() : setIsEditing(true))}
+                style={styles.editButton}
               >
-                <LinearGradient
-                  colors={[AppColors.primary, AppColors.primaryLight]}
-                  style={styles.saveButtonGradient}
-                >
-                  {isSaving ? (
-                    <ActivityIndicator color="#FFFFFF" size="small" />
-                  ) : (
-                    <>
-                      <Ionicons name="checkmark" size={20} color="#FFFFFF" />
-                      <Text style={styles.saveButtonText}>Save Changes</Text>
-                    </>
-                  )}
-                </LinearGradient>
+                <Ionicons
+                  name={isEditing ? "close-circle" : "pencil"}
+                  size={24}
+                  color={AppColors.primary}
+                />
               </TouchableOpacity>
             </View>
-          )}
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+
+            <View style={styles.infoCard}>
+              {/* Read-only fields */}
+              <ProfileInfoRow
+                label="First Name"
+                value={driverData.first_name || ""}
+                isEditing={false}
+                editable={false}
+              />
+              <ProfileInfoRow
+                label="Last Name"
+                value={driverData.last_name || ""}
+                isEditing={false}
+                editable={false}
+              />
+              <ProfileInfoRow
+                label="Username"
+                value={driverData.username || ""}
+                isEditing={false}
+                editable={false}
+              />
+              
+              {/* Editable fields */}
+              <ProfileInfoRow
+                label="Email"
+                value={isEditing ? editedData.email : driverData.email || ""}
+                isEditing={isEditing}
+                keyboardType="email-address"
+                onChangeText={(text) => handleInputChange("email", text)}
+                editable={true}
+              />
+              <ProfileInfoRow
+                label="Phone"
+                value={isEditing ? editedData.phone : driverData.phone || ""}
+                isEditing={isEditing}
+                keyboardType="phone-pad"
+                onChangeText={(text) => handleInputChange("phone", text)}
+                editable={true}
+              />
+              
+              <ProfileInfoRow
+                label="License Number"
+                value={driverData.license_number || "Not provided"}
+                isEditing={false}
+                editable={false}
+              />
+            </View>
+
+            {isEditing && (
+              <View style={styles.buttonContainer}>
+                <TouchableOpacity 
+                  style={[styles.saveButton, isSaving && styles.saveButtonDisabled]} 
+                  onPress={handleSave}
+                  disabled={isSaving}
+                >
+                  <LinearGradient
+                    colors={[AppColors.primary, AppColors.primaryLight]}
+                    style={styles.saveButtonGradient}
+                  >
+                    {isSaving ? (
+                      <ActivityIndicator color="#FFFFFF" size="small" />
+                    ) : (
+                      <>
+                        <Ionicons name="checkmark-circle" size={22} color="#FFFFFF" />
+                        <Text style={styles.saveButtonText}>Save Changes</Text>
+                      </>
+                    )}
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+
+          {/* Organizational Information Card */}
+          <View style={styles.card}>
+            <View style={styles.cardHeaderCentered}>
+              <MaterialCommunityIcons
+                name="office-building"
+                size={24}
+                color={AppColors.primary}
+              />
+              <Text style={styles.cardTitleCentered}>Organizational Details</Text>
+            </View>
+
+            <View style={styles.organizationGrid}>
+              {/* First Row - Depot and Region */}
+              <View style={styles.organizationRow}>
+                <View style={styles.organizationItemHalf}>
+                  <MaterialCommunityIcons name="garage" size={18} color={AppColors.primary} />
+                  <Text style={styles.organizationLabel}>Depot</Text>
+                  <Text style={styles.organizationValue}>
+                    {driverData.depot_name || `ID: ${driverData.depot_id}`}
+                  </Text>
+                  {driverData.depot_location && (
+                    <Text style={styles.organizationSubValue}>📍 {driverData.depot_location}</Text>
+                  )}
+                </View>
+
+                <View style={styles.organizationItemHalf}>
+                  <MaterialCommunityIcons name="map-marker-radius" size={18} color={AppColors.primary} />
+                  <Text style={styles.organizationLabel}>Region</Text>
+                  <Text style={styles.organizationValue}>
+                    {driverData.region_name || `ID: ${driverData.region_id}`}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Second Row - Depot Manager (if exists) */}
+              {driverData.depot_manager_name && (
+                <View style={styles.organizationItemFull}>
+                  <MaterialCommunityIcons name="account-tie" size={18} color={AppColors.primary} />
+                  <Text style={styles.organizationLabel}>Depot Manager</Text>
+                  <Text style={styles.organizationValue}>{driverData.depot_manager_name}</Text>
+                  <View style={styles.managerContactRow}>
+                    {driverData.depot_manager_phone && (
+                      <Text style={styles.organizationSubValue}>📞 {driverData.depot_manager_phone}</Text>
+                    )}
+                    {driverData.depot_manager_email && (
+                      <Text style={styles.organizationSubValue}>✉️ {driverData.depot_manager_email}</Text>
+                    )}
+                  </View>
+                </View>
+              )}
+            </View>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
+  gradientContainer: {
+    flex: 1,
+  },
   container: {
     flex: 1,
-    backgroundColor: AppColors.background,
+    backgroundColor: 'transparent',
+  },
+  headerGradient: {
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.2)',
+    ...Platform.select({
+      android: {
+        elevation: 8,
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+      },
+    }),
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: 'transparent',
+    paddingHorizontal: 10,
+    paddingVertical: 12,
+  },
+  backButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  headerTitle: {
+    color: "#FFFFFF",
+    fontSize: 20,
+    fontWeight: "bold",
+    flex: 1,
+    textAlign: 'center',
+    marginHorizontal: 8,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  headerActionButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
   scrollView: {
-    backgroundColor: AppColors.background,
+    flex: 1,
   },
   contentContainer: {
-    padding: 20,
+    padding: 12,
     paddingBottom: 100,
   },
   loadingContainer: {
@@ -410,19 +574,17 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     gap: 16,
-    backgroundColor: AppColors.background,
   },
   loadingText: {
     fontSize: 16,
     color: AppColors.textSecondary,
-    fontFamily: Platform.OS === "ios" ? "System" : "Roboto",
+    fontWeight: "500",
   },
   errorContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 40,
-    backgroundColor: AppColors.background,
   },
   errorTitle: {
     fontSize: 20,
@@ -437,116 +599,161 @@ const styles = StyleSheet.create({
     color: AppColors.textSecondary,
     textAlign: "center",
     marginBottom: 24,
+    lineHeight: 22,
   },
   retryButton: {
     backgroundColor: AppColors.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
+    paddingHorizontal: 32,
+    paddingVertical: 14,
     borderRadius: 12,
-  },
-  retryButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "600",
-    fontFamily: Platform.OS === "ios" ? "System" : "Roboto",
-  },
-  profileHeader: {
-    alignItems: "center",
-    paddingVertical: 24,
-    backgroundColor: AppColors.card,
-    borderRadius: 20,
-    marginBottom: 24,
     ...Platform.select({
       android: {
         elevation: 4,
       },
       ios: {
         shadowColor: "#000",
-        shadowOpacity: 0.08,
+        shadowOpacity: 0.2,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 3 },
+      },
+    }),
+  },
+  retryButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  card: {
+    backgroundColor: AppColors.card,
+    borderRadius: 12,
+    marginBottom: 12,
+    marginHorizontal: 2,
+    borderWidth: 0,
+    overflow: 'hidden',
+    ...Platform.select({
+      android: {
+        elevation: 4,
+      },
+      ios: {
+        shadowColor: "#000",
+        shadowOpacity: 0.1,
         shadowRadius: 8,
+        shadowOffset: { width: 0, height: 3 },
+      },
+    }),
+  },
+  profileHeaderGradient: {
+    alignItems: "center",
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+  },
+  avatarContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    borderWidth: 4,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
+    marginBottom: 16,
+    ...Platform.select({
+      android: {
+        elevation: 8,
+      },
+      ios: {
+        shadowColor: "#000",
+        shadowOpacity: 0.2,
+        shadowRadius: 10,
         shadowOffset: { width: 0, height: 4 },
       },
     }),
   },
-  avatarContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 16,
-  },
   driverName: {
     fontSize: 24,
     fontWeight: "bold",
-    color: AppColors.text,
+    color: "#FFFFFF",
     marginBottom: 4,
-    fontFamily: Platform.OS === "ios" ? "System" : "Roboto",
+    textAlign: 'center',
+    letterSpacing: 0.5,
   },
   driverRole: {
-    fontSize: 16,
-    color: AppColors.textSecondary,
+    fontSize: 14,
+    color: "rgba(255, 255, 255, 0.9)",
     marginBottom: 12,
+    fontWeight: '500',
   },
   driverIdBadge: {
-    backgroundColor: AppColors.primaryMuted,
-    paddingHorizontal: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    paddingHorizontal: 14,
     paddingVertical: 6,
-    borderRadius: 12,
+    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
   },
   driverIdText: {
-    fontSize: 14,
-    color: AppColors.primary,
-    fontWeight: "600",
+    fontSize: 13,
+    color: "#FFFFFF",
+    fontWeight: "700",
+    letterSpacing: 0.5,
   },
-  infoContainer: {
-    marginBottom: 24,
-  },
-  sectionHeader: {
+  cardHeader: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 16,
+    padding: 14,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
+  cardHeaderCentered: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 14,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
+  },
+  cardTitle: {
+    fontSize: 17,
+    fontWeight: "700",
     color: AppColors.text,
-    fontFamily: Platform.OS === "ios" ? "System" : "Roboto",
+    marginLeft: 10,
+    flex: 1,
+    letterSpacing: 0.3,
+  },
+  cardTitleCentered: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: AppColors.text,
+    marginLeft: 10,
+    letterSpacing: 0.3,
   },
   editButton: {
     padding: 4,
   },
   infoCard: {
-    backgroundColor: AppColors.card,
-    borderRadius: 16,
-    paddingVertical: 8,
-    ...Platform.select({
-      android: {
-        elevation: 2,
-      },
-      ios: {
-        shadowColor: "#000",
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-        shadowOffset: { width: 0, height: 2 },
-      },
-    }),
+    paddingVertical: 0,
   },
   infoRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 16,
+    paddingVertical: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: AppColors.border,
+    borderBottomColor: 'rgba(0, 0, 0, 0.06)',
   },
   infoLabel: {
-    fontSize: 14,
+    fontSize: 12,
     color: AppColors.textSecondary,
-    fontWeight: "500",
+    fontWeight: "600",
     width: "35%",
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   infoValue: {
     fontSize: 14,
@@ -554,6 +761,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     textAlign: "right",
     flex: 1,
+    letterSpacing: 0.2,
   },
   infoInput: {
     fontSize: 14,
@@ -561,36 +769,105 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     flex: 1,
     textAlign: "right",
-    paddingVertical: 4,
-    paddingHorizontal: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
     borderWidth: 1,
     borderColor: AppColors.primary,
     borderRadius: 8,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: 'rgba(0, 86, 179, 0.05)',
   },
   buttonContainer: {
-    marginTop: 20,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 16,
   },
   saveButton: {
-    borderRadius: 16,
+    borderRadius: 12,
     overflow: "hidden",
+    ...Platform.select({
+      android: {
+        elevation: 4,
+      },
+      ios: {
+        shadowColor: "#000",
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 3 },
+      },
+    }),
   },
   saveButtonDisabled: {
-    opacity: 0.7,
+    opacity: 0.6,
   },
   saveButtonGradient: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 16,
+    paddingVertical: 14,
     paddingHorizontal: 20,
+    gap: 8,
   },
   saveButtonText: {
     color: "#FFFFFF",
     fontSize: 16,
-    fontWeight: "600",
-    marginLeft: 8,
-    fontFamily: Platform.OS === "ios" ? "System" : "Roboto",
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+  organizationGrid: {
+    padding: 14,
+    paddingTop: 10,
+    gap: 10,
+  },
+  organizationRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  organizationItemHalf: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 86, 179, 0.04)',
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 86, 179, 0.1)',
+    borderLeftWidth: 3,
+    borderLeftColor: AppColors.primary,
+  },
+  organizationItemFull: {
+    backgroundColor: 'rgba(0, 86, 179, 0.04)',
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 86, 179, 0.1)',
+    borderLeftWidth: 3,
+    borderLeftColor: AppColors.primary,
+  },
+  organizationLabel: {
+    fontSize: 10,
+    color: AppColors.textSecondary,
+    fontWeight: "700",
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginTop: 6,
+    marginBottom: 4,
+  },
+  organizationValue: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: AppColors.text,
+    marginBottom: 2,
+    letterSpacing: 0.2,
+  },
+  organizationSubValue: {
+    fontSize: 12,
+    color: AppColors.textSecondary,
+    lineHeight: 18,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  managerContactRow: {
+    flexDirection: 'column',
+    gap: 4,
+    marginTop: 4,
   },
 });
 

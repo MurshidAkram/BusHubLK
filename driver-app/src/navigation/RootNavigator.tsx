@@ -211,8 +211,7 @@ export default function RootNavigator() {
                     component={ForgotPasswordScreen}
                     key="forgot-password-screen"
                     options={{
-                      title: "Change Password",
-                      headerShown: true,
+                      headerShown: false,
                     }}
                   />
                   <Stack.Screen

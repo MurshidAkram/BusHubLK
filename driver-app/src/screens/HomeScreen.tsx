@@ -28,16 +28,18 @@ const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
 // App Color Palette
 const AppColors = {
-  background: "#F8F9FA",
+  background: "#F8FAFF",
   card: "#FFFFFF",
   primary: "#0056b3",
+  primaryDark: "#003d82",
+  primaryLight: "#0076e3",
   primaryMuted: "rgba(0, 86, 179, 0.1)",
-  text: "#212529",
-  textSecondary: "#6C757D",
-  border: "#DEE2E6",
-  red: "#dc3545",
-  yellow: "#ffc107",
-  green: "#198754",
+  text: "#1F2937",
+  textSecondary: "#6B7280",
+  border: "#E5E7EB",
+  red: "#EF4444",
+  yellow: "#F59E0B",
+  green: "#10B981",
 };
 
 // TopHeader component with improved visibility
@@ -46,40 +48,40 @@ const TopHeader = () => {
   const { unreadCount } = useNotifications();
 
   return (
-    <View style={styles.header}>
-      <View style={styles.headerLeftContainer}>
-        <View style={styles.logoWrapper}>
-          <Image
-            source={require("../../assets/logowithoutbg_white.png")}
-            style={styles.headerLogo}
-            resizeMode="contain"
-          />
+    <LinearGradient
+      colors={['#0056b3', '#1976d2', '#42a5f5']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 0 }}
+      style={styles.header}
+    >
+      <View style={styles.headerContent}>
+        <View style={styles.titleContainer}>
+          <Text style={styles.headerTitle}>BusHubLK</Text>
         </View>
-        <Text style={styles.headerTitle}>
-          BusHubLK
-        </Text>
-      </View>
-      <View style={styles.headerIconContainer}>
-        <TouchableOpacity 
-          style={styles.headerIcon} 
-          onPress={() => (navigation as any).navigate("Notifications")}
-        >
-          <Ionicons name="notifications-outline" size={28} color="#FFFFFF" />
-          {unreadCount > 0 && (
-            <View style={styles.notificationBadge}>
-              <Text style={styles.notificationBadgeText}>
-                {unreadCount > 9 ? '9+' : unreadCount}
-              </Text>
+        <View style={styles.headerIcons}>
+          <TouchableOpacity 
+            style={styles.headerIconWrapper} 
+            onPress={() => (navigation as any).navigate("Notifications")}
+          >
+            <View style={styles.iconBackgroundEnhanced}>
+              <Ionicons name="notifications-outline" size={24} color="#FFFFFF" />
+              {unreadCount > 0 && (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </Text>
+                </View>
+              )}
             </View>
-          )}
-        </TouchableOpacity>
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
+    </LinearGradient>
   );
 };
 
-// WelcomeBanner component with dynamic data
-const WelcomeBanner = () => {
+// WelcomeBanner component with dynamic data - exported to share scheduleData
+const WelcomeBanner = ({ onScheduleDataChange }: { onScheduleDataChange?: (data: any[]) => void }) => {
   const { driverData, isLoading, error } = useDriver();
   const [scheduleData, setScheduleData] = useState<any[]>([]);
   const [scheduleLoading, setScheduleLoading] = useState(false);
@@ -103,12 +105,21 @@ const WelcomeBanner = () => {
 
         if (response && Array.isArray(response)) {
           setScheduleData(response);
+          if (onScheduleDataChange) {
+            onScheduleDataChange(response);
+          }
         } else {
           setScheduleData([]);
+          if (onScheduleDataChange) {
+            onScheduleDataChange([]);
+          }
         }
       } catch (error) {
         console.error('Error fetching schedule:', error);
         setScheduleData([]);
+        if (onScheduleDataChange) {
+          onScheduleDataChange([]);
+        }
       } finally {
         setScheduleLoading(false);
       }
@@ -154,44 +165,103 @@ const WelcomeBanner = () => {
 
   return (
     <LinearGradient
-      colors={["#0056b3", "#0076e3", "#1e88e5"]}
+      colors={[AppColors.primary, AppColors.primaryLight]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={styles.welcomeBanner}
     >
-      <View style={styles.busIconContainer}>
+      <View style={styles.welcomeIconContainer}>
         <MaterialCommunityIcons
           name="bus"
-          size={48}
+          size={32}
           color="#fff"
         />
       </View>
       <View style={styles.welcomeTextContainer}>
-        <Text style={styles.welcomeTitle}>Ready to Start, {getDriverName()}?</Text>
+        <Text style={styles.welcomeTitle}>Ready to Start, {getDriverName()}? 👋</Text>
         <Text style={styles.welcomeSubtitle}>{getScheduleInfo()}</Text>
       </View>
     </LinearGradient>
   );
 };
 
-// QuickActionButton component (unchanged)
-const QuickActionButton = ({ icon, text, onPress }) => (
+// QuickActionButton component
+const QuickActionButton = ({ icon, text, onPress }: { icon: any; text: string; onPress: () => void }) => (
   <TouchableOpacity
     style={styles.quickActionCard}
     onPress={onPress}
     activeOpacity={0.8}
   >
     <View style={styles.quickActionIconContainer}>
-      <MaterialCommunityIcons name={icon} size={26} color={AppColors.primary} />
+      <MaterialCommunityIcons name={icon} size={36} color={AppColors.primary} />
     </View>
     <Text style={styles.cardText}>{text}</Text>
   </TouchableOpacity>
 );
 
+// Active Route Tracking Card Component
+const ActiveRouteCard = ({ scheduleData }: { scheduleData: any[] }) => {
+  const navigation = useNavigation();
+  
+  // Find today's assignment
+  const today = new Date().toISOString().split('T')[0];
+  const todayAssignment = scheduleData.find(assignment =>
+    assignment.assignment_date === today
+  );
+
+  if (!todayAssignment) return null;
+
+  const busReg = todayAssignment.bus_registration || `Bus ${todayAssignment.bus_id}`;
+  const route = todayAssignment.route_number || `Route ${todayAssignment.route_id}`;
+
+  return (
+    <TouchableOpacity
+      style={styles.activeRouteCard}
+      onPress={() => (navigation as any).navigate("Tracking")}
+      activeOpacity={0.8}
+    >
+      <LinearGradient
+        colors={['#10B981', '#059669', '#047857']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.activeRouteGradient}
+      >
+        <View style={styles.activeRouteHeader}>
+          <View style={styles.activeRouteBadge}>
+            <View style={styles.pulseIndicator} />
+            <Text style={styles.activeRouteStatus}>ACTIVE NOW</Text>
+          </View>
+          <Ionicons name="navigate-circle" size={28} color="#FFFFFF" />
+        </View>
+        
+        <View style={styles.activeRouteContent}>
+          <Text style={styles.activeRouteTitle}>Today's Route</Text>
+          <View style={styles.activeRouteDetails}>
+            <View style={styles.activeRouteDetailItem}>
+              <Ionicons name="bus-outline" size={20} color="rgba(255, 255, 255, 0.9)" />
+              <Text style={styles.activeRouteDetailText}>{busReg}</Text>
+            </View>
+            <View style={styles.activeRouteDetailItem}>
+              <Ionicons name="location-outline" size={20} color="rgba(255, 255, 255, 0.9)" />
+              <Text style={styles.activeRouteDetailText}>{route}</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.activeRouteAction}>
+          <Text style={styles.activeRouteActionText}>Tap to view tracking</Text>
+          <Ionicons name="chevron-forward" size={22} color="rgba(255, 255, 255, 0.9)" />
+        </View>
+      </LinearGradient>
+    </TouchableOpacity>
+  );
+};
+
 // Main HomeScreen Component
 export default function HomeScreen() {
   const navigation = useNavigation();
   const { refreshDriverData } = useDriver();
+  const [scheduleData, setScheduleData] = useState<any[]>([]);
   
   // Initialize notification logic
   useNotificationLogic();
@@ -201,223 +271,208 @@ export default function HomeScreen() {
     refreshDriverData();
   }, [refreshDriverData]);
 
+  const handleScheduleDataChange = (data: any[]) => {
+    setScheduleData(data);
+  };
+
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
-      <Image
-        source={require("../../assets/logoblue.png")}
-        style={styles.backgroundImage}
-        pointerEvents="none"
-      />
-      <StatusBar
-        backgroundColor={AppColors.primary}
-        barStyle="light-content"
-        translucent={false}
-      />
-      <TopHeader />
-      <WelcomeBanner />
-      <ScrollView
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="always"
-      >
-        <TrackingStatusBanner onPress={() => navigation.navigate("Tracking" as never)} />
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.quickActionGrid}>
-            <QuickActionButton
-              icon="map-marker-radius"
-              text="Tracking Data"
-              onPress={() => navigation.navigate("Tracking")}
-            />
-            <QuickActionButton
-              icon="alert-circle"
-              text="Emergency"
-              onPress={() => navigation.navigate("Emergency")}
-            />
+    <LinearGradient
+      colors={['#F8FAFF', '#E3F2FD', '#BBDEFB']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.gradientBackground}
+    >
+      <SafeAreaView style={styles.container} edges={["top"]}>
+        <Image
+          source={require("../../assets/logoblue.png")}
+          style={styles.backgroundImage}
+        />
+        <StatusBar
+          backgroundColor="#0056b3"
+          barStyle="light-content"
+          translucent={false}
+        />
+        <TopHeader />
+        <ScrollView
+          contentContainerStyle={styles.contentContainer}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="always"
+        >
+          <WelcomeBanner onScheduleDataChange={handleScheduleDataChange} />
+          
+          {/* Active Route Card - Shows when schedule is active */}
+          <ActiveRouteCard scheduleData={scheduleData} />
+          
+          <TrackingStatusBanner onPress={() => navigation.navigate("Tracking" as never)} />
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Quick Actions</Text>
+            <View style={styles.quickActionGrid}>
+              <QuickActionButton
+                icon="map-marker-radius"
+                text="Tracking Data"
+                onPress={() => navigation.navigate("Tracking" as never)}
+              />
+              <QuickActionButton
+                icon="alert-circle"
+                text="Emergency"
+                onPress={() => navigation.navigate("Emergency" as never)}
+              />
 
-            <QuickActionButton
-              icon="car-wrench"
-              text="Bus Condition"
-              onPress={() => navigation.navigate("Condition")}
-            />
+              <QuickActionButton
+                icon="car-wrench"
+                text="Bus Condition"
+                onPress={() => navigation.navigate("Condition" as never)}
+              />
 
-            <QuickActionButton
-              icon="magnify"
-              text="Lost & Found"
-              onPress={() => navigation.navigate("LostAndFound")}
-            />
+              <QuickActionButton
+                icon="magnify"
+                text="Lost & Found"
+                onPress={() => navigation.navigate("LostAndFound" as never)}
+              />
+            </View>
           </View>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+        </ScrollView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
+  gradientBackground: {
+    flex: 1,
+  },
   container: {
     flex: 1,
-    backgroundColor: AppColors.background,
+    backgroundColor: 'transparent',
   },
   backgroundImage: {
     position: "absolute",
-    top: screenHeight * 0.55,
-    left: screenWidth * 0.1,
-    width: screenWidth * 0.8,
-    height: screenHeight * 0.4,
-    opacity: 0.15,
+    top: screenHeight * 0.6,
+    left: 0,
+    width: screenWidth,
+    height: screenHeight * 0.35,
+    opacity: 0.3,
     resizeMode: "contain",
   },
   contentContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: Platform.OS === 'android' ? 100 : 120, // Increased for new tab bar
-    paddingTop: 16,
+    paddingHorizontal: 16,
+    paddingBottom: Platform.OS === 'android' ? 100 : 120,
+    paddingTop: 12,
   },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: AppColors.primary,
     paddingHorizontal: 16,
-    paddingVertical: Platform.OS === "ios" ? 12 : 12,
-    minHeight: Platform.OS === "ios" ? 60 : 60,
+    paddingTop: 12,
+    paddingBottom: 16,
     ...Platform.select({
       android: {
-        elevation: 4,
+        elevation: 8,
       },
       ios: {
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
       },
     }),
   },
-  headerLeftContainer: {
+  headerContent: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
+    minHeight: 40,
   },
-  logoWrapper: {
-    width: 35,
-    height: 35,
-    borderRadius: 8, // Square with rounded corners
-    backgroundColor: "none",
-    justifyContent: "center",
+  titleContainer: {
+    flexDirection: "row",
     alignItems: "center",
-    overflow: "hidden",
-    marginRight: 10,
-  },
-  headerLogo: {
-    width: 70,
-    height: 40,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.25)",
   },
   headerTitle: {
     color: "#FFFFFF",
-    fontSize: 18,
-    fontWeight: "600",
-    fontFamily: Platform.OS === "ios" ? "System" : "Roboto",
-    lineHeight: Platform.OS === "ios" ? 22 : 22,
+    fontSize: 20,
+    fontWeight: "700",
+    letterSpacing: 0.5,
     includeFontPadding: false,
     textAlignVertical: "center",
   },
-  superscript: {
-    fontSize: Platform.OS === "ios" ? 10 : 9,
-    lineHeight: Platform.OS === "ios" ? 12 : 11,
-    textAlignVertical: "top",
-    includeFontPadding: false,
-    ...Platform.select({
-      ios: {
-        transform: [{ translateY: -16 }],
-        position: "relative",
-        top: -6,
-      },
-      android: {
-        transform: [{ translateY: -12 }],
-        position: "relative",
-        top: -4,
-      },
-    }),
-  },
-  headerIconContainer: {
+  headerIcons: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 12,
   },
-  headerIcon: {
-    padding: 5,
-    marginLeft: 10,
+  headerIconWrapper: {
+    padding: 4,
+  },
+  iconBackgroundEnhanced: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.25)",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.3)",
   },
   welcomeBanner: {
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: 16,
-    paddingVertical: 16,
-    paddingHorizontal: 18,
-    marginHorizontal: 20,
+    borderRadius: 20,
+    padding: 22,
     marginBottom: 16,
-    marginTop: 20,
-    minHeight: Platform.OS === "android" ? 75 : 70,
     ...Platform.select({
       android: {
-        elevation: 4,
+        elevation: 8,
       },
       ios: {
         shadowColor: "#000",
-        shadowOpacity: 0.12,
-        shadowRadius: 6,
-        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.2,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 6 },
       },
     }),
   },
-  busIconContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
+  welcomeIconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: "rgba(255, 255, 255, 0.25)",
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 14,
-    ...Platform.select({
-      android: {
-        elevation: 1,
-      },
-      ios: {
-        shadowColor: "#000",
-        shadowOpacity: 0.08,
-        shadowRadius: 3,
-        shadowOffset: { width: 0, height: 1 },
-      },
-    }),
+    marginRight: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.3)",
   },
   welcomeTextContainer: {
     flex: 1,
-    justifyContent: "center",
   },
   welcomeTitle: {
     color: "#fff",
-    fontSize: Platform.OS === "ios" ? 18 : 17,
-    fontWeight: "bold",
-    lineHeight: Platform.OS === "ios" ? 24 : 22,
-    includeFontPadding: false,
-    textAlignVertical: "center",
-    marginBottom: 3,
+    fontSize: 19,
+    fontWeight: "700",
+    marginBottom: 4,
+    letterSpacing: 0.3,
   },
   welcomeSubtitle: {
-    color: "rgba(255, 255, 255, 0.9)",
-    fontSize: Platform.OS === "ios" ? 14 : 13,
+    color: "rgba(255, 255, 255, 0.95)",
+    fontSize: 15,
     fontWeight: "500",
-    lineHeight: Platform.OS === "ios" ? 18 : 16,
-    includeFontPadding: false,
-    textAlignVertical: "center",
+    letterSpacing: 0.2,
   },
   section: {
-    marginBottom: 16,
+    marginBottom: 14,
   },
   sectionTitle: {
-    fontSize: Platform.OS === "ios" ? 19 : 18,
-    fontWeight: "600",
-    color: AppColors.text,
+    fontSize: 18,
+    fontWeight: "700",
+    color: AppColors.primary,
     textAlign: "center",
-    lineHeight: Platform.OS === "ios" ? 24 : 22,
+    lineHeight: 24,
     includeFontPadding: false,
+    marginBottom: 10,
   },
   journeyCard: {
     padding: 18,
@@ -438,12 +493,12 @@ const styles = StyleSheet.create({
     }),
   },
   journeyTitle: {
-    fontSize: Platform.OS === "ios" ? 18 : 17,
-    fontWeight: "600",
+    fontSize: 17,
+    fontWeight: "700",
     color: AppColors.primary,
     marginBottom: 16,
     textAlign: "center",
-    lineHeight: Platform.OS === "ios" ? 24 : 22,
+    lineHeight: 24,
     includeFontPadding: false,
   },
   inputGroup: {
@@ -461,10 +516,10 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontSize: Platform.OS === "ios" ? 16 : 15,
+    fontSize: 15,
     color: AppColors.text,
     paddingVertical: Platform.OS === "ios" ? 14 : 12,
-    lineHeight: Platform.OS === "ios" ? 20 : 19,
+    lineHeight: 20,
     includeFontPadding: false,
     textAlignVertical: "center",
   },
@@ -508,85 +563,190 @@ const styles = StyleSheet.create({
   },
   searchButton: {
     backgroundColor: AppColors.primary,
-    paddingVertical: Platform.OS === "ios" ? 16 : 14,
+    paddingVertical: 15,
     borderRadius: 14,
     alignItems: "center",
     marginTop: 8,
   },
   searchButtonText: {
     color: "#FFFFFF",
-    fontSize: Platform.OS === "ios" ? 16 : 15,
+    fontSize: 16,
     fontWeight: "600",
-    lineHeight: Platform.OS === "ios" ? 20 : 19,
+    lineHeight: 20,
     includeFontPadding: false,
     textAlignVertical: "center",
   },
   quickActionGrid: {
-    top: 10,
     flexDirection: "row",
     justifyContent: "space-between",
     flexWrap: "wrap",
-    gap: 4,
-    marginHorizontal: -2,
+    gap: 12,
   },
   quickActionCard: {
     width: "48%",
-    height: Platform.OS === "ios" ? 85 : 80,
+    aspectRatio: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: AppColors.card,
+    backgroundColor: '#FFFFFF',
     borderRadius: 18,
-    paddingHorizontal: 5,
-    paddingVertical: 8,
+    paddingVertical: 20,
+    paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: AppColors.border,
-    marginBottom: 12,
+    borderColor: 'rgba(0, 86, 179, 0.1)',
     ...Platform.select({
       android: {
-        elevation: 1,
+        elevation: 3,
       },
       ios: {
         shadowColor: "#000",
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
-        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.08,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 3 },
       },
     }),
   },
   quickActionIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: AppColors.primaryMuted,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#E7F1FF',
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: 14,
+    ...Platform.select({
+      android: {
+        elevation: 2,
+      },
+      ios: {
+        shadowColor: AppColors.primary,
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 2 },
+      },
+    }),
   },
   cardText: {
-    fontSize: Platform.OS === "ios" ? 12 : 11,
-    fontWeight: "500",
-    color: AppColors.textSecondary,
+    fontSize: 15,
+    fontWeight: "600",
+    color: AppColors.text,
     textAlign: "center",
-    lineHeight: Platform.OS === "ios" ? 16 : 15,
+    lineHeight: 19,
     includeFontPadding: false,
+  },
+  // Active Route Card Styles
+  activeRouteCard: {
+    borderRadius: 22,
+    marginBottom: 18,
+    overflow: 'hidden',
+    ...Platform.select({
+      android: {
+        elevation: 10,
+      },
+      ios: {
+        shadowColor: "#10B981",
+        shadowOpacity: 0.35,
+        shadowRadius: 14,
+        shadowOffset: { width: 0, height: 8 },
+      },
+    }),
+  },
+  activeRouteGradient: {
+    padding: 24,
+    borderRadius: 22,
+  },
+  activeRouteHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  activeRouteBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.25)",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.3)",
+  },
+  pulseIndicator: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#FFFFFF",
+    marginRight: 8,
+  },
+  activeRouteStatus: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 0.6,
+  },
+  activeRouteContent: {
+    marginBottom: 16,
+  },
+  activeRouteTitle: {
+    color: "#FFFFFF",
+    fontSize: 22,
+    fontWeight: "700",
+    marginBottom: 12,
+    letterSpacing: 0.4,
+  },
+  activeRouteDetails: {
+    gap: 10,
+  },
+  activeRouteDetailItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+  },
+  activeRouteDetailText: {
+    color: "rgba(255, 255, 255, 0.95)",
+    fontSize: 16,
+    fontWeight: "600",
+    marginLeft: 12,
+    letterSpacing: 0.2,
+  },
+  activeRouteAction: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.25)",
+  },
+  activeRouteActionText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "600",
+    letterSpacing: 0.3,
   },
   notificationBadge: {
     position: "absolute",
     top: -2,
     right: -2,
-    backgroundColor: AppColors.red,
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    alignItems: "center",
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: "#F97316",
     justifyContent: "center",
-    borderWidth: 2,
-    borderColor: "#FFFFFF",
+    alignItems: "center",
+    paddingHorizontal: 4,
+    borderWidth: 1,
+    borderColor: "#ffffff",
   },
   notificationBadgeText: {
-    color: "#FFFFFF",
-    fontSize: 12,
-    fontWeight: "bold",
-    lineHeight: 16,
+    color: "#ffffff",
+    fontSize: 10,
+    fontWeight: "700",
   },
 });
