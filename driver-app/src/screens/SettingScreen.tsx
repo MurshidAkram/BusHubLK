@@ -83,12 +83,12 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
 
   const handleLogout = async () => {
     Alert.alert(
-      "🚪 Logout", 
-      "Are you sure you want to logout from BusHubLK Driver App?\n\nYou will need to login again to access the app.", 
+      "🚪 Logout",
+      "Are you sure you want to logout from BusHubLK Driver App?\n\nYou will need to login again to access the app.",
       [
-        { 
-          text: "Cancel", 
-          style: "cancel" 
+        {
+          text: "Cancel",
+          style: "cancel"
         },
         {
           text: "Logout",
@@ -97,24 +97,27 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
             try {
               // Call API logout to blacklist token
               const result = await driverAPI.logout();
-              
+
+              // Clear local storage to force logout
+              await storageAPI.clearStorage();
+
               if (result.success) {
-                // The RootNavigator checks auth status every second,
-                // so it will automatically redirect to login screen
                 Alert.alert(
-                  "✅ Success", 
+                  "✅ Success",
                   "You have been logged out successfully.\n\nThank you for using BusHubLK!"
                 );
               } else {
                 Alert.alert(
-                  "⚠️ Warning", 
+                  "⚠️ Warning",
                   "Logged out locally, but could not reach server.\n\nPlease check your internet connection."
                 );
               }
+
+              console.log("✅ User logged out successfully");
             } catch (error) {
               console.error("Logout error:", error);
               Alert.alert(
-                "❌ Error", 
+                "❌ Error",
                 "Failed to logout. Please try again.\n\nIf the problem persists, contact your depot manager."
               );
             }

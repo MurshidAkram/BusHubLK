@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { authAPI } from '../services/api';
+import { authAPI, storageAPI } from '../services/api';
 
 // --- Color Palette ---
 const AppColors = {
@@ -119,8 +119,13 @@ const MainSettingsView: React.FC<MainSettingsViewProps> = ({ onNavigate }) => {
         style: "destructive",
         onPress: async () => {
           try {
+            // Call API logout first
             await authAPI.logout();
-            // The App.tsx will automatically detect the auth state change
+
+            // Clear local storage to force logout
+            await storageAPI.clearStorage();
+
+            console.log("✅ User logged out successfully");
           } catch (error) {
             console.error("Logout error:", error);
             Alert.alert("Error", "Failed to logout. Please try again.");
