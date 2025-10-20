@@ -63,7 +63,7 @@ INSERT INTO roles (role_name, role_description) VALUES
 INSERT INTO regions (region_name) VALUES
 ('Colombo'),
 ('Gampaha'),
-('Kaluthara'), ..
+('Kaluthara'),
 ('Wayamba'),
 ('Mahanuwara'),
 ('Sabaragamuwa'),
@@ -489,30 +489,62 @@ INSERT INTO routes (route_number, route_name, start_location, end_location, dist
 
 
 
-CREATE TABLE route_stops (
-    stop_id SERIAL PRIMARY KEY,
-    route_id INTEGER REFERENCES routes(route_id) ON DELETE CASCADE,
-    stop_name VARCHAR(100) NOT NULL,
-    stop_order INTEGER NOT NULL,
-    distance_from_start DECIMAL(5,2),
-    fare_from_start DECIMAL(6,2),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+-- Table: public.route_stops
+CREATE TABLE IF NOT EXISTS public.route_stops
+(
+    stop_id integer NOT NULL GENERATED ALWAYS AS IDENTITY ( INCREMENT 1 START 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1 ),
+    route_number character varying(10) COLLATE pg_catalog."default" NOT NULL,
+    stop_name character varying(100) COLLATE pg_catalog."default" NOT NULL,
+    stop_order integer NOT NULL,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT route_stops_pkey PRIMARY KEY (stop_id),
+    CONSTRAINT route_stops_unique_route_stop UNIQUE (route_number, stop_order),
+    CONSTRAINT route_stops_route_number_fkey FOREIGN KEY (route_number)
+        REFERENCES public.routes (route_number) MATCH SIMPLE
+        ON UPDATE NO ACTION
+        ON DELETE CASCADE
 );
 
-CREATE INDEX idx_route_stops_route_id ON route_stops(route_id);
-CREATE INDEX idx_route_stops_order ON route_stops(route_id, stop_order);
+CREATE INDEX idx_route_stops_route_number ON route_stops(route_number);
+CREATE INDEX idx_route_stops_order ON route_stops(route_number, stop_order);
 
--- Sample stops for route 154 (Kiribathgoda-Angulana)
-INSERT INTO route_stops (route_id, stop_name, stop_order, distance_from_start, fare_from_start) VALUES 
-(1, 'Kiribathgoda', 1, 0.0, 0.00),
-(1, 'Kelaniya', 2, 3.2, 8.00),
-(1, 'Peliyagoda', 3, 6.8, 12.00),
-(1, 'Colombo', 4, 12.5, 18.00),
-(1, 'Wellawatte', 5, 18.3, 25.00),
-(1, 'Dehiwala', 6, 22.1, 30.00),
-(1, 'Mount Lavinia', 7, 25.7, 35.00),
-(1, 'Moratuwa', 8, 30.2, 40.00),
-(1, 'Angulana', 9, 35.5, 45.00);
+-- Sample stops for route 138 (Pettah-Malabe)
+INSERT INTO route_stops (route_number, stop_name, stop_order) VALUES 
+('138', 'Pettah Bus Station', 1),
+('138', 'Fort Railway Station', 2),
+('138', 'Colombo Central Bus Stand', 3),
+('138', 'Borella', 4),
+('138', 'Narahenpita', 5),
+('138', 'Rajagiriya', 6),
+('138', 'Battaramulla', 7),
+('138', 'Malabe', 8),
+('138', 'Kirulapone Bus Stop', 9);
+
+-- Table: public.bus_fares
+CREATE TABLE IF NOT EXISTS public.bus_fares
+(
+    section integer NOT NULL,
+    fare numeric(10,2) NOT NULL,
+    CONSTRAINT fares_pkey PRIMARY KEY (section)
+);
+
+-- Sample bus fare data based on number of stops/sections
+INSERT INTO bus_fares (section, fare) VALUES 
+(1, 25.00),   -- 1 stop
+(2, 35.00),   -- 2 stops  
+(3, 45.00),   -- 3 stops
+(4, 55.00),   -- 4 stops
+(5, 65.00),   -- 5 stops
+(6, 75.00),   -- 6 stops
+(7, 85.00),   -- 7 stops
+(8, 95.00),   -- 8 stops
+(9, 105.00),  -- 9 stops
+(10, 115.00), -- 10 stops
+(15, 150.00), -- 15 stops
+(20, 200.00), -- 20 stops
+(25, 250.00), -- 25 stops
+(30, 300.00); -- 30 stops
 
 CREATE TABLE alerts (
     id SERIAL PRIMARY KEY,
@@ -748,7 +780,7 @@ CREATE TABLE spare_parts_usage_history (
 );
 
 -- Indexes
-CREATE INDEX idx_usage_bus ON spare_parts_usage_history(bus_id);
+CREATE INDEX idx_usage_bus ON spare_partson_usage_history(bus_id);
 CREATE INDEX idx_usage_depot ON spare_parts_usage_history(depot_id);
 CREATE INDEX idx_usage_date ON spare_parts_usage_history(usage_date);
 CREATE INDEX idx_usage_part ON spare_parts_usage_history(part_id);
@@ -796,3 +828,276 @@ CREATE INDEX idx_service_schedules_active ON service_schedules(depot_id) WHERE s
 
 ALTER TABLE service_schedules 
 ADD COLUMN is_deleted BOOLEAN DEFAULT false;
+
+
+--  busdailychecklists table for daily part checking by depot engineer
+CREATE TABLE busdailychecklists (
+    checklist_id SERIAL PRIMARY KEY,
+    bus_id INTEGER NOT NULL REFERENCES buses(bus_id) ON DELETE CASCADE,
+    checker_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE, -- depot engineer who performed the check
+    check_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    check_time TIME NOT NULL DEFAULT CURRENT_TIME,
+    
+    -- Main part checking flags
+    engine BOOLEAN DEFAULT FALSE,
+    brakes BOOLEAN DEFAULT FALSE,
+    tires BOOLEAN DEFAULT FALSE,
+    windows BOOLEAN DEFAULT FALSE,
+    doors BOOLEAN DEFAULT FALSE,
+    headlights BOOLEAN DEFAULT FALSE,
+    signallights BOOLEAN DEFAULT FALSE,
+    
+    -- Overall checklist status
+    is_checked BOOLEAN GENERATED ALWAYS AS (
+        engine OR brakes OR tires OR windows OR doors OR headlights OR signallights
+    ) STORED,
+    
+    -- Bus status after the checklist is completed
+    status_after_check VARCHAR(20) CHECK (status_after_check IN ('Active', 'In Service', 'Maintenance', 'Out of Service')),
+    
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Ensure one checklist per bus per day
+    UNIQUE(bus_id, check_date)
+);
+
+-- Create indexes for better performance
+CREATE INDEX idx_busdailychecklists_bus_id ON busdailychecklists(bus_id);
+CREATE INDEX idx_busdailychecklists_checker_id ON busdailychecklists(checker_id);
+CREATE INDEX idx_busdailychecklists_check_date ON busdailychecklists(check_date);
+CREATE INDEX idx_busdailychecklists_is_checked ON busdailychecklists(is_checked);
+
+-- Detailed checklist findings per bus per day
+CREATE TABLE busdailychecklist_parts (
+    id SERIAL PRIMARY KEY,
+    checklist_id INTEGER NOT NULL REFERENCES busdailychecklists(checklist_id) ON DELETE CASCADE,
+    part_key TEXT NOT NULL CHECK (part_key IN (
+        'engine',
+        'brakes',
+        'tires',
+        'windows',
+        'doors',
+        'headlights',
+        'signallights'
+    )),
+    part_label TEXT NOT NULL,
+    has_issue BOOLEAN NOT NULL DEFAULT FALSE,
+    severity TEXT CHECK (severity IS NULL OR severity IN ('low', 'medium', 'high')),
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(checklist_id, part_key)
+);
+
+CREATE INDEX idx_bdc_parts_checklist ON busdailychecklist_parts(checklist_id);
+CREATE INDEX idx_bdc_parts_issue ON busdailychecklist_parts(checklist_id) WHERE has_issue;
+
+
+CREATE TABLE communication_channels (
+    channel_id SERIAL PRIMARY KEY,
+    channel_type VARCHAR(20) NOT NULL CHECK (channel_type IN ('direct', 'announcement')),
+    channel_name VARCHAR(100),
+    created_by INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Channel Participants Table
+-- Links users to channels (many-to-many relationship)
+CREATE TABLE channel_participants (
+    participant_id SERIAL PRIMARY KEY,
+    channel_id INTEGER NOT NULL REFERENCES communication_channels(channel_id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    can_send BOOLEAN DEFAULT TRUE,
+    joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_read_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(channel_id, user_id)
+);
+
+-- Messages Table
+-- Stores all messages sent in channels
+CREATE TABLE messages (
+    message_id SERIAL PRIMARY KEY,
+    channel_id INTEGER NOT NULL REFERENCES communication_channels(channel_id) ON DELETE CASCADE,
+    sender_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    message_text TEXT NOT NULL,
+    is_read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Message Read Status Table
+-- Tracks which users have read which messages
+CREATE TABLE message_read_status (
+    read_status_id SERIAL PRIMARY KEY,
+    message_id INTEGER NOT NULL REFERENCES messages(message_id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    read_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(message_id, user_id)
+);
+
+-- Indexes for better performance
+CREATE INDEX idx_channels_created_by ON communication_channels(created_by);
+CREATE INDEX idx_channels_type ON communication_channels(channel_type);
+CREATE INDEX idx_channel_participants_user ON channel_participants(user_id);
+CREATE INDEX idx_channel_participants_channel ON channel_participants(channel_id);
+CREATE INDEX idx_messages_channel ON messages(channel_id);
+CREATE INDEX idx_messages_sender ON messages(sender_id);
+CREATE INDEX idx_messages_created ON messages(created_at DESC);
+CREATE INDEX idx_message_read_status_message ON message_read_status(message_id);
+CREATE INDEX idx_message_read_status_user ON message_read_status(user_id);
+
+-- Function to update updated_at timestamp
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Triggers for updated_at
+CREATE TRIGGER update_communication_channels_updated_at
+    BEFORE UPDATE ON communication_channels
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_messages_updated_at
+    BEFORE UPDATE ON messages
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- Function to get or create a direct channel between two users
+CREATE OR REPLACE FUNCTION get_or_create_direct_channel(
+    user1_id INTEGER,
+    user2_id INTEGER
+)
+RETURNS INTEGER AS $$
+DECLARE
+    existing_channel_id INTEGER;
+    new_channel_id INTEGER;
+BEGIN
+    -- Check if a direct channel already exists between these two users
+    SELECT c.channel_id INTO existing_channel_id
+    FROM communication_channels c
+    WHERE c.channel_type = 'direct'
+    AND EXISTS (
+        SELECT 1 FROM channel_participants cp1
+        WHERE cp1.channel_id = c.channel_id AND cp1.user_id = user1_id
+    )
+    AND EXISTS (
+        SELECT 1 FROM channel_participants cp2
+        WHERE cp2.channel_id = c.channel_id AND cp2.user_id = user2_id
+    )
+    AND (
+        SELECT COUNT(*) FROM channel_participants cp
+        WHERE cp.channel_id = c.channel_id
+    ) = 2
+    LIMIT 1;
+
+    IF existing_channel_id IS NOT NULL THEN
+        RETURN existing_channel_id;
+    END IF;
+
+    -- Create new channel
+    INSERT INTO communication_channels (channel_type, created_by)
+    VALUES ('direct', user1_id)
+    RETURNING channel_id INTO new_channel_id;
+
+    -- Add both participants
+    INSERT INTO channel_participants (channel_id, user_id, can_send)
+    VALUES 
+        (new_channel_id, user1_id, TRUE),
+        (new_channel_id, user2_id, TRUE);
+
+    RETURN new_channel_id;
+END;
+$$ LANGUAGE plpgsql;
+-- Index for better performance
+CREATE INDEX idx_spare_parts_depot ON spare_parts_inventory(depot_id);
+
+-- notifications each depot engineer has read
+CREATE TABLE depot_engineer_notifications_read (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    source_type VARCHAR(50) NOT NULL,
+    source_id BIGINT NOT NULL,
+    depot_id INTEGER REFERENCES depots(depot_id) ON DELETE CASCADE,
+    region_id INTEGER REFERENCES regions(region_id) ON DELETE CASCADE,
+    is_read BOOLEAN NOT NULL DEFAULT TRUE,
+    read_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (user_id, source_type, source_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_depot_engineer_notifications_read_user ON depot_engineer_notifications_read(user_id);
+CREATE INDEX IF NOT EXISTS idx_depot_engineer_notifications_read_lookup ON depot_engineer_notifications_read(source_type, source_id);
+
+-- notifications each regional technical officer (RTO) has read
+CREATE TABLE rto_notifications_read (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    source_type VARCHAR(50) NOT NULL,
+    source_id BIGINT NOT NULL,
+    region_id INTEGER REFERENCES regions(region_id) ON DELETE CASCADE,
+    is_read BOOLEAN NOT NULL DEFAULT TRUE,
+    read_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (user_id, source_type, source_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_rto_notifications_read_user ON rto_notifications_read(user_id);
+CREATE INDEX IF NOT EXISTS idx_rto_notifications_read_lookup ON rto_notifications_read(source_type, source_id);
+CREATE TABLE dgm_technical_notifications_read (
+    id BIGSERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    source_type TEXT NOT NULL CHECK (source_type IN ('announcement', 'direct_message')),
+    source_id BIGINT NOT NULL,
+    region_id INTEGER REFERENCES regions(region_id) ON DELETE SET NULL,
+    is_read BOOLEAN NOT NULL DEFAULT TRUE,
+    read_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT dgm_technical_notifications_read_unique UNIQUE (user_id, source_type, source_id)
+);
+
+CREATE INDEX idx_dgm_technical_notifications_read_user
+    ON dgm_technical_notifications_read (user_id);
+
+CREATE INDEX idx_dgm_technical_notifications_read_source
+    ON dgm_technical_notifications_read (source_type, source_id);
+
+
+
+CREATE TABLE dgm_operations_notifications_read (
+    id BIGSERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    source_type TEXT NOT NULL CHECK (source_type IN ('announcement', 'direct_message')),
+    source_id BIGINT NOT NULL,
+    is_read BOOLEAN NOT NULL DEFAULT TRUE,
+    read_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT dgm_operations_notifications_read_unique UNIQUE (user_id, source_type, source_id)
+);
+
+CREATE INDEX idx_dgm_operations_notifications_read_user
+    ON dgm_operations_notifications_read (user_id);
+
+CREATE INDEX idx_dgm_operations_notifications_read_source
+    ON dgm_operations_notifications_read (source_type, source_id);
+
+
+
+CREATE TABLE admin_notifications_read (
+    id SERIAL PRIMARY KEY,
+    user_id        INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    source_type    TEXT    NOT NULL,             -- 'announcement' | 'direct_message' | 'emergency_escalated'
+    source_id      BIGINT  NOT NULL,             
+    is_read        BOOLEAN NOT NULL DEFAULT TRUE,
+    read_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (user_id, source_type, source_id)
+);
+
+CREATE INDEX idx_admin_notifications_read_user
+    ON admin_notifications_read (user_id);
+
+CREATE INDEX idx_admin_notifications_read_source
+    ON admin_notifications_read (source_type, source_id);

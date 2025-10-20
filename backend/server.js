@@ -186,7 +186,7 @@ try {
 
 try {
   const safetyRoutes = require('./routes/safetyRoutes');
-  app.use('/api/safety', safetyRoutes);
+  app.use('/api/ceo', safetyRoutes);
   console.log('✅ safetyRoutes loaded');
 } catch (error) {
   console.log('❌ safetyRoutes error:', error.message);

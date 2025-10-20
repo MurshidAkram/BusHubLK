@@ -1,4 +1,4 @@
-// controllers/safetyController.js
+// backend/controllers/safetyController.js
 const SafetyModel = require('../models/safetyModel');
 
 const getSafetySummary = async (req, res) => {
@@ -41,9 +41,21 @@ const getRecentIncidents = async (req, res) => {
   }
 };
 
+// New: combined endpoint for the frontend (single request)
+const getIncidentsOverview = async (req, res) => {
+  try {
+    const data = await SafetyModel.getIncidentsOverview();
+    res.json({ success: true, data });
+  } catch (err) {
+    console.error('Error fetching incidents overview:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
 module.exports = {
   getSafetySummary,
   getIncidentTrend,
   getIncidentsByRegion,
   getRecentIncidents,
+  getIncidentsOverview
 };
