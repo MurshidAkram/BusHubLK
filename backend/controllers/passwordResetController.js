@@ -68,7 +68,7 @@ const requestPasswordReset = async (req, res) => {
     // Generate reset token
     console.log('🔑 Generating reset token...');
     const resetToken = crypto.randomBytes(32).toString('hex');
-    const resetTokenExpiry = Date.now() + 3600000; // 1 hour from now
+    const resetTokenExpiry = Date.now() + 86400000; // 24 hours from now (increased from 1 hour)
 
     // Store token with expiry
     resetTokens.set(resetToken, {
@@ -91,6 +91,10 @@ const requestPasswordReset = async (req, res) => {
 
     const resetLink = `${baseURL}/api/password-reset/universal/${resetToken}?email=${encodeURIComponent(user.email)}`;
     console.log('🔗 Generated Reset Link:', resetLink);
+
+    // Also generate a new request link for when tokens expire
+    const newRequestLink = `${baseURL}/forgot-password?email=${encodeURIComponent(user.email)}`;
+    console.log('🔄 New Request Link (for expired tokens):', newRequestLink);
 
     // Send reset email
     console.log('📧 Sending reset email...');
@@ -190,17 +194,48 @@ const resetPassword = async (req, res) => {
     if (Date.now() > tokenData.expiry) {
       resetTokens.delete(token); // Clean up expired token
       console.log('Token expired');
+
+      // Generate a new request link for convenience
+      const baseURL = getDynamicBaseURL();
+      const newRequestLink = `${baseURL}/forgot-password?email=${encodeURIComponent(tokenData.email)}`;
+
       if (req.get('Content-Type') && req.get('Content-Type').includes('application/x-www-form-urlencoded')) {
         return res.send(`
-          <!DOCTYPE html><html><head><title>Error</title></head><body>
-          <h2 style="color:red;">Error: Reset token has expired.</h2>
-          <p>Please request a new one.</p>
-          </body></html>
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Token Expired - BusHubLK</title>
+            <style>
+              body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #f4f7f6; }
+              .container { background: white; padding: 40px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 500px; margin: 0 auto; }
+              h2 { color: #dc2626; margin-bottom: 20px; }
+              p { color: #6b7280; margin-bottom: 30px; line-height: 1.6; }
+              .button { display: inline-block; padding: 12px 24px; background: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-weight: bold; }
+              .button:hover { background: #1d4ed8; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h2>🔒 Reset Link Expired</h2>
+              <p>Your password reset link has expired for security reasons.</p>
+              <p>Don't worry! You can request a new password reset link.</p>
+              <p><strong>What to do next:</strong></p>
+              <ul style="text-align: left; display: inline-block; margin-bottom: 30px;">
+                <li>Go back to the app and request a new password reset</li>
+                <li>Check your email for the new reset link</li>
+                <li>Use the link within 24 hours</li>
+              </ul>
+              <a href="${newRequestLink}" class="button">Request New Reset Link</a>
+            </div>
+          </body>
+          </html>
         `);
       }
       return res.status(400).json({
         success: false,
-        error: 'Reset token has expired. Please request a new one.'
+        error: 'Reset token has expired. Please request a new password reset link.',
+        action: 'request_new_link',
+        email: tokenData.email
       });
     }
 

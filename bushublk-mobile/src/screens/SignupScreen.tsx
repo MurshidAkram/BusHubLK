@@ -31,9 +31,32 @@ export default function SignupScreen({ navigation }: any) {
   const [isLoading, setIsLoading] = useState(false);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
 
+  const validatePassword = (password: string): string | null => {
+    if (password.length < 6) {
+      return "Password must be at least 6 characters long";
+    }
+    if (!/(?=.*[a-z])/.test(password)) {
+      return "Password must contain at least one lowercase letter";
+    }
+    if (!/(?=.*[A-Z])/.test(password)) {
+      return "Password must contain at least one uppercase letter";
+    }
+    if (!/(?=.*\d)/.test(password)) {
+      return "Password must contain at least one number";
+    }
+    return null;
+  };
+
   const handleSignup = async () => {
     if (!fullName.trim() || !email.trim() || !username.trim() || !password.trim() || !confirmPassword.trim()) {
       Alert.alert("Error", "Please fill in all required fields");
+      return;
+    }
+
+    // Validate password complexity
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      Alert.alert("Error", passwordError);
       return;
     }
 
@@ -199,7 +222,7 @@ export default function SignupScreen({ navigation }: any) {
                   <View style={styles.inputWrapper}>
                     <Ionicons name="lock-closed-outline" size={20} color="#6b7280" style={styles.inputIcon} />
                     <TextInput
-                      placeholder="Password"
+                      placeholder="Password (min 6 chars, 1 uppercase, 1 lowercase, 1 number)"
                       placeholderTextColor="#9ca3af"
                       value={password}
                       onChangeText={setPassword}
