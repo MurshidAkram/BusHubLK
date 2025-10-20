@@ -51,7 +51,7 @@ const buildResetEmail = (toEmail, name, resetLink) => {
             Reset Password
           </a>
         </p>
-        <p>This link will expire in 60 minutes. If you didn't request a password reset, you can safely ignore this email.</p>
+        <p>This link will expire in 24 hours. If you didn't request a password reset, you can safely ignore this email.</p>
         <p>Stay safe,<br/>The BusHubLK Team</p>
       </div>
     `,
