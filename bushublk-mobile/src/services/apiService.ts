@@ -71,7 +71,6 @@ interface BusRoute {
 interface RouteSearchResponse {
   routes: Array<{
     distance: number;
-    estimated_duration: string;
     polyline: string;
     fare: number;
     segment_distance: number;

@@ -98,8 +98,7 @@ const findRoutesBetweenStops = async (req, res) => {
       `SELECT DISTINCT ON (r.route_number, 
                            CASE WHEN from_stop.stop_order < to_stop.stop_order THEN 'forward' ELSE 'reverse' END)
               r.route_id, r.route_number, r.route_name, 
-              r.start_location, r.end_location, r.distance_km, 
-              r.estimated_duration_minutes,
+              r.start_location, r.end_location, r.distance_km,
               from_stop.stop_order as from_order,
               to_stop.stop_order as to_order,
               CASE 
@@ -136,7 +135,30 @@ const findRoutesBetweenStops = async (req, res) => {
       const stopsCount = Math.abs(route.to_order - route.from_order) + 1;
       const isReverse = route.direction === 'reverse';
       
-      console.log(`� Calculating fare for Route ${route.route_number} (${route.direction}): ${from} → ${to}, ${stopsCount} stops`);
+      console.log(`🚌 Calculating fare for Route ${route.route_number} (${route.direction}): ${from} → ${to}, ${stopsCount} stops`);
+      
+      // Fetch all stops between from and to for this route
+      let stops = [];
+      try {
+        const minOrder = Math.min(route.from_order, route.to_order);
+        const maxOrder = Math.max(route.from_order, route.to_order);
+        
+        const stopsQuery = `
+          SELECT stop_name as name, stop_order
+          FROM route_stops
+          WHERE route_number = $1
+            AND stop_order >= $2
+            AND stop_order <= $3
+          ORDER BY stop_order ASC
+        `;
+        
+        const stopsResult = await db.query(stopsQuery, [route.route_number, minOrder, maxOrder]);
+        stops = stopsResult.rows;
+        
+        console.log(`   📍 Found ${stops.length} stops for route ${route.route_number}`);
+      } catch (stopsError) {
+        console.error(`   ❌ Error fetching stops for route ${route.route_number}:`, stopsError);
+      }
       
       // Get fare from bus_fares table based on number of stops
       let fare = null;
@@ -176,8 +198,8 @@ const findRoutesBetweenStops = async (req, res) => {
         start_location: route.start_location,
         end_location: route.end_location,
         total_distance_km: route.distance_km,
-        estimated_duration_minutes: route.estimated_duration_minutes,
         direction: route.direction, // 'forward' or 'reverse'
+        stops: stops, // Include the stops between from and to
         journey: {
           from_stop: from,
           to_stop: to,
