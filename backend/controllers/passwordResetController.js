@@ -89,8 +89,19 @@ const requestPasswordReset = async (req, res) => {
     const baseURL = getDynamicBaseURL();
     console.log('📍 Base URL:', baseURL);
 
+    // Generate both hosted and local IP versions for development
     const resetLink = `${baseURL}/api/password-reset/universal/${resetToken}?email=${encodeURIComponent(user.email)}`;
-    console.log('🔗 Generated Reset Link:', resetLink);
+
+    // For development, also generate a local IP version that works on any network
+    let additionalLinks = '';
+    if (process.env.NODE_ENV === 'development') {
+      const localIP = require('../utils/networkUtils').getLocalIPAddress();
+      const localPort = process.env.PORT || 5000;
+      const localLink = `http://${localIP}:${localPort}/api/password-reset/universal/${resetToken}?email=${encodeURIComponent(user.email)}`;
+      additionalLinks = `\n🔗 Local Network Link (works on any WiFi): ${localLink}`;
+    }
+
+    console.log('🔗 Generated Reset Link:', resetLink + additionalLinks);
 
     // Also generate a new request link for when tokens expire
     const newRequestLink = `${baseURL}/forgot-password?email=${encodeURIComponent(user.email)}`;
@@ -98,7 +109,20 @@ const requestPasswordReset = async (req, res) => {
 
     // Send reset email
     console.log('📧 Sending reset email...');
-    await sendPasswordResetEmail(user.email, user.first_name, resetLink);
+
+    // For development, send both hosted and local links
+    if (process.env.NODE_ENV === 'development') {
+      const localIP = require('../utils/networkUtils').getLocalIPAddress();
+      const localPort = process.env.PORT || 5000;
+      const localLink = `${resetLink.replace(/https?:\/\/[^\/]+/, `http://${localIP}:${localPort}`)}`;
+
+      // Send email with both links for development testing
+      const devResetLink = `${resetLink}\n\nFor mobile testing on any network:\n${localLink}`;
+      await sendPasswordResetEmail(user.email, user.first_name, devResetLink);
+    } else {
+      await sendPasswordResetEmail(user.email, user.first_name, resetLink);
+    }
+
     console.log('✅ Reset email sent successfully');
 
     res.json({

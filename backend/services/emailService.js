@@ -37,25 +37,47 @@ if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
 
 const buildResetEmail = (toEmail, name, resetLink) => {
   const safeName = name || 'there';
+
+  // Check if resetLink contains multiple links (development mode)
+  const links = resetLink.split('\n\nFor mobile testing on any network:\n');
+  const primaryLink = links[0];
+  const mobileLink = links[1];
+
+  let htmlContent = `
+    <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #1f2937;">
+      <h2 style="color: #2563eb;">Hi ${safeName},</h2>
+      <p>We received a request to reset the password for your BusHubLK account.</p>
+      <p>Please click the button below to set a new password:</p>
+      <p style="margin: 24px 0;">
+        <a href="${primaryLink}" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: bold;">
+          Reset Password
+        </a>
+      </p>`;
+
+  let textContent = `Hi ${safeName},\n\nWe received a request to reset the password for your BusHubLK account.\n\nUse the link below to set a new password (valid for 24 hours):\n${primaryLink}\n`;
+
+  if (mobileLink) {
+    htmlContent += `
+      <p style="margin: 16px 0; font-size: 14px; color: #6b7280;">
+        <strong>For mobile testing:</strong> If you're testing on a mobile device connected to a different network, use this link instead:<br/>
+        <a href="${mobileLink}" style="color: #2563eb;">${mobileLink}</a>
+      </p>`;
+    textContent += `\nFor mobile testing on any network:\n${mobileLink}\n`;
+  }
+
+  htmlContent += `
+      <p>This link will expire in 24 hours. If you didn't request a password reset, you can safely ignore this email.</p>
+      <p>Stay safe,<br/>The BusHubLK Team</p>
+    </div>`;
+
+  textContent += `\nIf you didn't request this, you can ignore this email.\n\nStay safe,\nThe BusHubLK Team`;
+
   return {
     from: `"${DEFAULT_FROM_NAME}" <${DEFAULT_FROM_EMAIL}>`,
     to: toEmail,
     subject: 'Reset your BusHubLK password',
-    html: `
-      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #1f2937;">
-        <h2 style="color: #2563eb;">Hi ${safeName},</h2>
-        <p>We received a request to reset the password for your BusHubLK account.</p>
-        <p>Please click the button below to set a new password:</p>
-        <p style="margin: 24px 0;">
-          <a href="${resetLink}" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: bold;">
-            Reset Password
-          </a>
-        </p>
-        <p>This link will expire in 24 hours. If you didn't request a password reset, you can safely ignore this email.</p>
-        <p>Stay safe,<br/>The BusHubLK Team</p>
-      </div>
-    `,
-    text: `Hi ${safeName},\n\nWe received a request to reset the password for your BusHubLK account.\n\nUse the link below to set a new password (valid for 60 minutes):\n${resetLink}\n\nIf you didn't request this, you can ignore this email.\n\nStay safe,\nThe BusHubLK Team`
+    html: htmlContent,
+    text: textContent
   };
 };
 
@@ -69,6 +91,15 @@ const sendPasswordResetEmail = async (toEmail, name, resetLink) => {
     console.warn('[emailService] ⚠️ Email service not configured - running in DEVELOPMENT MODE');
     console.log('[emailService] 📧 Password reset email would be sent to:', toEmail);
     console.log('[emailService] 🔗 Reset link:', resetLink);
+
+    // In development, also show local network link for testing on mobile devices
+    if (process.env.NODE_ENV === 'development') {
+      const localIP = require('../utils/networkUtils').getLocalIPAddress();
+      const localPort = process.env.PORT || 5000;
+      const localLink = resetLink.replace(/https?:\/\/[^\/]+/, `http://${localIP}:${localPort}`);
+      console.log('[emailService] 🔗 Local Network Link (for mobile testing):', localLink);
+    }
+
     console.log('[emailService] 📝 User can copy this link to test password reset:');
     console.log('[emailService] ' + resetLink);
 
@@ -103,6 +134,13 @@ const sendPasswordResetEmail = async (toEmail, name, resetLink) => {
     if (process.env.NODE_ENV === 'development') {
       console.warn('[emailService] ⚠️ Email send failed - falling back to DEVELOPMENT MODE');
       console.log('[emailService] 🔗 Reset link:', resetLink);
+
+      // Also show local network link for mobile testing
+      const localIP = require('../utils/networkUtils').getLocalIPAddress();
+      const localPort = process.env.PORT || 5000;
+      const localLink = resetLink.replace(/https?:\/\/[^\/]+/, `http://${localIP}:${localPort}`);
+      console.log('[emailService] 🔗 Local Network Link (for mobile testing):', localLink);
+
       return {
         messageId: 'dev-fallback-' + Date.now(),
         accepted: [toEmail],
