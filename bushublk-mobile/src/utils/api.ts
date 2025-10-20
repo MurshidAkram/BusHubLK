@@ -11,7 +11,7 @@ const getApiBaseUrl = () => {
   }
 
   // Fallback to AWS hosted backend
-  const awsUrl = 'http://43.205.127.30:5000';
+  const awsUrl = 'http://13.201.62.115:5000';
   console.log('🚀 Using AWS Backend URL:', awsUrl);
   return awsUrl;
 };
