@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import MapView, { Marker, PROVIDER_DEFAULT, Circle } from 'react-native-maps';
+import MapView, { Marker, PROVIDER_GOOGLE, Circle } from 'react-native-maps';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StackScreenProps } from '@react-navigation/stack';
 import * as Location from 'expo-location';
@@ -117,7 +117,6 @@ export default function BusTrackingScreen({ navigation, route }: Props) {
   const occupancyPollingRef = useRef<NodeJS.Timeout | null>(null);
   const isUserInteractingRef = useRef(false);
   const autoAdjustTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const isMountedRef = useRef(true);
 
   // Enhanced: Load cached buses on startup
   const loadCachedBuses = async () => {
@@ -126,12 +125,10 @@ export default function BusTrackingScreen({ navigation, route }: Props) {
       if (cached) {
         const parsedBuses = JSON.parse(cached);
         console.log(`📦 Loaded ${parsedBuses.length} buses from cache`);
-        if (isMountedRef.current) {
-          setCachedBuses(parsedBuses);
-          // Show cached data immediately
-          if (busLocations.length === 0) {
-            setBusLocations(parsedBuses);
-          }
+        setCachedBuses(parsedBuses);
+        // Show cached data immediately
+        if (busLocations.length === 0) {
+          setBusLocations(parsedBuses);
         }
       }
     } catch (error) {
@@ -185,28 +182,24 @@ export default function BusTrackingScreen({ navigation, route }: Props) {
       const locationTime = Date.now() - startTime;
       
       console.log(`📍 User location obtained in ${locationTime}ms:`, { latitude, longitude });
-      if (isMountedRef.current) {
-        setUserLocation({ latitude, longitude });
-        setMapRegion({
-          latitude,
-          longitude,
-          latitudeDelta: 0.05,
-          longitudeDelta: 0.05,
-        });
-        mapRef.current?.animateToRegion(
-          { latitude, longitude, latitudeDelta: 0.05, longitudeDelta: 0.05 },
-          1000
-        );
-        
-        setFetchMetrics(prev => ({ ...prev, locationTime }));
-      }
+      setUserLocation({ latitude, longitude });
+      setMapRegion({
+        latitude,
+        longitude,
+        latitudeDelta: 0.05,
+        longitudeDelta: 0.05,
+      });
+      mapRef.current?.animateToRegion(
+        { latitude, longitude, latitudeDelta: 0.05, longitudeDelta: 0.05 },
+        1000
+      );
+      
+      setFetchMetrics(prev => ({ ...prev, locationTime }));
     } catch (err: any) {
       console.warn('Location error:', err.message);
       // Don't block the app if location fails - use default Colombo location
-      if (isMountedRef.current) {
-        setError('Using default location (Colombo). Enable GPS for accurate tracking.');
-        setUserLocation({ latitude: 6.9271, longitude: 79.8612 });
-      }
+      setError('Using default location (Colombo). Enable GPS for accurate tracking.');
+      setUserLocation({ latitude: 6.9271, longitude: 79.8612 });
     }
   };
 
@@ -220,25 +213,19 @@ const fetchRoutes = async () => {
     }
     const data = await response.json();
     console.log('Fetched routes:', data);
-    if (isMountedRef.current) {
-      setRoutes(data.map((item: any) => ({
-        routeNumber: item.route_number,
-        routeName: item.route_name,
-        startLocation: item.start_location,
-        endLocation: item.end_location,
-        activeBuses: item.active_buses || 0,
-        totalBuses: item.total_buses || 0,
-      })));
-    }
+    setRoutes(data.map((item: any) => ({
+      routeNumber: item.route_number,
+      routeName: item.route_name,
+      startLocation: item.start_location,
+      endLocation: item.end_location,
+      activeBuses: item.active_buses || 0,
+      totalBuses: item.total_buses || 0,
+    })));
   } catch (err: any) {
     console.error('Error fetching routes:', err.message);
-    if (isMountedRef.current) {
-      setError(`Failed to fetch routes: ${err.message}`);
-    }
+    setError(`Failed to fetch routes: ${err.message}`);
   } finally {
-    if (isMountedRef.current) {
-      setLoading(false);
-    }
+    setLoading(false);
   }
 };
 
@@ -284,16 +271,12 @@ const fetchRoutes = async () => {
         distanceKm: parseFloat(item.distance),
       }));
       
-      if (!isMountedRef.current) return;
-      
       setBusLocations(mappedBuses);
       
       // Save to cache for next time
       if (mappedBuses.length > 0) {
         saveBusesToCache(mappedBuses);
       }
-      
-      if (!isMountedRef.current) return;
       
       // Update last refresh time
       setLastRefreshTime(getCurrentSriLankaTime());
@@ -314,29 +297,21 @@ const fetchRoutes = async () => {
       // Show cached data if available
       if (cachedBuses.length > 0 && busLocations.length === 0) {
         console.log('� Using cached buses due to fetch failure');
-        if (isMountedRef.current) {
-          setBusLocations(cachedBuses);
-          setError('⚠️ Showing cached data - connection issue');
-        }
+        setBusLocations(cachedBuses);
+        setError('⚠️ Showing cached data - connection issue');
       } else if (!err.message.includes('timeout')) {
         // Only show non-timeout errors
         if (err.response?.status >= 400) {
-          if (isMountedRef.current) {
-            setError(`Unable to fetch bus locations. Please try again.`);
-          }
+          setError(`Unable to fetch bus locations. Please try again.`);
         }
       }
       
-      if (isMountedRef.current) {
-        setFetchMetrics(prev => ({ ...prev, busesTime }));
-      }
+      setFetchMetrics(prev => ({ ...prev, busesTime }));
       
     } finally {
-      if (isMountedRef.current) {
-        setIsFetchingLive(false);
-        if (busLocations.length === 0 && cachedBuses.length === 0) {
-          setLoading(false);
-        }
+      setIsFetchingLive(false);
+      if (busLocations.length === 0 && cachedBuses.length === 0) {
+        setLoading(false);
       }
     }
   };
@@ -354,9 +329,7 @@ const fetchRoutes = async () => {
       console.log('📊 Raw occupancy API response:', JSON.stringify(response, null, 2));
       console.log('📊 Occupancy data structure:', response.data);
       
-      if (isMountedRef.current) {
-        setOccupancyData(response.data);
-      }
+      setOccupancyData(response.data);
       
       console.log('✅ Updated occupancy data for buses:', Object.keys(response.data).length);
       console.log('✅ Occupancy data keys:', Object.keys(response.data));
@@ -442,7 +415,6 @@ const fetchRoutes = async () => {
     init();
 
     return () => {
-      isMountedRef.current = false;
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
       }
@@ -606,21 +578,19 @@ const fetchRoutes = async () => {
   }, []);
 
   const focusOnBus = useCallback((bus: BusLocation) => {
-    if (isMountedRef.current) {
-      setSelectedBus(bus);
-      const region = {
-        latitude: bus.latitude,
-        longitude: bus.longitude,
-        latitudeDelta: 0.02,
-        longitudeDelta: 0.02,
-      };
-      setMapRegion(region);
-      mapRef.current?.animateToRegion(region, 1000);
-    }
+    setSelectedBus(bus);
+    const region = {
+      latitude: bus.latitude,
+      longitude: bus.longitude,
+      latitudeDelta: 0.02,
+      longitudeDelta: 0.02,
+    };
+    setMapRegion(region);
+    mapRef.current?.animateToRegion(region, 1000);
   }, []);
 
   const showAllBuses = useCallback(() => {
-    if (filteredBuses.length > 0 && userLocation && isMountedRef.current) {
+    if (filteredBuses.length > 0 && userLocation) {
       const latitudes = [userLocation.latitude, ...filteredBuses.map(bus => bus.latitude)];
       const longitudes = [userLocation.longitude, ...filteredBuses.map(bus => bus.longitude)];
       const minLat = Math.min(...latitudes);
@@ -632,7 +602,7 @@ const fetchRoutes = async () => {
         longitude: (minLng + maxLng) / 2,
         latitudeDelta: Math.max((maxLat - minLat) * 1.5, 0.05),
         longitudeDelta: Math.max((maxLng - minLng) * 1.5, 0.05),
-    };
+      };
       setMapRegion(region);
       mapRef.current?.animateToRegion(region, 1000);
     }
@@ -906,9 +876,7 @@ const fetchRoutes = async () => {
       
       if (routeFromParams) {
         console.log(`🎯 Setting selected route from navigation: ${routeFromParams}`);
-        if (isMountedRef.current) {
-          setSelectedRoute(routeFromParams);
-        }
+        setSelectedRoute(routeFromParams);
       }
       
       if (fromSearch) {
@@ -1009,15 +977,13 @@ const fetchRoutes = async () => {
         )}
         <MapView
           ref={mapRef}
-          provider={PROVIDER_DEFAULT}
+          provider={PROVIDER_GOOGLE}
           style={styles.map}
           region={mapRegion}
           showsUserLocation={true}
           showsMyLocationButton={true}
           onRegionChangeComplete={(region) => {
-            if (isMountedRef.current) {
-              setMapRegion(region);
-            }
+            setMapRegion(region);
             // Mark that user is interacting, then clear after 3 seconds
             isUserInteractingRef.current = true;
             setTimeout(() => {
