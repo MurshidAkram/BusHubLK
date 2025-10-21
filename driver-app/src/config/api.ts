@@ -10,6 +10,13 @@ const getApiBaseUrl = () => {
     return envApiUrl;
   }
 
+  // Check for EAS build environment variable
+  const easApiUrl = Constants.expoConfig?.extra?.API_URL || process.env.API_URL;
+  if (easApiUrl) {
+    console.log('📱 Using API URL from EAS build environment');
+    return easApiUrl;
+  }
+
   // In development mode (Expo Go), dynamically detect IP
   if (__DEV__) {
     const debuggerHost = Constants.expoConfig?.hostUri ||

@@ -62,7 +62,7 @@
       "package": "com.anonymous.driverapp"
     },
     "extra": {
-      "apiUrl": "http://13.201.62.115:5000",
+      "apiUrl": "http://13.201.62.115:5000/api",
       "eas": {
         "projectId": "e0962b44-a476-4bf2-ad2e-3dbe8de82b44"
       }

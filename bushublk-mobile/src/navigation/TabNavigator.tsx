@@ -27,14 +27,14 @@ const TabNavigator = () => {
           // Assign icons to routes
           if (route.name === "Home") {
             iconName = focused ? "home" : "home-outline";
-          } else if (route.name === "Location") {
+          } else if (route.name === "BusTracking") {
             iconName = focused ? "location" : "location-outline";
           } else if (route.name === "Profile") {
             iconName = focused ? "person-circle" : "person-circle-outline";
           } else if (route.name === "Settings") {
             iconName = focused ? "settings" : "settings-outline";
           } else {
-            iconName = "help-outline";
+            iconName = "help-circle-outline";
           }
 
           return <Ionicons name={iconName} size={iconSize} color={color} />;
