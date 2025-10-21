@@ -516,7 +516,11 @@ server.listen(PORT, '0.0.0.0', () => {
 
     // Start periodic cleanup of expired password reset tokens
     const { cleanupExpiredTokens } = require('./controllers/passwordResetController');
-    setInterval(cleanupExpiredTokens, 60 * 60 * 1000); // Run every hour
+    setInterval(() => {
+      cleanupExpiredTokens().catch(error => {
+        console.error('❌ Error during token cleanup:', error.message);
+      });
+    }, 60 * 60 * 1000); // Run every hour
     console.log('🧹 Password reset token cleanup scheduled (every hour)');
   } catch (error) {
     console.log(`🚀 Server is running on port:${PORT}`);
