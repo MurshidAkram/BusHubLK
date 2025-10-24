@@ -287,7 +287,7 @@ export default function AccidentBreakdownPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Severity Distribution */}
         <ChartCard title="Severity Distribution" span={1}>
-          {severity.length > 0 ? (
+          {severity && severity.length > 0 ? (
             <ResponsiveContainer width="100%" height={250}>
               <PieChart>
                 <Pie
@@ -297,9 +297,11 @@ export default function AccidentBreakdownPage() {
                   cx="50%"
                   cy="50%"
                   outerRadius={80}
-                  label={({ severity, percent }) => 
-                    `${severity}: ${(percent * 100).toFixed(0)}%`
-                  }
+                  label={(entry) => {
+                    const total = severity.reduce((sum, item) => sum + item.count, 0);
+                    const percent = ((entry.count / total) * 100).toFixed(0);
+                    return `${entry.severity}: ${percent}%`;
+                  }}
                 >
                   {severity.map((entry, index) => (
                     <Cell 
@@ -308,7 +310,13 @@ export default function AccidentBreakdownPage() {
                     />
                   ))}
                 </Pie>
-                <Tooltip />
+                <Tooltip 
+                  formatter={(value: number, name: string) => {
+                    const total = severity.reduce((sum, item) => sum + item.count, 0);
+                    const percent = ((value / total) * 100).toFixed(1);
+                    return [`${value} incidents (${percent}%)`, name];
+                  }}
+                />
               </PieChart>
             </ResponsiveContainer>
           ) : (

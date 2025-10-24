@@ -417,4 +417,4 @@ const ChartCard: React.FC<{
   </div>
 );
 
-export default WorkforceAnalyticsPage;
+export default WorkforceAnalyticsPage; 
