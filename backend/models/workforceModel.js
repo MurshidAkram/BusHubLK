@@ -109,18 +109,70 @@ class WorkforceModel {
 
   // Get role distribution
   static async getRoleDistribution() {
-    const result = await db.query(`
-      SELECT 
-        r.role_name,
-        COUNT(u.user_id)::INTEGER AS count
-      FROM roles r
-      LEFT JOIN users u ON u.role_id = r.role_id AND u.is_active = TRUE
-      WHERE r.role_name != 'passenger'
-      GROUP BY r.role_name
-      ORDER BY count DESC
-    `);
-    return result.rows;
+    try {
+      // Direct count from role-specific tables
+      const result = await db.query(`
+        SELECT 
+          role_name,
+          count
+        FROM (
+          SELECT 'Depot Manager' as role_name, COUNT(*)::INTEGER as count FROM depot_managers
+          UNION ALL
+          SELECT 'Depot Engineer' as role_name, COUNT(*)::INTEGER as count FROM depot_engineers
+          UNION ALL
+          SELECT 'Depot Operations' as role_name, COUNT(*)::INTEGER as count FROM depot_operation_managers
+          UNION ALL
+          SELECT 'Driver' as role_name, COUNT(*)::INTEGER as count FROM drivers
+          UNION ALL
+          SELECT 'Conductor' as role_name, COUNT(*)::INTEGER as count FROM conductors
+          UNION ALL
+          SELECT 'Regional Technical' as role_name, COUNT(*)::INTEGER as count FROM regional_technical_officers
+          UNION ALL
+          SELECT 'Regional Operations' as role_name, COUNT(*)::INTEGER as count FROM regional_operations_officers
+          UNION ALL
+          SELECT 'DGM Technical' as role_name, COUNT(*)::INTEGER as count FROM dgm_technical
+          UNION ALL
+          SELECT 'DGM Operations' as role_name, COUNT(*)::INTEGER as count FROM dgm_operations
+          UNION ALL
+          SELECT 'CEO' as role_name, COUNT(*)::INTEGER as count FROM ceo
+          UNION ALL
+          SELECT 'Admin' as role_name, COUNT(*)::INTEGER as count FROM admins
+        ) role_counts
+        WHERE count > 0
+        ORDER BY count DESC
+      `);
+      
+      console.log('✅ Role distribution query returned:', result.rows.length, 'roles');
+      console.log('Data:', JSON.stringify(result.rows));
+      
+      return result.rows;
+    } catch (error) {
+      console.error('❌ getRoleDistribution error:', error.message);
+      
+      // Fallback method: Try using users table with roles
+      try {
+        console.log('⚠️ Trying fallback method...');
+        const fallbackResult = await db.query(`
+          SELECT 
+            r.role_name,
+            COUNT(u.user_id)::INTEGER AS count
+          FROM roles r
+          LEFT JOIN users u ON u.role_id = r.role_id AND u.is_active = TRUE
+          WHERE r.role_name != 'passenger'
+          GROUP BY r.role_name
+          HAVING COUNT(u.user_id) > 0
+          ORDER BY count DESC
+        `);
+        
+        console.log('✅ Fallback returned:', fallbackResult.rows.length, 'roles');
+        return fallbackResult.rows;
+      } catch (fallbackError) {
+        console.error('❌ Fallback also failed:', fallbackError.message);
+        return [];
+      }
+    }
   }
+
 
   // Get top depots by employee count
   static async getTopDepotsByHeadcount(limit = 10) {

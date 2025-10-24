@@ -265,16 +265,18 @@ const WorkforceAnalyticsPage: React.FC = () => {
                   outerRadius={90}
                   innerRadius={50}
                   paddingAngle={2}
-                  label={({ name, percent }) => 
-                    percent > 0.05 ? `${(percent * 100).toFixed(0)}%` : ''
-                  }
+                  label={(entry) => {
+                    const total = roleDistribution.reduce((sum, item) => sum + item.count, 0);
+                    const percent = (entry.count / total) * 100;
+                    return percent > 1 ? `${percent.toFixed(0)}%` : '';
+                  }}
                 >
                   {roleDistribution.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
                 <Tooltip 
-                  formatter={(value: any, name: string) => [value, name]}
+                  formatter={(value: any, name: string) => [`${value} employees`, name]}
                   contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb' }}
                 />
                 <Legend 

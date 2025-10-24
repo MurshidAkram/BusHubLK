@@ -1,3 +1,4 @@
+// backend/controllers/workforceController.js
 const WorkforceModel = require('../models/workforceModel');
 
 const getWorkforceSummary = async (req, res) => {
@@ -40,9 +41,23 @@ const getNewEmployeesByMonth = async (req, res) => {
   }
 };
 
+// ADD THIS NEW FUNCTION
+const getRoleDistribution = async (req, res) => {
+  try {
+    console.log('📊 Fetching role distribution...');
+    const data = await WorkforceModel.getRoleDistribution();
+    console.log('✅ Role distribution fetched:', data.length, 'roles');
+    res.json({ success: true, data });
+  } catch (err) {
+    console.error('❌ Role distribution error:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
 module.exports = {
   getWorkforceSummary,
   getHeadcountByRegion,
   getHeadcountByDepot,
-  getNewEmployeesByMonth
+  getNewEmployeesByMonth,
+  getRoleDistribution  // ADD THIS
 };
